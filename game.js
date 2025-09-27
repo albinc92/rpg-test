@@ -828,27 +828,25 @@ class Game {
             case 'ArrowUp':
             case 'w':
             case 'W':
-                this.inventoryManager.navigateInventory(-1);
+                this.navigateInventoryGrid('up');
                 this.playMenuNavigationSound();
                 break;
             case 'ArrowDown':
             case 's':
             case 'S':
-                this.inventoryManager.navigateInventory(1);
+                this.navigateInventoryGrid('down');
                 this.playMenuNavigationSound();
                 break;
             case 'ArrowLeft':
             case 'a':
             case 'A':
-                // Navigate inventory in grid pattern (if we implement grid layout later)
-                this.inventoryManager.navigateInventory(-5);
+                this.navigateInventoryGrid('left');
                 this.playMenuNavigationSound();
                 break;
             case 'ArrowRight':
             case 'd':
             case 'D':
-                // Navigate inventory in grid pattern (if we implement grid layout later)
-                this.inventoryManager.navigateInventory(5);
+                this.navigateInventoryGrid('right');
                 this.playMenuNavigationSound();
                 break;
             case 'Enter':
@@ -877,6 +875,82 @@ class Game {
                 this.gameState = 'GAME_MENU';
                 break;
         }
+    }
+    
+    navigateInventoryGrid(direction) {
+        const inventory = this.inventoryManager.getInventory();
+        if (inventory.length === 0) return;
+        
+        const itemsPerRow = 5; // Same as defined in renderInventory
+        const currentSlot = this.inventoryManager.selectedSlot;
+        const totalItems = inventory.length;
+        
+        // Calculate current row and column
+        const currentRow = Math.floor(currentSlot / itemsPerRow);
+        const currentCol = currentSlot % itemsPerRow;
+        
+        let newSlot = currentSlot;
+        
+        switch(direction) {
+            case 'up':
+                if (currentRow > 0) {
+                    // Go up one row
+                    newSlot = currentSlot - itemsPerRow;
+                } else {
+                    // Wrap to bottom row, same column
+                    const lastRow = Math.floor((totalItems - 1) / itemsPerRow);
+                    const targetSlot = (lastRow * itemsPerRow) + currentCol;
+                    newSlot = Math.min(targetSlot, totalItems - 1);
+                }
+                break;
+                
+            case 'down':
+                if (currentSlot + itemsPerRow < totalItems) {
+                    // Go down one row
+                    newSlot = currentSlot + itemsPerRow;
+                } else {
+                    // Wrap to top row, same column
+                    newSlot = currentCol;
+                }
+                break;
+                
+            case 'left':
+                if (currentCol > 0) {
+                    // Move left in same row
+                    newSlot = currentSlot - 1;
+                } else {
+                    // Wrap to end of previous row
+                    if (currentRow > 0) {
+                        const prevRowStart = (currentRow - 1) * itemsPerRow;
+                        const prevRowEnd = Math.min(prevRowStart + itemsPerRow - 1, totalItems - 1);
+                        newSlot = prevRowEnd;
+                    } else {
+                        // Wrap to last item in inventory
+                        newSlot = totalItems - 1;
+                    }
+                }
+                break;
+                
+            case 'right':
+                if (currentCol < itemsPerRow - 1 && currentSlot + 1 < totalItems) {
+                    // Move right in same row
+                    newSlot = currentSlot + 1;
+                } else {
+                    // Wrap to beginning of next row
+                    const nextRowStart = (currentRow + 1) * itemsPerRow;
+                    if (nextRowStart < totalItems) {
+                        newSlot = nextRowStart;
+                    } else {
+                        // Wrap to first item
+                        newSlot = 0;
+                    }
+                }
+                break;
+        }
+        
+        // Ensure newSlot is within bounds
+        newSlot = Math.max(0, Math.min(newSlot, totalItems - 1));
+        this.inventoryManager.selectedSlot = newSlot;
     }
     
     update() {
