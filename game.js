@@ -1324,22 +1324,33 @@ class Game {
         this.gameMenuOptions.forEach((option, index) => {
             const y = startY + (index * spacing);
             
-            // Highlight selected option
+            // Highlight selected option with background bar
             if (index === this.selectedGameMenuOption) {
-                this.ctx.fillStyle = '#FFD700'; // Gold color
-                this.ctx.fillText('> ' + option + ' <', this.CANVAS_WIDTH / 2, y);
+                // Calculate text width for proper bar sizing
+                this.ctx.font = '24px Arial';
+                const textWidth = this.ctx.measureText(option).width;
+                const barWidth = textWidth + 40; // Add padding
+                const barHeight = 35;
+                const barX = (this.CANVAS_WIDTH - barWidth) / 2;
+                const barY = y - 25;
+                
+                // Draw background bar
+                this.ctx.fillStyle = 'rgba(255, 215, 0, 0.3)'; // Semi-transparent gold
+                this.ctx.fillRect(barX, barY, barWidth, barHeight);
+                
+                // Draw border around bar
+                this.ctx.strokeStyle = '#FFD700';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(barX, barY, barWidth, barHeight);
+                
+                // Draw text in gold
+                this.ctx.fillStyle = '#FFD700';
+                this.ctx.fillText(option, this.CANVAS_WIDTH / 2, y);
             } else {
                 this.ctx.fillStyle = 'white';
                 this.ctx.fillText(option, this.CANVAS_WIDTH / 2, y);
             }
         });
-        
-        // Draw instructions
-        this.ctx.fillStyle = '#CCCCCC';
-        this.ctx.font = '16px Arial';
-        const instructionsY = this.CANVAS_HEIGHT * 0.75;
-        this.ctx.fillText('Use W/S or Arrow Keys to navigate', this.CANVAS_WIDTH / 2, instructionsY);
-        this.ctx.fillText('Press ENTER or SPACE to select, ESC to return', this.CANVAS_WIDTH / 2, instructionsY + 25);
     }
     
     renderSettings() {
