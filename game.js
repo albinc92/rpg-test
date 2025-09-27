@@ -97,9 +97,13 @@ class Game {
         
         // Save system
         this.saveSlotKey = 'rpg-game-save';
+        this.settingsKey = 'rpg-game-settings';
         
         // Animation timing
         this.gameTime = 0;
+        
+        // Load saved settings before initializing
+        this.loadSettings();
         
         // Initialize the game
         this.init();
@@ -110,6 +114,7 @@ class Game {
         await this.loadAssets();
         this.setupEventListeners();
         this.updatePlayerSpeed(); // Initialize player speed based on settings
+        this.updateAudioVolume(); // Initialize audio volume based on settings
         this.gameLoop();
     }
     
@@ -436,6 +441,47 @@ class Game {
     }
     
     /**
+     * Save settings to localStorage
+     */
+    saveSettings() {
+        try {
+            const settingsData = {
+                playerSpeed: this.settings.playerSpeed,
+                showDebug: this.settings.showDebug,
+                masterVolume: this.settings.masterVolume,
+                bgmVolume: this.settings.bgmVolume,
+                effectVolume: this.settings.effectVolume,
+                audioMuted: this.settings.audioMuted
+            };
+            localStorage.setItem(this.settingsKey, JSON.stringify(settingsData));
+        } catch (error) {
+            console.error('Failed to save settings:', error);
+        }
+    }
+    
+    /**
+     * Load settings from localStorage
+     */
+    loadSettings() {
+        try {
+            const settingsString = localStorage.getItem(this.settingsKey);
+            if (settingsString) {
+                const savedSettings = JSON.parse(settingsString);
+                
+                // Merge saved settings with default settings
+                this.settings = {
+                    ...this.settings,
+                    ...savedSettings
+                };
+                
+                console.log('Settings loaded from localStorage');
+            }
+        } catch (error) {
+            console.error('Failed to load settings:', error);
+        }
+    }
+    
+    /**
      * Start a new game
      */
     async startNewGame() {
@@ -512,6 +558,7 @@ class Game {
             if (e.key === 'F1') {
                 e.preventDefault(); // Prevent browser help menu
                 this.settings.showDebug = !this.settings.showDebug;
+                this.saveSettings();
             }
         });
         
@@ -699,24 +746,29 @@ class Game {
                 if (direction !== 0) {
                     this.settings.playerSpeed = this.settings.playerSpeed === 'Walk' ? 'Run' : 'Walk';
                     this.updatePlayerSpeed();
+                    this.saveSettings();
                 }
                 break;
             case 1: // Master Volume
                 this.settings.masterVolume = Math.max(0, Math.min(100, this.settings.masterVolume + (direction * 10)));
                 this.updateAudioVolume();
+                this.saveSettings();
                 break;
             case 2: // BGM Volume
                 this.settings.bgmVolume = Math.max(0, Math.min(100, this.settings.bgmVolume + (direction * 10)));
                 this.updateAudioVolume();
+                this.saveSettings();
                 break;
             case 3: // Effect Volume
                 this.settings.effectVolume = Math.max(0, Math.min(100, this.settings.effectVolume + (direction * 10)));
                 this.updateAudioVolume();
+                this.saveSettings();
                 break;
             case 4: // Mute Audio
                 if (direction !== 0) {
                     this.settings.audioMuted = !this.settings.audioMuted;
                     this.updateAudioVolume();
+                    this.saveSettings();
                 }
                 break;
         }
@@ -963,13 +1015,7 @@ class Game {
             }
         });
         
-        // Show save status
-        if (this.hasSaveData()) {
-            this.ctx.fillStyle = '#90EE90';
-            this.ctx.font = '14px Arial';
-            const saveStatusY = this.CANVAS_HEIGHT * 0.8;
-            this.ctx.fillText('Save data found', this.CANVAS_WIDTH / 2, saveStatusY);
-        }
+
     }
     
     renderGameMenu() {
@@ -1305,12 +1351,14 @@ class Game {
     }
     
     updateDebug() {
+        const controlsContainer = this.debug.parentElement;
+        
         if (this.gameState !== 'PLAYING' || !this.settings.showDebug) {
-            this.debug.style.display = 'none';
+            controlsContainer.style.display = 'none';
             return;
         }
         
-        this.debug.style.display = 'block';
+        controlsContainer.style.display = 'block';
         const speed = Math.sqrt(this.player.velocityX * this.player.velocityX + this.player.velocityY * this.player.velocityY);
         const halfWidth = this.player.width / 2;
         const halfHeight = this.player.height / 2;
