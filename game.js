@@ -1382,8 +1382,21 @@ class Game {
         // Apply camera translation
         this.ctx.translate(-this.camera.x, -this.camera.y);
         
-        // Draw map background (stretched to fit map dimensions)
-        this.ctx.drawImage(this.currentMap.image, 0, 0, this.currentMap.width, this.currentMap.height);
+        // Draw map background with optional scaling
+        const mapScale = this.currentMap.mapScale || 1.0;
+        
+        if (mapScale !== 1.0 && this.currentMap.originalWidth && this.currentMap.originalHeight) {
+            // Apply scaling transformation to the map
+            this.ctx.save();
+            this.ctx.scale(mapScale, mapScale);
+            this.ctx.drawImage(this.currentMap.image, 0, 0, this.currentMap.originalWidth, this.currentMap.originalHeight);
+            this.ctx.restore();
+        } else {
+            // Draw map normally (use width/height which might be scaled)
+            const drawWidth = this.currentMap.originalWidth || this.currentMap.width;
+            const drawHeight = this.currentMap.originalHeight || this.currentMap.height;
+            this.ctx.drawImage(this.currentMap.image, 0, 0, drawWidth, drawHeight);
+        }
         
         // Draw NPCs
         this.drawNPCs();

@@ -47,7 +47,8 @@ class MapManager {
             name: 'Village Shop',
             imagePath: 'assets/maps/0-1-shop.png',
             description: 'A cozy shop where you can buy and sell items.',
-            music: 'assets/bgm/00.mp3',
+            music: 'assets/bgm/01.mp3',
+            mapScale: 0.7, // Scale the map background down to 70% size
             spawnPoints: {
                 default: { x: 400, y: 300 },
                 fromDoor: { x: 400, y: 300 }
@@ -67,9 +68,17 @@ class MapManager {
         
         // Set up image load handler
         mapData.image.onload = () => {
-            mapData.width = mapData.image.width;
-            mapData.height = mapData.image.height;
+            // Store original dimensions
+            mapData.originalWidth = mapData.image.width;
+            mapData.originalHeight = mapData.image.height;
+            
+            // Apply scale factor to effective dimensions if specified
+            const mapScale = mapData.mapScale || 1.0;
+            mapData.width = mapData.originalWidth * mapScale;
+            mapData.height = mapData.originalHeight * mapScale;
+            
             mapData.loaded = true;
+            console.log(`Map ${mapData.id} loaded: ${mapData.originalWidth}x${mapData.originalHeight} -> ${mapData.width}x${mapData.height} (scale: ${mapScale})`);
         };
         
         this.mapRegistry.set(mapData.id, mapData);
