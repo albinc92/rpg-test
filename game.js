@@ -171,22 +171,41 @@ class Game {
         if (Math.abs(this.player.velocityY) < 0.01) this.player.velocityY = 0;
         
         // Calculate new position
-        const newX = this.player.x + this.player.velocityX;
-        const newY = this.player.y + this.player.velocityY;
+        let newX = this.player.x + this.player.velocityX;
+        let newY = this.player.y + this.player.velocityY;
         
-        // Check map boundaries and update position
-        this.player.x = Math.max(this.player.width / 2, 
-                        Math.min(this.currentMap.width - this.player.width / 2, newX));
-        this.player.y = Math.max(this.player.height / 2, 
-                        Math.min(this.currentMap.height - this.player.height / 2, newY));
+        // Calculate sprite boundaries
+        const halfWidth = this.player.width / 2;
+        const halfHeight = this.player.height / 2;
+        const minX = halfWidth;
+        const maxX = this.currentMap.width - halfWidth;
+        const minY = halfHeight;
+        const maxY = this.currentMap.height - halfHeight;
         
-        // Stop velocity if hitting boundaries
-        if (this.player.x <= this.player.width / 2 || this.player.x >= this.currentMap.width - this.player.width / 2) {
+        // Check boundaries and stop velocity if hitting them
+        if (newX < minX) {
+            console.log(`Hit left boundary: newX=${newX}, minX=${minX}`);
+            newX = minX;
+            this.player.velocityX = 0;
+        } else if (newX > maxX) {
+            console.log(`Hit right boundary: newX=${newX}, maxX=${maxX}`);
+            newX = maxX;
             this.player.velocityX = 0;
         }
-        if (this.player.y <= this.player.height / 2 || this.player.y >= this.currentMap.height - this.player.height / 2) {
+        
+        if (newY < minY) {
+            console.log(`Hit top boundary: newY=${newY}, minY=${minY}`);
+            newY = minY;
+            this.player.velocityY = 0;
+        } else if (newY > maxY) {
+            console.log(`Hit bottom boundary: newY=${newY}, maxY=${maxY}`);
+            newY = maxY;
             this.player.velocityY = 0;
         }
+        
+        // Update player position
+        this.player.x = newX;
+        this.player.y = newY;
         
         // Update camera (Zelda-style camera system)
         this.updateCamera();
@@ -263,10 +282,11 @@ class Game {
         
         // Handle horizontal flipping
         if (!this.player.facingRight) {
-            this.ctx.translate(this.player.x + this.player.width / 2, playerScreenY);
+            // Translate to the center of the sprite, flip, then translate back
+            this.ctx.translate(this.player.x, this.player.y);
             this.ctx.scale(-1, 1);
             this.ctx.drawImage(this.player.sprite, 
-                             -this.player.width / 2, 0, 
+                             -this.player.width / 2, -this.player.height / 2, 
                              this.player.width, this.player.height);
         } else {
             this.ctx.drawImage(this.player.sprite, 
@@ -279,12 +299,21 @@ class Game {
     
     updateDebug() {
         const speed = Math.sqrt(this.player.velocityX * this.player.velocityX + this.player.velocityY * this.player.velocityY);
+        const halfWidth = this.player.width / 2;
+        const halfHeight = this.player.height / 2;
+        const minX = halfWidth;
+        const maxX = this.currentMap.width - halfWidth;
+        const minY = halfHeight;
+        const maxY = this.currentMap.height - halfHeight;
+        
         this.debug.innerHTML = `
             Player: (${Math.round(this.player.x)}, ${Math.round(this.player.y)})<br>
+            Player Size: ${this.player.width}x${this.player.height}<br>
             Camera: (${Math.round(this.camera.x)}, ${Math.round(this.camera.y)})<br>
             Velocity: (${this.player.velocityX.toFixed(2)}, ${this.player.velocityY.toFixed(2)})<br>
             Speed: ${speed.toFixed(2)}/${this.player.maxSpeed}<br>
             Map: ${this.currentMap.width}x${this.currentMap.height}<br>
+            Boundaries: X(${minX}-${maxX}) Y(${minY}-${maxY})<br>
             Facing: ${this.player.facingRight ? 'Right' : 'Left'}
         `;
     }
