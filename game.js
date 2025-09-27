@@ -314,7 +314,7 @@ class Game {
             Speed: ${speed.toFixed(2)}/${this.player.maxSpeed}<br>
             Map: ${this.currentMap.width}x${this.currentMap.height}<br>
             Boundaries: X(${minX}-${maxX}) Y(${minY}-${maxY})<br>
-            Facing: ${this.player.facingRight ? 'Right' : 'Left'}
+            Facing: ${this.player.facingRight ? 'Left' : 'Right'}
         `;
     }
     
