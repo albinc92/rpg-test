@@ -102,7 +102,8 @@ class Game {
             bgm: null,
             currentTrack: null,
             menuNavigation: null,
-            speechBubble: null
+            speechBubble: null,
+            coin: null
         };
         
         // Map system
@@ -190,9 +191,8 @@ class Game {
     }
     
     loadAudio() {
-        // Load background music
-        this.audio.bgm = new Audio('assets/bgm/00.mp3');
-        this.audio.bgm.loop = true;
+        // BGM will be loaded dynamically when maps load
+        this.audio.bgm = null;
         
         // Load menu navigation sound effect
         this.audio.menuNavigation = new Audio('assets/audio/effect/menu-navigation.mp3');
@@ -200,13 +200,11 @@ class Game {
         // Load speech bubble sound effect
         this.audio.speechBubble = new Audio('assets/audio/effect/speech-bubble.mp3');
         
+        // Load coin sound effect
+        this.audio.coin = new Audio('assets/audio/effect/coin.mp3');
+        
         // Set initial volumes
         this.updateAudioVolume();
-        
-        // Handle audio loading errors gracefully
-        this.audio.bgm.onerror = () => {
-            console.warn('Could not load background music');
-        };
         
         this.audio.menuNavigation.onerror = () => {
             console.warn('Could not load menu navigation sound');
@@ -217,13 +215,44 @@ class Game {
         };
     }
     
+    async switchBGM(musicPath) {
+        // Stop current BGM if playing
+        if (this.audio.bgm) {
+            this.audio.bgm.pause();
+        }
+        
+        // Don't switch if it's the same track
+        if (this.audio.currentTrack === musicPath) {
+            return;
+        }
+        
+        // Load new music track
+        this.audio.bgm = new Audio(musicPath);
+        this.audio.bgm.loop = true;
+        this.updateAudioVolume();
+        
+        // Handle loading errors
+        this.audio.bgm.onerror = () => {
+            console.warn(`Could not load background music: ${musicPath}`);
+        };
+        
+        // Play new track
+        if (!this.settings.audioMuted) {
+            this.audio.bgm.play().catch(e => {
+                console.warn(`Could not play background music (${musicPath}):`, e);
+            });
+        }
+        
+        this.audio.currentTrack = musicPath;
+        console.log(`Switched BGM to: ${musicPath}`);
+    }
+    
     playBGM() {
-        if (this.audio.bgm && this.audio.currentTrack !== 'bgm') {
+        if (this.audio.bgm && !this.settings.audioMuted) {
             this.audio.bgm.currentTime = 0;
             this.audio.bgm.play().catch(e => {
                 console.warn('Could not play background music:', e);
             });
-            this.audio.currentTrack = 'bgm';
         }
     }
     
@@ -249,6 +278,10 @@ class Game {
             const effectVolume = (this.settings.effectVolume / 100) * masterMultiplier;
             this.audio.speechBubble.volume = this.settings.audioMuted ? 0 : effectVolume;
         }
+        if (this.audio.coin) {
+            const effectVolume = (this.settings.effectVolume / 100) * masterMultiplier;
+            this.audio.coin.volume = this.settings.audioMuted ? 0 : effectVolume;
+        }
     }
     
     playMenuNavigationSound() {
@@ -265,6 +298,15 @@ class Game {
             this.audio.speechBubble.currentTime = 0; // Reset to beginning
             this.audio.speechBubble.play().catch(e => {
                 console.warn('Could not play speech bubble sound:', e);
+            });
+        }
+    }
+    
+    playCoinSound() {
+        if (this.audio.coin && !this.settings.audioMuted) {
+            this.audio.coin.currentTime = 0; // Reset to beginning
+            this.audio.coin.play().catch(e => {
+                console.warn('Could not play coin sound:', e);
             });
         }
     }
@@ -286,7 +328,15 @@ class Game {
             this.currentMap.width = mapData.width;
             this.currentMap.height = mapData.height;
             this.currentMap.loaded = mapData.loaded;
+            this.currentMap.mapScale = mapData.mapScale;
+            this.currentMap.originalWidth = mapData.originalWidth;
+            this.currentMap.originalHeight = mapData.originalHeight;
             this.currentMapId = mapId;
+            
+            // Handle map music switching
+            if (mapData.music && mapData.music !== this.audio.currentTrack) {
+                this.switchBGM(mapData.music);
+            }
             
             console.log(`Loaded map: ${mapData.name} (${mapData.width}x${mapData.height})`);
         } catch (error) {
@@ -463,6 +513,7 @@ class Game {
                 if (itemData.stock !== undefined) {
                     itemData.stock = Math.max(0, itemData.stock - 1);
                 }
+                this.playCoinSound(); // Play coin sound effect
                 console.log(`Bought ${itemData.id} for ${itemData.price} gold`);
                 return true;
             } else {
@@ -488,6 +539,7 @@ class Game {
         const success = this.inventoryManager.removeItem(item.id, 1);
         if (success) {
             this.addGold(sellPrice);
+            this.playCoinSound(); // Play coin sound effect
             console.log(`Sold ${item.name} for ${sellPrice} gold`);
             return true;
         }
