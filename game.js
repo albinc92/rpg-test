@@ -4,17 +4,17 @@ class Game {
         this.ctx = this.canvas.getContext('2d');
         this.debug = document.getElementById('debug');
         
-        // Game settings
-        this.CANVAS_WIDTH = 800;
-        this.CANVAS_HEIGHT = 600;
+        // Game settings - will be set to full screen
+        this.CANVAS_WIDTH = window.innerWidth;
+        this.CANVAS_HEIGHT = window.innerHeight;
         this.PLAYER_SPEED = 3;
         
         // Player properties
         this.player = {
             x: 400, // Start in center of canvas
             y: 300,
-            width: 32,
-            height: 32,
+            width: 96,
+            height: 96,
             facingRight: true,
             sprite: null,
             velocityX: 0,
@@ -46,9 +46,24 @@ class Game {
     }
     
     async init() {
+        this.setupCanvas();
         await this.loadAssets();
         this.setupEventListeners();
         this.gameLoop();
+    }
+    
+    setupCanvas() {
+        // Set canvas to full screen
+        this.canvas.width = this.CANVAS_WIDTH;
+        this.canvas.height = this.CANVAS_HEIGHT;
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            this.CANVAS_WIDTH = window.innerWidth;
+            this.CANVAS_HEIGHT = window.innerHeight;
+            this.canvas.width = this.CANVAS_WIDTH;
+            this.canvas.height = this.CANVAS_HEIGHT;
+        });
     }
     
     async loadAssets() {
