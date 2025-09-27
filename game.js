@@ -48,7 +48,7 @@ class Game {
         this.keys = {};
         
         // Game state management
-        this.gameState = 'MAIN_MENU'; // MAIN_MENU, GAME_MENU, SETTINGS, PLAYING, PAUSED, LOOT_WINDOW
+        this.gameState = 'MAIN_MENU'; // MAIN_MENU, GAME_MENU, SETTINGS, PLAYING, PAUSED, LOOT_WINDOW, SHOP
         this.gameStarted = false; // Track if game has been started
         
         // Loot window state
@@ -57,6 +57,15 @@ class Game {
             items: [],
             gold: 0,
             message: ''
+        };
+
+        // Shop state
+        this.shop = {
+            active: false,
+            npc: null,
+            mode: 'main', // 'main', 'buy', 'sell'
+            selectedIndex: 0,
+            items: []
         };
         
         // Main menu (start of game)
@@ -304,6 +313,8 @@ class Game {
                 return;
             } else if (npc.type === 'chest') {
                 this.handleChest(npc);
+            } else if (npc.type === 'shop') {
+                this.handleShop(npc);
             } else {
                 this.npcManager.startDialogue(npc, () => this.playSpeechBubbleSound());
             }
@@ -423,6 +434,64 @@ class Game {
         this.lootWindow.gold = 0;
         this.lootWindow.message = '';
         this.gameState = 'PLAYING';
+    }
+
+    handleShop(npc) {
+        this.shop.active = true;
+        this.shop.npc = npc;
+        this.shop.mode = 'main';
+        this.shop.selectedIndex = 0;
+        this.gameState = 'SHOP';
+        console.log('Opened shop:', npc.id);
+    }
+
+    closeShop() {
+        this.shop.active = false;
+        this.shop.npc = null;
+        this.shop.mode = 'main';
+        this.shop.selectedIndex = 0;
+        this.shop.items = [];
+        this.gameState = 'PLAYING';
+    }
+
+    buyItem(itemData) {
+        if (this.player.gold >= itemData.price) {
+            const success = this.inventoryManager.addItem(itemData.id, 1);
+            if (success) {
+                this.removeGold(itemData.price);
+                // Reduce shop stock
+                if (itemData.stock !== undefined) {
+                    itemData.stock = Math.max(0, itemData.stock - 1);
+                }
+                console.log(`Bought ${itemData.id} for ${itemData.price} gold`);
+                return true;
+            } else {
+                console.log('Inventory full!');
+                return false;
+            }
+        } else {
+            console.log('Not enough gold!');
+            return false;
+        }
+    }
+
+    sellItem(inventorySlot) {
+        const item = this.inventoryManager.getInventory()[inventorySlot];
+        if (!item) return false;
+
+        const itemTemplate = this.itemManager.getItem(item.id);
+        if (!itemTemplate) return false;
+
+        const sellPrice = Math.floor(itemTemplate.value * this.shop.npc.shop.sellMultiplier);
+        
+        // Remove one item from inventory
+        const success = this.inventoryManager.removeItem(item.id, 1);
+        if (success) {
+            this.addGold(sellPrice);
+            console.log(`Sold ${item.name} for ${sellPrice} gold`);
+            return true;
+        }
+        return false;
     }
     
     showTeleportConfirmation(teleporter) {
@@ -642,6 +711,8 @@ class Game {
                 this.handleInventoryInput(e);
             } else if (this.gameState === 'LOOT_WINDOW') {
                 this.handleLootWindowInput(e);
+            } else if (this.gameState === 'SHOP') {
+                this.handleShopInput(e);
             } else if (this.gameState === 'PLAYING') {
                 if (this.npcManager.isDialogueActive()) {
                     this.handleDialogueInput(e);
@@ -991,6 +1062,67 @@ class Game {
                 break;
         }
     }
+
+    handleShopInput(e) {
+        switch(e.key) {
+            case 'ArrowUp':
+            case 'w':
+            case 'W':
+                if (this.shop.selectedIndex > 0) {
+                    this.shop.selectedIndex--;
+                    this.playMenuNavigationSound();
+                }
+                break;
+            case 'ArrowDown':
+            case 's':
+            case 'S':
+                const maxIndex = this.shop.mode === 'buy' ? 
+                    this.shop.npc.shop.buyItems.length - 1 : 
+                    this.inventoryManager.getInventory().length - 1;
+                if (this.shop.selectedIndex < maxIndex) {
+                    this.shop.selectedIndex++;
+                    this.playMenuNavigationSound();
+                }
+                break;
+            case 'Enter':
+            case ' ':
+                this.handleShopSelection();
+                break;
+            case 'b':
+            case 'B':
+                if (this.shop.mode === 'main') {
+                    this.shop.mode = 'buy';
+                    this.shop.selectedIndex = 0;
+                }
+                break;
+            case 's':
+            case 'S':
+                if (this.shop.mode === 'main') {
+                    this.shop.mode = 'sell';
+                    this.shop.selectedIndex = 0;
+                }
+                break;
+            case 'Escape':
+                if (this.shop.mode === 'main') {
+                    this.closeShop();
+                } else {
+                    this.shop.mode = 'main';
+                    this.shop.selectedIndex = 0;
+                }
+                break;
+        }
+    }
+
+    handleShopSelection() {
+        if (this.shop.mode === 'buy') {
+            const itemData = this.shop.npc.shop.buyItems[this.shop.selectedIndex];
+            if (itemData && itemData.stock > 0) {
+                this.buyItem(itemData);
+            }
+        } else if (this.shop.mode === 'sell') {
+            this.sellItem(this.shop.selectedIndex);
+        }
+    }
     
     navigateInventoryGrid(direction) {
         const inventory = this.inventoryManager.getInventory();
@@ -1229,6 +1361,11 @@ class Game {
         
         if (this.gameState === 'LOOT_WINDOW') {
             this.renderLootWindow();
+            return;
+        }
+        
+        if (this.gameState === 'SHOP') {
+            this.renderShop();
             return;
         }
         
@@ -1683,6 +1820,147 @@ class Game {
         this.ctx.textAlign = 'center';
         const instructionsY = windowY + windowHeight - 30;
         this.ctx.fillText('Press ENTER, ESC, or E to close', windowX + windowWidth / 2, instructionsY);
+    }
+    
+    renderShop() {
+        // Draw semi-transparent background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+        this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+        
+        // Calculate window dimensions
+        const windowWidth = 600;
+        const windowHeight = 500;
+        const windowX = (this.CANVAS_WIDTH - windowWidth) / 2;
+        const windowY = (this.CANVAS_HEIGHT - windowHeight) / 2;
+        
+        // Draw window background
+        this.ctx.fillStyle = 'rgba(40, 40, 40, 0.95)';
+        this.ctx.fillRect(windowX, windowY, windowWidth, windowHeight);
+        
+        // Draw window border
+        this.ctx.strokeStyle = '#FFD700';
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeRect(windowX, windowY, windowWidth, windowHeight);
+        
+        // Draw shop title
+        this.ctx.fillStyle = '#FFD700';
+        this.ctx.font = 'bold 24px Arial';
+        this.ctx.textAlign = 'center';
+        const titleY = windowY + 40;
+        this.ctx.fillText(`${this.shop.npc.name}'s Shop`, windowX + windowWidth / 2, titleY);
+        
+        // Draw player gold
+        this.ctx.fillStyle = '#FFD700';
+        this.ctx.font = '18px Arial';
+        this.ctx.textAlign = 'right';
+        this.ctx.fillText(`Gold: ${this.player.gold}`, windowX + windowWidth - 20, titleY);
+        
+        // Draw mode tabs
+        const tabWidth = windowWidth / 2;
+        const tabHeight = 40;
+        const tabY = titleY + 20;
+        
+        // Buy tab
+        this.ctx.fillStyle = this.shop.mode === 'buy' ? 'rgba(100, 100, 100, 0.8)' : 'rgba(60, 60, 60, 0.8)';
+        this.ctx.fillRect(windowX, tabY, tabWidth, tabHeight);
+        this.ctx.strokeStyle = '#FFD700';
+        this.ctx.strokeRect(windowX, tabY, tabWidth, tabHeight);
+        
+        this.ctx.fillStyle = '#FFF';
+        this.ctx.font = '18px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('Buy', windowX + tabWidth / 2, tabY + 25);
+        
+        // Sell tab
+        this.ctx.fillStyle = this.shop.mode === 'sell' ? 'rgba(100, 100, 100, 0.8)' : 'rgba(60, 60, 60, 0.8)';
+        this.ctx.fillRect(windowX + tabWidth, tabY, tabWidth, tabHeight);
+        this.ctx.strokeStyle = '#FFD700';
+        this.ctx.strokeRect(windowX + tabWidth, tabY, tabWidth, tabHeight);
+        
+        this.ctx.fillStyle = '#FFF';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('Sell', windowX + tabWidth + tabWidth / 2, tabY + 25);
+        
+        // Draw items list
+        const listY = tabY + tabHeight + 20;
+        const itemHeight = 35;
+        const maxVisibleItems = Math.floor((windowHeight - (listY - windowY) - 80) / itemHeight);
+        
+        let items = [];
+        if (this.shop.mode === 'buy') {
+            items = this.shop.npc.shop.buyItems || [];
+        } else {
+            items = this.inventoryManager.getInventory().filter(item => item.id && item.quantity > 0);
+        }
+        
+        // Draw items
+        this.ctx.font = '16px Arial';
+        this.ctx.textAlign = 'left';
+        
+        for (let i = 0; i < Math.min(items.length, maxVisibleItems); i++) {
+            const item = items[i];
+            const y = listY + i * itemHeight;
+            
+            // Selection highlight
+            if (i === this.shop.selectedIndex) {
+                this.ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+                this.ctx.fillRect(windowX + 10, y - 15, windowWidth - 20, itemHeight - 5);
+                this.ctx.strokeStyle = '#FFD700';
+                this.ctx.strokeRect(windowX + 10, y - 15, windowWidth - 20, itemHeight - 5);
+            }
+            
+            if (this.shop.mode === 'buy') {
+                // Show buy items
+                const itemData = this.itemManager.getItem(item.id);
+                if (itemData) {
+                    this.ctx.fillStyle = this.getItemRarityColor(itemData.rarity || 'common');
+                    this.ctx.fillText(itemData.name, windowX + 20, y);
+                    
+                    // Show stock
+                    if (item.stock !== undefined) {
+                        this.ctx.fillStyle = '#CCC';
+                        this.ctx.textAlign = 'center';
+                        this.ctx.fillText(`Stock: ${item.stock}`, windowX + windowWidth / 2, y);
+                    }
+                    
+                    // Show price
+                    this.ctx.fillStyle = '#FFD700';
+                    this.ctx.textAlign = 'right';
+                    this.ctx.fillText(`${item.price}g`, windowX + windowWidth - 20, y);
+                }
+            } else {
+                // Show sell items
+                const itemData = this.itemManager.getItem(item.id);
+                if (itemData) {
+                    this.ctx.fillStyle = this.getItemRarityColor(itemData.rarity || 'common');
+                    this.ctx.fillText(`${itemData.name} x${item.quantity}`, windowX + 20, y);
+                    
+                    // Show sell price
+                    const sellPrice = Math.floor(itemData.value * this.shop.npc.shop.sellMultiplier);
+                    this.ctx.fillStyle = '#FFD700';
+                    this.ctx.textAlign = 'right';
+                    this.ctx.fillText(`${sellPrice}g`, windowX + windowWidth - 20, y);
+                }
+            }
+            
+            this.ctx.textAlign = 'left'; // Reset alignment
+        }
+        
+        // Draw instructions
+        this.ctx.fillStyle = '#CCC';
+        this.ctx.font = '14px Arial';
+        this.ctx.textAlign = 'center';
+        const instructionsY = windowY + windowHeight - 30;
+        this.ctx.fillText('↑↓: Select | ←→: Change Tab | Enter: Buy/Sell | ESC: Exit', windowX + windowWidth / 2, instructionsY);
+        
+        // Show empty message if no items
+        if (items.length === 0) {
+            this.ctx.fillStyle = '#888';
+            this.ctx.font = '18px Arial';
+            this.ctx.textAlign = 'center';
+            const emptyMessage = this.shop.mode === 'buy' ? 'No items for sale' : 'No items to sell';
+            this.ctx.fillText(emptyMessage, windowX + windowWidth / 2, listY + 50);
+        }
     }
     
     addGold(amount) {

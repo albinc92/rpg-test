@@ -40,6 +40,19 @@ class MapManager {
                 fromPortal: { x: 469, y: 949 }
             }
         });
+
+        // Village Shop - Shopping area
+        this.registerMap({
+            id: '0-1-shop',
+            name: 'Village Shop',
+            imagePath: 'assets/maps/0-1-shop.png',
+            description: 'A cozy shop where you can buy and sell items.',
+            music: 'assets/bgm/00.mp3',
+            spawnPoints: {
+                default: { x: 400, y: 300 },
+                fromDoor: { x: 400, y: 300 }
+            }
+        });
     }
 
     /**

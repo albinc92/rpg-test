@@ -79,9 +79,9 @@ class NPCManager {
             pulseAlpha: 0.3
         });
 
-        // Portal from map 0-1 to 0-0
+        // Door portal from map 0-1 to shop
         this.registerNPC({
-            id: 'portal_to_0-1-shop',
+            id: 'portal_to_shop',
             type: 'portal',
             mapId: '0-1',
             x: 695,
@@ -90,12 +90,59 @@ class NPCManager {
             height: 80,
             spriteSrc: 'assets/npc/door-0.png',
             rotation: 0,
-            targetMap: '0-1',
-            targetX: 761,
-            targetY: 553,
+            targetMap: '0-1-shop',
+            targetX: 400,
+            targetY: 300,
             pulseSpeed: 2.0,
             baseAlpha: 0.7,
             pulseAlpha: 0.3
+        });
+
+        // Return portal from shop to map 0-1
+        this.registerNPC({
+            id: 'portal_from_shop',
+            type: 'portal',
+            mapId: '0-1-shop',
+            x: 400,
+            y: 200,
+            width: 80,
+            height: 80,
+            spriteSrc: 'assets/npc/door-0.png',
+            rotation: 0,
+            targetMap: '0-1',
+            targetX: 695,
+            targetY: 600,
+            pulseSpeed: 2.0,
+            baseAlpha: 0.7,
+            pulseAlpha: 0.3
+        });
+
+        // Shop Keeper NPC
+        this.registerNPC({
+            id: 'shopkeeper',
+            type: 'shop',
+            mapId: '0-1-shop',
+            x: 600,
+            y: 400,
+            width: 96,
+            height: 96,
+            spriteSrc: 'assets/npc/merchant-0.png',
+            direction: 'left',
+            messages: [
+                "Welcome to my shop!",
+                "I buy and sell all kinds of items.",
+                "What would you like to do?"
+            ],
+            shop: {
+                buyItems: [
+                    { id: 'health_potion', price: 25, stock: 10 },
+                    { id: 'mana_potion', price: 30, stock: 8 },
+                    { id: 'iron_sword', price: 100, stock: 3 },
+                    { id: 'leather_armor', price: 80, stock: 2 },
+                    { id: 'iron_ore', price: 15, stock: 20 }
+                ],
+                sellMultiplier: 0.5 // Sells items for 50% of their value
+            }
         });
 
         // Register treasure chests using the chest helper method
