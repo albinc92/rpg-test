@@ -68,7 +68,8 @@ class Game {
         // Audio system
         this.audio = {
             bgm: null,
-            currentTrack: null
+            currentTrack: null,
+            menuNavigation: null
         };
         
         // NPC system
@@ -158,9 +159,17 @@ class Game {
         this.audio.bgm.loop = true;
         this.audio.bgm.volume = this.settings.masterVolume / 100;
         
+        // Load menu navigation sound effect
+        this.audio.menuNavigation = new Audio('assets/audio/effect/menu-navigation.mp3');
+        this.audio.menuNavigation.volume = this.settings.masterVolume / 100;
+        
         // Handle audio loading errors gracefully
         this.audio.bgm.onerror = () => {
             console.warn('Could not load background music');
+        };
+        
+        this.audio.menuNavigation.onerror = () => {
+            console.warn('Could not load menu navigation sound');
         };
     }
     
@@ -184,6 +193,18 @@ class Game {
     updateAudioVolume() {
         if (this.audio.bgm) {
             this.audio.bgm.volume = this.settings.audioMuted ? 0 : (this.settings.masterVolume / 100);
+        }
+        if (this.audio.menuNavigation) {
+            this.audio.menuNavigation.volume = this.settings.audioMuted ? 0 : (this.settings.masterVolume / 100);
+        }
+    }
+    
+    playMenuNavigationSound() {
+        if (this.audio.menuNavigation && !this.settings.audioMuted) {
+            this.audio.menuNavigation.currentTime = 0; // Reset to beginning
+            this.audio.menuNavigation.play().catch(e => {
+                console.warn('Could not play menu navigation sound:', e);
+            });
         }
     }
     
@@ -324,12 +345,18 @@ class Game {
             case 'ArrowUp':
             case 'w':
             case 'W':
-                this.selectedMenuOption = Math.max(0, this.selectedMenuOption - 1);
+                if (this.selectedMenuOption > 0) {
+                    this.selectedMenuOption = Math.max(0, this.selectedMenuOption - 1);
+                    this.playMenuNavigationSound();
+                }
                 break;
             case 'ArrowDown':
             case 's':
             case 'S':
-                this.selectedMenuOption = Math.min(this.menuOptions.length - 1, this.selectedMenuOption + 1);
+                if (this.selectedMenuOption < this.menuOptions.length - 1) {
+                    this.selectedMenuOption = Math.min(this.menuOptions.length - 1, this.selectedMenuOption + 1);
+                    this.playMenuNavigationSound();
+                }
                 break;
             case 'Enter':
             case ' ':
@@ -370,12 +397,18 @@ class Game {
             case 'ArrowUp':
             case 'w':
             case 'W':
-                this.selectedSettingsOption = Math.max(0, this.selectedSettingsOption - 1);
+                if (this.selectedSettingsOption > 0) {
+                    this.selectedSettingsOption = Math.max(0, this.selectedSettingsOption - 1);
+                    this.playMenuNavigationSound();
+                }
                 break;
             case 'ArrowDown':
             case 's':
             case 'S':
-                this.selectedSettingsOption = Math.min(this.settingsOptions.length - 1, this.selectedSettingsOption + 1);
+                if (this.selectedSettingsOption < this.settingsOptions.length - 1) {
+                    this.selectedSettingsOption = Math.min(this.settingsOptions.length - 1, this.selectedSettingsOption + 1);
+                    this.playMenuNavigationSound();
+                }
                 break;
             case 'ArrowLeft':
             case 'a':
