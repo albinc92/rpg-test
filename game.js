@@ -87,6 +87,9 @@ class Game {
             messageIndex: 0
         };
         
+        // Animation timing
+        this.gameTime = 0;
+        
         // Initialize the game
         this.init();
     }
@@ -224,8 +227,12 @@ class Game {
                 id: '0-0',
                 imagePath: 'assets/maps/0-0.png',
                 name: 'Forest Clearing'
+            },
+            '0-1': {
+                id: '0-1',
+                imagePath: 'assets/maps/0-1.png',
+                name: 'Mountain Path'
             }
-            // Add more maps here as you create them
         };
     }
     
@@ -256,7 +263,8 @@ class Game {
     initializeNPCs() {
         // Initialize NPCs for each map
         this.npcs = {
-            '0-0': []
+            '0-0': [],
+            '0-1': []
         };
         
         // Create the sage NPC for map 0-0
@@ -268,6 +276,7 @@ class Game {
             width: 96,
             height: 96,
             sprite: new Image(),
+            direction: 'right', // 'left' or 'right'
             messages: [
                 "Greetings, young adventurer!",
                 "Welcome to this mystical realm.",
@@ -279,26 +288,45 @@ class Game {
         sage.sprite.src = 'assets/npc/sage-0.png';
         this.npcs['0-0'].push(sage);
         
-        // Teleporter NPC - using sage sprite for now since we don't have a portal sprite
-        const teleporter = {
-            id: 'teleporter',
-            type: 'teleporter',
+        // Portal to map 0-1
+        const portal1 = {
+            id: 'portal_to_0-1',
+            type: 'portal',
             x: 899,
             y: 148,
-            width: 96,
-            height: 96,
+            width: 80,
+            height: 80,
             sprite: new Image(),
-            targetMap: '1-0',
-            targetX: 400,
-            targetY: 300,
-            messages: [
-                "I am a mystical teleporter!",
-                "I can transport you to distant lands.",
-                "Step through my magic to explore new realms!"
-            ]
+            rotation: 45, // 360 degree rotation (in degrees)
+            targetMap: '0-1',
+            targetX: 469,
+            targetY: 949,
+            pulseSpeed: 2.0, // Speed of pulsating animation
+            baseAlpha: 0.7, // Base transparency
+            pulseAlpha: 0.3 // Additional alpha variation for pulsing
         };
-        teleporter.sprite.src = 'assets/npc/sign-0.png'; // Using sign sprite for teleporter
-        this.npcs['0-0'].push(teleporter);
+        portal1.sprite.src = 'assets/npc/navigation-0.png';
+        this.npcs['0-0'].push(portal1);
+        
+        // Return portal for map 0-1 (to get back to 0-0)
+        const portal2 = {
+            id: 'portal_to_0-0',
+            type: 'portal',
+            x: 257,
+            y: 948,
+            width: 80,
+            height: 80,
+            sprite: new Image(),
+            rotation: 225, // Different rotation for visual variety
+            targetMap: '0-0',
+            targetX: 900,
+            targetY: 200,
+            pulseSpeed: 2., // Slightly different pulse speed
+            baseAlpha: 0.7,
+            pulseAlpha: 0.3
+        };
+        portal2.sprite.src = 'assets/npc/navigation-0.png';
+        this.npcs['0-1'].push(portal2);
     }
     
     handleDialogueInput(e) {
@@ -320,6 +348,9 @@ class Game {
             if (distance <= interactionDistance) {
                 if (npc.type === 'teleporter') {
                     this.handleTeleporter(npc);
+                } else if (npc.type === 'portal') {
+                    // Portals are handled automatically in checkPortalCollisions
+                    continue;
                 } else {
                     this.startDialogue(npc);
                 }
@@ -369,6 +400,27 @@ class Game {
     
     updatePlayerSpeed() {
         this.player.maxSpeed = this.speedSettings[this.settings.playerSpeed];
+    }
+    
+    checkPortalCollisions() {
+        const currentMapNPCs = this.npcs[this.currentMapId] || [];
+        
+        for (let npc of currentMapNPCs) {
+            if (npc.type === 'portal') {
+                const distance = Math.sqrt(
+                    Math.pow(this.player.x - npc.x, 2) + 
+                    Math.pow(this.player.y - npc.y, 2)
+                );
+                
+                // Check if player is touching the portal (collision detection)
+                const collisionDistance = (npc.width + this.player.width) / 4; // Smaller collision area
+                if (distance <= collisionDistance) {
+                    // Automatically teleport
+                    this.teleportToMap(npc.targetMap, npc.targetX, npc.targetY);
+                    break;
+                }
+            }
+        }
     }
     
     handleTeleporter(teleporter) {
@@ -603,6 +655,9 @@ class Game {
         if (!this.currentMap.loaded) return;
         if (this.dialogue.active) return; // Don't allow movement during dialogue
         
+        // Update game time for animations
+        this.gameTime += 0.016; // Approximate 60fps timing
+        
         // Handle movement input with acceleration
         let inputX = 0;
         let inputY = 0;
@@ -686,6 +741,9 @@ class Game {
         // Update player position
         this.player.x = newX;
         this.player.y = newY;
+        
+        // Check for portal collisions
+        this.checkPortalCollisions();
         
         // Update camera (Zelda-style camera system)
         this.updateCamera();
@@ -913,34 +971,73 @@ class Game {
     drawNPCs() {
         const currentMapNPCs = this.npcs[this.currentMapId] || [];
         currentMapNPCs.forEach(npc => {
-            const npcScreenX = npc.x - npc.width / 2;
-            const npcScreenY = npc.y - npc.height / 2;
-            
-            // Draw shadow first (behind NPC)
-            this.drawShadow(npc.x, npc.y, npc.width, npc.height);
-            
-            // Draw NPC sprite
-            this.ctx.drawImage(npc.sprite, npcScreenX, npcScreenY, npc.width, npc.height);
-            
-            // Draw interaction indicator if player is close
-            const distance = Math.sqrt(
-                Math.pow(this.player.x - npc.x, 2) + 
-                Math.pow(this.player.y - npc.y, 2)
-            );
-            
-            if (distance <= 120 && !this.dialogue.active) {
-                // Draw "E" indicator above NPC
-                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                this.ctx.strokeStyle = 'black';
-                this.ctx.lineWidth = 2;
-                this.ctx.font = 'bold 16px Arial';
-                this.ctx.textAlign = 'center';
+            if (npc.type === 'portal') {
+                // Handle portal rendering with rotation and pulsing scale effects
+                this.ctx.save();
                 
-                const indicatorX = npc.x;
-                const indicatorY = npc.y - npc.height / 2 - 20;
+                // Calculate pulsing scale (grow and shrink) - subtle effect
+                const baseScale = 1.0;
+                const pulseScale = baseScale + (0.15 * Math.sin(this.gameTime * npc.pulseSpeed));
                 
-                this.ctx.strokeText('E', indicatorX, indicatorY);
-                this.ctx.fillText('E', indicatorX, indicatorY);
+                // Set much more transparency for portal (more ghostly)
+                this.ctx.globalAlpha = 0.4;
+                
+                // Move to portal center, apply rotation and scaling
+                this.ctx.translate(npc.x, npc.y);
+                this.ctx.rotate((npc.rotation * Math.PI) / 180);
+                this.ctx.scale(pulseScale, pulseScale);
+                
+                // Draw portal sprite centered
+                this.ctx.drawImage(npc.sprite, 
+                                 -npc.width / 2, -npc.height / 2, 
+                                 npc.width, npc.height);
+                
+                this.ctx.restore();
+            } else {
+                // Handle regular NPCs
+                const npcScreenX = npc.x - npc.width / 2;
+                const npcScreenY = npc.y - npc.height / 2;
+                
+                // Draw shadow first (behind NPC)
+                this.drawShadow(npc.x, npc.y, npc.width, npc.height);
+                
+                // Draw NPC sprite with direction support
+                this.ctx.save();
+                
+                if (npc.direction === 'left') {
+                    // Flip sprite horizontally for left-facing NPCs
+                    this.ctx.translate(npc.x, npc.y);
+                    this.ctx.scale(-1, 1);
+                    this.ctx.drawImage(npc.sprite, 
+                                     -npc.width / 2, -npc.height / 2, 
+                                     npc.width, npc.height);
+                } else {
+                    // Default right-facing or no flip
+                    this.ctx.drawImage(npc.sprite, npcScreenX, npcScreenY, npc.width, npc.height);
+                }
+                
+                this.ctx.restore();
+                
+                // Draw interaction indicator if player is close and not a portal
+                const distance = Math.sqrt(
+                    Math.pow(this.player.x - npc.x, 2) + 
+                    Math.pow(this.player.y - npc.y, 2)
+                );
+                
+                if (distance <= 120 && !this.dialogue.active) {
+                    // Draw "E" indicator above NPC
+                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    this.ctx.strokeStyle = 'black';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.font = 'bold 16px Arial';
+                    this.ctx.textAlign = 'center';
+                    
+                    const indicatorX = npc.x;
+                    const indicatorY = npc.y - npc.height / 2 - 20;
+                    
+                    this.ctx.strokeText('E', indicatorX, indicatorY);
+                    this.ctx.fillText('E', indicatorX, indicatorY);
+                }
             }
         });
     }
