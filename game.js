@@ -21,7 +21,7 @@ class Game {
             velocityY: 0,
             acceleration: 0.5,
             friction: 0.8,
-            maxSpeed: 3
+            maxSpeed: 2 // Will be set based on walk/run setting
         };
         
         // Camera properties
@@ -43,7 +43,7 @@ class Game {
         
         // Game state management
         this.gameState = 'MENU'; // MENU, SETTINGS, PLAYING, PAUSED
-        this.menuOptions = ['Start Game', 'Settings', 'Exit'];
+        this.menuOptions = ['Resume', 'Settings', 'Exit'];
         this.selectedMenuOption = 0;
         
         // Settings menu
@@ -52,10 +52,16 @@ class Game {
         
         // Game settings
         this.settings = {
-            playerSpeed: 3,
+            playerSpeed: 'Walk', // 'Walk' or 'Run'
             showDebug: true,
             masterVolume: 50,
             audioMuted: false
+        };
+        
+        // Speed values
+        this.speedSettings = {
+            'Walk': 2,
+            'Run': 3
         };
         
         // Audio system
@@ -81,6 +87,7 @@ class Game {
         this.setupCanvas();
         await this.loadAssets();
         this.setupEventListeners();
+        this.updatePlayerSpeed(); // Initialize player speed based on settings
         this.gameLoop();
     }
     
@@ -247,6 +254,15 @@ class Game {
         this.dialogue.messageIndex = 0;
     }
     
+    toggleWalkRun() {
+        this.settings.playerSpeed = this.settings.playerSpeed === 'Walk' ? 'Run' : 'Walk';
+        this.updatePlayerSpeed();
+    }
+    
+    updatePlayerSpeed() {
+        this.player.maxSpeed = this.speedSettings[this.settings.playerSpeed];
+    }
+    
     setupEventListeners() {
         // Keyboard input
         document.addEventListener('keydown', (e) => {
@@ -269,6 +285,11 @@ class Game {
                     // Interaction key
                     if (e.key === 'e' || e.key === 'E' || e.key === ' ') {
                         this.checkNPCInteraction();
+                    }
+                    
+                    // Toggle walk/run with Shift key
+                    if (e.key === 'Shift') {
+                        this.toggleWalkRun();
                     }
                 }
                 
@@ -318,7 +339,7 @@ class Game {
     
     selectMenuOption() {
         switch(this.selectedMenuOption) {
-            case 0: // Start Game
+            case 0: // Resume
                 this.gameState = 'PLAYING';
                 this.playBGM(); // Start background music when game starts
                 break;
@@ -369,9 +390,11 @@ class Game {
     
     adjustSetting(direction) {
         switch(this.selectedSettingsOption) {
-            case 0: // Player Speed
-                this.settings.playerSpeed = Math.max(1, Math.min(10, this.settings.playerSpeed + direction));
-                this.player.maxSpeed = this.settings.playerSpeed;
+            case 0: // Player Speed (Walk/Run)
+                if (direction !== 0) {
+                    this.settings.playerSpeed = this.settings.playerSpeed === 'Walk' ? 'Run' : 'Walk';
+                    this.updatePlayerSpeed();
+                }
                 break;
             case 1: // Show Debug
                 if (direction !== 0) {
@@ -833,6 +856,7 @@ class Game {
             Camera: (${Math.round(this.camera.x)}, ${Math.round(this.camera.y)})<br>
             Velocity: (${this.player.velocityX.toFixed(2)}, ${this.player.velocityY.toFixed(2)})<br>
             Speed: ${speed.toFixed(2)}/${this.player.maxSpeed}<br>
+            Mode: ${this.settings.playerSpeed} (SHIFT to toggle)<br>
             Map: ${this.currentMap.width}x${this.currentMap.height}<br>
             Boundaries: X(${minX}-${maxX}) Y(${minY}-${maxY})<br>
             Facing: ${this.player.facingRight ? 'Left' : 'Right'}<br>
