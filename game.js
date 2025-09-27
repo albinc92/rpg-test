@@ -43,6 +43,7 @@ class Game {
         
         // Game state management
         this.gameState = 'MENU'; // MENU, SETTINGS, PLAYING, PAUSED
+        this.gameStarted = false; // Track if game has been started
         this.menuOptions = ['Resume', 'Settings', 'Exit'];
         this.selectedMenuOption = 0;
         
@@ -334,6 +335,13 @@ class Game {
             case ' ':
                 this.selectMenuOption();
                 break;
+            case 'Escape':
+                // If game has been started, ESC returns to game
+                if (this.gameStarted) {
+                    this.gameState = 'PLAYING';
+                    this.playBGM();
+                }
+                break;
         }
     }
     
@@ -341,6 +349,7 @@ class Game {
         switch(this.selectedMenuOption) {
             case 0: // Resume
                 this.gameState = 'PLAYING';
+                this.gameStarted = true; // Mark game as started
                 this.playBGM(); // Start background music when game starts
                 break;
             case 1: // Settings
