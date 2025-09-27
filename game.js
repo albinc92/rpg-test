@@ -972,7 +972,7 @@ class Game {
             case 'i':
             case 'I':
                 this.inventoryManager.closeInventory();
-                this.gameState = 'GAME_MENU';
+                this.gameState = 'PLAYING';
                 break;
         }
     }
