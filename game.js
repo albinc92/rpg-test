@@ -397,8 +397,11 @@ class Game {
             });
         }
         
-        // Mark chest as looted
+        // Mark chest as looted and switch to open sprite
         chest.looted = true;
+        if (chest.openSprite && chest.openSprite.complete) {
+            chest.sprite = chest.openSprite;
+        }
         
         // Show loot window
         this.showLootWindow(lootedItems, goldAmount);

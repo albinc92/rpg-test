@@ -345,6 +345,10 @@ class NPCManager {
             const npc = this.npcRegistry.get(npcId);
             if (npc && npc.type === 'chest') {
                 npc.looted = state.looted || false;
+                // Switch to open sprite if chest was looted
+                if (npc.looted && npc.openSprite && npc.openSprite.complete) {
+                    npc.sprite = npc.openSprite;
+                }
             }
             // Add other NPC types that need state restoration here
         });
@@ -373,7 +377,8 @@ class NPCManager {
             });
         }
 
-        this.registerNPC({
+        // Create the chest NPC with both closed and open sprites
+        const chestNPC = {
             id: id,
             type: 'chest',
             mapId: mapId,
@@ -382,13 +387,23 @@ class NPCManager {
             width: 96,
             height: 96,
             spriteSrc: 'assets/npc/chest-0.png',
+            openSpriteSrc: 'assets/npc/chest-0-open.png',
             direction: 'right',
             looted: false,
             loot: {
                 gold: loot.gold || 0,
                 items: parsedItems
             }
-        });
+        };
+
+        // Load both sprites
+        chestNPC.sprite = new Image();
+        chestNPC.sprite.src = chestNPC.spriteSrc;
+        
+        chestNPC.openSprite = new Image();
+        chestNPC.openSprite.src = chestNPC.openSpriteSrc;
+
+        this.registerNPC(chestNPC);
 
         console.log(`Created treasure chest ${id} on map ${mapId} at (${x}, ${y})`);
     }
