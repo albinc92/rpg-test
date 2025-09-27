@@ -55,11 +55,11 @@ class Game {
         this.selectedMainMenuOption = 0;
         
         // In-game menu (pause menu)
-        this.gameMenuOptions = ['Resume', 'Settings', 'Save Game', 'Main Menu'];
+        this.gameMenuOptions = ['Resume', 'Settings', 'Save Game', 'Load Game', 'Main Menu'];
         this.selectedGameMenuOption = 0;
         
         // Settings menu
-        this.settingsOptions = ['Player Speed', 'Show Debug', 'Master Volume', 'BGM Volume', 'Effect Volume', 'Mute Audio', 'Back to Menu'];
+        this.settingsOptions = ['Player Speed', 'Master Volume', 'BGM Volume', 'Effect Volume', 'Mute Audio', 'Back to Menu'];
         this.selectedSettingsOption = 0;
         this.previousMenuState = 'MAIN_MENU'; // Track which menu we came from
         
@@ -507,6 +507,12 @@ class Game {
                     }
                 }
             }
+            
+            // F1 to toggle debug info (works in any state)
+            if (e.key === 'F1') {
+                e.preventDefault(); // Prevent browser help menu
+                this.settings.showDebug = !this.settings.showDebug;
+            }
         });
         
         document.addEventListener('keyup', (e) => {
@@ -623,7 +629,23 @@ class Game {
                     alert('Failed to save game!');
                 }
                 break;
-            case 3: // Main Menu
+            case 3: // Load Game
+                if (this.hasSaveData()) {
+                    if (confirm('Load saved game? (Current progress will be lost if not saved!)')) {
+                        this.loadGame().then(success => {
+                            if (success) {
+                                this.gameState = 'PLAYING';
+                                alert('Game loaded successfully!');
+                            } else {
+                                alert('Failed to load game!');
+                            }
+                        });
+                    }
+                } else {
+                    alert('No save data found!');
+                }
+                break;
+            case 4: // Main Menu
                 if (confirm('Return to main menu? (Make sure to save your progress!)')) {
                     this.gameState = 'MAIN_MENU';
                     this.selectedMainMenuOption = 0;
@@ -679,24 +701,19 @@ class Game {
                     this.updatePlayerSpeed();
                 }
                 break;
-            case 1: // Show Debug
-                if (direction !== 0) {
-                    this.settings.showDebug = !this.settings.showDebug;
-                }
-                break;
-            case 2: // Master Volume
+            case 1: // Master Volume
                 this.settings.masterVolume = Math.max(0, Math.min(100, this.settings.masterVolume + (direction * 10)));
                 this.updateAudioVolume();
                 break;
-            case 3: // BGM Volume
+            case 2: // BGM Volume
                 this.settings.bgmVolume = Math.max(0, Math.min(100, this.settings.bgmVolume + (direction * 10)));
                 this.updateAudioVolume();
                 break;
-            case 4: // Effect Volume
+            case 3: // Effect Volume
                 this.settings.effectVolume = Math.max(0, Math.min(100, this.settings.effectVolume + (direction * 10)));
                 this.updateAudioVolume();
                 break;
-            case 5: // Mute Audio
+            case 4: // Mute Audio
                 if (direction !== 0) {
                     this.settings.audioMuted = !this.settings.audioMuted;
                     this.updateAudioVolume();
@@ -708,14 +725,13 @@ class Game {
     selectSettingsOption() {
         switch(this.selectedSettingsOption) {
             case 0: // Player Speed
-            case 1: // Show Debug
-            case 2: // Master Volume
-            case 3: // BGM Volume
-            case 4: // Effect Volume
-            case 5: // Mute Audio
+            case 1: // Master Volume
+            case 2: // BGM Volume
+            case 3: // Effect Volume
+            case 4: // Mute Audio
                 // These are adjusted with left/right arrows
                 break;
-            case 6: // Back to Menu
+            case 5: // Back to Menu
                 this.gameState = this.previousMenuState;
                 break;
         }
@@ -947,18 +963,12 @@ class Game {
             }
         });
         
-        // Draw instructions
-        this.ctx.fillStyle = '#CCCCCC';
-        this.ctx.font = '16px Arial';
-        const instructionsY = this.CANVAS_HEIGHT * 0.8;
-        this.ctx.fillText('Use W/S or Arrow Keys to navigate', this.CANVAS_WIDTH / 2, instructionsY);
-        this.ctx.fillText('Press ENTER or SPACE to select', this.CANVAS_WIDTH / 2, instructionsY + 25);
-        
         // Show save status
         if (this.hasSaveData()) {
             this.ctx.fillStyle = '#90EE90';
             this.ctx.font = '14px Arial';
-            this.ctx.fillText('Save data found', this.CANVAS_WIDTH / 2, instructionsY + 60);
+            const saveStatusY = this.CANVAS_HEIGHT * 0.8;
+            this.ctx.fillText('Save data found', this.CANVAS_WIDTH / 2, saveStatusY);
         }
     }
     
@@ -1027,19 +1037,16 @@ class Game {
                 case 0: // Player Speed
                     valueText = `: ${this.settings.playerSpeed}`;
                     break;
-                case 1: // Show Debug
-                    valueText = `: ${this.settings.showDebug ? 'ON' : 'OFF'}`;
-                    break;
-                case 2: // Master Volume
+                case 1: // Master Volume
                     valueText = `: ${this.settings.masterVolume}%`;
                     break;
-                case 3: // BGM Volume
+                case 2: // BGM Volume
                     valueText = `: ${this.settings.bgmVolume}%`;
                     break;
-                case 4: // Effect Volume
+                case 3: // Effect Volume
                     valueText = `: ${this.settings.effectVolume}%`;
                     break;
-                case 5: // Mute Audio
+                case 4: // Mute Audio
                     valueText = `: ${this.settings.audioMuted ? 'ON' : 'OFF'}`;
                     break;
             }
@@ -1060,6 +1067,7 @@ class Game {
         const instructionsY = this.CANVAS_HEIGHT * 0.85;
         this.ctx.fillText('Use W/S to navigate, A/D to adjust values', this.CANVAS_WIDTH / 2, instructionsY);
         this.ctx.fillText('Press ENTER to select, ESC to go back', this.CANVAS_WIDTH / 2, instructionsY + 25);
+        this.ctx.fillText('Press F1 to toggle debug info', this.CANVAS_WIDTH / 2, instructionsY + 50);
     }
     
     drawPlayer() {
