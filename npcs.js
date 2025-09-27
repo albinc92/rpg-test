@@ -46,18 +46,18 @@ class NPCManager {
             id: 'portal_to_0-1',
             type: 'portal',
             mapId: '0-0',
-            x: 899,
-            y: 148,
+            x: 867,
+            y: 156,
             width: 80,
             height: 80,
             spriteSrc: 'assets/npc/navigation-0.png',
-            rotation: 45, // 360 degree rotation (in degrees)
+            rotation: 310,
             targetMap: '0-1',
-            targetX: 469,
-            targetY: 949,
-            pulseSpeed: 2.0, // Speed of pulsating animation
-            baseAlpha: 0.7, // Base transparency
-            pulseAlpha: 0.3 // Additional alpha variation for pulsing
+            targetX: 535,
+            targetY: 865,
+            pulseSpeed: 2.0,
+            baseAlpha: 0.7,
+            pulseAlpha: 0.3
         });
 
         // Portal from map 0-1 to 0-0
@@ -65,16 +65,35 @@ class NPCManager {
             id: 'portal_to_0-0',
             type: 'portal',
             mapId: '0-1',
-            x: 257,
-            y: 948,
+            x: 475,
+            y: 960,
             width: 80,
             height: 80,
             spriteSrc: 'assets/npc/navigation-0.png',
-            rotation: 225, // Different rotation for visual variety
+            rotation: 225,
             targetMap: '0-0',
             targetX: 900,
             targetY: 200,
-            pulseSpeed: 2.0, // Slightly different pulse speed
+            pulseSpeed: 2.0,
+            baseAlpha: 0.7,
+            pulseAlpha: 0.3
+        });
+
+        // Portal from map 0-1 to 0-0
+        this.registerNPC({
+            id: 'portal_to_0-1-shop',
+            type: 'portal',
+            mapId: '0-1',
+            x: 689,
+            y: 514,
+            width: 80,
+            height: 80,
+            spriteSrc: 'assets/npc/door-0.png',
+            rotation: 225,
+            targetMap: '0-0',
+            targetX: 900,
+            targetY: 200,
+            pulseSpeed: 2.0,
             baseAlpha: 0.7,
             pulseAlpha: 0.3
         });
