@@ -7,21 +7,19 @@ class GameScene extends Scene {
         super('MainGame');
         
         this.player = null;
-        this.worldSize = 50; // 50x50 tile world
-        this.tiles = new Map();
+        this.mapManager = null;
+        this.currentMap = null;
         
-        // World generation settings
-        this.noiseScale = 0.1;
-        this.treeChance = 0.15;
-        this.rockChance = 0.08;
-        this.crystalChance = 0.02;
+        // Map settings
+        this.mapWidth = 800;  // Map width in pixels
+        this.mapHeight = 600; // Map height in pixels
     }
 
     init() {
         super.init();
         
-        // Create the world
-        this.generateWorld();
+        // Initialize map system
+        this.initializeMapSystem();
         
         // Create player
         this.createPlayer();
@@ -32,110 +30,44 @@ class GameScene extends Scene {
         // Add some debug controls
         this.setupDebugControls();
         
-        console.log('Game Scene initialized with isometric RPG world');
+        console.log('Game Scene initialized with map-based system like Zelda');
     }
 
-    generateWorld() {
-        console.log('Generating world...');
+    initializeMapSystem() {
+        console.log('Initializing map system...');
         
-        // Generate tiles first
-        this.generateTiles();
+        // Create map manager
+        this.mapManager = new MapManager(this);
         
-        // Add obstacles
-        this.generateObstacles();
+        // Create initial maps
+        this.createMaps();
         
-        console.log(`Generated world with ${this.tiles.size} tiles and ${this.gameObjects.length} objects`);
+        // Start on the first map
+        this.mapManager.switchToMap('start', new Vector2(0, 0));
+        
+        console.log('Map system initialized');
     }
 
-    generateTiles() {
-        const centerX = this.worldSize / 2;
-        const centerY = this.worldSize / 2;
+    createMaps() {
+        // Create starting map
+        const startMap = this.mapManager.createMap('start', this.mapWidth, this.mapHeight);
         
-        for (let x = 0; x < this.worldSize; x++) {
-            for (let y = 0; y < this.worldSize; y++) {
-                // Distance from center for biome generation
-                const distanceFromCenter = Math.sqrt(
-                    Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2)
-                );
-                
-                // Simple noise function for terrain variation
-                const noise = this.simpleNoise(x * this.noiseScale, y * this.noiseScale);
-                
-                let tileType = 'grass';
-                
-                // Determine tile type based on noise and distance
-                if (noise > 0.6) {
-                    tileType = 'stone';
-                } else if (noise > 0.3 && distanceFromCenter > this.worldSize * 0.3) {
-                    tileType = 'dirt';
-                } else if (noise < -0.4) {
-                    tileType = 'water';
-                } else if (noise < -0.2 && distanceFromCenter < this.worldSize * 0.2) {
-                    tileType = 'sand';
-                }
-                
-                // Convert grid coordinates to world coordinates
-                const worldX = (x - centerX) * 32;
-                const worldY = (y - centerY) * 32;
-                
-                const tile = new Tile(worldX, worldY, tileType);
-                const key = `${x}_${y}`;
-                this.tiles.set(key, tile);
-                
-                this.addGameObject(tile);
-            }
-        }
+        // Add some obstacles to the start map
+        startMap.addObstacle(Obstacle.createTree(100, 50));
+        startMap.addObstacle(Obstacle.createRock(-100, -50));
+        startMap.addObstacle(Obstacle.createCrate(150, -100));
+        startMap.addObstacle(Obstacle.createCrystal(-150, 100));
+        
+        // Create a second map for testing
+        const secondMap = this.mapManager.createMap('forest', this.mapWidth, this.mapHeight);
+        secondMap.addObstacle(Obstacle.createTree(0, 100));
+        secondMap.addObstacle(Obstacle.createTree(-50, 150));
+        secondMap.addObstacle(Obstacle.createTree(50, 150));
+        
+        console.log('Created maps: start, forest');
     }
 
-    generateObstacles() {
-        const centerX = this.worldSize / 2;
-        const centerY = this.worldSize / 2;
-        
-        for (let x = 1; x < this.worldSize - 1; x++) {
-            for (let y = 1; y < this.worldSize - 1; y++) {
-                const tileKey = `${x}_${y}`;
-                const tile = this.tiles.get(tileKey);
-                
-                if (!tile || !tile.walkable) continue;
-                
-                // Don't spawn obstacles too close to center (player spawn)
-                const distanceFromCenter = Math.sqrt(
-                    Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2)
-                );
-                
-                if (distanceFromCenter < 3) continue;
-                
-                const random = Math.random();
-                const worldX = (x - centerX) * 32;
-                const worldY = (y - centerY) * 32;
-                
-                let obstacle = null;
-                
-                // Generate obstacles based on tile type and randomness
-                if (tile.tileType === 'grass') {
-                    if (random < this.treeChance) {
-                        obstacle = Obstacle.createTree(worldX, worldY);
-                    } else if (random < this.treeChance + this.rockChance) {
-                        obstacle = Obstacle.createRock(worldX, worldY);
-                    }
-                } else if (tile.tileType === 'dirt') {
-                    if (random < this.rockChance * 2) {
-                        obstacle = Obstacle.createRock(worldX, worldY);
-                    } else if (random < this.rockChance * 2 + 0.05) {
-                        obstacle = new Obstacle(worldX, worldY, 'crate');
-                    }
-                } else if (tile.tileType === 'stone') {
-                    if (random < this.crystalChance) {
-                        obstacle = Obstacle.createCrystal(worldX, worldY);
-                    }
-                }
-                
-                if (obstacle) {
-                    this.addGameObject(obstacle);
-                }
-            }
-        }
-    }
+
 
     createPlayer() {
         // Spawn player at the center of the world
@@ -147,23 +79,17 @@ class GameScene extends Scene {
 
     setupCamera() {
         if (this.engine && this.engine.camera && this.player) {
-            // Follow the player statically (no smoothing)
-            this.engine.camera.follow(this.player);
-            this.engine.camera.setFollowDeadzone(new Vector2(0, 0)); // No deadzone for static following
-            this.engine.camera.smoothing = false; // Disable smoothing for instant following
+            // Enable static following for Zelda-style camera
+            this.engine.camera.setStaticFollow(true);
             
-            // Set initial camera position
+            // Set initial camera position to center on player
             this.engine.camera.setPosition(this.player.position);
             
-            // Set world bounds
-            const padding = 200;
-            const worldBounds = {
-                x: -this.worldSize * 16 - padding,
-                y: -this.worldSize * 16 - padding,
-                width: this.worldSize * 32 + padding * 2,
-                height: this.worldSize * 32 + padding * 2
-            };
-            this.engine.camera.setBounds(worldBounds);
+            // Follow the player statically (locked to player position)
+            this.engine.camera.follow(this.player);
+            
+            // Remove camera bounds - player movement bounds handle map boundaries
+            this.engine.camera.removeBounds();
         }
     }
 
@@ -218,6 +144,29 @@ class GameScene extends Scene {
                         console.log('Camera shake stopped');
                     }
                     break;
+                    
+                case 'KeyF':
+                    // Toggle camera follow mode
+                    if (this.engine.camera) {
+                        const isStatic = !this.engine.camera.smoothing;
+                        this.engine.camera.setStaticFollow(!isStatic);
+                        console.log(`Camera follow: ${!isStatic ? 'Static' : 'Smooth'}`);
+                    }
+                    break;
+                    
+                case 'Digit1':
+                    // Switch to start map
+                    if (this.mapManager) {
+                        this.mapManager.switchToMap('start', new Vector2(0, 0));
+                    }
+                    break;
+                    
+                case 'Digit2':
+                    // Switch to forest map
+                    if (this.mapManager) {
+                        this.mapManager.switchToMap('forest', new Vector2(0, 0));
+                    }
+                    break;
             }
         });
         
@@ -245,22 +194,8 @@ class GameScene extends Scene {
     }
 
     checkPlayerInteractions() {
-        if (!this.player) return;
-        
-        // Check if player is on special tiles
-        const playerTilePos = this.worldToTileCoordinates(this.player.position);
-        const tileKey = `${playerTilePos.x}_${playerTilePos.y}`;
-        const currentTile = this.tiles.get(tileKey);
-        
-        if (currentTile) {
-            if (currentTile.tileType === 'water' && this.player.health > 0) {
-                // Player is in water - take damage or handle swimming
-                this.player.takeDamage(5 * this.engine.deltaTime); // Slow damage
-            } else if (currentTile.tileType === 'lava') {
-                // Lava damage
-                this.player.takeDamage(20 * this.engine.deltaTime);
-            }
-        }
+        // Map-based interaction logic can be added here
+        // For now, no special tile interactions in map-based system
     }
 
     updateWorld(deltaTime) {
@@ -285,12 +220,11 @@ class GameScene extends Scene {
     }
 
     renderMinimap(renderer) {
-        if (!this.player) return;
+        if (!this.player || !this.currentMap) return;
         
         const minimapSize = 120;
         const minimapX = renderer.canvas.width - minimapSize - 10;
         const minimapY = 10;
-        const scale = minimapSize / (this.worldSize * 32);
         
         renderer.ctx.save();
         
@@ -303,83 +237,62 @@ class GameScene extends Scene {
         renderer.ctx.lineWidth = 2;
         renderer.ctx.strokeRect(minimapX, minimapY, minimapSize, minimapSize);
         
-        // Draw world overview
-        const centerX = this.worldSize / 2;
-        const centerY = this.worldSize / 2;
+        // Draw current map bounds
+        renderer.ctx.fillStyle = '#4CAF50';
+        renderer.ctx.fillRect(minimapX + 2, minimapY + 2, minimapSize - 4, minimapSize - 4);
         
-        for (const [key, tile] of this.tiles) {
-            const [x, y] = key.split('_').map(Number);
-            const screenX = minimapX + ((x - centerX) * scale * 32) + minimapSize / 2;
-            const screenY = minimapY + ((y - centerY) * scale * 32) + minimapSize / 2;
-            
-            if (screenX >= minimapX && screenX <= minimapX + minimapSize &&
-                screenY >= minimapY && screenY <= minimapY + minimapSize) {
-                
-                let color = '#4CAF50'; // grass
-                if (tile.tileType === 'water') color = '#2196F3';
-                else if (tile.tileType === 'stone') color = '#757575';
-                else if (tile.tileType === 'dirt') color = '#8D6E63';
-                else if (tile.tileType === 'sand') color = '#FFC107';
-                
-                renderer.ctx.fillStyle = color;
-                renderer.ctx.fillRect(screenX, screenY, Math.max(1, scale * 32), Math.max(1, scale * 32));
-            }
-        }
+        // Draw player position relative to map center
+        const mapCenterX = minimapX + minimapSize / 2;
+        const mapCenterY = minimapY + minimapSize / 2;
         
-        // Draw player position
-        const playerScreenX = minimapX + (this.player.position.x * scale) + minimapSize / 2;
-        const playerScreenY = minimapY + (this.player.position.y * scale) + minimapSize / 2;
+        // Scale based on map size
+        const scaleX = (minimapSize - 4) / this.mapWidth;
+        const scaleY = (minimapSize - 4) / this.mapHeight;
+        
+        const playerMinimapX = mapCenterX + (this.player.position.x * scaleX);
+        const playerMinimapY = mapCenterY + (this.player.position.y * scaleY);
         
         renderer.ctx.fillStyle = '#FF0000';
         renderer.ctx.beginPath();
-        renderer.ctx.arc(playerScreenX, playerScreenY, 3, 0, Math.PI * 2);
+        renderer.ctx.arc(playerMinimapX, playerMinimapY, 3, 0, Math.PI * 2);
         renderer.ctx.fill();
+        
+        // Show current map name
+        renderer.ctx.fillStyle = '#FFFFFF';
+        renderer.ctx.font = '12px Arial';
+        renderer.ctx.textAlign = 'center';
+        renderer.ctx.fillText(
+            this.mapManager ? this.mapManager.currentMapId : 'Unknown',
+            mapCenterX,
+            minimapY + minimapSize + 15
+        );
         
         renderer.ctx.restore();
     }
 
-    // Utility methods
-    worldToTileCoordinates(worldPos) {
-        const centerX = this.worldSize / 2;
-        const centerY = this.worldSize / 2;
-        
-        const tileX = Math.floor(worldPos.x / 32) + centerX;
-        const tileY = Math.floor(worldPos.y / 32) + centerY;
-        
-        return new Vector2(tileX, tileY);
+    // Map-based utility methods
+    switchMap(mapId, playerStartPosition = null) {
+        if (this.mapManager) {
+            return this.mapManager.switchToMap(mapId, playerStartPosition);
+        }
+        return false;
     }
 
-    getTileAt(worldPos) {
-        const tilePos = this.worldToTileCoordinates(worldPos);
-        const key = `${tilePos.x}_${tilePos.y}`;
-        return this.tiles.get(key);
+    getCurrentMapId() {
+        return this.mapManager ? this.mapManager.currentMapId : null;
     }
 
-    simpleNoise(x, y) {
-        // Simple pseudo-random noise function
-        let value = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-        return (value - Math.floor(value)) * 2 - 1; // Normalize to [-1, 1]
-    }
-
-    // Spawning methods
-    spawnObstacle(type, position) {
-        const obstacle = new Obstacle(position.x, position.y, type);
-        this.addGameObject(obstacle);
-        return obstacle;
-    }
-
-    spawnTree(position) {
-        return this.spawnObstacle('tree', position);
-    }
-
-    spawnRock(position) {
-        return this.spawnObstacle('rock', position);
+    addObstacleToCurrentMap(obstacle) {
+        if (this.mapManager && this.mapManager.currentMapId) {
+            this.mapManager.addObstacleToMap(this.mapManager.currentMapId, obstacle);
+        }
     }
 
     // Cleanup
     destroy() {
         super.destroy();
-        this.tiles.clear();
+        this.mapManager = null;
+        this.currentMap = null;
         this.player = null;
     }
 }

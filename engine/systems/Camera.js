@@ -48,20 +48,23 @@ class Camera {
         // Apply camera shake
         this.updateShake(deltaTime);
         
-        // Smooth camera movement
+        // Handle camera movement based on smoothing mode
         if (this.smoothing) {
+            // Smooth movement
             this.position = this.position.add(
                 this.targetPosition.subtract(this.position).multiply(this.positionSmoothing)
             );
-            
             this.zoom += (this.targetZoom - this.zoom) * this.zoomSmoothing;
         } else {
-            this.position = this.targetPosition.clone();
+            // Static following - position is already set in updateFollowTarget
+            // Only update zoom instantly
             this.zoom = this.targetZoom;
         }
         
-        // Apply bounds
-        this.applyBounds();
+        // Don't apply bounds when static following - let player boundaries handle it
+        if (this.smoothing || !this.followTarget) {
+            this.applyBounds();
+        }
         
         // Clamp zoom
         this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoom));
@@ -71,6 +74,16 @@ class Camera {
         if (!this.followTarget) return;
         
         const targetPos = this.followTarget.position.add(this.followOffset);
+        
+        // Static following: camera moves with target to keep world moving around stationary player
+        if (!this.smoothing) {
+            // Camera position follows the target exactly so world moves around player
+            this.position = targetPos.clone();
+            this.targetPosition = targetPos.clone();
+            return;
+        }
+        
+        // Original smooth following logic
         const currentPos = this.targetPosition;
         const difference = targetPos.subtract(currentPos);
         
@@ -159,6 +172,17 @@ class Camera {
 
     setFollowSpeed(speed) {
         this.followSpeed = speed;
+    }
+
+    setStaticFollow(enabled) {
+        this.smoothing = !enabled;
+        if (enabled) {
+            this.followDeadzone = new Vector2(0, 0);
+        }
+    }
+
+    isStaticFollowing() {
+        return this.followTarget && !this.smoothing;
     }
 
     // Shake methods

@@ -72,10 +72,15 @@
             <div>Rotation: <span id="rotation">0°</span></div>
         </div>
         <div id="controls">
-            Controls: WASD/Arrow Keys to move, E to interact
+            Controls: WASD/Arrow Keys to move, E to interact<br>
+            1/2 - Switch maps, File input for map backgrounds
         </div>
         <div id="backgroundControls">
-            <div>Background Image:</div>
+            <div>Map Background:</div>
+            <select id="mapSelect">
+                <option value="start">Start Map</option>
+                <option value="forest">Forest Map</option>
+            </select>
             <input type="file" id="backgroundInput" accept="image/*">
         </div>
     </div>
@@ -92,11 +97,13 @@
     <script src="engine/systems/Physics.js"></script>
     <script src="engine/systems/Camera.js"></script>
     <script src="engine/systems/AssetManager.js"></script>
+    <script src="engine/systems/MapManager.js"></script>
     
     <!-- Game Objects -->
     <script src="engine/objects/Player.js"></script>
     <script src="engine/objects/Tile.js"></script>
     <script src="engine/objects/Obstacle.js"></script>
+    <script src="engine/objects/Map.js"></script>
     
     <!-- Game Implementation -->
     <script src="game/GameScene.js"></script>

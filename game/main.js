@@ -121,34 +121,18 @@ function addDebugPanel() {
 
 function setupBackgroundImageHandler() {
     const backgroundInput = document.getElementById('backgroundInput');
+    const mapSelect = document.getElementById('mapSelect');
     
     backgroundInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
+        const selectedMap = mapSelect.value;
+        
         if (file && file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            
-            reader.onload = (e) => {
-                const img = new Image();
-                
-                img.onload = () => {
-                    if (window.gameEngine && window.gameEngine.renderer) {
-                        window.gameEngine.renderer.setBackgroundImage(img, 1.0);
-                        console.log('Background image loaded:', file.name);
-                    }
-                };
-                
-                img.onerror = () => {
-                    console.error('Failed to load background image');
-                };
-                
-                img.src = e.target.result;
-            };
-            
-            reader.onerror = () => {
-                console.error('Failed to read file');
-            };
-            
-            reader.readAsDataURL(file);
+            const scene = window.gameEngine ? window.gameEngine.currentScene : null;
+            if (scene && scene.mapManager) {
+                scene.mapManager.loadMapBackground(selectedMap, file);
+                console.log(`Background loaded for map: ${selectedMap}`);
+            }
         } else {
             console.warn('Please select a valid image file');
         }
@@ -320,6 +304,27 @@ window.gameUtils = {
         if (engine && engine.renderer) {
             engine.renderer.removeBackground();
             console.log('Background removed');
+        }
+    },
+    
+    setStaticFollow: (enabled) => {
+        const engine = window.gameUtils.getEngine();
+        if (engine && engine.camera) {
+            engine.camera.setStaticFollow(enabled);
+            console.log(`Camera follow: ${enabled ? 'Static' : 'Smooth'}`);
+        }
+    },
+    
+    checkCentering: () => {
+        const engine = window.gameUtils.getEngine();
+        const player = window.gameUtils.getPlayer();
+        if (engine && player && engine.camera) {
+            console.log('Player position:', player.position);
+            console.log('Camera position:', engine.camera.position);
+            console.log('Screen center should be:', engine.canvas.width/2, engine.canvas.height/2);
+            
+            const screenPos = engine.camera.worldToScreen(player.position);
+            console.log('Player screen position:', screenPos);
         }
     }
 };

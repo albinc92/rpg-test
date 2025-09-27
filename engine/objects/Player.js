@@ -95,6 +95,26 @@ class Player extends GameObject {
         if (this.velocity.magnitude() > this.moveSpeed) {
             this.velocity = this.velocity.normalize().multiply(this.moveSpeed);
         }
+        
+        // Constrain player to current map boundaries
+        this.constrainToCurrentMap();
+    }
+
+    constrainToCurrentMap() {
+        if (!this.scene || !this.scene.currentMap) return;
+        
+        const map = this.scene.currentMap;
+        const newPosition = map.clampToMap(this.position);
+        
+        // If position was clamped, stop velocity in that direction
+        if (newPosition.x !== this.position.x) {
+            this.velocity.x = 0;
+        }
+        if (newPosition.y !== this.position.y) {
+            this.velocity.y = 0;
+        }
+        
+        this.position = newPosition;
     }
 
     updateRotation(deltaTime) {
@@ -136,7 +156,20 @@ class Player extends GameObject {
     render(renderer) {
         if (!this.visible) return;
         
-        const screenPos = renderer.worldToScreen(this.position);
+        // For static following, ALWAYS render at screen center
+        const camera = this.scene.engine.camera;
+        let screenPos;
+        
+        if (camera && camera.isStaticFollowing() && camera.followTarget === this) {
+            // Static follow: player is ALWAYS at screen center, period
+            screenPos = new Vector2(
+                renderer.canvas.width / 2,
+                renderer.canvas.height / 2
+            );
+        } else {
+            // Normal rendering: use world-to-screen conversion
+            screenPos = renderer.worldToScreen(this.position);
+        }
         
         renderer.ctx.save();
         renderer.ctx.translate(screenPos.x, screenPos.y);
@@ -183,7 +216,21 @@ class Player extends GameObject {
     }
 
     drawHealthBar(renderer) {
-        const screenPos = renderer.worldToScreen(this.position);
+        // Always render health bar above the player's visual position
+        const camera = this.scene.engine.camera;
+        let screenPos;
+        
+        if (camera && camera.isStaticFollowing() && camera.followTarget === this) {
+            // Static follow: health bar renders above screen center
+            screenPos = new Vector2(
+                renderer.canvas.width / 2,
+                renderer.canvas.height / 2
+            );
+        } else {
+            // Normal rendering: use world-to-screen conversion
+            screenPos = renderer.worldToScreen(this.position);
+        }
+        
         const barWidth = 30;
         const barHeight = 4;
         const offsetY = -this.size.y / 2 - 10;
