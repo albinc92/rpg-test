@@ -677,6 +677,9 @@ class Game {
         const playerScreenX = this.player.x - this.player.width / 2;
         const playerScreenY = this.player.y - this.player.height / 2;
         
+        // Draw shadow first (behind character)
+        this.drawShadow(this.player.x, this.player.y, this.player.width, this.player.height);
+        
         this.ctx.save();
         
         // Handle horizontal flipping
@@ -696,11 +699,33 @@ class Game {
         this.ctx.restore();
     }
     
+    drawShadow(x, y, width, height) {
+        // Draw a circular shadow underneath characters
+        const shadowRadius = Math.min(width, height) * 0.3; // Shadow size relative to character
+        const shadowX = x;
+        const shadowY = y + height * 0.4; // Position shadow slightly below center of character
+        
+        this.ctx.save();
+        this.ctx.globalAlpha = 0.3; // Make shadow transparent
+        this.ctx.fillStyle = 'black';
+        
+        // Create elliptical shadow (squashed circle)
+        this.ctx.beginPath();
+        this.ctx.ellipse(shadowX, shadowY, shadowRadius, shadowRadius * 0.5, 0, 0, 2 * Math.PI);
+        this.ctx.fill();
+        
+        this.ctx.restore();
+    }
+    
     drawNPCs() {
         this.npcs.forEach(npc => {
             const npcScreenX = npc.x - npc.width / 2;
             const npcScreenY = npc.y - npc.height / 2;
             
+            // Draw shadow first (behind NPC)
+            this.drawShadow(npc.x, npc.y, npc.width, npc.height);
+            
+            // Draw NPC sprite
             this.ctx.drawImage(npc.sprite, npcScreenX, npcScreenY, npc.width, npc.height);
             
             // Draw interaction indicator if player is close
