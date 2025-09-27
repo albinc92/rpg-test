@@ -79,13 +79,8 @@ class Game {
         };
         
         // NPC system
-        this.npcs = {}; // NPCs organized by map ID
-        this.dialogue = {
-            active: false,
-            currentNPC: null,
-            currentMessage: '',
-            messageIndex: 0
-        };
+        this.npcManager = new NPCManager();
+        this.npcs = {}; // NPCs organized by map ID (will be populated by NPCManager)
         
         // Animation timing
         this.gameTime = 0;
@@ -130,7 +125,7 @@ class Game {
         
         // Initialize maps and NPCs
         this.initializeMaps();
-        this.initializeNPCs();
+        this.npcs = this.npcManager.initializeAllNPCs();
         
         // Load initial map
         await this.loadMap(this.currentMapId);
@@ -260,138 +255,30 @@ class Game {
         });
     }
     
-    initializeNPCs() {
-        // Initialize NPCs for each map
-        this.npcs = {
-            '0-0': [],
-            '0-1': []
-        };
-        
-        // Create the sage NPC for map 0-0
-        const sage = {
-            id: 'sage',
-            type: 'dialogue',
-            x: 1000,
-            y: 600,
-            width: 96,
-            height: 96,
-            sprite: new Image(),
-            direction: 'right', // 'left' or 'right'
-            messages: [
-                "Greetings, young adventurer!",
-                "Welcome to this mystical realm.",
-                "Press SPACE or ENTER to continue dialogue.",
-                "Use WASD to move around the world.",
-                "May your journey be filled with wonder!"
-            ]
-        };
-        sage.sprite.src = 'assets/npc/sage-0.png';
-        this.npcs['0-0'].push(sage);
-        
-        // Portal to map 0-1
-        const portal1 = {
-            id: 'portal_to_0-1',
-            type: 'portal',
-            x: 899,
-            y: 148,
-            width: 80,
-            height: 80,
-            sprite: new Image(),
-            rotation: 45, // 360 degree rotation (in degrees)
-            targetMap: '0-1',
-            targetX: 469,
-            targetY: 949,
-            pulseSpeed: 2.0, // Speed of pulsating animation
-            baseAlpha: 0.7, // Base transparency
-            pulseAlpha: 0.3 // Additional alpha variation for pulsing
-        };
-        portal1.sprite.src = 'assets/npc/navigation-0.png';
-        this.npcs['0-0'].push(portal1);
-        
-        // Return portal for map 0-1 (to get back to 0-0)
-        const portal2 = {
-            id: 'portal_to_0-0',
-            type: 'portal',
-            x: 257,
-            y: 948,
-            width: 80,
-            height: 80,
-            sprite: new Image(),
-            rotation: 225, // Different rotation for visual variety
-            targetMap: '0-0',
-            targetX: 900,
-            targetY: 200,
-            pulseSpeed: 2., // Slightly different pulse speed
-            baseAlpha: 0.7,
-            pulseAlpha: 0.3
-        };
-        portal2.sprite.src = 'assets/npc/navigation-0.png';
-        this.npcs['0-1'].push(portal2);
-    }
+
     
     handleDialogueInput(e) {
         if (e.key === 'Enter' || e.key === ' ') {
-            this.nextDialogueMessage();
+            this.npcManager.nextDialogueMessage(() => this.playSpeechBubbleSound());
         }
     }
     
     checkNPCInteraction() {
-        const interactionDistance = 120; // Distance for interaction
-        const currentMapNPCs = this.npcs[this.currentMapId] || [];
+        const npc = this.npcManager.checkNearbyNPCs(this.player, this.currentMapId, 120);
         
-        for (let npc of currentMapNPCs) {
-            const distance = Math.sqrt(
-                Math.pow(this.player.x - npc.x, 2) + 
-                Math.pow(this.player.y - npc.y, 2)
-            );
-            
-            if (distance <= interactionDistance) {
-                if (npc.type === 'teleporter') {
-                    this.handleTeleporter(npc);
-                } else if (npc.type === 'portal') {
-                    // Portals are handled automatically in checkPortalCollisions
-                    continue;
-                } else {
-                    this.startDialogue(npc);
-                }
-                break;
+        if (npc) {
+            if (npc.type === 'teleporter') {
+                this.handleTeleporter(npc);
+            } else if (npc.type === 'portal') {
+                // Portals are handled automatically in checkPortalCollisions
+                return;
+            } else {
+                this.npcManager.startDialogue(npc, () => this.playSpeechBubbleSound());
             }
         }
     }
     
-    startDialogue(npc) {
-        this.dialogue.active = true;
-        this.dialogue.currentNPC = npc;
-        this.dialogue.messageIndex = 0;
-        this.dialogue.currentMessage = npc.messages[0];
-        this.playSpeechBubbleSound(); // Play sound when dialogue starts
-    }
-    
-    nextDialogueMessage() {
-        this.dialogue.messageIndex++;
-        
-        if (this.dialogue.messageIndex >= this.dialogue.currentNPC.messages.length) {
-            this.endDialogue();
-        } else {
-            this.dialogue.currentMessage = this.dialogue.currentNPC.messages[this.dialogue.messageIndex];
-            this.playSpeechBubbleSound(); // Play sound when advancing dialogue
-        }
-    }
-    
-    endDialogue() {
-        const currentNPC = this.dialogue.currentNPC;
-        
-        this.dialogue.active = false;
-        this.dialogue.currentNPC = null;
-        this.dialogue.currentMessage = '';
-        this.dialogue.messageIndex = 0;
-        
-        // Handle post-dialogue actions (like teleportation)
-        if (currentNPC && currentNPC.onDialogueEnd) {
-            currentNPC.onDialogueEnd();
-            currentNPC.onDialogueEnd = null; // Clear the callback
-        }
-    }
+
     
     toggleWalkRun() {
         this.settings.playerSpeed = this.settings.playerSpeed === 'Walk' ? 'Run' : 'Walk';
@@ -403,29 +290,17 @@ class Game {
     }
     
     checkPortalCollisions() {
-        const currentMapNPCs = this.npcs[this.currentMapId] || [];
+        const portal = this.npcManager.checkPortalCollisions(this.player, this.currentMapId);
         
-        for (let npc of currentMapNPCs) {
-            if (npc.type === 'portal') {
-                const distance = Math.sqrt(
-                    Math.pow(this.player.x - npc.x, 2) + 
-                    Math.pow(this.player.y - npc.y, 2)
-                );
-                
-                // Check if player is touching the portal (collision detection)
-                const collisionDistance = (npc.width + this.player.width) / 4; // Smaller collision area
-                if (distance <= collisionDistance) {
-                    // Automatically teleport
-                    this.teleportToMap(npc.targetMap, npc.targetX, npc.targetY);
-                    break;
-                }
-            }
+        if (portal) {
+            // Automatically teleport
+            this.teleportToMap(portal.targetMap, portal.targetX, portal.targetY);
         }
     }
     
     handleTeleporter(teleporter) {
         // Show teleporter dialogue first
-        this.startDialogue(teleporter);
+        this.npcManager.startDialogue(teleporter, () => this.playSpeechBubbleSound());
         
         // Add teleportation confirmation after dialogue
         teleporter.onDialogueEnd = () => {
@@ -473,7 +348,7 @@ class Game {
             } else if (this.gameState === 'SETTINGS') {
                 this.handleSettingsInput(e);
             } else if (this.gameState === 'PLAYING') {
-                if (this.dialogue.active) {
+                if (this.npcManager.isDialogueActive()) {
                     this.handleDialogueInput(e);
                 } else {
                     this.keys[e.key.toLowerCase()] = true;
@@ -497,8 +372,13 @@ class Game {
                 
                 // ESC to return to menu (works even during dialogue)
                 if (e.key === 'Escape') {
-                    if (this.dialogue.active) {
-                        this.endDialogue();
+                    if (this.npcManager.isDialogueActive()) {
+                        const currentNPC = this.npcManager.endDialogue();
+                        // Handle post-dialogue actions (like teleportation)
+                        if (currentNPC && currentNPC.onDialogueEnd) {
+                            currentNPC.onDialogueEnd();
+                            currentNPC.onDialogueEnd = null; // Clear the callback
+                        }
                     } else {
                         this.gameState = 'MENU';
                         this.stopBGM(); // Stop music when returning to menu
@@ -653,7 +533,7 @@ class Game {
     update() {
         if (this.gameState !== 'PLAYING') return;
         if (!this.currentMap.loaded) return;
-        if (this.dialogue.active) return; // Don't allow movement during dialogue
+        if (this.npcManager.isDialogueActive()) return; // Don't allow movement during dialogue
         
         // Update game time for animations
         this.gameTime += 0.016; // Approximate 60fps timing
@@ -825,7 +705,7 @@ class Game {
         this.ctx.restore();
         
         // Draw dialogue box (after restoring context so it's not affected by camera)
-        if (this.dialogue.active) {
+        if (this.npcManager.isDialogueActive()) {
             this.drawDialogue();
         }
     }
@@ -1024,7 +904,7 @@ class Game {
                     Math.pow(this.player.y - npc.y, 2)
                 );
                 
-                if (distance <= 120 && !this.dialogue.active) {
+                if (distance <= 120 && !this.npcManager.isDialogueActive()) {
                     // Draw "E" indicator above NPC
                     this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
                     this.ctx.strokeStyle = 'black';
@@ -1043,11 +923,12 @@ class Game {
     }
     
     drawDialogue() {
-        if (!this.dialogue.currentNPC) return;
+        const dialogueState = this.npcManager.getDialogueState();
+        if (!dialogueState.currentNPC) return;
         
         // Calculate NPC position in screen coordinates
-        const npcScreenX = this.dialogue.currentNPC.x - this.camera.x;
-        const npcScreenY = this.dialogue.currentNPC.y - this.camera.y;
+        const npcScreenX = dialogueState.currentNPC.x - this.camera.x;
+        const npcScreenY = dialogueState.currentNPC.y - this.camera.y;
         
         // Speech bubble dimensions
         const padding = 15;
@@ -1056,7 +937,7 @@ class Game {
         
         // Measure text to determine bubble size
         this.ctx.font = '16px Arial';
-        const words = this.dialogue.currentMessage.split(' ');
+        const words = dialogueState.currentMessage.split(' ');
         const lines = [];
         let currentLine = '';
         
@@ -1084,7 +965,7 @@ class Game {
         
         // Position above NPC's head
         const bubbleX = npcScreenX - bubbleWidth / 2;
-        const bubbleY = npcScreenY - this.dialogue.currentNPC.height - bubbleHeight - 20;
+        const bubbleY = npcScreenY - dialogueState.currentNPC.height - bubbleHeight - 20;
         
         // Ensure bubble stays on screen
         const adjustedX = Math.max(10, Math.min(this.CANVAS_WIDTH - bubbleWidth - 10, bubbleX));
@@ -1123,7 +1004,7 @@ class Game {
         this.ctx.fillStyle = '#2C5282';
         this.ctx.font = 'bold 14px Arial';
         this.ctx.textAlign = 'left';
-        this.ctx.fillText(this.dialogue.currentNPC.id.toUpperCase(), adjustedX + padding, adjustedY + padding + 14);
+        this.ctx.fillText(dialogueState.currentNPC.id.toUpperCase(), adjustedX + padding, adjustedY + padding + 14);
         
         // Draw message text
         this.ctx.fillStyle = '#333';
@@ -1138,7 +1019,7 @@ class Game {
         this.ctx.font = '12px Arial';
         this.ctx.textAlign = 'right';
         
-        const isLastMessage = this.dialogue.messageIndex >= this.dialogue.currentNPC.messages.length - 1;
+        const isLastMessage = dialogueState.messageIndex >= dialogueState.currentNPC.messages.length - 1;
         const continueText = isLastMessage ? 'ESC to close' : 'SPACE/ENTER to continue';
         this.ctx.fillText(continueText, adjustedX + bubbleWidth - padding, adjustedY + bubbleHeight - 8);
     }

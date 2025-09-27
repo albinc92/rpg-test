@@ -1,0 +1,262 @@
+/**
+ * NPC System for RPG Game
+ * Contains all NPC definitions and related functionality
+ */
+
+class NPCManager {
+    constructor() {
+        this.npcRegistry = new Map(); // Registry of all NPCs by ID
+        this.dialogue = {
+            active: false,
+            currentNPC: null,
+            currentMessage: '',
+            messageIndex: 0
+        };
+        
+        // Initialize the NPC registry
+        this.initializeNPCRegistry();
+    }
+
+    /**
+     * Initialize the NPC registry with all NPC definitions
+     */
+    initializeNPCRegistry() {
+        // Sage NPC - appears on map 0-0
+        this.registerNPC({
+            id: 'sage',
+            type: 'dialogue',
+            mapId: '0-0',
+            x: 1000,
+            y: 600,
+            width: 96,
+            height: 96,
+            spriteSrc: 'assets/npc/sage-0.png',
+            direction: 'right', // 'left' or 'right'
+            messages: [
+                "Greetings, young adventurer!",
+                "Welcome to this mystical realm.",
+                "Press SPACE or ENTER to continue dialogue.",
+                "Use WASD to move around the world.",
+                "May your journey be filled with wonder!"
+            ]
+        });
+
+        // Portal from map 0-0 to 0-1
+        this.registerNPC({
+            id: 'portal_to_0-1',
+            type: 'portal',
+            mapId: '0-0',
+            x: 899,
+            y: 148,
+            width: 80,
+            height: 80,
+            spriteSrc: 'assets/npc/navigation-0.png',
+            rotation: 45, // 360 degree rotation (in degrees)
+            targetMap: '0-1',
+            targetX: 469,
+            targetY: 949,
+            pulseSpeed: 2.0, // Speed of pulsating animation
+            baseAlpha: 0.7, // Base transparency
+            pulseAlpha: 0.3 // Additional alpha variation for pulsing
+        });
+
+        // Portal from map 0-1 to 0-0
+        this.registerNPC({
+            id: 'portal_to_0-0',
+            type: 'portal',
+            mapId: '0-1',
+            x: 257,
+            y: 948,
+            width: 80,
+            height: 80,
+            spriteSrc: 'assets/npc/navigation-0.png',
+            rotation: 225, // Different rotation for visual variety
+            targetMap: '0-0',
+            targetX: 900,
+            targetY: 200,
+            pulseSpeed: 2.0, // Slightly different pulse speed
+            baseAlpha: 0.7,
+            pulseAlpha: 0.3
+        });
+    }
+
+    /**
+     * Get all NPCs organized by map ID (for compatibility with game.js)
+     * @returns {object} NPCs organized by map ID
+     */
+    initializeAllNPCs() {
+        const npcsByMap = {};
+        
+        // Group NPCs by their mapId
+        for (const npc of this.npcRegistry.values()) {
+            if (!npcsByMap[npc.mapId]) {
+                npcsByMap[npc.mapId] = [];
+            }
+            npcsByMap[npc.mapId].push(npc);
+        }
+        
+        return npcsByMap;
+    }
+
+    /**
+     * Register a new NPC in the registry
+     * @param {object} npcData - The NPC data object
+     */
+    registerNPC(npcData) {
+        // Create sprite object if spriteSrc is provided
+        if (npcData.spriteSrc) {
+            npcData.sprite = new Image();
+            npcData.sprite.src = npcData.spriteSrc;
+        }
+        
+        this.npcRegistry.set(npcData.id, npcData);
+    }
+
+    /**
+     * Remove an NPC from the registry
+     * @param {string} npcId - The ID of the NPC to remove
+     */
+    removeNPC(npcId) {
+        this.npcRegistry.delete(npcId);
+    }
+
+    /**
+     * Get all NPCs for a specific map
+     * @param {string} mapId - The map ID to get NPCs for
+     * @returns {array} Array of NPCs for the specified map
+     */
+    getNPCsForMap(mapId) {
+        return Array.from(this.npcRegistry.values()).filter(npc => npc.mapId === mapId);
+    }
+
+    /**
+     * Find an NPC by ID in a specific map
+     * @param {string} mapId - The map ID to search in
+     * @param {string} npcId - The ID of the NPC to find
+     * @returns {object|null} The NPC object or null if not found
+     */
+    findNPC(mapId, npcId) {
+        return this.npcRegistry.get(npcId) || null;
+    }
+
+    /**
+     * Check for NPC interactions within a given distance
+     * @param {object} player - Player object with x, y coordinates
+     * @param {string} mapId - Current map ID
+     * @param {number} interactionDistance - Maximum distance for interaction
+     * @returns {object|null} The NPC that can be interacted with, or null
+     */
+    checkNearbyNPCs(player, mapId, interactionDistance = 120) {
+        const mapNPCs = this.getNPCsForMap(mapId);
+        
+        for (let npc of mapNPCs) {
+            const distance = Math.sqrt(
+                Math.pow(player.x - npc.x, 2) + 
+                Math.pow(player.y - npc.y, 2)
+            );
+            
+            if (distance <= interactionDistance) {
+                return npc;
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * Check for portal collisions (automatic teleportation)
+     * @param {object} player - Player object with x, y, width, height
+     * @param {string} mapId - Current map ID
+     * @returns {object|null} Portal NPC if collision detected, null otherwise
+     */
+    checkPortalCollisions(player, mapId) {
+        const mapNPCs = this.getNPCsForMap(mapId);
+        
+        for (let npc of mapNPCs) {
+            if (npc.type === 'portal') {
+                const distance = Math.sqrt(
+                    Math.pow(player.x - npc.x, 2) + 
+                    Math.pow(player.y - npc.y, 2)
+                );
+                
+                // Check if player is touching the portal (collision detection)
+                const collisionDistance = (npc.width + player.width) / 4; // Smaller collision area
+                if (distance <= collisionDistance) {
+                    return npc;
+                }
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * Start dialogue with an NPC
+     * @param {object} npc - The NPC to start dialogue with
+     * @param {function} soundCallback - Optional callback to play sound effect
+     */
+    startDialogue(npc, soundCallback = null) {
+        this.dialogue.active = true;
+        this.dialogue.currentNPC = npc;
+        this.dialogue.messageIndex = 0;
+        this.dialogue.currentMessage = npc.messages[0];
+        
+        if (soundCallback) {
+            soundCallback();
+        }
+    }
+
+    /**
+     * Advance to the next dialogue message
+     * @param {function} soundCallback - Optional callback to play sound effect
+     * @returns {boolean} True if dialogue continues, false if dialogue ended
+     */
+    nextDialogueMessage(soundCallback = null) {
+        this.dialogue.messageIndex++;
+        
+        if (this.dialogue.messageIndex >= this.dialogue.currentNPC.messages.length) {
+            this.endDialogue();
+            return false;
+        } else {
+            this.dialogue.currentMessage = this.dialogue.currentNPC.messages[this.dialogue.messageIndex];
+            if (soundCallback) {
+                soundCallback();
+            }
+            return true;
+        }
+    }
+
+    /**
+     * End the current dialogue
+     * @returns {object|null} The NPC that was in dialogue, for post-dialogue actions
+     */
+    endDialogue() {
+        const currentNPC = this.dialogue.currentNPC;
+        
+        this.dialogue.active = false;
+        this.dialogue.currentNPC = null;
+        this.dialogue.currentMessage = '';
+        this.dialogue.messageIndex = 0;
+        
+        return currentNPC;
+    }
+
+    /**
+     * Get the current dialogue state
+     * @returns {object} Current dialogue state
+     */
+    getDialogueState() {
+        return { ...this.dialogue };
+    }
+
+    /**
+     * Check if dialogue is currently active
+     * @returns {boolean} True if dialogue is active
+     */
+    isDialogueActive() {
+        return this.dialogue.active;
+    }
+}
+
+// Export for use in other files
+window.NPCManager = NPCManager;
