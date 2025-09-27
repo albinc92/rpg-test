@@ -32,11 +32,16 @@ class Game {
         
         // Current map
         this.currentMap = {
+            id: '0-0',
             image: null,
             width: 0,
             height: 0,
             loaded: false
         };
+        
+        // Map system
+        this.maps = {};
+        this.currentMapId = '0-0';
         
         // Input handling
         this.keys = {};
@@ -74,7 +79,7 @@ class Game {
         };
         
         // NPC system
-        this.npcs = [];
+        this.npcs = {}; // NPCs organized by map ID
         this.dialogue = {
             active: false,
             currentNPC: null,
@@ -120,38 +125,21 @@ class Game {
         // Load background music
         this.loadAudio();
         
-        // Initialize NPCs
+        // Initialize maps and NPCs
+        this.initializeMaps();
         this.initializeNPCs();
         
-        // Wait for all assets to load
-        const loadPromises = [
-            new Promise(resolve => {
-                this.player.sprite.onload = resolve;
-            }),
-            new Promise(resolve => {
-                this.currentMap.image.onload = () => {
-                    // Set map dimensions based on image
-                    this.currentMap.width = this.currentMap.image.width;
-                    this.currentMap.height = this.currentMap.image.height;
-                    this.currentMap.loaded = true;
-                    
-                    // Position player in center of map initially
-                    this.player.x = this.currentMap.width / 2;
-                    this.player.y = this.currentMap.height / 2;
-                    
-                    resolve();
-                };
-            })
-        ];
+        // Load initial map
+        await this.loadMap(this.currentMapId);
         
-        // Add NPC loading promises
-        this.npcs.forEach(npc => {
-            loadPromises.push(new Promise(resolve => {
-                npc.sprite.onload = resolve;
-            }));
+        // Position player in center of map initially
+        this.player.x = this.currentMap.width / 2;
+        this.player.y = this.currentMap.height / 2;
+        
+        // Wait for player sprite to load
+        await new Promise(resolve => {
+            this.player.sprite.onload = resolve;
         });
-        
-        await Promise.all(loadPromises);
     }
     
     loadAudio() {
@@ -229,11 +217,53 @@ class Game {
         }
     }
     
+    initializeMaps() {
+        // Define available maps
+        this.maps = {
+            '0-0': {
+                id: '0-0',
+                imagePath: 'assets/maps/0-0.png',
+                name: 'Forest Clearing'
+            }
+            // Add more maps here as you create them
+        };
+    }
+    
+    async loadMap(mapId) {
+        if (!this.maps[mapId]) {
+            console.error(`Map ${mapId} not found`);
+            return;
+        }
+        
+        const mapData = this.maps[mapId];
+        
+        // Load map image
+        this.currentMap.image = new Image();
+        this.currentMap.id = mapId;
+        this.currentMapId = mapId;
+        
+        return new Promise((resolve) => {
+            this.currentMap.image.onload = () => {
+                this.currentMap.width = this.currentMap.image.width;
+                this.currentMap.height = this.currentMap.image.height;
+                this.currentMap.loaded = true;
+                resolve();
+            };
+            this.currentMap.image.src = mapData.imagePath;
+        });
+    }
+    
     initializeNPCs() {
-        // Create the sage NPC
+        // Initialize NPCs for each map
+        this.npcs = {
+            '0-0': []
+        };
+        
+        // Create the sage NPC for map 0-0
         const sage = {
             id: 'sage',
-            x: 1000, // Position on map
+            type: 'dialogue',
+            x: 1000,
             y: 600,
             width: 96,
             height: 96,
@@ -247,8 +277,28 @@ class Game {
             ]
         };
         sage.sprite.src = 'assets/npc/sage-0.png';
+        this.npcs['0-0'].push(sage);
         
-        this.npcs.push(sage);
+        // Teleporter NPC - using sage sprite for now since we don't have a portal sprite
+        const teleporter = {
+            id: 'teleporter',
+            type: 'teleporter',
+            x: 899,
+            y: 148,
+            width: 96,
+            height: 96,
+            sprite: new Image(),
+            targetMap: '1-0',
+            targetX: 400,
+            targetY: 300,
+            messages: [
+                "I am a mystical teleporter!",
+                "I can transport you to distant lands.",
+                "Step through my magic to explore new realms!"
+            ]
+        };
+        teleporter.sprite.src = 'assets/npc/sign-0.png'; // Using sign sprite for teleporter
+        this.npcs['0-0'].push(teleporter);
     }
     
     handleDialogueInput(e) {
@@ -259,15 +309,20 @@ class Game {
     
     checkNPCInteraction() {
         const interactionDistance = 120; // Distance for interaction
+        const currentMapNPCs = this.npcs[this.currentMapId] || [];
         
-        for (let npc of this.npcs) {
+        for (let npc of currentMapNPCs) {
             const distance = Math.sqrt(
                 Math.pow(this.player.x - npc.x, 2) + 
                 Math.pow(this.player.y - npc.y, 2)
             );
             
             if (distance <= interactionDistance) {
-                this.startDialogue(npc);
+                if (npc.type === 'teleporter') {
+                    this.handleTeleporter(npc);
+                } else {
+                    this.startDialogue(npc);
+                }
                 break;
             }
         }
@@ -293,10 +348,18 @@ class Game {
     }
     
     endDialogue() {
+        const currentNPC = this.dialogue.currentNPC;
+        
         this.dialogue.active = false;
         this.dialogue.currentNPC = null;
         this.dialogue.currentMessage = '';
         this.dialogue.messageIndex = 0;
+        
+        // Handle post-dialogue actions (like teleportation)
+        if (currentNPC && currentNPC.onDialogueEnd) {
+            currentNPC.onDialogueEnd();
+            currentNPC.onDialogueEnd = null; // Clear the callback
+        }
     }
     
     toggleWalkRun() {
@@ -306,6 +369,48 @@ class Game {
     
     updatePlayerSpeed() {
         this.player.maxSpeed = this.speedSettings[this.settings.playerSpeed];
+    }
+    
+    handleTeleporter(teleporter) {
+        // Show teleporter dialogue first
+        this.startDialogue(teleporter);
+        
+        // Add teleportation confirmation after dialogue
+        teleporter.onDialogueEnd = () => {
+            this.showTeleportConfirmation(teleporter);
+        };
+    }
+    
+    showTeleportConfirmation(teleporter) {
+        const confirmed = confirm(`Travel to ${this.maps[teleporter.targetMap]?.name || 'another realm'}?`);
+        if (confirmed) {
+            this.teleportToMap(teleporter.targetMap, teleporter.targetX, teleporter.targetY);
+        }
+    }
+    
+    async teleportToMap(mapId, x, y) {
+        if (!this.maps[mapId]) {
+            console.error(`Cannot teleport to unknown map: ${mapId}`);
+            return;
+        }
+        
+        // Fade effect or loading indicator could go here
+        this.currentMap.loaded = false;
+        
+        try {
+            await this.loadMap(mapId);
+            
+            // Position player at target coordinates
+            this.player.x = x;
+            this.player.y = y;
+            
+            // Reset camera
+            this.updateCamera();
+            
+            console.log(`Teleported to map ${mapId} at (${x}, ${y})`);
+        } catch (error) {
+            console.error('Failed to load map:', error);
+        }
     }
     
     setupEventListeners() {
@@ -806,7 +911,8 @@ class Game {
     }
     
     drawNPCs() {
-        this.npcs.forEach(npc => {
+        const currentMapNPCs = this.npcs[this.currentMapId] || [];
+        currentMapNPCs.forEach(npc => {
             const npcScreenX = npc.x - npc.width / 2;
             const npcScreenY = npc.y - npc.height / 2;
             
