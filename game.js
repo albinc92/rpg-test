@@ -439,7 +439,7 @@ class Game {
     handleShop(npc) {
         this.shop.active = true;
         this.shop.npc = npc;
-        this.shop.mode = 'main';
+        this.shop.mode = 'buy'; // Start in buy mode instead of main
         this.shop.selectedIndex = 0;
         this.gameState = 'SHOP';
         console.log('Opened shop:', npc.id);
@@ -448,7 +448,7 @@ class Game {
     closeShop() {
         this.shop.active = false;
         this.shop.npc = null;
-        this.shop.mode = 'main';
+        this.shop.mode = 'buy'; // Reset to buy mode for next time
         this.shop.selectedIndex = 0;
         this.shop.items = [];
         this.gameState = 'PLAYING';
@@ -1077,10 +1077,28 @@ class Game {
             case 's':
             case 'S':
                 const maxIndex = this.shop.mode === 'buy' ? 
-                    this.shop.npc.shop.buyItems.length - 1 : 
-                    this.inventoryManager.getInventory().length - 1;
+                    (this.shop.npc.shop.buyItems.length - 1) : 
+                    (this.inventoryManager.getInventory().filter(item => item.id && item.quantity > 0).length - 1);
                 if (this.shop.selectedIndex < maxIndex) {
                     this.shop.selectedIndex++;
+                    this.playMenuNavigationSound();
+                }
+                break;
+            case 'ArrowLeft':
+            case 'a':
+            case 'A':
+                if (this.shop.mode === 'sell') {
+                    this.shop.mode = 'buy';
+                    this.shop.selectedIndex = 0;
+                    this.playMenuNavigationSound();
+                }
+                break;
+            case 'ArrowRight':
+            case 'd':
+            case 'D':
+                if (this.shop.mode === 'buy') {
+                    this.shop.mode = 'sell';
+                    this.shop.selectedIndex = 0;
                     this.playMenuNavigationSound();
                 }
                 break;
@@ -1088,38 +1106,28 @@ class Game {
             case ' ':
                 this.handleShopSelection();
                 break;
-            case 'b':
-            case 'B':
-                if (this.shop.mode === 'main') {
-                    this.shop.mode = 'buy';
-                    this.shop.selectedIndex = 0;
-                }
-                break;
-            case 's':
-            case 'S':
-                if (this.shop.mode === 'main') {
-                    this.shop.mode = 'sell';
-                    this.shop.selectedIndex = 0;
-                }
-                break;
             case 'Escape':
-                if (this.shop.mode === 'main') {
-                    this.closeShop();
-                } else {
-                    this.shop.mode = 'main';
-                    this.shop.selectedIndex = 0;
-                }
+                this.closeShop();
                 break;
         }
     }
 
     handleShopSelection() {
+        console.log(`Shop selection: mode=${this.shop.mode}, index=${this.shop.selectedIndex}`);
+        
         if (this.shop.mode === 'buy') {
             const itemData = this.shop.npc.shop.buyItems[this.shop.selectedIndex];
+            console.log('Trying to buy item:', itemData);
             if (itemData && itemData.stock > 0) {
-                this.buyItem(itemData);
+                const success = this.buyItem(itemData);
+                if (!success) {
+                    console.log('Purchase failed!');
+                }
+            } else {
+                console.log('Item not available or out of stock');
             }
         } else if (this.shop.mode === 'sell') {
+            console.log('Trying to sell item at index:', this.shop.selectedIndex);
             this.sellItem(this.shop.selectedIndex);
         }
     }
