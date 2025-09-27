@@ -69,7 +69,8 @@ class Game {
         this.audio = {
             bgm: null,
             currentTrack: null,
-            menuNavigation: null
+            menuNavigation: null,
+            speechBubble: null
         };
         
         // NPC system
@@ -163,6 +164,10 @@ class Game {
         this.audio.menuNavigation = new Audio('assets/audio/effect/menu-navigation.mp3');
         this.audio.menuNavigation.volume = this.settings.masterVolume / 100;
         
+        // Load speech bubble sound effect
+        this.audio.speechBubble = new Audio('assets/audio/effect/speech-bubble.mp3');
+        this.audio.speechBubble.volume = this.settings.masterVolume / 100;
+        
         // Handle audio loading errors gracefully
         this.audio.bgm.onerror = () => {
             console.warn('Could not load background music');
@@ -170,6 +175,10 @@ class Game {
         
         this.audio.menuNavigation.onerror = () => {
             console.warn('Could not load menu navigation sound');
+        };
+        
+        this.audio.speechBubble.onerror = () => {
+            console.warn('Could not load speech bubble sound');
         };
     }
     
@@ -197,6 +206,9 @@ class Game {
         if (this.audio.menuNavigation) {
             this.audio.menuNavigation.volume = this.settings.audioMuted ? 0 : (this.settings.masterVolume / 100);
         }
+        if (this.audio.speechBubble) {
+            this.audio.speechBubble.volume = this.settings.audioMuted ? 0 : (this.settings.masterVolume / 100);
+        }
     }
     
     playMenuNavigationSound() {
@@ -204,6 +216,15 @@ class Game {
             this.audio.menuNavigation.currentTime = 0; // Reset to beginning
             this.audio.menuNavigation.play().catch(e => {
                 console.warn('Could not play menu navigation sound:', e);
+            });
+        }
+    }
+    
+    playSpeechBubbleSound() {
+        if (this.audio.speechBubble && !this.settings.audioMuted) {
+            this.audio.speechBubble.currentTime = 0; // Reset to beginning
+            this.audio.speechBubble.play().catch(e => {
+                console.warn('Could not play speech bubble sound:', e);
             });
         }
     }
@@ -257,6 +278,7 @@ class Game {
         this.dialogue.currentNPC = npc;
         this.dialogue.messageIndex = 0;
         this.dialogue.currentMessage = npc.messages[0];
+        this.playSpeechBubbleSound(); // Play sound when dialogue starts
     }
     
     nextDialogueMessage() {
@@ -266,6 +288,7 @@ class Game {
             this.endDialogue();
         } else {
             this.dialogue.currentMessage = this.dialogue.currentNPC.messages[this.dialogue.messageIndex];
+            this.playSpeechBubbleSound(); // Play sound when advancing dialogue
         }
     }
     
