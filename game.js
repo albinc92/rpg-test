@@ -16,7 +16,12 @@ class Game {
             width: 32,
             height: 32,
             facingRight: true,
-            sprite: null
+            sprite: null,
+            velocityX: 0,
+            velocityY: 0,
+            acceleration: 0.5,
+            friction: 0.8,
+            maxSpeed: 3
         };
         
         // Camera properties
@@ -103,40 +108,70 @@ class Game {
     update() {
         if (!this.currentMap.loaded) return;
         
-        // Store previous position
-        const prevX = this.player.x;
-        const prevY = this.player.y;
+        // Handle movement input with acceleration
+        let inputX = 0;
+        let inputY = 0;
         
-        // Handle movement input
-        let deltaX = 0;
-        let deltaY = 0;
-        
-        if (this.keys['w']) deltaY -= this.PLAYER_SPEED;
-        if (this.keys['s']) deltaY += this.PLAYER_SPEED;
+        if (this.keys['w']) inputY -= 1;
+        if (this.keys['s']) inputY += 1;
         if (this.keys['a']) {
-            deltaX -= this.PLAYER_SPEED;
+            inputX -= 1;
             this.player.facingRight = true;
         }
         if (this.keys['d']) {
-            deltaX += this.PLAYER_SPEED;
+            inputX += 1;
             this.player.facingRight = false;
         }
         
-        // Normalize diagonal movement
-        if (deltaX !== 0 && deltaY !== 0) {
-            deltaX *= 0.707; // 1/sqrt(2)
-            deltaY *= 0.707;
+        // Normalize diagonal input
+        if (inputX !== 0 && inputY !== 0) {
+            inputX *= 0.707; // 1/sqrt(2)
+            inputY *= 0.707;
         }
         
+        // Apply acceleration based on input
+        if (inputX !== 0) {
+            this.player.velocityX += inputX * this.player.acceleration;
+        } else {
+            // Apply friction when no input
+            this.player.velocityX *= this.player.friction;
+        }
+        
+        if (inputY !== 0) {
+            this.player.velocityY += inputY * this.player.acceleration;
+        } else {
+            // Apply friction when no input
+            this.player.velocityY *= this.player.friction;
+        }
+        
+        // Clamp velocity to max speed
+        const currentSpeed = Math.sqrt(this.player.velocityX * this.player.velocityX + this.player.velocityY * this.player.velocityY);
+        if (currentSpeed > this.player.maxSpeed) {
+            this.player.velocityX = (this.player.velocityX / currentSpeed) * this.player.maxSpeed;
+            this.player.velocityY = (this.player.velocityY / currentSpeed) * this.player.maxSpeed;
+        }
+        
+        // Stop very slow movement to prevent jitter
+        if (Math.abs(this.player.velocityX) < 0.01) this.player.velocityX = 0;
+        if (Math.abs(this.player.velocityY) < 0.01) this.player.velocityY = 0;
+        
         // Calculate new position
-        const newX = this.player.x + deltaX;
-        const newY = this.player.y + deltaY;
+        const newX = this.player.x + this.player.velocityX;
+        const newY = this.player.y + this.player.velocityY;
         
         // Check map boundaries and update position
         this.player.x = Math.max(this.player.width / 2, 
                         Math.min(this.currentMap.width - this.player.width / 2, newX));
         this.player.y = Math.max(this.player.height / 2, 
                         Math.min(this.currentMap.height - this.player.height / 2, newY));
+        
+        // Stop velocity if hitting boundaries
+        if (this.player.x <= this.player.width / 2 || this.player.x >= this.currentMap.width - this.player.width / 2) {
+            this.player.velocityX = 0;
+        }
+        if (this.player.y <= this.player.height / 2 || this.player.y >= this.currentMap.height - this.player.height / 2) {
+            this.player.velocityY = 0;
+        }
         
         // Update camera (Zelda-style camera system)
         this.updateCamera();
@@ -211,9 +246,12 @@ class Game {
     }
     
     updateDebug() {
+        const speed = Math.sqrt(this.player.velocityX * this.player.velocityX + this.player.velocityY * this.player.velocityY);
         this.debug.innerHTML = `
             Player: (${Math.round(this.player.x)}, ${Math.round(this.player.y)})<br>
             Camera: (${Math.round(this.camera.x)}, ${Math.round(this.camera.y)})<br>
+            Velocity: (${this.player.velocityX.toFixed(2)}, ${this.player.velocityY.toFixed(2)})<br>
+            Speed: ${speed.toFixed(2)}/${this.player.maxSpeed}<br>
             Map: ${this.currentMap.width}x${this.currentMap.height}<br>
             Facing: ${this.player.facingRight ? 'Right' : 'Left'}
         `;
