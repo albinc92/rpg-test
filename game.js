@@ -47,14 +47,21 @@ class Game {
         this.keys = {};
         
         // Game state management
-        this.gameState = 'MENU'; // MENU, SETTINGS, PLAYING, PAUSED
+        this.gameState = 'MAIN_MENU'; // MAIN_MENU, GAME_MENU, SETTINGS, PLAYING, PAUSED
         this.gameStarted = false; // Track if game has been started
-        this.menuOptions = ['Resume', 'Settings', 'Exit'];
-        this.selectedMenuOption = 0;
+        
+        // Main menu (start of game)
+        this.mainMenuOptions = ['New Game', 'Continue', 'Settings', 'Exit'];
+        this.selectedMainMenuOption = 0;
+        
+        // In-game menu (pause menu)
+        this.gameMenuOptions = ['Resume', 'Settings', 'Save Game', 'Main Menu'];
+        this.selectedGameMenuOption = 0;
         
         // Settings menu
         this.settingsOptions = ['Player Speed', 'Show Debug', 'Master Volume', 'BGM Volume', 'Effect Volume', 'Mute Audio', 'Back to Menu'];
         this.selectedSettingsOption = 0;
+        this.previousMenuState = 'MAIN_MENU'; // Track which menu we came from
         
         // Game settings
         this.settings = {
@@ -87,6 +94,9 @@ class Game {
         // NPC system
         this.npcManager = new NPCManager();
         this.npcs = {}; // NPCs organized by map ID (will be populated by NPCManager)
+        
+        // Save system
+        this.saveSlotKey = 'rpg-game-save';
         
         // Animation timing
         this.gameTime = 0;
@@ -335,11 +345,128 @@ class Game {
         }
     }
     
+    /**
+     * Save the current game state to localStorage
+     */
+    saveGame() {
+        const saveData = {
+            version: '1.0',
+            timestamp: new Date().toISOString(),
+            player: {
+                x: this.player.x,
+                y: this.player.y,
+                facingRight: this.player.facingRight
+            },
+            currentMapId: this.currentMapId,
+            settings: { ...this.settings },
+            gameStarted: this.gameStarted
+        };
+        
+        try {
+            localStorage.setItem(this.saveSlotKey, JSON.stringify(saveData));
+            console.log('Game saved successfully');
+            return true;
+        } catch (error) {
+            console.error('Failed to save game:', error);
+            return false;
+        }
+    }
+    
+    /**
+     * Load game state from localStorage
+     */
+    async loadGame() {
+        try {
+            const saveDataString = localStorage.getItem(this.saveSlotKey);
+            if (!saveDataString) {
+                console.log('No save data found');
+                return false;
+            }
+            
+            const saveData = JSON.parse(saveDataString);
+            
+            // Validate save data
+            if (!saveData.version || !saveData.player || !saveData.currentMapId) {
+                console.error('Invalid save data format');
+                return false;
+            }
+            
+            // Load the saved map
+            await this.loadMap(saveData.currentMapId);
+            
+            // Restore player state
+            this.player.x = saveData.player.x;
+            this.player.y = saveData.player.y;
+            this.player.facingRight = saveData.player.facingRight;
+            
+            // Restore settings
+            if (saveData.settings) {
+                this.settings = { ...this.settings, ...saveData.settings };
+                this.updatePlayerSpeed();
+                this.updateAudioVolume();
+            }
+            
+            // Restore game state
+            this.gameStarted = saveData.gameStarted;
+            
+            // Update camera
+            this.updateCamera();
+            
+            console.log('Game loaded successfully');
+            return true;
+        } catch (error) {
+            console.error('Failed to load game:', error);
+            return false;
+        }
+    }
+    
+    /**
+     * Check if save data exists
+     */
+    hasSaveData() {
+        return localStorage.getItem(this.saveSlotKey) !== null;
+    }
+    
+    /**
+     * Delete save data
+     */
+    deleteSaveData() {
+        localStorage.removeItem(this.saveSlotKey);
+        console.log('Save data deleted');
+    }
+    
+    /**
+     * Start a new game
+     */
+    async startNewGame() {
+        // Reset player to starting position
+        this.player.x = 400;
+        this.player.y = 300;
+        this.player.facingRight = true;
+        this.player.velocityX = 0;
+        this.player.velocityY = 0;
+        
+        // Load starting map
+        await this.loadMap('0-0');
+        
+        // Position player in center of map
+        this.player.x = this.currentMap.width / 2;
+        this.player.y = this.currentMap.height / 2;
+        
+        this.gameStarted = true;
+        this.gameState = 'PLAYING';
+        this.playBGM();
+        
+        console.log('New game started');
+    }
+    
     setupEventListeners() {
         // Keyboard input
         document.addEventListener('keydown', (e) => {
-            if (this.gameState === 'MENU') {
-                this.handleMenuInput(e);
+            if (this.gameState === 'MAIN_MENU') {
+                this.handleMainMenuInput(e);
+            } else if (this.gameState === 'GAME_MENU') {
+                this.handleGameMenuInput(e);
             } else if (this.gameState === 'SETTINGS') {
                 this.handleSettingsInput(e);
             } else if (this.gameState === 'PLAYING') {
@@ -365,7 +492,7 @@ class Game {
                     }
                 }
                 
-                // ESC to return to menu (works even during dialogue)
+                // ESC to return to in-game menu (works even during dialogue)
                 if (e.key === 'Escape') {
                     if (this.npcManager.isDialogueActive()) {
                         const currentNPC = this.npcManager.endDialogue();
@@ -375,8 +502,8 @@ class Game {
                             currentNPC.onDialogueEnd = null; // Clear the callback
                         }
                     } else {
-                        this.gameState = 'MENU';
-                        this.stopBGM(); // Stop music when returning to menu
+                        this.gameState = 'GAME_MENU';
+                        this.selectedGameMenuOption = 0;
                     }
                 }
             }
@@ -395,53 +522,112 @@ class Game {
         });
     }
     
-    handleMenuInput(e) {
+    handleMainMenuInput(e) {
         switch(e.key) {
             case 'ArrowUp':
             case 'w':
             case 'W':
-                if (this.selectedMenuOption > 0) {
-                    this.selectedMenuOption = Math.max(0, this.selectedMenuOption - 1);
+                if (this.selectedMainMenuOption > 0) {
+                    this.selectedMainMenuOption = Math.max(0, this.selectedMainMenuOption - 1);
                     this.playMenuNavigationSound();
                 }
                 break;
             case 'ArrowDown':
             case 's':
             case 'S':
-                if (this.selectedMenuOption < this.menuOptions.length - 1) {
-                    this.selectedMenuOption = Math.min(this.menuOptions.length - 1, this.selectedMenuOption + 1);
+                if (this.selectedMainMenuOption < this.mainMenuOptions.length - 1) {
+                    this.selectedMainMenuOption = Math.min(this.mainMenuOptions.length - 1, this.selectedMainMenuOption + 1);
                     this.playMenuNavigationSound();
                 }
                 break;
             case 'Enter':
             case ' ':
-                this.selectMenuOption();
+                this.selectMainMenuOption();
+                break;
+        }
+    }
+    
+    handleGameMenuInput(e) {
+        switch(e.key) {
+            case 'ArrowUp':
+            case 'w':
+            case 'W':
+                if (this.selectedGameMenuOption > 0) {
+                    this.selectedGameMenuOption = Math.max(0, this.selectedGameMenuOption - 1);
+                    this.playMenuNavigationSound();
+                }
+                break;
+            case 'ArrowDown':
+            case 's':
+            case 'S':
+                if (this.selectedGameMenuOption < this.gameMenuOptions.length - 1) {
+                    this.selectedGameMenuOption = Math.min(this.gameMenuOptions.length - 1, this.selectedGameMenuOption + 1);
+                    this.playMenuNavigationSound();
+                }
+                break;
+            case 'Enter':
+            case ' ':
+                this.selectGameMenuOption();
                 break;
             case 'Escape':
-                // If game has been started, ESC returns to game
-                if (this.gameStarted) {
-                    this.gameState = 'PLAYING';
-                    this.playBGM();
+                // ESC returns to game from game menu
+                this.gameState = 'PLAYING';
+                break;
+        }
+    }
+    
+    selectMainMenuOption() {
+        switch(this.selectedMainMenuOption) {
+            case 0: // New Game
+                this.startNewGame();
+                break;
+            case 1: // Continue
+                if (this.hasSaveData()) {
+                    this.loadGame().then(success => {
+                        if (success) {
+                            this.gameState = 'PLAYING';
+                            this.playBGM();
+                        }
+                    });
+                } else {
+                    alert('No save data found!');
+                }
+                break;
+            case 2: // Settings
+                this.previousMenuState = 'MAIN_MENU';
+                this.gameState = 'SETTINGS';
+                this.selectedSettingsOption = 0;
+                break;
+            case 3: // Exit
+                if (confirm('Are you sure you want to exit?')) {
+                    window.close();
                 }
                 break;
         }
     }
     
-    selectMenuOption() {
-        switch(this.selectedMenuOption) {
+    selectGameMenuOption() {
+        switch(this.selectedGameMenuOption) {
             case 0: // Resume
                 this.gameState = 'PLAYING';
-                this.gameStarted = true; // Mark game as started
-                this.playBGM(); // Start background music when game starts
                 break;
             case 1: // Settings
+                this.previousMenuState = 'GAME_MENU';
                 this.gameState = 'SETTINGS';
                 this.selectedSettingsOption = 0;
                 break;
-            case 2: // Exit
-                // For web games, we can't really exit, so maybe return to menu or show a message
-                if (confirm('Are you sure you want to exit?')) {
-                    window.close();
+            case 2: // Save Game
+                if (this.saveGame()) {
+                    alert('Game saved successfully!');
+                } else {
+                    alert('Failed to save game!');
+                }
+                break;
+            case 3: // Main Menu
+                if (confirm('Return to main menu? (Make sure to save your progress!)')) {
+                    this.gameState = 'MAIN_MENU';
+                    this.selectedMainMenuOption = 0;
+                    this.stopBGM();
                 }
                 break;
         }
@@ -480,7 +666,7 @@ class Game {
                 this.selectSettingsOption();
                 break;
             case 'Escape':
-                this.gameState = 'MENU';
+                this.gameState = this.previousMenuState;
                 break;
         }
     }
@@ -530,7 +716,7 @@ class Game {
                 // These are adjusted with left/right arrows
                 break;
             case 6: // Back to Menu
-                this.gameState = 'MENU';
+                this.gameState = this.previousMenuState;
                 break;
         }
     }
@@ -674,8 +860,13 @@ class Game {
         // Clear canvas
         this.ctx.clearRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
         
-        if (this.gameState === 'MENU') {
-            this.renderMenu();
+        if (this.gameState === 'MAIN_MENU') {
+            this.renderMainMenu();
+            return;
+        }
+        
+        if (this.gameState === 'GAME_MENU') {
+            this.renderGameMenu();
             return;
         }
         
@@ -715,28 +906,84 @@ class Game {
         }
     }
     
-    renderMenu() {
+    renderMainMenu() {
         // Draw background
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
         this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
         
         // Draw title
         this.ctx.fillStyle = 'white';
         this.ctx.font = 'bold 48px Arial';
         this.ctx.textAlign = 'center';
-        const titleY = this.CANVAS_HEIGHT * 0.3;
+        const titleY = this.CANVAS_HEIGHT * 0.25;
         this.ctx.fillText('RPG Adventure', this.CANVAS_WIDTH / 2, titleY);
+        
+        // Draw subtitle
+        this.ctx.fillStyle = '#CCCCCC';
+        this.ctx.font = '20px Arial';
+        this.ctx.fillText('Welcome to the Adventure!', this.CANVAS_WIDTH / 2, titleY + 40);
+        
+        // Draw menu options
+        this.ctx.font = '28px Arial';
+        const startY = this.CANVAS_HEIGHT * 0.5;
+        const spacing = 60;
+        
+        this.mainMenuOptions.forEach((option, index) => {
+            const y = startY + (index * spacing);
+            
+            // Gray out Continue if no save data
+            let isDisabled = false;
+            if (option === 'Continue' && !this.hasSaveData()) {
+                isDisabled = true;
+            }
+            
+            // Highlight selected option
+            if (index === this.selectedMainMenuOption) {
+                this.ctx.fillStyle = isDisabled ? '#666666' : '#FFD700'; // Gold color or gray if disabled
+                this.ctx.fillText('> ' + option + ' <', this.CANVAS_WIDTH / 2, y);
+            } else {
+                this.ctx.fillStyle = isDisabled ? '#444444' : 'white';
+                this.ctx.fillText(option, this.CANVAS_WIDTH / 2, y);
+            }
+        });
+        
+        // Draw instructions
+        this.ctx.fillStyle = '#CCCCCC';
+        this.ctx.font = '16px Arial';
+        const instructionsY = this.CANVAS_HEIGHT * 0.8;
+        this.ctx.fillText('Use W/S or Arrow Keys to navigate', this.CANVAS_WIDTH / 2, instructionsY);
+        this.ctx.fillText('Press ENTER or SPACE to select', this.CANVAS_WIDTH / 2, instructionsY + 25);
+        
+        // Show save status
+        if (this.hasSaveData()) {
+            this.ctx.fillStyle = '#90EE90';
+            this.ctx.font = '14px Arial';
+            this.ctx.fillText('Save data found', this.CANVAS_WIDTH / 2, instructionsY + 60);
+        }
+    }
+    
+    renderGameMenu() {
+        // Draw semi-transparent background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+        
+        // Draw title
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = 'bold 36px Arial';
+        this.ctx.textAlign = 'center';
+        const titleY = this.CANVAS_HEIGHT * 0.3;
+        this.ctx.fillText('Game Menu', this.CANVAS_WIDTH / 2, titleY);
         
         // Draw menu options
         this.ctx.font = '24px Arial';
-        const startY = this.CANVAS_HEIGHT * 0.5;
+        const startY = this.CANVAS_HEIGHT * 0.45;
         const spacing = 50;
         
-        this.menuOptions.forEach((option, index) => {
+        this.gameMenuOptions.forEach((option, index) => {
             const y = startY + (index * spacing);
             
             // Highlight selected option
-            if (index === this.selectedMenuOption) {
+            if (index === this.selectedGameMenuOption) {
                 this.ctx.fillStyle = '#FFD700'; // Gold color
                 this.ctx.fillText('> ' + option + ' <', this.CANVAS_WIDTH / 2, y);
             } else {
@@ -748,9 +995,9 @@ class Game {
         // Draw instructions
         this.ctx.fillStyle = '#CCCCCC';
         this.ctx.font = '16px Arial';
-        const instructionsY = this.CANVAS_HEIGHT * 0.8;
+        const instructionsY = this.CANVAS_HEIGHT * 0.75;
         this.ctx.fillText('Use W/S or Arrow Keys to navigate', this.CANVAS_WIDTH / 2, instructionsY);
-        this.ctx.fillText('Press ENTER or SPACE to select', this.CANVAS_WIDTH / 2, instructionsY + 25);
+        this.ctx.fillText('Press ENTER or SPACE to select, ESC to return', this.CANVAS_WIDTH / 2, instructionsY + 25);
     }
     
     renderSettings() {
@@ -1050,7 +1297,7 @@ class Game {
     }
     
     updateDebug() {
-        if (this.gameState === 'MENU' || this.gameState === 'SETTINGS' || !this.settings.showDebug) {
+        if (this.gameState !== 'PLAYING' || !this.settings.showDebug) {
             this.debug.style.display = 'none';
             return;
         }
