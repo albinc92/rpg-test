@@ -115,11 +115,11 @@ class Game {
         if (this.keys['s']) deltaY += this.PLAYER_SPEED;
         if (this.keys['a']) {
             deltaX -= this.PLAYER_SPEED;
-            this.player.facingRight = false;
+            this.player.facingRight = true;
         }
         if (this.keys['d']) {
             deltaX += this.PLAYER_SPEED;
-            this.player.facingRight = true;
+            this.player.facingRight = false;
         }
         
         // Normalize diagonal movement
