@@ -215,36 +215,99 @@ class Game {
         };
     }
     
-    async switchBGM(musicPath) {
-        // Stop current BGM if playing
-        if (this.audio.bgm) {
-            this.audio.bgm.pause();
-        }
-        
+    async switchBGM(musicPath, fadeTime = 1000) {
         // Don't switch if it's the same track
         if (this.audio.currentTrack === musicPath) {
             return;
         }
         
+        const oldBGM = this.audio.bgm;
+        const oldTrack = this.audio.currentTrack;
+        
         // Load new music track
-        this.audio.bgm = new Audio(musicPath);
-        this.audio.bgm.loop = true;
-        this.updateAudioVolume();
+        const newBGM = new Audio(musicPath);
+        newBGM.loop = true;
         
         // Handle loading errors
-        this.audio.bgm.onerror = () => {
+        newBGM.onerror = () => {
             console.warn(`Could not load background music: ${musicPath}`);
         };
         
-        // Play new track
+        // Wait for the new track to be ready
+        await new Promise((resolve) => {
+            newBGM.addEventListener('canplaythrough', resolve, { once: true });
+            if (newBGM.readyState >= 3) resolve(); // Already loaded
+        });
+        
+        // Set initial volume for new track to 0 (will fade in)
+        newBGM.volume = 0;
+        
+        // Start playing new track
         if (!this.settings.audioMuted) {
-            this.audio.bgm.play().catch(e => {
+            try {
+                await newBGM.play();
+            } catch (e) {
                 console.warn(`Could not play background music (${musicPath}):`, e);
-            });
+                return;
+            }
         }
         
+        // Update references
+        this.audio.bgm = newBGM;
         this.audio.currentTrack = musicPath;
-        console.log(`Switched BGM to: ${musicPath}`);
+        
+        // Perform crossfade
+        this.crossfadeBGM(oldBGM, newBGM, fadeTime);
+        
+        console.log(`Switching BGM from ${oldTrack} to: ${musicPath} with ${fadeTime}ms fade`);
+    }
+    
+    crossfadeBGM(oldBGM, newBGM, fadeTime) {
+        const startTime = Date.now();
+        const masterMultiplier = this.settings.masterVolume / 100;
+        const targetVolume = (this.settings.bgmVolume / 100) * masterMultiplier;
+        
+        // Get initial volumes
+        const oldInitialVolume = oldBGM ? (oldBGM.volume || targetVolume) : 0;
+        const newInitialVolume = 0;
+        
+        const fadeStep = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / fadeTime, 1);
+            
+            // Smooth easing function (ease-in-out)
+            const easedProgress = progress < 0.5 
+                ? 2 * progress * progress 
+                : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+            
+            // Fade out old track
+            if (oldBGM && !this.settings.audioMuted) {
+                oldBGM.volume = oldInitialVolume * (1 - easedProgress);
+            }
+            
+            // Fade in new track
+            if (newBGM && !this.settings.audioMuted) {
+                newBGM.volume = targetVolume * easedProgress;
+            }
+            
+            if (progress < 1) {
+                requestAnimationFrame(fadeStep);
+            } else {
+                // Fade complete - clean up old track
+                if (oldBGM) {
+                    oldBGM.pause();
+                    oldBGM.volume = 0;
+                }
+                
+                // Ensure new track is at correct volume
+                if (newBGM && !this.settings.audioMuted) {
+                    newBGM.volume = targetVolume;
+                }
+            }
+        };
+        
+        // Start the fade animation
+        requestAnimationFrame(fadeStep);
     }
     
     playBGM() {
@@ -333,9 +396,17 @@ class Game {
             this.currentMap.originalHeight = mapData.originalHeight;
             this.currentMapId = mapId;
             
-            // Handle map music switching
+            // Handle map music switching with different fade times
             if (mapData.music && mapData.music !== this.audio.currentTrack) {
-                this.switchBGM(mapData.music);
+                // Determine fade time based on map transition type
+                let fadeTime = 1500; // Default fade time
+                
+                // Shorter fade for shop transitions
+                if (mapId.includes('shop') || this.audio.currentTrack?.includes('shop')) {
+                    fadeTime = 800;
+                }
+                
+                this.switchBGM(mapData.music, fadeTime);
             }
             
             console.log(`Loaded map: ${mapData.name} (${mapData.width}x${mapData.height})`);
