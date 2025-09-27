@@ -101,6 +101,18 @@ class ItemManager {
             stackable: false,
             spriteSrc: 'assets/items/mysterious_key.png'
         });
+
+        this.registerItem({
+            id: 'magic_scroll',
+            name: 'Magic Scroll',
+            description: 'An ancient scroll containing mystical knowledge.',
+            type: 'quest',
+            rarity: 'uncommon',
+            value: 25,
+            stackable: true,
+            maxStack: 10,
+            spriteSrc: 'assets/items/magic_scroll.png'
+        });
     }
 
     /**

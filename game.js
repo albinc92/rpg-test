@@ -363,21 +363,35 @@ class Game {
         // Add items if any
         if (chest.loot.items && chest.loot.items.length > 0) {
             chest.loot.items.forEach(lootItem => {
-                const success = this.inventoryManager.addItem(lootItem.id, lootItem.quantity);
-                if (success) {
-                    const item = this.itemManager.getItem(lootItem.id);
-                    lootedItems.push({
-                        name: item ? item.name : lootItem.id,
-                        quantity: lootItem.quantity,
-                        rarity: item ? item.rarity : 'common',
-                        success: true
-                    });
-                } else {
+                // First check if item exists
+                const item = this.itemManager.getItem(lootItem.id);
+                if (!item) {
+                    console.error(`Chest contains undefined item: ${lootItem.id}`);
                     lootedItems.push({
                         name: lootItem.id,
                         quantity: lootItem.quantity,
                         rarity: 'common',
-                        success: false
+                        success: false,
+                        error: 'ITEM_NOT_FOUND'
+                    });
+                    return;
+                }
+                
+                const success = this.inventoryManager.addItem(lootItem.id, lootItem.quantity);
+                if (success) {
+                    lootedItems.push({
+                        name: item.name,
+                        quantity: lootItem.quantity,
+                        rarity: item.rarity,
+                        success: true
+                    });
+                } else {
+                    lootedItems.push({
+                        name: item.name,
+                        quantity: lootItem.quantity,
+                        rarity: item.rarity,
+                        success: false,
+                        error: 'INVENTORY_FULL'
                     });
                 }
             });
@@ -1590,7 +1604,13 @@ class Game {
                 
                 let itemText = `${item.quantity}x ${item.name}`;
                 if (!item.success) {
-                    itemText += ' (Inventory Full!)';
+                    if (item.error === 'ITEM_NOT_FOUND') {
+                        itemText += ' (Item Not Found!)';
+                    } else if (item.error === 'INVENTORY_FULL') {
+                        itemText += ' (Inventory Full!)';
+                    } else {
+                        itemText += ' (Failed!)';
+                    }
                 }
                 
                 this.ctx.fillText(itemText, windowX + 50, contentY);
