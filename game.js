@@ -55,7 +55,7 @@ class Game {
         this.selectedMainMenuOption = 0;
         
         // In-game menu (pause menu)
-        this.gameMenuOptions = ['Resume', 'Settings', 'Save Game', 'Load Game', 'Main Menu'];
+        this.gameMenuOptions = ['Resume', 'Inventory', 'Settings', 'Save Game', 'Load Game', 'Main Menu'];
         this.selectedGameMenuOption = 0;
         
         // Settings menu
@@ -94,6 +94,13 @@ class Game {
         // NPC system
         this.npcManager = new NPCManager();
         this.npcs = {}; // NPCs organized by map ID (will be populated by NPCManager)
+        
+        // Item and Inventory system
+        this.itemManager = new ItemManager();
+        this.inventoryManager = new InventoryManager(this.itemManager);
+        
+        // World items (items that can be picked up from the world)
+        this.worldItems = {}; // World items organized by map ID
         
         // Save system
         this.saveSlotKey = 'rpg-game-save';
@@ -155,6 +162,9 @@ class Game {
         await new Promise(resolve => {
             this.player.sprite.onload = resolve;
         });
+        
+        // Add some test items to inventory for demonstration
+        this.addTestItems();
     }
     
     loadAudio() {
@@ -369,6 +379,8 @@ class Game {
         
         try {
             localStorage.setItem(this.saveSlotKey, JSON.stringify(saveData));
+            // Save inventory separately
+            this.inventoryManager.saveInventory(this.saveSlotKey);
             console.log('Game saved successfully');
             return true;
         } catch (error) {
@@ -413,6 +425,9 @@ class Game {
             
             // Restore game state
             this.gameStarted = saveData.gameStarted;
+            
+            // Load inventory
+            this.inventoryManager.loadInventory(this.saveSlotKey);
             
             // Update camera
             this.updateCamera();
@@ -515,6 +530,8 @@ class Game {
                 this.handleGameMenuInput(e);
             } else if (this.gameState === 'SETTINGS') {
                 this.handleSettingsInput(e);
+            } else if (this.gameState === 'INVENTORY') {
+                this.handleInventoryInput(e);
             } else if (this.gameState === 'PLAYING') {
                 if (this.npcManager.isDialogueActive()) {
                     this.handleDialogueInput(e);
@@ -530,6 +547,12 @@ class Game {
                     // Interaction key
                     if (e.key === 'e' || e.key === 'E' || e.key === ' ') {
                         this.checkNPCInteraction();
+                    }
+                    
+                    // Inventory key
+                    if (e.key === 'i' || e.key === 'I') {
+                        this.gameState = 'INVENTORY';
+                        this.inventoryManager.openInventory();
                     }
                     
                     // Toggle walk/run with Shift key
@@ -664,19 +687,23 @@ class Game {
             case 0: // Resume
                 this.gameState = 'PLAYING';
                 break;
-            case 1: // Settings
+            case 1: // Inventory
+                this.gameState = 'INVENTORY';
+                this.inventoryManager.openInventory();
+                break;
+            case 2: // Settings
                 this.previousMenuState = 'GAME_MENU';
                 this.gameState = 'SETTINGS';
                 this.selectedSettingsOption = 0;
                 break;
-            case 2: // Save Game
+            case 3: // Save Game
                 if (this.saveGame()) {
                     alert('Game saved successfully!');
                 } else {
                     alert('Failed to save game!');
                 }
                 break;
-            case 3: // Load Game
+            case 4: // Load Game
                 if (this.hasSaveData()) {
                     if (confirm('Load saved game? (Current progress will be lost if not saved!)')) {
                         this.loadGame().then(success => {
@@ -692,7 +719,7 @@ class Game {
                     alert('No save data found!');
                 }
                 break;
-            case 4: // Main Menu
+            case 5: // Main Menu
                 if (confirm('Return to main menu? (Make sure to save your progress!)')) {
                     this.gameState = 'MAIN_MENU';
                     this.selectedMainMenuOption = 0;
@@ -785,6 +812,62 @@ class Game {
                 break;
             case 5: // Back to Menu
                 this.gameState = this.previousMenuState;
+                break;
+        }
+    }
+    
+    handleInventoryInput(e) {
+        switch(e.key) {
+            case 'ArrowUp':
+            case 'w':
+            case 'W':
+                this.inventoryManager.navigateInventory(-1);
+                this.playMenuNavigationSound();
+                break;
+            case 'ArrowDown':
+            case 's':
+            case 'S':
+                this.inventoryManager.navigateInventory(1);
+                this.playMenuNavigationSound();
+                break;
+            case 'ArrowLeft':
+            case 'a':
+            case 'A':
+                // Navigate inventory in grid pattern (if we implement grid layout later)
+                this.inventoryManager.navigateInventory(-5);
+                this.playMenuNavigationSound();
+                break;
+            case 'ArrowRight':
+            case 'd':
+            case 'D':
+                // Navigate inventory in grid pattern (if we implement grid layout later)
+                this.inventoryManager.navigateInventory(5);
+                this.playMenuNavigationSound();
+                break;
+            case 'Enter':
+            case ' ':
+                // Use selected item
+                const selectedItem = this.inventoryManager.getSelectedItem();
+                if (selectedItem) {
+                    this.inventoryManager.useItem(this.inventoryManager.selectedSlot);
+                }
+                break;
+            case 'x':
+            case 'X':
+                // Drop selected item
+                const itemToDrop = this.inventoryManager.getSelectedItem();
+                if (itemToDrop && confirm(`Drop ${itemToDrop.name}?`)) {
+                    const droppedItem = this.inventoryManager.dropItem(this.inventoryManager.selectedSlot, 1);
+                    if (droppedItem) {
+                        this.dropItemInWorld(droppedItem);
+                    }
+                }
+                break;
+            case 'Escape':
+            case 'i':
+            case 'I':
+                this.inventoryManager.closeInventory();
+                this.gameState = 'GAME_MENU';
                 break;
         }
     }
@@ -940,6 +1023,11 @@ class Game {
         
         if (this.gameState === 'SETTINGS') {
             this.renderSettings();
+            return;
+        }
+        
+        if (this.gameState === 'INVENTORY') {
+            this.renderInventory();
             return;
         }
         
@@ -1114,6 +1202,138 @@ class Game {
         this.ctx.fillText('Use W/S to navigate, A/D to adjust values', this.CANVAS_WIDTH / 2, instructionsY);
         this.ctx.fillText('Press ENTER to select, ESC to go back', this.CANVAS_WIDTH / 2, instructionsY + 25);
         this.ctx.fillText('Press F1 to toggle debug info', this.CANVAS_WIDTH / 2, instructionsY + 50);
+    }
+    
+    renderInventory() {
+        // Draw background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+        this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+        
+        // Draw title
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = 'bold 36px Arial';
+        this.ctx.textAlign = 'center';
+        const titleY = this.CANVAS_HEIGHT * 0.1;
+        this.ctx.fillText('Inventory', this.CANVAS_WIDTH / 2, titleY);
+        
+        // Get inventory items
+        const inventory = this.inventoryManager.getInventory();
+        const slotInfo = this.inventoryManager.getSlotInfo();
+        
+        // Draw slot counter
+        this.ctx.fillStyle = '#CCCCCC';
+        this.ctx.font = '20px Arial';
+        this.ctx.fillText(`${slotInfo.used} / ${slotInfo.max} slots`, this.CANVAS_WIDTH / 2, titleY + 40);
+        
+        if (inventory.length === 0) {
+            // Empty inventory message
+            this.ctx.fillStyle = '#888888';
+            this.ctx.font = '24px Arial';
+            this.ctx.fillText('Your inventory is empty', this.CANVAS_WIDTH / 2, this.CANVAS_HEIGHT / 2);
+        } else {
+            // Draw inventory items in a grid
+            const itemsPerRow = 5;
+            const itemSize = 80;
+            const itemSpacing = 100;
+            const startX = this.CANVAS_WIDTH / 2 - (itemsPerRow * itemSpacing) / 2;
+            const startY = this.CANVAS_HEIGHT * 0.25;
+            
+            inventory.forEach((item, index) => {
+                const row = Math.floor(index / itemsPerRow);
+                const col = index % itemsPerRow;
+                const x = startX + (col * itemSpacing);
+                const y = startY + (row * itemSpacing);
+                
+                // Draw slot background
+                this.ctx.fillStyle = index === this.inventoryManager.selectedSlot ? 
+                    'rgba(255, 215, 0, 0.3)' : 'rgba(100, 100, 100, 0.3)';
+                this.ctx.fillRect(x - itemSize/2, y - itemSize/2, itemSize, itemSize);
+                
+                // Draw slot border
+                this.ctx.strokeStyle = index === this.inventoryManager.selectedSlot ? 
+                    '#FFD700' : '#666666';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(x - itemSize/2, y - itemSize/2, itemSize, itemSize);
+                
+                // Draw item sprite (placeholder for now)
+                this.ctx.fillStyle = this.getItemRarityColor(item.rarity);
+                this.ctx.fillRect(x - 25, y - 25, 50, 50);
+                
+                // Draw quantity if stackable
+                if (item.stackable && item.quantity > 1) {
+                    this.ctx.fillStyle = 'white';
+                    this.ctx.font = 'bold 14px Arial';
+                    this.ctx.textAlign = 'right';
+                    this.ctx.fillText(item.quantity.toString(), x + itemSize/2 - 5, y + itemSize/2 - 5);
+                }
+            });
+            
+            // Draw selected item details
+            const selectedItem = this.inventoryManager.getSelectedItem();
+            if (selectedItem) {
+                const detailsY = this.CANVAS_HEIGHT * 0.7;
+                
+                // Item name
+                this.ctx.fillStyle = this.getItemRarityColor(selectedItem.rarity);
+                this.ctx.font = 'bold 24px Arial';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText(selectedItem.name, this.CANVAS_WIDTH / 2, detailsY);
+                
+                // Item description
+                if (selectedItem.description) {
+                    this.ctx.fillStyle = 'white';
+                    this.ctx.font = '18px Arial';
+                    this.ctx.fillText(selectedItem.description, this.CANVAS_WIDTH / 2, detailsY + 30);
+                }
+                
+                // Item stats or effects
+                if (selectedItem.effect) {
+                    this.ctx.fillStyle = '#AAFFAA';
+                    this.ctx.font = '16px Arial';
+                    this.ctx.fillText(`${selectedItem.effect.type}: +${selectedItem.effect.amount}`, 
+                        this.CANVAS_WIDTH / 2, detailsY + 55);
+                }
+            }
+        }
+        
+        // Draw instructions
+        this.ctx.fillStyle = '#CCCCCC';
+        this.ctx.font = '16px Arial';
+        this.ctx.textAlign = 'center';
+        const instructionsY = this.CANVAS_HEIGHT * 0.9;
+        this.ctx.fillText('Use WASD to navigate, ENTER to use item, X to drop', this.CANVAS_WIDTH / 2, instructionsY);
+        this.ctx.fillText('Press ESC or I to close inventory', this.CANVAS_WIDTH / 2, instructionsY + 20);
+    }
+    
+    getItemRarityColor(rarity) {
+        const colors = {
+            common: '#FFFFFF',
+            uncommon: '#1EFF00',
+            rare: '#0070DD',
+            epic: '#A335EE',
+            legendary: '#FF8000'
+        };
+        return colors[rarity] || colors.common;
+    }
+    
+    dropItemInWorld(droppedItem) {
+        // Add item to world near player
+        const worldItem = {
+            id: droppedItem.id,
+            name: droppedItem.name,
+            quantity: droppedItem.quantity,
+            x: this.player.x + (Math.random() - 0.5) * 100, // Random position near player
+            y: this.player.y + (Math.random() - 0.5) * 100,
+            sprite: droppedItem.sprite
+        };
+        
+        // Initialize world items for current map if not exists
+        if (!this.worldItems[this.currentMapId]) {
+            this.worldItems[this.currentMapId] = [];
+        }
+        
+        this.worldItems[this.currentMapId].push(worldItem);
+        console.log(`Dropped ${droppedItem.quantity} ${droppedItem.name} in the world`);
     }
     
     drawPlayer() {
@@ -1379,6 +1599,18 @@ class Game {
             Facing: ${this.player.facingRight ? 'Left' : 'Right'}<br>
             State: ${this.gameState}
         `;
+    }
+    
+    addTestItems() {
+        // Add some test items to demonstrate the inventory system
+        this.inventoryManager.addItem('health_potion', 5);
+        this.inventoryManager.addItem('mana_potion', 3);
+        this.inventoryManager.addItem('iron_sword');
+        this.inventoryManager.addItem('leather_armor');
+        this.inventoryManager.addItem('gold_coin', 50);
+        this.inventoryManager.addItem('iron_ore', 10);
+        this.inventoryManager.addItem('magic_scroll');
+        console.log('Test items added to inventory');
     }
     
     gameLoop() {
