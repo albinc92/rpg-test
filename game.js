@@ -201,12 +201,29 @@ class Game {
         const idealCameraY = this.player.y - this.CANVAS_HEIGHT / 2;
         
         // Calculate camera bounds based on map size
-        const minCameraX = 0;
-        const maxCameraX = Math.max(0, this.currentMap.width - this.CANVAS_WIDTH);
-        const minCameraY = 0;
-        const maxCameraY = Math.max(0, this.currentMap.height - this.CANVAS_HEIGHT);
+        let minCameraX, maxCameraX, minCameraY, maxCameraY;
         
-        // Clamp camera to map boundaries
+        if (this.currentMap.width < this.CANVAS_WIDTH) {
+            // If map is smaller than screen width, center it
+            const centerOffset = (this.CANVAS_WIDTH - this.currentMap.width) / 2;
+            minCameraX = maxCameraX = -centerOffset;
+        } else {
+            // Normal camera bounds for larger maps
+            minCameraX = 0;
+            maxCameraX = this.currentMap.width - this.CANVAS_WIDTH;
+        }
+        
+        if (this.currentMap.height < this.CANVAS_HEIGHT) {
+            // If map is smaller than screen height, center it
+            const centerOffset = (this.CANVAS_HEIGHT - this.currentMap.height) / 2;
+            minCameraY = maxCameraY = -centerOffset;
+        } else {
+            // Normal camera bounds for larger maps
+            minCameraY = 0;
+            maxCameraY = this.currentMap.height - this.CANVAS_HEIGHT;
+        }
+        
+        // Clamp camera to calculated boundaries
         this.camera.x = Math.max(minCameraX, Math.min(maxCameraX, idealCameraX));
         this.camera.y = Math.max(minCameraY, Math.min(maxCameraY, idealCameraY));
     }
