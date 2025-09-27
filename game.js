@@ -64,6 +64,15 @@ class Game {
             currentTrack: null
         };
         
+        // NPC system
+        this.npcs = [];
+        this.dialogue = {
+            active: false,
+            currentNPC: null,
+            currentMessage: '',
+            messageIndex: 0
+        };
+        
         // Initialize the game
         this.init();
     }
@@ -101,8 +110,11 @@ class Game {
         // Load background music
         this.loadAudio();
         
-        // Wait for both images to load
-        await Promise.all([
+        // Initialize NPCs
+        this.initializeNPCs();
+        
+        // Wait for all assets to load
+        const loadPromises = [
             new Promise(resolve => {
                 this.player.sprite.onload = resolve;
             }),
@@ -120,7 +132,16 @@ class Game {
                     resolve();
                 };
             })
-        ]);
+        ];
+        
+        // Add NPC loading promises
+        this.npcs.forEach(npc => {
+            loadPromises.push(new Promise(resolve => {
+                npc.sprite.onload = resolve;
+            }));
+        });
+        
+        await Promise.all(loadPromises);
     }
     
     loadAudio() {
@@ -158,6 +179,74 @@ class Game {
         }
     }
     
+    initializeNPCs() {
+        // Create the sage NPC
+        const sage = {
+            id: 'sage',
+            x: 1000, // Position on map
+            y: 600,
+            width: 96,
+            height: 96,
+            sprite: new Image(),
+            messages: [
+                "Greetings, young adventurer!",
+                "Welcome to this mystical realm.",
+                "Press SPACE or ENTER to continue dialogue.",
+                "Use WASD to move around the world.",
+                "May your journey be filled with wonder!"
+            ]
+        };
+        sage.sprite.src = 'assets/npc/sage-0.png';
+        
+        this.npcs.push(sage);
+    }
+    
+    handleDialogueInput(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            this.nextDialogueMessage();
+        }
+    }
+    
+    checkNPCInteraction() {
+        const interactionDistance = 120; // Distance for interaction
+        
+        for (let npc of this.npcs) {
+            const distance = Math.sqrt(
+                Math.pow(this.player.x - npc.x, 2) + 
+                Math.pow(this.player.y - npc.y, 2)
+            );
+            
+            if (distance <= interactionDistance) {
+                this.startDialogue(npc);
+                break;
+            }
+        }
+    }
+    
+    startDialogue(npc) {
+        this.dialogue.active = true;
+        this.dialogue.currentNPC = npc;
+        this.dialogue.messageIndex = 0;
+        this.dialogue.currentMessage = npc.messages[0];
+    }
+    
+    nextDialogueMessage() {
+        this.dialogue.messageIndex++;
+        
+        if (this.dialogue.messageIndex >= this.dialogue.currentNPC.messages.length) {
+            this.endDialogue();
+        } else {
+            this.dialogue.currentMessage = this.dialogue.currentNPC.messages[this.dialogue.messageIndex];
+        }
+    }
+    
+    endDialogue() {
+        this.dialogue.active = false;
+        this.dialogue.currentNPC = null;
+        this.dialogue.currentMessage = '';
+        this.dialogue.messageIndex = 0;
+    }
+    
     setupEventListeners() {
         // Keyboard input
         document.addEventListener('keydown', (e) => {
@@ -166,18 +255,31 @@ class Game {
             } else if (this.gameState === 'SETTINGS') {
                 this.handleSettingsInput(e);
             } else if (this.gameState === 'PLAYING') {
-                this.keys[e.key.toLowerCase()] = true;
+                if (this.dialogue.active) {
+                    this.handleDialogueInput(e);
+                } else {
+                    this.keys[e.key.toLowerCase()] = true;
+                    
+                    // Also handle arrow keys
+                    if (e.key === 'ArrowUp') this.keys['w'] = true;
+                    if (e.key === 'ArrowDown') this.keys['s'] = true;
+                    if (e.key === 'ArrowLeft') this.keys['a'] = true;
+                    if (e.key === 'ArrowRight') this.keys['d'] = true;
+                    
+                    // Interaction key
+                    if (e.key === 'e' || e.key === 'E' || e.key === ' ') {
+                        this.checkNPCInteraction();
+                    }
+                }
                 
-                // Also handle arrow keys
-                if (e.key === 'ArrowUp') this.keys['w'] = true;
-                if (e.key === 'ArrowDown') this.keys['s'] = true;
-                if (e.key === 'ArrowLeft') this.keys['a'] = true;
-                if (e.key === 'ArrowRight') this.keys['d'] = true;
-                
-                // ESC to return to menu
+                // ESC to return to menu (works even during dialogue)
                 if (e.key === 'Escape') {
-                    this.gameState = 'MENU';
-                    this.stopBGM(); // Stop music when returning to menu
+                    if (this.dialogue.active) {
+                        this.endDialogue();
+                    } else {
+                        this.gameState = 'MENU';
+                        this.stopBGM(); // Stop music when returning to menu
+                    }
                 }
             }
         });
@@ -306,6 +408,7 @@ class Game {
     update() {
         if (this.gameState !== 'PLAYING') return;
         if (!this.currentMap.loaded) return;
+        if (this.dialogue.active) return; // Don't allow movement during dialogue
         
         // Handle movement input with acceleration
         let inputX = 0;
@@ -461,11 +564,19 @@ class Game {
         // Draw map background (stretched to fit map dimensions)
         this.ctx.drawImage(this.currentMap.image, 0, 0, this.currentMap.width, this.currentMap.height);
         
+        // Draw NPCs
+        this.drawNPCs();
+        
         // Draw player
         this.drawPlayer();
         
         // Restore context
         this.ctx.restore();
+        
+        // Draw dialogue box (after restoring context so it's not affected by camera)
+        if (this.dialogue.active) {
+            this.drawDialogue();
+        }
     }
     
     renderMenu() {
@@ -583,6 +694,97 @@ class Game {
         }
         
         this.ctx.restore();
+    }
+    
+    drawNPCs() {
+        this.npcs.forEach(npc => {
+            const npcScreenX = npc.x - npc.width / 2;
+            const npcScreenY = npc.y - npc.height / 2;
+            
+            this.ctx.drawImage(npc.sprite, npcScreenX, npcScreenY, npc.width, npc.height);
+            
+            // Draw interaction indicator if player is close
+            const distance = Math.sqrt(
+                Math.pow(this.player.x - npc.x, 2) + 
+                Math.pow(this.player.y - npc.y, 2)
+            );
+            
+            if (distance <= 120 && !this.dialogue.active) {
+                // Draw "E" indicator above NPC
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                this.ctx.strokeStyle = 'black';
+                this.ctx.lineWidth = 2;
+                this.ctx.font = 'bold 16px Arial';
+                this.ctx.textAlign = 'center';
+                
+                const indicatorX = npc.x;
+                const indicatorY = npc.y - npc.height / 2 - 20;
+                
+                this.ctx.strokeText('E', indicatorX, indicatorY);
+                this.ctx.fillText('E', indicatorX, indicatorY);
+            }
+        });
+    }
+    
+    drawDialogue() {
+        // Draw dialogue box background
+        const boxHeight = 150;
+        const boxY = this.CANVAS_HEIGHT - boxHeight - 20;
+        const boxX = 20;
+        const boxWidth = this.CANVAS_WIDTH - 40;
+        
+        // Background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        this.ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+        
+        // Border
+        this.ctx.strokeStyle = 'white';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+        
+        // NPC name
+        if (this.dialogue.currentNPC) {
+            this.ctx.fillStyle = '#FFD700';
+            this.ctx.font = 'bold 20px Arial';
+            this.ctx.textAlign = 'left';
+            this.ctx.fillText(this.dialogue.currentNPC.id.toUpperCase(), boxX + 20, boxY + 30);
+        }
+        
+        // Message text
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = '18px Arial';
+        this.ctx.textAlign = 'left';
+        
+        // Word wrap the message
+        const words = this.dialogue.currentMessage.split(' ');
+        const maxWidth = boxWidth - 40;
+        let line = '';
+        let y = boxY + 60;
+        const lineHeight = 25;
+        
+        for (let n = 0; n < words.length; n++) {
+            const testLine = line + words[n] + ' ';
+            const metrics = this.ctx.measureText(testLine);
+            const testWidth = metrics.width;
+            
+            if (testWidth > maxWidth && n > 0) {
+                this.ctx.fillText(line, boxX + 20, y);
+                line = words[n] + ' ';
+                y += lineHeight;
+            } else {
+                line = testLine;
+            }
+        }
+        this.ctx.fillText(line, boxX + 20, y);
+        
+        // Continue indicator
+        this.ctx.fillStyle = '#CCCCCC';
+        this.ctx.font = '14px Arial';
+        this.ctx.textAlign = 'right';
+        
+        const isLastMessage = this.dialogue.messageIndex >= this.dialogue.currentNPC.messages.length - 1;
+        const continueText = isLastMessage ? 'ESC to close' : 'SPACE/ENTER to continue';
+        this.ctx.fillText(continueText, boxX + boxWidth - 20, boxY + boxHeight - 15);
     }
     
     updateDebug() {
