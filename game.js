@@ -80,6 +80,10 @@ class Game {
             speechBubble: null
         };
         
+        // Map system
+        this.mapManager = new MapManager();
+        this.maps = {}; // Maps organized by map ID (will be populated by MapManager)
+        
         // NPC system
         this.npcManager = new NPCManager();
         this.npcs = {}; // NPCs organized by map ID (will be populated by NPCManager)
@@ -118,15 +122,11 @@ class Game {
         this.player.sprite = new Image();
         this.player.sprite.src = 'assets/npc/main-0.png';
         
-        // Load map
-        this.currentMap.image = new Image();
-        this.currentMap.image.src = 'assets/maps/0-0.png';
-        
         // Load background music
         this.loadAudio();
         
         // Initialize maps and NPCs
-        this.initializeMaps();
+        this.maps = this.mapManager.getAllMaps();
         this.npcs = this.npcManager.initializeAllNPCs();
         
         // Load initial map
@@ -222,44 +222,29 @@ class Game {
         }
     }
     
-    initializeMaps() {
-        // Define available maps
-        this.maps = {
-            '0-0': {
-                id: '0-0',
-                imagePath: 'assets/maps/0-0.png',
-                name: 'Forest Clearing'
-            },
-            '0-1': {
-                id: '0-1',
-                imagePath: 'assets/maps/0-1.png',
-                name: 'Mountain Path'
-            }
-        };
-    }
+
     
     async loadMap(mapId) {
-        if (!this.maps[mapId]) {
+        if (!this.mapManager.hasMap(mapId)) {
             console.error(`Map ${mapId} not found`);
             return;
         }
         
-        const mapData = this.maps[mapId];
-        
-        // Load map image
-        this.currentMap.image = new Image();
-        this.currentMap.id = mapId;
-        this.currentMapId = mapId;
-        
-        return new Promise((resolve) => {
-            this.currentMap.image.onload = () => {
-                this.currentMap.width = this.currentMap.image.width;
-                this.currentMap.height = this.currentMap.image.height;
-                this.currentMap.loaded = true;
-                resolve();
-            };
-            this.currentMap.image.src = mapData.imagePath;
-        });
+        try {
+            const mapData = await this.mapManager.loadMap(mapId);
+            
+            // Update current map reference
+            this.currentMap.image = mapData.image;
+            this.currentMap.id = mapId;
+            this.currentMap.width = mapData.width;
+            this.currentMap.height = mapData.height;
+            this.currentMap.loaded = mapData.loaded;
+            this.currentMapId = mapId;
+            
+            console.log(`Loaded map: ${mapData.name} (${mapData.width}x${mapData.height})`);
+        } catch (error) {
+            console.error('Failed to load map:', error);
+        }
     }
     
 
@@ -316,14 +301,16 @@ class Game {
     }
     
     showTeleportConfirmation(teleporter) {
-        const confirmed = confirm(`Travel to ${this.maps[teleporter.targetMap]?.name || 'another realm'}?`);
+        const mapData = this.mapManager.getMap(teleporter.targetMap);
+        const mapName = mapData?.name || 'another realm';
+        const confirmed = confirm(`Travel to ${mapName}?`);
         if (confirmed) {
             this.teleportToMap(teleporter.targetMap, teleporter.targetX, teleporter.targetY);
         }
     }
     
     async teleportToMap(mapId, x, y) {
-        if (!this.maps[mapId]) {
+        if (!this.mapManager.hasMap(mapId)) {
             console.error(`Cannot teleport to unknown map: ${mapId}`);
             return;
         }
@@ -341,7 +328,8 @@ class Game {
             // Reset camera
             this.updateCamera();
             
-            console.log(`Teleported to map ${mapId} at (${x}, ${y})`);
+            const mapData = this.mapManager.getMap(mapId);
+            console.log(`Teleported to ${mapData.name} at (${x}, ${y})`);
         } catch (error) {
             console.error('Failed to load map:', error);
         }
