@@ -784,64 +784,118 @@ class Game {
     }
     
     drawDialogue() {
-        // Draw dialogue box background
-        const boxHeight = 150;
-        const boxY = this.CANVAS_HEIGHT - boxHeight - 20;
-        const boxX = 20;
-        const boxWidth = this.CANVAS_WIDTH - 40;
+        if (!this.dialogue.currentNPC) return;
         
-        // Background
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-        this.ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+        // Calculate NPC position in screen coordinates
+        const npcScreenX = this.dialogue.currentNPC.x - this.camera.x;
+        const npcScreenY = this.dialogue.currentNPC.y - this.camera.y;
         
-        // Border
-        this.ctx.strokeStyle = 'white';
-        this.ctx.lineWidth = 2;
-        this.ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+        // Speech bubble dimensions
+        const padding = 15;
+        const maxWidth = 300;
+        const minWidth = 150;
         
-        // NPC name
-        if (this.dialogue.currentNPC) {
-            this.ctx.fillStyle = '#FFD700';
-            this.ctx.font = 'bold 20px Arial';
-            this.ctx.textAlign = 'left';
-            this.ctx.fillText(this.dialogue.currentNPC.id.toUpperCase(), boxX + 20, boxY + 30);
-        }
-        
-        // Message text
-        this.ctx.fillStyle = 'white';
-        this.ctx.font = '18px Arial';
-        this.ctx.textAlign = 'left';
-        
-        // Word wrap the message
+        // Measure text to determine bubble size
+        this.ctx.font = '16px Arial';
         const words = this.dialogue.currentMessage.split(' ');
-        const maxWidth = boxWidth - 40;
-        let line = '';
-        let y = boxY + 60;
-        const lineHeight = 25;
+        const lines = [];
+        let currentLine = '';
         
-        for (let n = 0; n < words.length; n++) {
-            const testLine = line + words[n] + ' ';
-            const metrics = this.ctx.measureText(testLine);
-            const testWidth = metrics.width;
+        // Calculate word-wrapped lines
+        for (let word of words) {
+            const testLine = currentLine + (currentLine ? ' ' : '') + word;
+            const testWidth = this.ctx.measureText(testLine).width;
             
-            if (testWidth > maxWidth && n > 0) {
-                this.ctx.fillText(line, boxX + 20, y);
-                line = words[n] + ' ';
-                y += lineHeight;
+            if (testWidth > maxWidth - (padding * 2) && currentLine) {
+                lines.push(currentLine);
+                currentLine = word;
             } else {
-                line = testLine;
+                currentLine = testLine;
             }
         }
-        this.ctx.fillText(line, boxX + 20, y);
+        if (currentLine) {
+            lines.push(currentLine);
+        }
+        
+        // Calculate bubble dimensions
+        const lineHeight = 20;
+        const bubbleHeight = (lines.length * lineHeight) + (padding * 2) + 30; // +30 for name
+        let bubbleWidth = Math.max(minWidth, Math.min(maxWidth, 
+            Math.max(...lines.map(line => this.ctx.measureText(line).width)) + (padding * 2)));
+        
+        // Position above NPC's head
+        const bubbleX = npcScreenX - bubbleWidth / 2;
+        const bubbleY = npcScreenY - this.dialogue.currentNPC.height - bubbleHeight - 20;
+        
+        // Ensure bubble stays on screen
+        const adjustedX = Math.max(10, Math.min(this.CANVAS_WIDTH - bubbleWidth - 10, bubbleX));
+        const adjustedY = Math.max(10, bubbleY);
+        
+        // Draw speech bubble background
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        this.ctx.strokeStyle = '#333';
+        this.ctx.lineWidth = 2;
+        
+        // Rounded rectangle for speech bubble
+        this.drawRoundedRect(adjustedX, adjustedY, bubbleWidth, bubbleHeight, 10);
+        this.ctx.fill();
+        this.ctx.stroke();
+        
+        // Draw speech bubble tail (pointing to NPC)
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        this.ctx.strokeStyle = '#333';
+        this.ctx.beginPath();
+        
+        const tailX = npcScreenX;
+        const tailY = adjustedY + bubbleHeight;
+        const tailSize = 15;
+        
+        // Clamp tail position to bubble width
+        const clampedTailX = Math.max(adjustedX + 20, Math.min(adjustedX + bubbleWidth - 20, tailX));
+        
+        this.ctx.moveTo(clampedTailX, tailY);
+        this.ctx.lineTo(clampedTailX - tailSize, tailY + tailSize);
+        this.ctx.lineTo(clampedTailX + tailSize, tailY + tailSize);
+        this.ctx.closePath();
+        this.ctx.fill();
+        this.ctx.stroke();
+        
+        // Draw NPC name
+        this.ctx.fillStyle = '#2C5282';
+        this.ctx.font = 'bold 14px Arial';
+        this.ctx.textAlign = 'left';
+        this.ctx.fillText(this.dialogue.currentNPC.id.toUpperCase(), adjustedX + padding, adjustedY + padding + 14);
+        
+        // Draw message text
+        this.ctx.fillStyle = '#333';
+        this.ctx.font = '16px Arial';
+        
+        lines.forEach((line, index) => {
+            this.ctx.fillText(line, adjustedX + padding, adjustedY + padding + 35 + (index * lineHeight));
+        });
         
         // Continue indicator
-        this.ctx.fillStyle = '#CCCCCC';
-        this.ctx.font = '14px Arial';
+        this.ctx.fillStyle = '#666';
+        this.ctx.font = '12px Arial';
         this.ctx.textAlign = 'right';
         
         const isLastMessage = this.dialogue.messageIndex >= this.dialogue.currentNPC.messages.length - 1;
         const continueText = isLastMessage ? 'ESC to close' : 'SPACE/ENTER to continue';
-        this.ctx.fillText(continueText, boxX + boxWidth - 20, boxY + boxHeight - 15);
+        this.ctx.fillText(continueText, adjustedX + bubbleWidth - padding, adjustedY + bubbleHeight - 8);
+    }
+    
+    drawRoundedRect(x, y, width, height, radius) {
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + radius, y);
+        this.ctx.lineTo(x + width - radius, y);
+        this.ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        this.ctx.lineTo(x + width, y + height - radius);
+        this.ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        this.ctx.lineTo(x + radius, y + height);
+        this.ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        this.ctx.lineTo(x, y + radius);
+        this.ctx.quadraticCurveTo(x, y, x + radius, y);
+        this.ctx.closePath();
     }
     
     updateDebug() {
