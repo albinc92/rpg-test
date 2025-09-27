@@ -97,6 +97,44 @@ class NPCManager {
             baseAlpha: 0.7,
             pulseAlpha: 0.3
         });
+
+        // Register treasure chests using the chest helper method
+        this.createTreasureChest('treasure_chest_1', '0-0', 1200, 400, {
+            gold: 75,
+            items: [
+                'health_potion:3',
+                'iron_sword:1',
+                'iron_ore:5'
+            ]
+        });
+
+        this.createTreasureChest('treasure_chest_2', '0-1', 300, 700, {
+            gold: 150,
+            items: [
+                'mana_potion:2',
+                'leather_armor:1',
+                'magic_scroll:1',
+                'iron_ore:8'
+            ]
+        });
+
+        // More treasure chests for testing
+        this.createTreasureChest('treasure_chest_3', '0-0', 500, 800, {
+            gold: 50,
+            items: [
+                'health_potion:2',
+                'mana_potion:1'
+            ]
+        });
+
+        this.createTreasureChest('treasure_chest_4', '0-1', 800, 300, {
+            gold: 200,
+            items: [
+                'iron_sword:1',
+                'leather_armor:1',
+                'iron_ore:15'
+            ]
+        });
     }
 
     /**
@@ -274,6 +312,85 @@ class NPCManager {
      */
     isDialogueActive() {
         return this.dialogue.active;
+    }
+
+    /**
+     * Get NPC states for saving (e.g., chest looted status)
+     * @returns {object} Object with NPC states
+     */
+    getNPCStates() {
+        const states = {};
+        
+        this.npcRegistry.forEach((npc, id) => {
+            // Save states for NPCs that can change
+            if (npc.type === 'chest') {
+                states[id] = {
+                    looted: npc.looted || false
+                };
+            }
+            // Add other NPC types that need state saving here
+        });
+        
+        return states;
+    }
+
+    /**
+     * Restore NPC states from saved data
+     * @param {object} states - Saved NPC states
+     */
+    restoreNPCStates(states) {
+        if (!states) return;
+        
+        Object.entries(states).forEach(([npcId, state]) => {
+            const npc = this.npcRegistry.get(npcId);
+            if (npc && npc.type === 'chest') {
+                npc.looted = state.looted || false;
+            }
+            // Add other NPC types that need state restoration here
+        });
+        
+        console.log('NPC states restored');
+    }
+
+    /**
+     * Helper method to create treasure chests easily
+     * @param {string} id - Unique chest ID
+     * @param {string} mapId - Map where chest appears
+     * @param {number} x - X position
+     * @param {number} y - Y position
+     * @param {object} loot - Loot configuration
+     * @param {number} loot.gold - Gold amount
+     * @param {array} loot.items - Array of item strings in format 'itemId:quantity'
+     */
+    createTreasureChest(id, mapId, x, y, loot = {}) {
+        // Parse items from string format to object format
+        const parsedItems = [];
+        if (loot.items && Array.isArray(loot.items)) {
+            loot.items.forEach(itemString => {
+                const [itemId, quantityStr] = itemString.split(':');
+                const quantity = parseInt(quantityStr) || 1;
+                parsedItems.push({ id: itemId.trim(), quantity });
+            });
+        }
+
+        this.registerNPC({
+            id: id,
+            type: 'chest',
+            mapId: mapId,
+            x: x,
+            y: y,
+            width: 96,
+            height: 96,
+            spriteSrc: 'assets/npc/chest-0.png',
+            direction: 'right',
+            looted: false,
+            loot: {
+                gold: loot.gold || 0,
+                items: parsedItems
+            }
+        });
+
+        console.log(`Created treasure chest ${id} on map ${mapId} at (${x}, ${y})`);
     }
 }
 

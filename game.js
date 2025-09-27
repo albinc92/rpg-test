@@ -48,8 +48,16 @@ class Game {
         this.keys = {};
         
         // Game state management
-        this.gameState = 'MAIN_MENU'; // MAIN_MENU, GAME_MENU, SETTINGS, PLAYING, PAUSED
+        this.gameState = 'MAIN_MENU'; // MAIN_MENU, GAME_MENU, SETTINGS, PLAYING, PAUSED, LOOT_WINDOW
         this.gameStarted = false; // Track if game has been started
+        
+        // Loot window state
+        this.lootWindow = {
+            active: false,
+            items: [],
+            gold: 0,
+            message: ''
+        };
         
         // Main menu (start of game)
         this.mainMenuOptions = ['New Game', 'Continue', 'Settings', 'Exit'];
@@ -294,6 +302,8 @@ class Game {
             } else if (npc.type === 'portal') {
                 // Portals are handled automatically in checkPortalCollisions
                 return;
+            } else if (npc.type === 'chest') {
+                this.handleChest(npc);
             } else {
                 this.npcManager.startDialogue(npc, () => this.playSpeechBubbleSound());
             }
@@ -328,6 +338,74 @@ class Game {
         teleporter.onDialogueEnd = () => {
             this.showTeleportConfirmation(teleporter);
         };
+    }
+    
+    handleChest(chest) {
+        if (chest.looted) {
+            // Show empty chest message in loot window
+            this.showLootWindow([], 0, "This chest is empty.");
+        } else {
+            // Process loot immediately and show loot window
+            this.processChestLoot(chest);
+        }
+    }
+    
+    processChestLoot(chest) {
+        let lootedItems = [];
+        let goldAmount = 0;
+        
+        // Add gold if any
+        if (chest.loot.gold && chest.loot.gold > 0) {
+            this.addGold(chest.loot.gold);
+            goldAmount = chest.loot.gold;
+        }
+        
+        // Add items if any
+        if (chest.loot.items && chest.loot.items.length > 0) {
+            chest.loot.items.forEach(lootItem => {
+                const success = this.inventoryManager.addItem(lootItem.id, lootItem.quantity);
+                if (success) {
+                    const item = this.itemManager.getItem(lootItem.id);
+                    lootedItems.push({
+                        name: item ? item.name : lootItem.id,
+                        quantity: lootItem.quantity,
+                        rarity: item ? item.rarity : 'common',
+                        success: true
+                    });
+                } else {
+                    lootedItems.push({
+                        name: lootItem.id,
+                        quantity: lootItem.quantity,
+                        rarity: 'common',
+                        success: false
+                    });
+                }
+            });
+        }
+        
+        // Mark chest as looted
+        chest.looted = true;
+        
+        // Show loot window
+        this.showLootWindow(lootedItems, goldAmount);
+        
+        console.log(`Chest ${chest.id} looted:`, chest.loot);
+    }
+    
+    showLootWindow(items, gold = 0, message = '') {
+        this.lootWindow.active = true;
+        this.lootWindow.items = items;
+        this.lootWindow.gold = gold;
+        this.lootWindow.message = message;
+        this.gameState = 'LOOT_WINDOW';
+    }
+    
+    closeLootWindow() {
+        this.lootWindow.active = false;
+        this.lootWindow.items = [];
+        this.lootWindow.gold = 0;
+        this.lootWindow.message = '';
+        this.gameState = 'PLAYING';
     }
     
     showTeleportConfirmation(teleporter) {
@@ -380,7 +458,8 @@ class Game {
             },
             currentMapId: this.currentMapId,
             settings: { ...this.settings },
-            gameStarted: this.gameStarted
+            gameStarted: this.gameStarted,
+            npcStates: this.npcManager.getNPCStates() // Save NPC states (like chest looted status)
         };
         
         try {
@@ -432,6 +511,11 @@ class Game {
             
             // Restore game state
             this.gameStarted = saveData.gameStarted;
+            
+            // Restore NPC states (like chest looted status)
+            if (saveData.npcStates) {
+                this.npcManager.restoreNPCStates(saveData.npcStates);
+            }
             
             // Load inventory
             this.inventoryManager.loadInventory(this.saveSlotKey);
@@ -539,6 +623,8 @@ class Game {
                 this.handleSettingsInput(e);
             } else if (this.gameState === 'INVENTORY') {
                 this.handleInventoryInput(e);
+            } else if (this.gameState === 'LOOT_WINDOW') {
+                this.handleLootWindowInput(e);
             } else if (this.gameState === 'PLAYING') {
                 if (this.npcManager.isDialogueActive()) {
                     this.handleDialogueInput(e);
@@ -877,6 +963,18 @@ class Game {
         }
     }
     
+    handleLootWindowInput(e) {
+        switch(e.key) {
+            case 'Escape':
+            case 'Enter':
+            case ' ':
+            case 'e':
+            case 'E':
+                this.closeLootWindow();
+                break;
+        }
+    }
+    
     navigateInventoryGrid(direction) {
         const inventory = this.inventoryManager.getInventory();
         if (inventory.length === 0) return;
@@ -1109,6 +1207,11 @@ class Game {
         
         if (this.gameState === 'INVENTORY') {
             this.renderInventory();
+            return;
+        }
+        
+        if (this.gameState === 'LOOT_WINDOW') {
+            this.renderLootWindow();
             return;
         }
         
@@ -1423,6 +1526,92 @@ class Game {
         this.ctx.font = 'bold 20px Arial';
         this.ctx.textAlign = 'left';
         this.ctx.fillText(this.player.gold.toString(), goldX + 40, goldY - 8);
+    }
+    
+    renderLootWindow() {
+        // Draw semi-transparent background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+        
+        // Calculate window dimensions
+        const windowWidth = 500;
+        const windowHeight = 400;
+        const windowX = (this.CANVAS_WIDTH - windowWidth) / 2;
+        const windowY = (this.CANVAS_HEIGHT - windowHeight) / 2;
+        
+        // Draw window background
+        this.ctx.fillStyle = 'rgba(40, 40, 40, 0.95)';
+        this.ctx.fillRect(windowX, windowY, windowWidth, windowHeight);
+        
+        // Draw window border
+        this.ctx.strokeStyle = '#FFD700';
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeRect(windowX, windowY, windowWidth, windowHeight);
+        
+        // Draw title
+        this.ctx.fillStyle = '#FFD700';
+        this.ctx.font = 'bold 28px Arial';
+        this.ctx.textAlign = 'center';
+        const titleY = windowY + 40;
+        
+        if (this.lootWindow.message) {
+            this.ctx.fillText(this.lootWindow.message, windowX + windowWidth / 2, titleY);
+        } else {
+            this.ctx.fillText('Treasure Found!', windowX + windowWidth / 2, titleY);
+        }
+        
+        let contentY = titleY + 50;
+        
+        // Draw gold if any
+        if (this.lootWindow.gold > 0) {
+            // Draw gold icon and amount
+            if (this.goldIcon.complete) {
+                this.ctx.drawImage(this.goldIcon, windowX + 50, contentY - 25, 32, 32);
+            }
+            
+            this.ctx.fillStyle = '#FFD700';
+            this.ctx.font = 'bold 20px Arial';
+            this.ctx.textAlign = 'left';
+            this.ctx.fillText(`${this.lootWindow.gold} Gold`, windowX + 90, contentY);
+            contentY += 40;
+        }
+        
+        // Draw items
+        if (this.lootWindow.items && this.lootWindow.items.length > 0) {
+            this.ctx.font = '18px Arial';
+            
+            this.lootWindow.items.forEach(item => {
+                const color = item.success ? 
+                    this.getItemRarityColor(item.rarity) : 
+                    '#FF6666'; // Red for failed items
+                
+                this.ctx.fillStyle = color;
+                this.ctx.textAlign = 'left';
+                
+                let itemText = `${item.quantity}x ${item.name}`;
+                if (!item.success) {
+                    itemText += ' (Inventory Full!)';
+                }
+                
+                this.ctx.fillText(itemText, windowX + 50, contentY);
+                contentY += 30;
+            });
+        }
+        
+        // Draw empty message if no loot
+        if (this.lootWindow.items.length === 0 && this.lootWindow.gold === 0 && !this.lootWindow.message) {
+            this.ctx.fillStyle = '#CCCCCC';
+            this.ctx.font = '20px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('The chest was empty.', windowX + windowWidth / 2, contentY);
+        }
+        
+        // Draw instructions
+        this.ctx.fillStyle = '#CCCCCC';
+        this.ctx.font = '16px Arial';
+        this.ctx.textAlign = 'center';
+        const instructionsY = windowY + windowHeight - 30;
+        this.ctx.fillText('Press ENTER, ESC, or E to close', windowX + windowWidth / 2, instructionsY);
     }
     
     addGold(amount) {
