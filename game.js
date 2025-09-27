@@ -53,14 +53,16 @@ class Game {
         this.selectedMenuOption = 0;
         
         // Settings menu
-        this.settingsOptions = ['Player Speed', 'Show Debug', 'Master Volume', 'Mute Audio', 'Back to Menu'];
+        this.settingsOptions = ['Player Speed', 'Show Debug', 'Master Volume', 'BGM Volume', 'Effect Volume', 'Mute Audio', 'Back to Menu'];
         this.selectedSettingsOption = 0;
         
         // Game settings
         this.settings = {
             playerSpeed: 'Walk', // 'Walk' or 'Run'
             showDebug: true,
-            masterVolume: 50,
+            masterVolume: 100,   // Overall volume multiplier (affects all sound)
+            bgmVolume: 100,      // Background music volume
+            effectVolume: 100,   // Sound effects volume
             audioMuted: false
         };
         
@@ -144,15 +146,15 @@ class Game {
         // Load background music
         this.audio.bgm = new Audio('assets/bgm/00.mp3');
         this.audio.bgm.loop = true;
-        this.audio.bgm.volume = this.settings.masterVolume / 100;
         
         // Load menu navigation sound effect
         this.audio.menuNavigation = new Audio('assets/audio/effect/menu-navigation.mp3');
-        this.audio.menuNavigation.volume = this.settings.masterVolume / 100;
         
         // Load speech bubble sound effect
         this.audio.speechBubble = new Audio('assets/audio/effect/speech-bubble.mp3');
-        this.audio.speechBubble.volume = this.settings.masterVolume / 100;
+        
+        // Set initial volumes
+        this.updateAudioVolume();
         
         // Handle audio loading errors gracefully
         this.audio.bgm.onerror = () => {
@@ -186,14 +188,19 @@ class Game {
     }
     
     updateAudioVolume() {
+        const masterMultiplier = this.settings.masterVolume / 100;
+        
         if (this.audio.bgm) {
-            this.audio.bgm.volume = this.settings.audioMuted ? 0 : (this.settings.masterVolume / 100);
+            const bgmVolume = (this.settings.bgmVolume / 100) * masterMultiplier;
+            this.audio.bgm.volume = this.settings.audioMuted ? 0 : bgmVolume;
         }
         if (this.audio.menuNavigation) {
-            this.audio.menuNavigation.volume = this.settings.audioMuted ? 0 : (this.settings.masterVolume / 100);
+            const effectVolume = (this.settings.effectVolume / 100) * masterMultiplier;
+            this.audio.menuNavigation.volume = this.settings.audioMuted ? 0 : effectVolume;
         }
         if (this.audio.speechBubble) {
-            this.audio.speechBubble.volume = this.settings.audioMuted ? 0 : (this.settings.masterVolume / 100);
+            const effectVolume = (this.settings.effectVolume / 100) * masterMultiplier;
+            this.audio.speechBubble.volume = this.settings.audioMuted ? 0 : effectVolume;
         }
     }
     
@@ -507,7 +514,15 @@ class Game {
                 this.settings.masterVolume = Math.max(0, Math.min(100, this.settings.masterVolume + (direction * 10)));
                 this.updateAudioVolume();
                 break;
-            case 3: // Mute Audio
+            case 3: // BGM Volume
+                this.settings.bgmVolume = Math.max(0, Math.min(100, this.settings.bgmVolume + (direction * 10)));
+                this.updateAudioVolume();
+                break;
+            case 4: // Effect Volume
+                this.settings.effectVolume = Math.max(0, Math.min(100, this.settings.effectVolume + (direction * 10)));
+                this.updateAudioVolume();
+                break;
+            case 5: // Mute Audio
                 if (direction !== 0) {
                     this.settings.audioMuted = !this.settings.audioMuted;
                     this.updateAudioVolume();
@@ -521,10 +536,12 @@ class Game {
             case 0: // Player Speed
             case 1: // Show Debug
             case 2: // Master Volume
-            case 3: // Mute Audio
+            case 3: // BGM Volume
+            case 4: // Effect Volume
+            case 5: // Mute Audio
                 // These are adjusted with left/right arrows
                 break;
-            case 4: // Back to Menu
+            case 6: // Back to Menu
                 this.gameState = 'MENU';
                 break;
         }
@@ -762,8 +779,8 @@ class Game {
         
         // Draw settings options
         this.ctx.font = '24px Arial';
-        const startY = this.CANVAS_HEIGHT * 0.4;
-        const spacing = 60;
+        const startY = this.CANVAS_HEIGHT * 0.35;
+        const spacing = 50;
         
         this.settingsOptions.forEach((option, index) => {
             const y = startY + (index * spacing);
@@ -781,7 +798,13 @@ class Game {
                 case 2: // Master Volume
                     valueText = `: ${this.settings.masterVolume}%`;
                     break;
-                case 3: // Mute Audio
+                case 3: // BGM Volume
+                    valueText = `: ${this.settings.bgmVolume}%`;
+                    break;
+                case 4: // Effect Volume
+                    valueText = `: ${this.settings.effectVolume}%`;
+                    break;
+                case 5: // Mute Audio
                     valueText = `: ${this.settings.audioMuted ? 'ON' : 'OFF'}`;
                     break;
             }
@@ -799,7 +822,7 @@ class Game {
         // Draw instructions
         this.ctx.fillStyle = '#CCCCCC';
         this.ctx.font = '16px Arial';
-        const instructionsY = this.CANVAS_HEIGHT * 0.8;
+        const instructionsY = this.CANVAS_HEIGHT * 0.85;
         this.ctx.fillText('Use W/S to navigate, A/D to adjust values', this.CANVAS_WIDTH / 2, instructionsY);
         this.ctx.fillText('Press ENTER to select, ESC to go back', this.CANVAS_WIDTH / 2, instructionsY + 25);
     }
