@@ -1294,10 +1294,28 @@ class Game {
                 isDisabled = true;
             }
             
-            // Highlight selected option
+            // Highlight selected option with background bar
             if (index === this.selectedMainMenuOption) {
-                this.ctx.fillStyle = isDisabled ? '#666666' : '#FFD700'; // Gold color or gray if disabled
-                this.ctx.fillText('> ' + option + ' <', this.CANVAS_WIDTH / 2, y);
+                // Calculate text width for proper bar sizing
+                this.ctx.font = '28px Arial';
+                const textWidth = this.ctx.measureText(option).width;
+                const barWidth = textWidth + 40; // Add padding
+                const barHeight = 40;
+                const barX = (this.CANVAS_WIDTH - barWidth) / 2;
+                const barY = y - 30;
+                
+                // Draw background bar
+                this.ctx.fillStyle = isDisabled ? 'rgba(100, 100, 100, 0.3)' : 'rgba(255, 215, 0, 0.3)';
+                this.ctx.fillRect(barX, barY, barWidth, barHeight);
+                
+                // Draw border around bar
+                this.ctx.strokeStyle = isDisabled ? '#666666' : '#FFD700';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(barX, barY, barWidth, barHeight);
+                
+                // Draw text
+                this.ctx.fillStyle = isDisabled ? '#666666' : '#FFD700';
+                this.ctx.fillText(option, this.CANVAS_WIDTH / 2, y);
             } else {
                 this.ctx.fillStyle = isDisabled ? '#444444' : 'white';
                 this.ctx.fillText(option, this.CANVAS_WIDTH / 2, y);
@@ -1397,10 +1415,29 @@ class Game {
                     break;
             }
             
-            // Highlight selected option
+            // Highlight selected option with background bar
             if (index === this.selectedSettingsOption) {
-                this.ctx.fillStyle = '#FFD700'; // Gold color
-                this.ctx.fillText('> ' + displayText + valueText + ' <', this.CANVAS_WIDTH / 2, y);
+                // Calculate text width for proper bar sizing
+                this.ctx.font = '24px Arial';
+                const fullText = displayText + valueText;
+                const textWidth = this.ctx.measureText(fullText).width;
+                const barWidth = textWidth + 40; // Add padding
+                const barHeight = 35;
+                const barX = (this.CANVAS_WIDTH - barWidth) / 2;
+                const barY = y - 25;
+                
+                // Draw background bar
+                this.ctx.fillStyle = 'rgba(255, 215, 0, 0.3)'; // Semi-transparent gold
+                this.ctx.fillRect(barX, barY, barWidth, barHeight);
+                
+                // Draw border around bar
+                this.ctx.strokeStyle = '#FFD700';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(barX, barY, barWidth, barHeight);
+                
+                // Draw text in gold
+                this.ctx.fillStyle = '#FFD700';
+                this.ctx.fillText(fullText, this.CANVAS_WIDTH / 2, y);
             } else {
                 this.ctx.fillStyle = 'white';
                 this.ctx.fillText(displayText + valueText, this.CANVAS_WIDTH / 2, y);
