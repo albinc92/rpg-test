@@ -79,18 +79,6 @@ class ItemManager {
 
         // Materials
         this.registerItem({
-            id: 'gold_coin',
-            name: 'Gold Coin',
-            description: 'Standard currency of the realm.',
-            type: 'currency',
-            rarity: 'common',
-            value: 1,
-            stackable: true,
-            maxStack: 1000,
-            spriteSrc: 'assets/items/gold_coin.png'
-        });
-
-        this.registerItem({
             id: 'iron_ore',
             name: 'Iron Ore',
             description: 'Raw iron ore. Can be smelted.',

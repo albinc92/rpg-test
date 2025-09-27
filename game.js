@@ -21,7 +21,8 @@ class Game {
             velocityY: 0,
             acceleration: 0.5,
             friction: 0.8,
-            maxSpeed: 2 // Will be set based on walk/run setting
+            maxSpeed: 2, // Will be set based on walk/run setting
+            gold: 100 // Starting gold amount
         };
         
         // Camera properties
@@ -143,6 +144,10 @@ class Game {
         // Load player sprite
         this.player.sprite = new Image();
         this.player.sprite.src = 'assets/npc/main-0.png';
+        
+        // Load gold icon
+        this.goldIcon = new Image();
+        this.goldIcon.src = 'assets/icon/gold.png';
         
         // Load background music
         this.loadAudio();
@@ -370,7 +375,8 @@ class Game {
             player: {
                 x: this.player.x,
                 y: this.player.y,
-                facingRight: this.player.facingRight
+                facingRight: this.player.facingRight,
+                gold: this.player.gold
             },
             currentMapId: this.currentMapId,
             settings: { ...this.settings },
@@ -415,6 +421,7 @@ class Game {
             this.player.x = saveData.player.x;
             this.player.y = saveData.player.y;
             this.player.facingRight = saveData.player.facingRight;
+            this.player.gold = saveData.player.gold || 100; // Default to 100 if not saved
             
             // Restore settings
             if (saveData.settings) {
@@ -1296,6 +1303,9 @@ class Game {
             }
         }
         
+        // Draw gold counter in bottom right
+        this.drawGoldCounter();
+        
         // Draw instructions
         this.ctx.fillStyle = '#CCCCCC';
         this.ctx.font = '16px Arial';
@@ -1314,6 +1324,51 @@ class Game {
             legendary: '#FF8000'
         };
         return colors[rarity] || colors.common;
+    }
+    
+    drawGoldCounter() {
+        const goldX = this.CANVAS_WIDTH - 150;
+        const goldY = this.CANVAS_HEIGHT - 100;
+        
+        // Draw background for gold counter
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(goldX - 10, goldY - 35, 140, 50);
+        
+        // Draw border
+        this.ctx.strokeStyle = '#FFD700';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(goldX - 10, goldY - 35, 140, 50);
+        
+        // Draw gold icon
+        if (this.goldIcon.complete) {
+            this.ctx.drawImage(this.goldIcon, goldX, goldY - 30, 32, 32);
+        }
+        
+        // Draw gold amount
+        this.ctx.fillStyle = '#FFD700';
+        this.ctx.font = 'bold 20px Arial';
+        this.ctx.textAlign = 'left';
+        this.ctx.fillText(this.player.gold.toString(), goldX + 40, goldY - 8);
+    }
+    
+    addGold(amount) {
+        this.player.gold += amount;
+        console.log(`Added ${amount} gold. Total: ${this.player.gold}`);
+    }
+    
+    removeGold(amount) {
+        if (this.player.gold >= amount) {
+            this.player.gold -= amount;
+            console.log(`Removed ${amount} gold. Total: ${this.player.gold}`);
+            return true;
+        } else {
+            console.log(`Not enough gold. Required: ${amount}, Available: ${this.player.gold}`);
+            return false;
+        }
+    }
+    
+    getGold() {
+        return this.player.gold;
     }
     
     dropItemInWorld(droppedItem) {
@@ -1607,10 +1662,13 @@ class Game {
         this.inventoryManager.addItem('mana_potion', 3);
         this.inventoryManager.addItem('iron_sword');
         this.inventoryManager.addItem('leather_armor');
-        this.inventoryManager.addItem('gold_coin', 50);
         this.inventoryManager.addItem('iron_ore', 10);
         this.inventoryManager.addItem('magic_scroll');
-        console.log('Test items added to inventory');
+        
+        // Add extra gold for testing
+        this.addGold(150); // Adds to the starting 100, so player will have 250 total
+        
+        console.log('Test items added to inventory and gold added');
     }
     
     gameLoop() {
