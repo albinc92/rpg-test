@@ -41,6 +41,29 @@ class Game {
         // Input handling
         this.keys = {};
         
+        // Game state management
+        this.gameState = 'MENU'; // MENU, SETTINGS, PLAYING, PAUSED
+        this.menuOptions = ['Start Game', 'Settings', 'Exit'];
+        this.selectedMenuOption = 0;
+        
+        // Settings menu
+        this.settingsOptions = ['Player Speed', 'Show Debug', 'Master Volume', 'Mute Audio', 'Back to Menu'];
+        this.selectedSettingsOption = 0;
+        
+        // Game settings
+        this.settings = {
+            playerSpeed: 3,
+            showDebug: true,
+            masterVolume: 50,
+            audioMuted: false
+        };
+        
+        // Audio system
+        this.audio = {
+            bgm: null,
+            currentTrack: null
+        };
+        
         // Initialize the game
         this.init();
     }
@@ -75,6 +98,9 @@ class Game {
         this.currentMap.image = new Image();
         this.currentMap.image.src = 'assets/maps/0-0.png';
         
+        // Load background music
+        this.loadAudio();
+        
         // Wait for both images to load
         await Promise.all([
             new Promise(resolve => {
@@ -97,30 +123,188 @@ class Game {
         ]);
     }
     
+    loadAudio() {
+        // Load background music
+        this.audio.bgm = new Audio('assets/bgm/00.mp3');
+        this.audio.bgm.loop = true;
+        this.audio.bgm.volume = this.settings.masterVolume / 100;
+        
+        // Handle audio loading errors gracefully
+        this.audio.bgm.onerror = () => {
+            console.warn('Could not load background music');
+        };
+    }
+    
+    playBGM() {
+        if (this.audio.bgm && this.audio.currentTrack !== 'bgm') {
+            this.audio.bgm.currentTime = 0;
+            this.audio.bgm.play().catch(e => {
+                console.warn('Could not play background music:', e);
+            });
+            this.audio.currentTrack = 'bgm';
+        }
+    }
+    
+    stopBGM() {
+        if (this.audio.bgm) {
+            this.audio.bgm.pause();
+            this.audio.currentTrack = null;
+        }
+    }
+    
+    updateAudioVolume() {
+        if (this.audio.bgm) {
+            this.audio.bgm.volume = this.settings.audioMuted ? 0 : (this.settings.masterVolume / 100);
+        }
+    }
+    
     setupEventListeners() {
         // Keyboard input
         document.addEventListener('keydown', (e) => {
-            this.keys[e.key.toLowerCase()] = true;
-            
-            // Also handle arrow keys
-            if (e.key === 'ArrowUp') this.keys['w'] = true;
-            if (e.key === 'ArrowDown') this.keys['s'] = true;
-            if (e.key === 'ArrowLeft') this.keys['a'] = true;
-            if (e.key === 'ArrowRight') this.keys['d'] = true;
+            if (this.gameState === 'MENU') {
+                this.handleMenuInput(e);
+            } else if (this.gameState === 'SETTINGS') {
+                this.handleSettingsInput(e);
+            } else if (this.gameState === 'PLAYING') {
+                this.keys[e.key.toLowerCase()] = true;
+                
+                // Also handle arrow keys
+                if (e.key === 'ArrowUp') this.keys['w'] = true;
+                if (e.key === 'ArrowDown') this.keys['s'] = true;
+                if (e.key === 'ArrowLeft') this.keys['a'] = true;
+                if (e.key === 'ArrowRight') this.keys['d'] = true;
+                
+                // ESC to return to menu
+                if (e.key === 'Escape') {
+                    this.gameState = 'MENU';
+                    this.stopBGM(); // Stop music when returning to menu
+                }
+            }
         });
         
         document.addEventListener('keyup', (e) => {
-            this.keys[e.key.toLowerCase()] = false;
-            
-            // Also handle arrow keys
-            if (e.key === 'ArrowUp') this.keys['w'] = false;
-            if (e.key === 'ArrowDown') this.keys['s'] = false;
-            if (e.key === 'ArrowLeft') this.keys['a'] = false;
-            if (e.key === 'ArrowRight') this.keys['d'] = false;
+            if (this.gameState === 'PLAYING') {
+                this.keys[e.key.toLowerCase()] = false;
+                
+                // Also handle arrow keys
+                if (e.key === 'ArrowUp') this.keys['w'] = false;
+                if (e.key === 'ArrowDown') this.keys['s'] = false;
+                if (e.key === 'ArrowLeft') this.keys['a'] = false;
+                if (e.key === 'ArrowRight') this.keys['d'] = false;
+            }
         });
     }
     
+    handleMenuInput(e) {
+        switch(e.key) {
+            case 'ArrowUp':
+            case 'w':
+            case 'W':
+                this.selectedMenuOption = Math.max(0, this.selectedMenuOption - 1);
+                break;
+            case 'ArrowDown':
+            case 's':
+            case 'S':
+                this.selectedMenuOption = Math.min(this.menuOptions.length - 1, this.selectedMenuOption + 1);
+                break;
+            case 'Enter':
+            case ' ':
+                this.selectMenuOption();
+                break;
+        }
+    }
+    
+    selectMenuOption() {
+        switch(this.selectedMenuOption) {
+            case 0: // Start Game
+                this.gameState = 'PLAYING';
+                this.playBGM(); // Start background music when game starts
+                break;
+            case 1: // Settings
+                this.gameState = 'SETTINGS';
+                this.selectedSettingsOption = 0;
+                break;
+            case 2: // Exit
+                // For web games, we can't really exit, so maybe return to menu or show a message
+                if (confirm('Are you sure you want to exit?')) {
+                    window.close();
+                }
+                break;
+        }
+    }
+    
+    handleSettingsInput(e) {
+        switch(e.key) {
+            case 'ArrowUp':
+            case 'w':
+            case 'W':
+                this.selectedSettingsOption = Math.max(0, this.selectedSettingsOption - 1);
+                break;
+            case 'ArrowDown':
+            case 's':
+            case 'S':
+                this.selectedSettingsOption = Math.min(this.settingsOptions.length - 1, this.selectedSettingsOption + 1);
+                break;
+            case 'ArrowLeft':
+            case 'a':
+            case 'A':
+                this.adjustSetting(-1);
+                break;
+            case 'ArrowRight':
+            case 'd':
+            case 'D':
+                this.adjustSetting(1);
+                break;
+            case 'Enter':
+            case ' ':
+                this.selectSettingsOption();
+                break;
+            case 'Escape':
+                this.gameState = 'MENU';
+                break;
+        }
+    }
+    
+    adjustSetting(direction) {
+        switch(this.selectedSettingsOption) {
+            case 0: // Player Speed
+                this.settings.playerSpeed = Math.max(1, Math.min(10, this.settings.playerSpeed + direction));
+                this.player.maxSpeed = this.settings.playerSpeed;
+                break;
+            case 1: // Show Debug
+                if (direction !== 0) {
+                    this.settings.showDebug = !this.settings.showDebug;
+                }
+                break;
+            case 2: // Master Volume
+                this.settings.masterVolume = Math.max(0, Math.min(100, this.settings.masterVolume + (direction * 10)));
+                this.updateAudioVolume();
+                break;
+            case 3: // Mute Audio
+                if (direction !== 0) {
+                    this.settings.audioMuted = !this.settings.audioMuted;
+                    this.updateAudioVolume();
+                }
+                break;
+        }
+    }
+    
+    selectSettingsOption() {
+        switch(this.selectedSettingsOption) {
+            case 0: // Player Speed
+            case 1: // Show Debug
+            case 2: // Master Volume
+            case 3: // Mute Audio
+                // These are adjusted with left/right arrows
+                break;
+            case 4: // Back to Menu
+                this.gameState = 'MENU';
+                break;
+        }
+    }
+    
     update() {
+        if (this.gameState !== 'PLAYING') return;
         if (!this.currentMap.loaded) return;
         
         // Handle movement input with acceleration
@@ -251,6 +435,16 @@ class Game {
         // Clear canvas
         this.ctx.clearRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
         
+        if (this.gameState === 'MENU') {
+            this.renderMenu();
+            return;
+        }
+        
+        if (this.gameState === 'SETTINGS') {
+            this.renderSettings();
+            return;
+        }
+        
         if (!this.currentMap.loaded) {
             this.ctx.fillStyle = 'white';
             this.ctx.font = '20px Arial';
@@ -272,6 +466,100 @@ class Game {
         
         // Restore context
         this.ctx.restore();
+    }
+    
+    renderMenu() {
+        // Draw background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+        
+        // Draw title
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = 'bold 48px Arial';
+        this.ctx.textAlign = 'center';
+        const titleY = this.CANVAS_HEIGHT * 0.3;
+        this.ctx.fillText('RPG Adventure', this.CANVAS_WIDTH / 2, titleY);
+        
+        // Draw menu options
+        this.ctx.font = '24px Arial';
+        const startY = this.CANVAS_HEIGHT * 0.5;
+        const spacing = 50;
+        
+        this.menuOptions.forEach((option, index) => {
+            const y = startY + (index * spacing);
+            
+            // Highlight selected option
+            if (index === this.selectedMenuOption) {
+                this.ctx.fillStyle = '#FFD700'; // Gold color
+                this.ctx.fillText('> ' + option + ' <', this.CANVAS_WIDTH / 2, y);
+            } else {
+                this.ctx.fillStyle = 'white';
+                this.ctx.fillText(option, this.CANVAS_WIDTH / 2, y);
+            }
+        });
+        
+        // Draw instructions
+        this.ctx.fillStyle = '#CCCCCC';
+        this.ctx.font = '16px Arial';
+        const instructionsY = this.CANVAS_HEIGHT * 0.8;
+        this.ctx.fillText('Use W/S or Arrow Keys to navigate', this.CANVAS_WIDTH / 2, instructionsY);
+        this.ctx.fillText('Press ENTER or SPACE to select', this.CANVAS_WIDTH / 2, instructionsY + 25);
+    }
+    
+    renderSettings() {
+        // Draw background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+        
+        // Draw title
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = 'bold 36px Arial';
+        this.ctx.textAlign = 'center';
+        const titleY = this.CANVAS_HEIGHT * 0.2;
+        this.ctx.fillText('Settings', this.CANVAS_WIDTH / 2, titleY);
+        
+        // Draw settings options
+        this.ctx.font = '24px Arial';
+        const startY = this.CANVAS_HEIGHT * 0.4;
+        const spacing = 60;
+        
+        this.settingsOptions.forEach((option, index) => {
+            const y = startY + (index * spacing);
+            let displayText = option;
+            let valueText = '';
+            
+            // Add current values for settings
+            switch(index) {
+                case 0: // Player Speed
+                    valueText = `: ${this.settings.playerSpeed}`;
+                    break;
+                case 1: // Show Debug
+                    valueText = `: ${this.settings.showDebug ? 'ON' : 'OFF'}`;
+                    break;
+                case 2: // Master Volume
+                    valueText = `: ${this.settings.masterVolume}%`;
+                    break;
+                case 3: // Mute Audio
+                    valueText = `: ${this.settings.audioMuted ? 'ON' : 'OFF'}`;
+                    break;
+            }
+            
+            // Highlight selected option
+            if (index === this.selectedSettingsOption) {
+                this.ctx.fillStyle = '#FFD700'; // Gold color
+                this.ctx.fillText('> ' + displayText + valueText + ' <', this.CANVAS_WIDTH / 2, y);
+            } else {
+                this.ctx.fillStyle = 'white';
+                this.ctx.fillText(displayText + valueText, this.CANVAS_WIDTH / 2, y);
+            }
+        });
+        
+        // Draw instructions
+        this.ctx.fillStyle = '#CCCCCC';
+        this.ctx.font = '16px Arial';
+        const instructionsY = this.CANVAS_HEIGHT * 0.8;
+        this.ctx.fillText('Use W/S to navigate, A/D to adjust values', this.CANVAS_WIDTH / 2, instructionsY);
+        this.ctx.fillText('Press ENTER to select, ESC to go back', this.CANVAS_WIDTH / 2, instructionsY + 25);
     }
     
     drawPlayer() {
@@ -298,6 +586,12 @@ class Game {
     }
     
     updateDebug() {
+        if (this.gameState === 'MENU' || this.gameState === 'SETTINGS' || !this.settings.showDebug) {
+            this.debug.style.display = 'none';
+            return;
+        }
+        
+        this.debug.style.display = 'block';
         const speed = Math.sqrt(this.player.velocityX * this.player.velocityX + this.player.velocityY * this.player.velocityY);
         const halfWidth = this.player.width / 2;
         const halfHeight = this.player.height / 2;
@@ -314,13 +608,15 @@ class Game {
             Speed: ${speed.toFixed(2)}/${this.player.maxSpeed}<br>
             Map: ${this.currentMap.width}x${this.currentMap.height}<br>
             Boundaries: X(${minX}-${maxX}) Y(${minY}-${maxY})<br>
-            Facing: ${this.player.facingRight ? 'Left' : 'Right'}
+            Facing: ${this.player.facingRight ? 'Left' : 'Right'}<br>
+            State: ${this.gameState}
         `;
     }
     
     gameLoop() {
         this.update();
         this.render();
+        this.updateDebug();
         requestAnimationFrame(() => this.gameLoop());
     }
 }
