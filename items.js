@@ -25,7 +25,7 @@ class ItemManager {
             value: 25,
             stackable: true,
             maxStack: 50,
-            spriteSrc: 'assets/icon/Items/HealthPotion-0.png',
+            spriteSrc: 'assets/icon/Items/Health_Potion-0.png',
             effect: {
                 type: 'heal',
                 amount: 50
@@ -41,7 +41,7 @@ class ItemManager {
             value: 20,
             stackable: true,
             maxStack: 50,
-            spriteSrc: 'assets/icon/Items/ManaPotion-0.png',
+            spriteSrc: 'assets/icon/Items/Mana_Potion-0.png',
             effect: {
                 type: 'mana',
                 amount: 30
@@ -57,7 +57,7 @@ class ItemManager {
             rarity: 'common',
             value: 100,
             stackable: false,
-            spriteSrc: 'assets/icon/Items/IronSword-0.png',
+            spriteSrc: 'assets/icon/Items/Iron_Sword.png',
             stats: {
                 attack: 10
             }
@@ -71,7 +71,7 @@ class ItemManager {
             rarity: 'common',
             value: 80,
             stackable: false,
-            spriteSrc: 'assets/icon/Items/LeatherArmor-0.png',
+            spriteSrc: 'assets/icon/Items/Leather_Armor-0.png',
             stats: {
                 defense: 5
             }
@@ -87,7 +87,7 @@ class ItemManager {
             value: 15,
             stackable: true,
             maxStack: Infinity,
-            spriteSrc: 'assets/icon/Items/IronOre-0.png'
+            spriteSrc: 'assets/icon/Items/Iron_Ore-0.png'
         });
 
         // Quest Items
@@ -99,7 +99,7 @@ class ItemManager {
             rarity: 'rare',
             value: 0,
             stackable: false,
-            spriteSrc: 'assets/icon/Items/MysteriousKey-0.png'
+            spriteSrc: 'assets/icon/Items/Mysterious_Key-0.png'
         });
 
         this.registerItem({
@@ -111,7 +111,7 @@ class ItemManager {
             value: 25,
             stackable: true,
             maxStack: 10,
-            spriteSrc: 'assets/icon/Items/MagicScroll-0.png'
+            spriteSrc: 'assets/icon/Items/Magic_Scroll-0.png'
         });
     }
 
