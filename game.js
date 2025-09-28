@@ -965,6 +965,55 @@ class Game {
         }
         return false;
     }
+
+    /**
+     * Sell items from consolidated view (handles multiple inventory slots for non-stackable items)
+     * @param {object} consolidatedItem - The consolidated item data
+     * @param {number} quantity - Quantity to sell
+     * @returns {boolean} True if successful
+     */
+    sellConsolidatedItem(consolidatedItem, quantity) {
+        if (!consolidatedItem || !consolidatedItem.inventorySlots) {
+            console.error('Invalid consolidated item for selling');
+            return false;
+        }
+
+        const itemTemplate = this.itemManager.getItem(consolidatedItem.id);
+        if (!itemTemplate) return false;
+
+        let remainingQuantity = quantity;
+        let totalSellPrice = 0;
+        const sellPricePerItem = Math.floor(itemTemplate.value * this.shop.npc.shop.sellMultiplier);
+        
+        // Sort inventory slots in reverse order to avoid index shifting issues when removing items
+        const sortedSlots = [...consolidatedItem.inventorySlots].sort((a, b) => b - a);
+        
+        for (const slotIndex of sortedSlots) {
+            if (remainingQuantity <= 0) break;
+            
+            const item = this.inventoryManager.getInventory()[slotIndex];
+            if (!item || item.id !== consolidatedItem.id) continue;
+            
+            const quantityToSellFromThisSlot = Math.min(remainingQuantity, item.quantity);
+            const success = this.inventoryManager.removeItem(item.id, quantityToSellFromThisSlot);
+            
+            if (success) {
+                totalSellPrice += sellPricePerItem * quantityToSellFromThisSlot;
+                remainingQuantity -= quantityToSellFromThisSlot;
+                console.log(`Sold ${quantityToSellFromThisSlot}x ${item.name} from slot ${slotIndex}`);
+            }
+        }
+        
+        if (totalSellPrice > 0) {
+            this.addGold(totalSellPrice);
+            this.playCoinSound(); // Play coin sound effect
+            const soldQuantity = quantity - remainingQuantity;
+            console.log(`Successfully sold ${soldQuantity}x ${consolidatedItem.name} for ${totalSellPrice} gold total`);
+            return true;
+        }
+        
+        return false;
+    }
     
     showTeleportConfirmation(teleporter) {
         const mapData = this.mapManager.getMap(teleporter.targetMap);
@@ -1631,7 +1680,7 @@ class Game {
             case 'S':
                 const maxIndex = this.shop.mode === 'buy' ? 
                     (this.shop.npc.shop.buyItems.length - 1) : 
-                    (this.inventoryManager.getInventory().filter(item => item.id && item.quantity > 0).length - 1);
+                    (this.getConsolidatedSellItems().length - 1);
                 if (this.shop.selectedIndex < maxIndex) {
                     this.shop.selectedIndex++;
                     this.playMenuNavigationSound();
@@ -1699,18 +1748,20 @@ class Game {
                 console.log('Item not available or out of stock');
             }
         } else if (this.shop.mode === 'sell') {
-            const item = this.inventoryManager.getInventory()[this.shop.selectedIndex];
-            console.log('Trying to sell item:', item);
+            const consolidatedItems = this.getConsolidatedSellItems();
+            const consolidatedItem = consolidatedItems[this.shop.selectedIndex];
+            console.log('Trying to sell consolidated item:', consolidatedItem);
             
-            if (item) {
-                console.log(`Sell quantity check: ${item.quantity} > 1 = ${item.quantity > 1}`);
+            if (consolidatedItem) {
+                console.log(`Sell quantity check: ${consolidatedItem.quantity} > 1 = ${consolidatedItem.quantity > 1}`);
                 
-                if (item.quantity > 1) {
+                if (consolidatedItem.quantity > 1) {
                     console.log('*** MULTIPLE QUANTITY ITEM - SHOWING QUANTITY SELECTION ***');
-                    this.showQuantitySelection(item, 'sell', item.quantity);
+                    this.showQuantitySelection(consolidatedItem, 'sell', consolidatedItem.quantity);
                 } else {
                     console.log('*** SINGLE ITEM - DIRECT SALE ***');
-                    this.sellItem(this.shop.selectedIndex, 1);
+                    // For single items, sell from the first inventory slot
+                    this.sellItem(consolidatedItem.inventorySlots[0], 1);
                 }
             } else {
                 console.log('No item selected for sale');
@@ -1802,7 +1853,7 @@ class Game {
         if (qs.mode === 'buy') {
             success = this.buyItem(qs.itemData, qs.quantity);
         } else if (qs.mode === 'sell') {
-            success = this.sellItem(this.shop.selectedIndex, qs.quantity);
+            success = this.sellConsolidatedItem(qs.itemData, qs.quantity);
         }
         
         if (success) {
@@ -2956,6 +3007,46 @@ class Game {
         this.ctx.fillText('↑↓: Select | Enter: Choose | ESC: Cancel', windowX + windowWidth / 2, windowY + windowHeight - 20);
     }
 
+    /**
+     * Get consolidated sell items - groups multiple non-stackable items of same type
+     * @returns {Array} Array of consolidated sell items
+     */
+    getConsolidatedSellItems() {
+        const inventory = this.inventoryManager.getInventory().filter(item => item.id && item.quantity > 0);
+        const consolidated = new Map();
+        
+        for (const item of inventory) {
+            const itemTemplate = this.itemManager.getItem(item.id);
+            if (!itemTemplate) continue;
+            
+            if (consolidated.has(item.id)) {
+                // Add to existing consolidated entry
+                const existing = consolidated.get(item.id);
+                if (itemTemplate.stackable) {
+                    // For stackable items, this shouldn't happen as they should already be in one stack
+                    existing.quantity += item.quantity;
+                } else {
+                    // For non-stackable items, count how many we have
+                    existing.quantity += item.quantity; // Each item has quantity 1, so this counts individual items
+                }
+                existing.inventorySlots.push(inventory.indexOf(item));
+            } else {
+                // Create new consolidated entry
+                consolidated.set(item.id, {
+                    id: item.id,
+                    name: itemTemplate.name,
+                    quantity: item.quantity,
+                    value: itemTemplate.value,
+                    rarity: itemTemplate.rarity,
+                    stackable: itemTemplate.stackable,
+                    inventorySlots: [inventory.indexOf(item)] // Track which inventory slots this represents
+                });
+            }
+        }
+        
+        return Array.from(consolidated.values());
+    }
+
     renderShop() {
         // Draw semi-transparent background
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
@@ -3024,7 +3115,7 @@ class Game {
         if (this.shop.mode === 'buy') {
             items = this.shop.npc.shop.buyItems || [];
         } else {
-            items = this.inventoryManager.getInventory().filter(item => item.id && item.quantity > 0);
+            items = this.getConsolidatedSellItems();
         }
         
         // Draw items

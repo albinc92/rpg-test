@@ -137,8 +137,8 @@ class NPCManager {
                 buyItems: [
                     { id: 'health_potion', price: 25, stock: 10 },
                     { id: 'mana_potion', price: 30, stock: 8 },
-                    { id: 'iron_sword', price: 100, stock: 3 },
-                    { id: 'leather_armor', price: 80, stock: 2 },
+                    { id: 'iron_sword', price: 100, stock: 5 },
+                    { id: 'leather_armor', price: 80, stock: 5 },
                     { id: 'iron_ore', price: 15, stock: 20 }
                 ],
                 sellMultiplier: 0.5 // Sells items for 50% of their value
