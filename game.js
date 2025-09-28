@@ -3115,21 +3115,31 @@ class Game {
             this.ctx.fillText('↑: +1/Min  ↓: Max/-1  Enter: Confirm  Esc: Cancel', windowX + windowWidth / 2, windowY + 210);
         }
         
-        // Draw warnings for buying
+        // Draw warnings and info for buying
         if (mode === 'buy') {
-            let warningY = windowY + 230;
+            let messageY = windowY + 230;
+            
+            // Check if item is non-stackable to show inventory slots info
+            const itemTemplate = this.itemManager.getItem(qs.itemData.id);
+            if (itemTemplate && !itemTemplate.stackable) {
+                const freeSlots = this.inventoryManager.getFreeSlots();
+                this.ctx.fillStyle = '#AAAAAA';
+                this.ctx.font = '14px Arial';
+                this.ctx.fillText(`Available inventory slots: ${freeSlots}`, windowX + windowWidth / 2, messageY);
+                messageY += 20;
+            }
             
             if (totalPrice > this.player.gold) {
                 this.ctx.fillStyle = '#FF6666';
                 this.ctx.font = 'bold 16px Arial';
-                this.ctx.fillText('Not enough gold!', windowX + windowWidth / 2, warningY);
-                warningY += 20;
+                this.ctx.fillText('Not enough gold!', windowX + windowWidth / 2, messageY);
+                messageY += 20;
             }
             
             if (!this.inventoryManager.hasSpaceFor(qs.itemData.id, quantity)) {
                 this.ctx.fillStyle = '#FF6666';
                 this.ctx.font = 'bold 16px Arial';
-                this.ctx.fillText('Not enough inventory space!', windowX + windowWidth / 2, warningY);
+                this.ctx.fillText('Not enough inventory space!', windowX + windowWidth / 2, messageY);
             }
         }
     }
