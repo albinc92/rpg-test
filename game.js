@@ -3007,7 +3007,8 @@ class Game {
         this.ctx.fillStyle = '#FFD700';
         this.ctx.font = 'bold 20px Arial';
         this.ctx.textAlign = 'center';
-        this.ctx.fillText(this.shopOptions.npc.name || 'Merchant', windowX + windowWidth / 2, windowY + 40);
+        const npcDisplayName = this.shopOptions.npc.name || this.shopOptions.npc.id.charAt(0).toUpperCase() + this.shopOptions.npc.id.slice(1);
+        this.ctx.fillText(npcDisplayName, windowX + windowWidth / 2, windowY + 40);
         
         // Draw options
         const startY = windowY + 80;
@@ -3111,7 +3112,8 @@ class Game {
         this.ctx.font = 'bold 24px Arial';
         this.ctx.textAlign = 'center';
         const titleY = windowY + 40;
-        this.ctx.fillText(`${this.shop.npc.name || 'Merchant'}'s Shop`, windowX + windowWidth / 2, titleY);
+        const npcName = this.shop.npc.name || this.shop.npc.id.charAt(0).toUpperCase() + this.shop.npc.id.slice(1);
+        this.ctx.fillText(`${npcName}'s Shop`, windowX + windowWidth / 2, titleY);
         
         // Draw player gold
         this.ctx.fillStyle = '#FFD700';
@@ -4144,7 +4146,8 @@ class Game {
         this.ctx.fillStyle = '#2C5282';
         this.ctx.font = 'bold 14px Arial';
         this.ctx.textAlign = 'left';
-        this.ctx.fillText(dialogueState.currentNPC.id.toUpperCase(), adjustedX + padding, adjustedY + padding + 14);
+        const npcDialogueName = dialogueState.currentNPC.name || dialogueState.currentNPC.id.charAt(0).toUpperCase() + dialogueState.currentNPC.id.slice(1);
+        this.ctx.fillText(npcDialogueName, adjustedX + padding, adjustedY + padding + 14);
         
         // Draw message text
         this.ctx.fillStyle = '#333';

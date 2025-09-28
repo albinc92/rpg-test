@@ -24,6 +24,7 @@ class NPCManager {
         // Sage NPC - appears on map 0-0
         this.registerNPC({
             id: 'sage',
+            name: 'Sage',
             type: 'dialogue',
             mapId: '0-0',
             x: 1000,
@@ -120,6 +121,7 @@ class NPCManager {
         // Shop Keeper NPC
         this.registerNPC({
             id: 'shopkeeper',
+            name: 'Shopkeeper',
             type: 'shop',
             mapId: '0-1-shop',
             x: 600,
