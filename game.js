@@ -610,7 +610,8 @@ class Game {
     }
     
     checkNPCInteraction() {
-        const npc = this.npcManager.checkNearbyNPCs(this.player, this.currentMapId, 120);
+        // Use the same logic as the visual indicator - interact with the closest NPC
+        const npc = this.findClosestInteractableNPC();
         
         if (npc) {
             if (npc.type === 'teleporter') {
@@ -621,7 +622,7 @@ class Game {
             } else if (npc.type === 'chest') {
                 this.handleChest(npc);
             } else {
-                // Start dialogue for all NPCs (including shop NPCs)
+                // Start dialogue for all NPCs (including shop NPCs and spirits)
                 this.npcManager.startDialogue(npc, () => this.playSpeechBubbleSound());
             }
         }
@@ -2534,6 +2535,9 @@ class Game {
     }
     
     drawSpritesInDepthOrder() {
+        // Find the closest interactable NPC first
+        const closestNPC = this.findClosestInteractableNPC();
+        
         // Collect all sprites (player + NPCs) with their Y coordinates
         const sprites = [];
         
@@ -2551,7 +2555,7 @@ class Game {
                 type: 'npc',
                 y: npc.y,
                 npc: npc,
-                drawFunc: () => this.drawNPCSprite(npc)
+                drawFunc: () => this.drawNPCSprite(npc, closestNPC)
             });
         });
         
@@ -2567,6 +2571,33 @@ class Game {
         sprites.forEach(sprite => {
             sprite.drawFunc();
         });
+    }
+    
+    findClosestInteractableNPC() {
+        const currentMapNPCs = this.npcs[this.currentMapId] || [];
+        const mapScale = this.currentMap.scale || 1.0;
+        const scaledInteractionDistance = 120 * mapScale;
+        
+        let closestNPC = null;
+        let closestDistance = Infinity;
+        
+        currentMapNPCs.forEach(npc => {
+            // Skip portals as they don't show interaction indicators
+            if (npc.type === 'portal') return;
+            
+            const distance = Math.sqrt(
+                Math.pow(this.player.x - npc.x, 2) + 
+                Math.pow(this.player.y - npc.y, 2)
+            );
+            
+            // Check if within interaction distance and closer than current closest
+            if (distance <= scaledInteractionDistance && distance < closestDistance) {
+                closestDistance = distance;
+                closestNPC = npc;
+            }
+        });
+        
+        return closestNPC;
     }
 
     drawPlayerSprite() {
@@ -2644,7 +2675,7 @@ class Game {
         this.ctx.restore();
     }
     
-    drawNPCSprite(npc) {
+    drawNPCSprite(npc, closestNPC = null) {
         // Get map scale factor (default to 1.0 if not specified)
         const mapScale = this.currentMap.scale || 1.0;
         
@@ -2712,14 +2743,8 @@ class Game {
             
             this.ctx.restore();
             
-            // Draw interaction indicator if player is close
-            const distance = Math.sqrt(
-                Math.pow(this.player.x - npc.x, 2) + 
-                Math.pow(this.player.y - npc.y, 2)
-            );
-            
-            const scaledInteractionDistance = 120 * mapScale;
-            if (distance <= scaledInteractionDistance && !this.npcManager.isDialogueActive()) {
+            // Draw interaction indicator only if this is the closest NPC
+            if (closestNPC && closestNPC.id === npc.id && !this.npcManager.isDialogueActive()) {
                 // Draw ethereal "E" indicator above spirit
                 this.ctx.save();
                 this.ctx.globalAlpha = spiritAlpha;
@@ -2763,14 +2788,8 @@ class Game {
             
             this.ctx.restore();
             
-            // Draw interaction indicator if player is close and not a portal
-            const distance = Math.sqrt(
-                Math.pow(this.player.x - npc.x, 2) + 
-                Math.pow(this.player.y - npc.y, 2)
-            );
-            
-            const scaledInteractionDistance = 120 * mapScale;
-            if (distance <= scaledInteractionDistance && !this.npcManager.isDialogueActive()) {
+            // Draw interaction indicator only if this is the closest NPC
+            if (closestNPC && closestNPC.id === npc.id && !this.npcManager.isDialogueActive()) {
                 // Draw "E" indicator above NPC - scale the font and position
                 this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
                 this.ctx.strokeStyle = 'black';
