@@ -726,22 +726,26 @@ class Game {
                 const npcHalfWidth = npc.width / 2;
                 const npcHalfHeight = npc.height / 2;
                 
-                // Check if player is overlapping with spirit (full sprite collision for battle trigger)
+                // Use the same collision system as regular NPCs - only bottom portions collide
+                // Spirit collision area - bottom 25% of sprite (same as regular NPCs)
+                const spiritCollisionPercent = 0.25; // Bottom 25% of spirit sprite
+                const spiritCollisionTop = npc.y + npcHalfHeight - (npc.height * spiritCollisionPercent);
+                const spiritCollisionBottom = npc.y + npcHalfHeight;
+                const spiritCollisionLeft = npc.x - npcHalfWidth;
+                const spiritCollisionRight = npc.x + npcHalfWidth;
+                
+                // Player collision area - bottom 25% of sprite (same as regular collision system)
+                const playerCollisionPercent = 0.25; // Bottom 25% of player sprite
+                const playerCollisionTop = this.player.y + playerHalfHeight - (this.player.height * playerCollisionPercent);
+                const playerCollisionBottom = this.player.y + playerHalfHeight;
                 const playerLeft = this.player.x - playerHalfWidth;
                 const playerRight = this.player.x + playerHalfWidth;
-                const playerTop = this.player.y - playerHalfHeight;
-                const playerBottom = this.player.y + playerHalfHeight;
                 
-                const spiritLeft = npc.x - npcHalfWidth;
-                const spiritRight = npc.x + npcHalfWidth;
-                const spiritTop = npc.y - npcHalfHeight;
-                const spiritBottom = npc.y + npcHalfHeight;
-                
-                // Check for overlap
-                if (playerRight > spiritLeft && 
-                    playerLeft < spiritRight && 
-                    playerBottom > spiritTop && 
-                    playerTop < spiritBottom) {
+                // Check for collision between player's bottom 25% and spirit's bottom 25%
+                if (playerRight > spiritCollisionLeft && 
+                    playerLeft < spiritCollisionRight && 
+                    playerCollisionBottom > spiritCollisionTop && 
+                    playerCollisionTop < spiritCollisionBottom) {
                     
                     // Trigger battle!
                     this.triggerSpiritBattle(npc);
@@ -2018,7 +2022,14 @@ class Game {
             targetX: spiritData.spawnX,
             targetY: spiritData.spawnY,
             isPaused: false,
-            pauseStartTime: 0
+            pauseStartTime: 0,
+            // Add spawn effect properties
+            spawnEffect: {
+                active: true,
+                startTime: Date.now(),
+                duration: 1500, // 1.5 seconds
+                maxRadius: 100
+            }
         };
         
         // Add back to the map's NPC list
@@ -2030,7 +2041,7 @@ class Game {
         // Remove from disappeared spirits list
         this.disappearedSpirits.delete(spiritId);
         
-        console.log(`${spiritData.name} respawned on map ${mapId} at (${spiritData.spawnX}, ${spiritData.spawnY})`);
+        console.log(`${spiritData.name} respawned on map ${mapId} at (${spiritData.spawnX}, ${spiritData.spawnY}) with spawn effect`);
     }
     
     updateCamera() {

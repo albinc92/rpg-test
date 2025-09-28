@@ -189,7 +189,7 @@ class NPCManager {
             roamRadius: 180,
             pauseTime: 2500,
             name: 'Sylphie',
-            respawnDelay: 30000 // 30 seconds respawn time
+            respawnDelay: 3000 // 30 seconds respawn time
         });
     }
 
