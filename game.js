@@ -3115,19 +3115,26 @@ class Game {
             this.ctx.fillText('↑: +1/Min  ↓: Max/-1  Enter: Confirm  Esc: Cancel', windowX + windowWidth / 2, windowY + 210);
         }
         
-        // Draw warnings and info for buying
+        // Draw info and warnings for buying
         if (mode === 'buy') {
-            let messageY = windowY + 230;
+            let messageY = windowY + 200;
             
-            // Check if item is non-stackable to show inventory slots info
-            const itemTemplate = this.itemManager.getItem(qs.itemData.id);
-            if (itemTemplate && !itemTemplate.stackable) {
-                const freeSlots = this.inventoryManager.getFreeSlots();
-                this.ctx.fillStyle = '#AAAAAA';
-                this.ctx.font = '14px Arial';
-                this.ctx.fillText(`Available inventory slots: ${freeSlots}`, windowX + windowWidth / 2, messageY);
-                messageY += 20;
-            }
+            // Show how many of this item the player owns
+            const ownedQuantity = this.inventoryManager.getItemQuantity(qs.itemData.id);
+            this.ctx.fillStyle = '#CCCCCC';
+            this.ctx.font = '14px Arial';
+            this.ctx.fillText(`Owned: ${ownedQuantity}`, windowX + windowWidth / 2, messageY);
+            messageY += 20;
+            
+            // Show slots that would be available after purchase (accurate for stackable items)
+            const currentFreeSlots = this.inventoryManager.getFreeSlots();
+            const slotsNeeded = this.inventoryManager.calculateRequiredSlots(qs.itemData.id, quantity);
+            const slotsAfterPurchase = currentFreeSlots - slotsNeeded;
+            
+            this.ctx.fillStyle = '#AAAAAA';
+            this.ctx.font = '14px Arial';
+            this.ctx.fillText(`Available slots after purchase: ${slotsAfterPurchase}`, windowX + windowWidth / 2, messageY);
+            messageY += 25;
             
             if (totalPrice > this.player.gold) {
                 this.ctx.fillStyle = '#FF6666';
