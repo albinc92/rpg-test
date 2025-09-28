@@ -22,6 +22,7 @@ class MapManager {
             imagePath: 'assets/maps/0-0.png',
             description: 'A peaceful clearing in the forest where your journey begins.',
             music: 'assets/bgm/00.mp3',
+            ambientSound: 'assets/audio/ambience/forest-0.mp3',
             spawnPoints: {
                 default: { x: 400, y: 300 },
                 fromPortal: { x: 900, y: 200 }
@@ -35,6 +36,7 @@ class MapManager {
             imagePath: 'assets/maps/0-1.png',
             description: 'A winding path through the mountains.',
             music: 'assets/bgm/00.mp3', // Could be different music later
+            ambientSound: 'assets/audio/ambience/forest-0.mp3',
             spawnPoints: {
                 default: { x: 469, y: 949 },
                 fromPortal: { x: 469, y: 949 }

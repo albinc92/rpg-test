@@ -108,6 +108,8 @@ class Game {
         this.audio = {
             bgm: null,
             currentTrack: null,
+            ambientSound: null,
+            currentAmbient: null,
             menuNavigation: null,
             speechBubble: null,
             coin: null
@@ -333,6 +335,162 @@ class Game {
         }
     }
     
+    async switchAmbientSound(ambientPath, fadeTime = 2000) {
+        console.log(`switchAmbientSound called with: ${ambientPath}`);
+        
+        // Don't switch if it's the same ambient sound
+        if (this.audio.currentAmbient === ambientPath) {
+            console.log('Same ambient sound, skipping...');
+            return;
+        }
+        
+        const oldAmbient = this.audio.ambientSound;
+        
+        // Load new ambient sound
+        const newAmbient = new Audio(ambientPath);
+        newAmbient.loop = true;
+        
+        // Handle loading errors
+        newAmbient.onerror = () => {
+            console.error(`Could not load ambient sound: ${ambientPath}`);
+        };
+        
+        newAmbient.onloadeddata = () => {
+            console.log(`Ambient sound loaded: ${ambientPath}`);
+        };
+        
+        try {
+            // Wait for the new ambient sound to be ready
+            await new Promise((resolve, reject) => {
+                newAmbient.addEventListener('canplaythrough', resolve, { once: true });
+                newAmbient.addEventListener('error', reject, { once: true });
+                
+                // Fallback timeout
+                setTimeout(() => {
+                    if (newAmbient.readyState >= 2) { // HAVE_CURRENT_DATA
+                        resolve();
+                    }
+                }, 3000);
+                
+                if (newAmbient.readyState >= 3) resolve(); // Already loaded
+            });
+            
+            // Set initial volume for new ambient sound to 0 (will fade in)
+            newAmbient.volume = 0;
+            
+            // Start playing new ambient sound
+            if (!this.settings.audioMuted) {
+                console.log('Starting ambient sound playback...');
+                await newAmbient.play();
+                console.log('Ambient sound playback started successfully');
+            }
+            
+            // Update references
+            this.audio.ambientSound = newAmbient;
+            this.audio.currentAmbient = ambientPath;
+            
+            // If no old ambient, just fade in directly
+            if (!oldAmbient) {
+                this.fadeInAmbient(newAmbient, 1000);
+            } else {
+                // Perform crossfade
+                this.crossfadeAmbient(oldAmbient, newAmbient, fadeTime);
+            }
+            
+            console.log(`Successfully switched ambient sound to: ${ambientPath}`);
+            
+        } catch (error) {
+            console.error(`Failed to load or play ambient sound (${ambientPath}):`, error);
+        }
+    }
+    
+    fadeInAmbient(ambient, fadeTime) {
+        const startTime = Date.now();
+        const masterMultiplier = this.settings.masterVolume / 100;
+        const targetVolume = (this.settings.effectVolume / 100) * masterMultiplier * 0.7;
+        
+        const fadeStep = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / fadeTime, 1);
+            
+            // Smooth easing function
+            const easedProgress = progress < 0.5 
+                ? 2 * progress * progress 
+                : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+            
+            if (ambient && !this.settings.audioMuted) {
+                ambient.volume = targetVolume * easedProgress;
+            }
+            
+            if (progress < 1) {
+                requestAnimationFrame(fadeStep);
+            } else {
+                console.log(`Ambient fade-in complete, final volume: ${ambient.volume}`);
+            }
+        };
+        
+        requestAnimationFrame(fadeStep);
+    }
+    
+    crossfadeAmbient(oldAmbient, newAmbient, fadeTime) {
+        const startTime = Date.now();
+        const masterMultiplier = this.settings.masterVolume / 100;
+        const targetVolume = (this.settings.effectVolume / 100) * masterMultiplier * 0.7; // Increased volume from 0.4 to 0.7
+        
+        console.log(`Ambient crossfade - Target volume: ${targetVolume}, Master: ${this.settings.masterVolume}, Effect: ${this.settings.effectVolume}, Muted: ${this.settings.audioMuted}`);
+        
+        // Get initial volumes
+        const oldInitialVolume = oldAmbient ? (oldAmbient.volume || targetVolume) : 0;
+        const newInitialVolume = 0;
+        
+        const fadeStep = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / fadeTime, 1);
+            
+            // Smooth easing function (ease-in-out)
+            const easedProgress = progress < 0.5 
+                ? 2 * progress * progress 
+                : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+            
+            // Fade out old ambient sound
+            if (oldAmbient && !this.settings.audioMuted) {
+                oldAmbient.volume = oldInitialVolume * (1 - easedProgress);
+            }
+            
+            // Fade in new ambient sound
+            if (newAmbient && !this.settings.audioMuted) {
+                newAmbient.volume = targetVolume * easedProgress;
+            }
+            
+            if (progress < 1) {
+                requestAnimationFrame(fadeStep);
+            } else {
+                // Fade complete - clean up old ambient sound
+                if (oldAmbient) {
+                    oldAmbient.pause();
+                    oldAmbient.volume = 0;
+                }
+                
+                // Ensure new ambient sound is at correct volume
+                if (newAmbient && !this.settings.audioMuted) {
+                    newAmbient.volume = targetVolume;
+                }
+            }
+        };
+        
+        // Start the fade animation
+        requestAnimationFrame(fadeStep);
+    }
+    
+    stopAmbientSound() {
+        if (this.audio.ambientSound) {
+            this.audio.ambientSound.pause();
+            this.audio.ambientSound = null;
+            this.audio.currentAmbient = null;
+            console.log('Stopped ambient sound');
+        }
+    }
+    
     updateAudioVolume() {
         const masterMultiplier = this.settings.masterVolume / 100;
         
@@ -351,6 +509,10 @@ class Game {
         if (this.audio.coin) {
             const effectVolume = (this.settings.effectVolume / 100) * masterMultiplier;
             this.audio.coin.volume = this.settings.audioMuted ? 0 : effectVolume;
+        }
+        if (this.audio.ambientSound) {
+            const ambientVolume = (this.settings.effectVolume / 100) * masterMultiplier * 0.7; // Increased volume
+            this.audio.ambientSound.volume = this.settings.audioMuted ? 0 : ambientVolume;
         }
     }
     
@@ -414,6 +576,17 @@ class Game {
                 }
                 
                 this.switchBGM(mapData.music, fadeTime);
+            }
+            
+            // Handle ambient sound switching
+            console.log(`Map ambient sound: ${mapData.ambientSound}, Current: ${this.audio.currentAmbient}`);
+            if (mapData.ambientSound && mapData.ambientSound !== this.audio.currentAmbient) {
+                console.log('Starting ambient sound switch...');
+                this.switchAmbientSound(mapData.ambientSound);
+            } else if (!mapData.ambientSound && this.audio.currentAmbient) {
+                // Stop ambient sound if new map doesn't have one
+                console.log('Stopping ambient sound...');
+                this.stopAmbientSound();
             }
             
             console.log(`Loaded map: ${mapData.name} (${mapData.width}x${mapData.height})`);
