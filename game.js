@@ -63,9 +63,16 @@ class Game {
         this.shop = {
             active: false,
             npc: null,
-            mode: 'main', // 'main', 'buy', 'sell'
+            mode: 'buy', // 'buy', 'sell'
             selectedIndex: 0,
             items: []
+        };
+        
+        this.shopOptions = {
+            active: false,
+            npc: null,
+            selectedIndex: 0,
+            options: ['Trade', 'Goodbye']
         };
         
         // Main menu (start of game)
@@ -419,7 +426,13 @@ class Game {
     
     handleDialogueInput(e) {
         if (e.key === 'Enter' || e.key === ' ') {
-            this.npcManager.nextDialogueMessage(() => this.playSpeechBubbleSound());
+            const result = this.npcManager.nextDialogueMessage(() => this.playSpeechBubbleSound());
+            
+            // If dialogue ended, check if this was a shop NPC
+            if (!result.continues && result.npc && result.npc.type === 'shop') {
+                // Show shop options menu
+                this.showShopOptions(result.npc);
+            }
         }
     }
     
@@ -434,9 +447,8 @@ class Game {
                 return;
             } else if (npc.type === 'chest') {
                 this.handleChest(npc);
-            } else if (npc.type === 'shop') {
-                this.handleShop(npc);
             } else {
+                // Start dialogue for all NPCs (including shop NPCs)
                 this.npcManager.startDialogue(npc, () => this.playSpeechBubbleSound());
             }
         }
@@ -555,6 +567,14 @@ class Game {
         this.lootWindow.gold = 0;
         this.lootWindow.message = '';
         this.gameState = 'PLAYING';
+    }
+
+    showShopOptions(npc) {
+        this.shopOptions.active = true;
+        this.shopOptions.npc = npc;
+        this.shopOptions.selectedIndex = 0;
+        this.gameState = 'SHOP_OPTIONS';
+        console.log('Showing shop options for:', npc.id);
     }
 
     handleShop(npc) {
@@ -834,6 +854,8 @@ class Game {
                 this.handleInventoryInput(e);
             } else if (this.gameState === 'LOOT_WINDOW') {
                 this.handleLootWindowInput(e);
+            } else if (this.gameState === 'SHOP_OPTIONS') {
+                this.handleShopOptionsInput(e);
             } else if (this.gameState === 'SHOP') {
                 this.handleShopInput(e);
             } else if (this.gameState === 'PLAYING') {
@@ -1186,6 +1208,55 @@ class Game {
         }
     }
 
+    handleShopOptionsInput(e) {
+        switch(e.key) {
+            case 'ArrowUp':
+            case 'w':
+            case 'W':
+                if (this.shopOptions.selectedIndex > 0) {
+                    this.shopOptions.selectedIndex--;
+                    this.playMenuNavigationSound();
+                }
+                break;
+            case 'ArrowDown':
+            case 's':
+            case 'S':
+                if (this.shopOptions.selectedIndex < this.shopOptions.options.length - 1) {
+                    this.shopOptions.selectedIndex++;
+                    this.playMenuNavigationSound();
+                }
+                break;
+            case 'Enter':
+            case ' ':
+                this.handleShopOptionSelection();
+                break;
+            case 'Escape':
+                this.closeShopOptions();
+                break;
+        }
+    }
+    
+    handleShopOptionSelection() {
+        const selectedOption = this.shopOptions.options[this.shopOptions.selectedIndex];
+        
+        if (selectedOption === 'Trade') {
+            // Close shop options and open trade interface
+            const npc = this.shopOptions.npc;
+            this.closeShopOptions();
+            this.handleShop(npc);
+        } else if (selectedOption === 'Goodbye') {
+            // Close shop options
+            this.closeShopOptions();
+        }
+    }
+    
+    closeShopOptions() {
+        this.shopOptions.active = false;
+        this.shopOptions.npc = null;
+        this.shopOptions.selectedIndex = 0;
+        this.gameState = 'PLAYING';
+    }
+
     handleShopInput(e) {
         switch(e.key) {
             case 'ArrowUp':
@@ -1492,6 +1563,11 @@ class Game {
         
         if (this.gameState === 'LOOT_WINDOW') {
             this.renderLootWindow();
+            return;
+        }
+        
+        if (this.gameState === 'SHOP_OPTIONS') {
+            this.renderShopOptions();
             return;
         }
         
@@ -1966,6 +2042,83 @@ class Game {
         this.ctx.fillText('Press ENTER, ESC, or E to close', windowX + windowWidth / 2, instructionsY);
     }
     
+    renderShopOptions() {
+        // Draw game world background (darkened)
+        this.ctx.save();
+        this.ctx.translate(-this.camera.x, -this.camera.y);
+        
+        // Draw map background with optional scaling
+        const mapScale = this.currentMap.mapScale || 1.0;
+        
+        if (mapScale !== 1.0 && this.currentMap.originalWidth && this.currentMap.originalHeight) {
+            this.ctx.save();
+            this.ctx.scale(mapScale, mapScale);
+            this.ctx.drawImage(this.currentMap.image, 0, 0, this.currentMap.originalWidth, this.currentMap.originalHeight);
+            this.ctx.restore();
+        } else {
+            const drawWidth = this.currentMap.originalWidth || this.currentMap.width;
+            const drawHeight = this.currentMap.originalHeight || this.currentMap.height;
+            this.ctx.drawImage(this.currentMap.image, 0, 0, drawWidth, drawHeight);
+        }
+        
+        this.drawNPCs();
+        this.drawPlayer();
+        this.ctx.restore();
+        
+        // Draw darkening overlay
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+        
+        // Draw shop options window
+        const windowWidth = 300;
+        const windowHeight = 200;
+        const windowX = (this.CANVAS_WIDTH - windowWidth) / 2;
+        const windowY = (this.CANVAS_HEIGHT - windowHeight) / 2;
+        
+        // Draw window background
+        this.ctx.fillStyle = 'rgba(40, 40, 40, 0.95)';
+        this.ctx.fillRect(windowX, windowY, windowWidth, windowHeight);
+        
+        // Draw window border
+        this.ctx.strokeStyle = '#FFD700';
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeRect(windowX, windowY, windowWidth, windowHeight);
+        
+        // Draw NPC name
+        this.ctx.fillStyle = '#FFD700';
+        this.ctx.font = 'bold 20px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(this.shopOptions.npc.name || 'Merchant', windowX + windowWidth / 2, windowY + 40);
+        
+        // Draw options
+        const startY = windowY + 80;
+        const optionHeight = 40;
+        
+        this.shopOptions.options.forEach((option, index) => {
+            const optionY = startY + index * optionHeight;
+            
+            // Draw selection highlight
+            if (index === this.shopOptions.selectedIndex) {
+                this.ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+                this.ctx.fillRect(windowX + 20, optionY - 20, windowWidth - 40, 35);
+                this.ctx.strokeStyle = '#FFD700';
+                this.ctx.strokeRect(windowX + 20, optionY - 20, windowWidth - 40, 35);
+            }
+            
+            // Draw option text
+            this.ctx.fillStyle = index === this.shopOptions.selectedIndex ? '#FFD700' : '#FFF';
+            this.ctx.font = '18px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(option, windowX + windowWidth / 2, optionY);
+        });
+        
+        // Draw instructions
+        this.ctx.fillStyle = '#CCC';
+        this.ctx.font = '14px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('↑↓: Select | Enter: Choose | ESC: Cancel', windowX + windowWidth / 2, windowY + windowHeight - 20);
+    }
+
     renderShop() {
         // Draw semi-transparent background
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';

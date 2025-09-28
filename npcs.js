@@ -319,14 +319,14 @@ class NPCManager {
         this.dialogue.messageIndex++;
         
         if (this.dialogue.messageIndex >= this.dialogue.currentNPC.messages.length) {
-            this.endDialogue();
-            return false;
+            const endedNPC = this.endDialogue();
+            return { continues: false, npc: endedNPC };
         } else {
             this.dialogue.currentMessage = this.dialogue.currentNPC.messages[this.dialogue.messageIndex];
             if (soundCallback) {
                 soundCallback();
             }
-            return true;
+            return { continues: true, npc: null };
         }
     }
 
