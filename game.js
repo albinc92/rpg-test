@@ -638,6 +638,49 @@ class Game {
         this.player.maxSpeed = this.speedSettings[this.settings.playerSpeed];
     }
     
+    checkNPCCollisions(newX, newY) {
+        const currentMapNPCs = this.npcs[this.currentMapId] || [];
+        const playerHalfWidth = this.player.width / 2;
+        const playerHalfHeight = this.player.height / 2;
+        
+        for (let npc of currentMapNPCs) {
+            // Skip portals as they don't block movement
+            if (npc.type === 'portal') {
+                continue;
+            }
+            
+            const npcHalfWidth = npc.width / 2;
+            const npcHalfHeight = npc.height / 2;
+            
+            // Calculate collision boundaries
+            // Only the bottom portion blocks movement (simulate depth)
+            // For chests, use slightly more collision area (bottom 40%) since they're solid objects
+            const npcCollisionPercent = npc.type === 'chest' ? 0.5 : 0.33; // 40% for chests, 25% for NPCs
+            const npcCollisionTop = npc.y + npcHalfHeight - (npc.height * npcCollisionPercent);
+            const npcCollisionBottom = npc.y + npcHalfHeight;
+            const npcCollisionLeft = npc.x - npcHalfWidth;
+            const npcCollisionRight = npc.x + npcHalfWidth;
+            
+            // Player collision area - only bottom 25% of sprite
+            const playerCollisionPercent = 0.25; // Bottom 25% of player sprite
+            const playerCollisionTop = newY + playerHalfHeight - (this.player.height * playerCollisionPercent);
+            const playerCollisionBottom = newY + playerHalfHeight;
+            const playerLeft = newX - playerHalfWidth;
+            const playerRight = newX + playerHalfWidth;
+            
+            // Check for collision between player's bottom 25% and NPC's collision area
+            if (playerRight > npcCollisionLeft && 
+                playerLeft < npcCollisionRight && 
+                playerCollisionBottom > npcCollisionTop && 
+                playerCollisionTop < npcCollisionBottom) {
+                
+                return { collides: true, npc: npc };
+            }
+        }
+        
+        return { collides: false, npc: null };
+    }
+
     checkPortalCollisions() {
         const portal = this.npcManager.checkPortalCollisions(this.player, this.currentMapId);
         
@@ -1663,9 +1706,17 @@ class Game {
             this.player.velocityY = 0;
         }
         
-        // Update player position
-        this.player.x = newX;
-        this.player.y = newY;
+        // Check NPC collisions before updating position
+        const collisionResult = this.checkNPCCollisions(newX, newY);
+        if (!collisionResult.collides) {
+            // Update player position
+            this.player.x = newX;
+            this.player.y = newY;
+        } else {
+            // Stop movement if colliding with NPC
+            this.player.velocityX = 0;
+            this.player.velocityY = 0;
+        }
         
         // Check for portal collisions
         this.checkPortalCollisions();
@@ -1778,11 +1829,8 @@ class Game {
             this.ctx.drawImage(this.currentMap.image, 0, 0, drawWidth, drawHeight);
         }
         
-        // Draw NPCs
-        this.drawNPCs();
-        
-        // Draw player
-        this.drawPlayer();
+        // Draw all sprites in depth order (Y-coordinate based)
+        this.drawSpritesInDepthOrder();
         
         // Restore context
         this.ctx.restore();
@@ -2234,8 +2282,7 @@ class Game {
             this.ctx.drawImage(this.currentMap.image, 0, 0, drawWidth, drawHeight);
         }
         
-        this.drawNPCs();
-        this.drawPlayer();
+        this.drawSpritesInDepthOrder();
         this.ctx.restore();
         
         // Draw darkening overlay
@@ -2473,6 +2520,73 @@ class Game {
         console.log(`Dropped ${droppedItem.quantity} ${droppedItem.name} in the world`);
     }
     
+    drawSpritesInDepthOrder() {
+        // Collect all sprites (player + NPCs) with their Y coordinates
+        const sprites = [];
+        
+        // Add player to sprites list
+        sprites.push({
+            type: 'player',
+            y: this.player.y,
+            drawFunc: () => this.drawPlayerSprite()
+        });
+        
+        // Add NPCs to sprites list
+        const currentMapNPCs = this.npcs[this.currentMapId] || [];
+        currentMapNPCs.forEach(npc => {
+            sprites.push({
+                type: 'npc',
+                y: npc.y,
+                npc: npc,
+                drawFunc: () => this.drawNPCSprite(npc)
+            });
+        });
+        
+        // Sort sprites by Y coordinate (lower Y = drawn first = behind)
+        // Use bottom of sprite for sorting (y + height/2)
+        sprites.sort((a, b) => {
+            const aBottom = a.y + (a.type === 'player' ? this.player.height/2 : a.npc.height/2);
+            const bBottom = b.y + (b.type === 'player' ? this.player.height/2 : b.npc.height/2);
+            return aBottom - bBottom;
+        });
+        
+        // Draw sprites in order
+        sprites.forEach(sprite => {
+            sprite.drawFunc();
+        });
+    }
+
+    drawPlayerSprite() {
+        // Get map scale factor (default to 1.0 if not specified)
+        const mapScale = this.currentMap.scale || 1.0;
+        const scaledWidth = this.player.width * mapScale;
+        const scaledHeight = this.player.height * mapScale;
+        
+        const playerScreenX = this.player.x - scaledWidth / 2;
+        const playerScreenY = this.player.y - scaledHeight / 2;
+        
+        // Draw shadow first (behind character) - also scaled
+        this.drawShadow(this.player.x, this.player.y, scaledWidth, scaledHeight);
+        
+        this.ctx.save();
+        
+        // Handle horizontal flipping
+        if (!this.player.facingRight) {
+            // Translate to the center of the sprite, flip, then translate back
+            this.ctx.translate(this.player.x, this.player.y);
+            this.ctx.scale(-1, 1);
+            this.ctx.drawImage(this.player.sprite, 
+                             -scaledWidth / 2, -scaledHeight / 2, 
+                             scaledWidth, scaledHeight);
+        } else {
+            this.ctx.drawImage(this.player.sprite, 
+                             playerScreenX, playerScreenY, 
+                             scaledWidth, scaledHeight);
+        }
+        
+        this.ctx.restore();
+    }
+
     drawPlayer() {
         const playerScreenX = this.player.x - this.player.width / 2;
         const playerScreenY = this.player.y - this.player.height / 2;
@@ -2517,6 +2631,87 @@ class Game {
         this.ctx.restore();
     }
     
+    drawNPCSprite(npc) {
+        // Get map scale factor (default to 1.0 if not specified)
+        const mapScale = this.currentMap.scale || 1.0;
+        
+        if (npc.type === 'portal') {
+            // Handle portal rendering with rotation and pulsing scale effects
+            this.ctx.save();
+            
+            // Calculate pulsing scale (grow and shrink) - subtle effect
+            const baseScale = mapScale;
+            const pulseScale = baseScale + (0.15 * Math.sin(this.gameTime * npc.pulseSpeed));
+            
+            // Set much more transparency for portal (more ghostly)
+            this.ctx.globalAlpha = 0.4;
+            
+            // Move to portal center, apply rotation and scaling
+            this.ctx.translate(npc.x, npc.y);
+            this.ctx.rotate((npc.rotation * Math.PI) / 180);
+            this.ctx.scale(pulseScale, pulseScale);
+            
+            // Apply map scale to portal dimensions
+            const scaledWidth = npc.width * mapScale;
+            const scaledHeight = npc.height * mapScale;
+            
+            // Draw portal sprite centered
+            this.ctx.drawImage(npc.sprite, 
+                             -scaledWidth / 2, -scaledHeight / 2, 
+                             scaledWidth, scaledHeight);
+            
+            this.ctx.restore();
+        } else {
+            // Handle regular NPCs with map scaling
+            const scaledWidth = npc.width * mapScale;
+            const scaledHeight = npc.height * mapScale;
+            const npcScreenX = npc.x - scaledWidth / 2;
+            const npcScreenY = npc.y - scaledHeight / 2;
+            
+            // Draw shadow first (behind NPC) - also scaled
+            this.drawShadow(npc.x, npc.y, scaledWidth, scaledHeight);
+            
+            // Draw NPC sprite with direction support
+            this.ctx.save();
+            
+            if (npc.direction === 'left') {
+                // Flip sprite horizontally for left-facing NPCs
+                this.ctx.translate(npc.x, npc.y);
+                this.ctx.scale(-1, 1);
+                this.ctx.drawImage(npc.sprite, 
+                                 -scaledWidth / 2, -scaledHeight / 2, 
+                                 scaledWidth, scaledHeight);
+            } else {
+                // Default right-facing or no flip
+                this.ctx.drawImage(npc.sprite, npcScreenX, npcScreenY, scaledWidth, scaledHeight);
+            }
+            
+            this.ctx.restore();
+            
+            // Draw interaction indicator if player is close and not a portal
+            const distance = Math.sqrt(
+                Math.pow(this.player.x - npc.x, 2) + 
+                Math.pow(this.player.y - npc.y, 2)
+            );
+            
+            const scaledInteractionDistance = 120 * mapScale;
+            if (distance <= scaledInteractionDistance && !this.npcManager.isDialogueActive()) {
+                // Draw "E" indicator above NPC - scale the font and position
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                this.ctx.strokeStyle = 'black';
+                this.ctx.lineWidth = 2 * mapScale;
+                this.ctx.font = `bold ${Math.round(16 * mapScale)}px Arial`;
+                this.ctx.textAlign = 'center';
+                
+                const indicatorX = npc.x;
+                const indicatorY = npc.y - (scaledHeight / 2) - (20 * mapScale);
+                
+                this.ctx.strokeText('E', indicatorX, indicatorY);
+                this.ctx.fillText('E', indicatorX, indicatorY);
+            }
+        }
+    }
+
     drawNPCs() {
         const currentMapNPCs = this.npcs[this.currentMapId] || [];
         currentMapNPCs.forEach(npc => {
