@@ -3111,7 +3111,7 @@ class Game {
         this.ctx.font = 'bold 24px Arial';
         this.ctx.textAlign = 'center';
         const titleY = windowY + 40;
-        this.ctx.fillText(`${this.shop.npc.name}'s Shop`, windowX + windowWidth / 2, titleY);
+        this.ctx.fillText(`${this.shop.npc.name || 'Merchant'}'s Shop`, windowX + windowWidth / 2, titleY);
         
         // Draw player gold
         this.ctx.fillStyle = '#FFD700';
@@ -3208,15 +3208,16 @@ class Game {
                     this.ctx.fillStyle = this.getItemRarityColor(itemData.rarity || 'common');
                     this.ctx.fillText(itemData.name, windowX + 50, textY);
                     
-                    // Show stock
+                    // Show stock (red if out of stock)
                     if (item.stock !== undefined) {
-                        this.ctx.fillStyle = '#CCC';
+                        this.ctx.fillStyle = item.stock === 0 ? '#FF4444' : '#CCC';
                         this.ctx.textAlign = 'center';
                         this.ctx.fillText(`Stock: ${item.stock}`, windowX + windowWidth / 2, textY);
                     }
                     
-                    // Show price
-                    this.ctx.fillStyle = '#FFD700';
+                    // Show price (red if player can't afford it)
+                    const canAfford = this.player.gold >= item.price;
+                    this.ctx.fillStyle = canAfford ? '#FFD700' : '#FF4444';
                     this.ctx.textAlign = 'right';
                     this.ctx.fillText(`${item.price}g`, windowX + windowWidth - 20, textY);
                 }
