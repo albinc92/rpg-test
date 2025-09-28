@@ -2985,19 +2985,27 @@ class Game {
         this.shopOptions.options.forEach((option, index) => {
             const optionY = startY + index * optionHeight;
             
+            // Calculate centered positions
+            const highlightY = optionY - 20;
+            const highlightHeight = 35;
+            const highlightCenterY = highlightY + highlightHeight/2;
+            
+            // Center text within the highlight area
+            const textY = highlightCenterY + 5; // Offset for text baseline
+            
             // Draw selection highlight
             if (index === this.shopOptions.selectedIndex) {
                 this.ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
-                this.ctx.fillRect(windowX + 20, optionY - 20, windowWidth - 40, 35);
+                this.ctx.fillRect(windowX + 20, highlightY, windowWidth - 40, highlightHeight);
                 this.ctx.strokeStyle = '#FFD700';
-                this.ctx.strokeRect(windowX + 20, optionY - 20, windowWidth - 40, 35);
+                this.ctx.strokeRect(windowX + 20, highlightY, windowWidth - 40, highlightHeight);
             }
             
             // Draw option text
             this.ctx.fillStyle = index === this.shopOptions.selectedIndex ? '#FFD700' : '#FFF';
             this.ctx.font = '18px Arial';
             this.ctx.textAlign = 'center';
-            this.ctx.fillText(option, windowX + windowWidth / 2, optionY);
+            this.ctx.fillText(option, windowX + windowWidth / 2, textY);
         });
         
         // Draw instructions
