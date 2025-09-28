@@ -3124,14 +3124,23 @@ class Game {
         
         for (let i = 0; i < Math.min(items.length, maxVisibleItems); i++) {
             const item = items[i];
-            const y = listY + i * itemHeight;
+            const itemY = listY + i * itemHeight;
+            
+            // Calculate centered positions
+            const highlightY = itemY - itemHeight/2 + 5;
+            const highlightHeight = itemHeight - 5;
+            const highlightCenterY = highlightY + highlightHeight/2;
+            
+            // Center text and icon within the highlight area
+            const textY = highlightCenterY + 5; // Offset for text baseline
+            const iconY = highlightCenterY - 12; // Center 24px icon
             
             // Selection highlight
             if (i === this.shop.selectedIndex) {
                 this.ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
-                this.ctx.fillRect(windowX + 10, y - 15, windowWidth - 20, itemHeight - 5);
+                this.ctx.fillRect(windowX + 10, highlightY, windowWidth - 20, itemHeight - 5);
                 this.ctx.strokeStyle = '#FFD700';
-                this.ctx.strokeRect(windowX + 10, y - 15, windowWidth - 20, itemHeight - 5);
+                this.ctx.strokeRect(windowX + 10, highlightY, windowWidth - 20, itemHeight - 5);
             }
             
             if (this.shop.mode === 'buy') {
@@ -3141,7 +3150,6 @@ class Game {
                     // Draw item icon
                     const iconSize = 24;
                     const iconX = windowX + 15;
-                    const iconY = y - 18;
                     
                     if (itemData.sprite && itemData.sprite.complete && itemData.sprite.naturalWidth > 0) {
                         try {
@@ -3159,19 +3167,19 @@ class Game {
                     
                     // Draw item name (moved right to make room for icon)
                     this.ctx.fillStyle = this.getItemRarityColor(itemData.rarity || 'common');
-                    this.ctx.fillText(itemData.name, windowX + 50, y);
+                    this.ctx.fillText(itemData.name, windowX + 50, textY);
                     
                     // Show stock
                     if (item.stock !== undefined) {
                         this.ctx.fillStyle = '#CCC';
                         this.ctx.textAlign = 'center';
-                        this.ctx.fillText(`Stock: ${item.stock}`, windowX + windowWidth / 2, y);
+                        this.ctx.fillText(`Stock: ${item.stock}`, windowX + windowWidth / 2, textY);
                     }
                     
                     // Show price
                     this.ctx.fillStyle = '#FFD700';
                     this.ctx.textAlign = 'right';
-                    this.ctx.fillText(`${item.price}g`, windowX + windowWidth - 20, y);
+                    this.ctx.fillText(`${item.price}g`, windowX + windowWidth - 20, textY);
                 }
             } else {
                 // Show sell items
@@ -3180,7 +3188,6 @@ class Game {
                     // Draw item icon
                     const iconSize = 24;
                     const iconX = windowX + 15;
-                    const iconY = y - 18;
                     
                     if (itemData.sprite && itemData.sprite.complete && itemData.sprite.naturalWidth > 0) {
                         try {
@@ -3198,13 +3205,13 @@ class Game {
                     
                     // Draw item name and quantity (moved right to make room for icon)
                     this.ctx.fillStyle = this.getItemRarityColor(itemData.rarity || 'common');
-                    this.ctx.fillText(`${itemData.name} x${item.quantity}`, windowX + 50, y);
+                    this.ctx.fillText(`${itemData.name} x${item.quantity}`, windowX + 50, textY);
                     
                     // Show sell price
                     const sellPrice = Math.floor(itemData.value * this.shop.npc.shop.sellMultiplier);
                     this.ctx.fillStyle = '#FFD700';
                     this.ctx.textAlign = 'right';
-                    this.ctx.fillText(`${sellPrice}g`, windowX + windowWidth - 20, y);
+                    this.ctx.fillText(`${sellPrice}g`, windowX + windowWidth - 20, textY);
                 }
             }
             
