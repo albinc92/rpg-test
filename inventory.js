@@ -123,6 +123,65 @@ class InventoryManager {
     }
 
     /**
+     * Calculate how many inventory slots would be required to add items
+     * @param {string} itemId - The item ID to add
+     * @param {number} quantity - The quantity to add
+     * @returns {number} Number of slots required
+     */
+    calculateRequiredSlots(itemId, quantity) {
+        const itemTemplate = this.itemManager.getItem(itemId);
+        if (!itemTemplate) return quantity; // Conservative estimate
+        
+        if (!itemTemplate.stackable) {
+            // Non-stackable items require one slot each
+            return quantity;
+        }
+        
+        // For stackable items, consider existing stacks
+        const maxStack = itemTemplate.maxStack || 1;
+        const existingItems = this.inventory.filter(item => item.id === itemId);
+        
+        let remainingQuantity = quantity;
+        let newSlotsNeeded = 0;
+        
+        // Try to fill existing stacks first
+        for (const existingItem of existingItems) {
+            const spaceInStack = maxStack - existingItem.quantity;
+            if (spaceInStack > 0) {
+                remainingQuantity -= Math.min(remainingQuantity, spaceInStack);
+                if (remainingQuantity <= 0) break;
+            }
+        }
+        
+        // Calculate new slots needed for remaining quantity
+        if (remainingQuantity > 0) {
+            newSlotsNeeded = Math.ceil(remainingQuantity / maxStack);
+        }
+        
+        return newSlotsNeeded;
+    }
+    
+    /**
+     * Check if there's enough inventory space for items
+     * @param {string} itemId - The item ID to add
+     * @param {number} quantity - The quantity to add
+     * @returns {boolean} True if there's enough space
+     */
+    hasSpaceFor(itemId, quantity) {
+        const requiredSlots = this.calculateRequiredSlots(itemId, quantity);
+        const freeSlots = this.maxSlots - this.inventory.length;
+        return requiredSlots <= freeSlots;
+    }
+    
+    /**
+     * Get number of free inventory slots
+     * @returns {number} Number of free slots
+     */
+    getFreeSlots() {
+        return this.maxSlots - this.inventory.length;
+    }
+
+    /**
      * Get inventory by type
      * @param {string} type - The item type to filter by
      * @returns {array} Array of items of the specified type

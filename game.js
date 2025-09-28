@@ -65,7 +65,14 @@ class Game {
             npc: null,
             mode: 'buy', // 'buy', 'sell'
             selectedIndex: 0,
-            items: []
+            items: [],
+            quantitySelection: {
+                active: false,
+                itemData: null,
+                mode: '',
+                quantity: 1,
+                maxQuantity: 1
+            }
         };
         
         this.shopOptions = {
@@ -902,43 +909,58 @@ class Game {
         this.gameState = 'PLAYING';
     }
 
-    buyItem(itemData) {
-        if (this.player.gold >= itemData.price) {
-            const success = this.inventoryManager.addItem(itemData.id, 1);
-            if (success) {
-                this.removeGold(itemData.price);
-                // Reduce shop stock
-                if (itemData.stock !== undefined) {
-                    itemData.stock = Math.max(0, itemData.stock - 1);
-                }
-                this.playCoinSound(); // Play coin sound effect
-                console.log(`Bought ${itemData.id} for ${itemData.price} gold`);
-                return true;
-            } else {
-                console.log('Inventory full!');
-                return false;
+    buyItem(itemData, quantity = 1) {
+        const totalPrice = itemData.price * quantity;
+        
+        // Check if player has enough gold
+        if (this.player.gold < totalPrice) {
+            console.log(`Not enough gold! Need ${totalPrice}, have ${this.player.gold}`);
+            return false;
+        }
+        
+        // Check if there's enough inventory space
+        if (!this.inventoryManager.hasSpaceFor(itemData.id, quantity)) {
+            const requiredSlots = this.inventoryManager.calculateRequiredSlots(itemData.id, quantity);
+            const freeSlots = this.inventoryManager.getFreeSlots();
+            console.log(`Not enough inventory space! Need ${requiredSlots} slots, have ${freeSlots} free slots`);
+            return false;
+        }
+        
+        // Attempt to add items to inventory
+        const success = this.inventoryManager.addItem(itemData.id, quantity);
+        if (success) {
+            this.removeGold(totalPrice);
+            // Reduce shop stock
+            if (itemData.stock !== undefined) {
+                itemData.stock = Math.max(0, itemData.stock - quantity);
             }
+            this.playCoinSound(); // Play coin sound effect
+            console.log(`Successfully bought ${quantity}x ${itemData.id} for ${totalPrice} gold`);
+            return true;
         } else {
-            console.log('Not enough gold!');
+            console.log('Failed to add items to inventory despite space check!');
             return false;
         }
     }
 
-    sellItem(inventorySlot) {
+    sellItem(inventorySlot, quantity = 1) {
         const item = this.inventoryManager.getInventory()[inventorySlot];
         if (!item) return false;
 
         const itemTemplate = this.itemManager.getItem(item.id);
         if (!itemTemplate) return false;
 
-        const sellPrice = Math.floor(itemTemplate.value * this.shop.npc.shop.sellMultiplier);
+        // Ensure we don't sell more than we have
+        const actualQuantity = Math.min(quantity, item.quantity);
+        const sellPricePerItem = Math.floor(itemTemplate.value * this.shop.npc.shop.sellMultiplier);
+        const totalSellPrice = sellPricePerItem * actualQuantity;
         
-        // Remove one item from inventory
-        const success = this.inventoryManager.removeItem(item.id, 1);
+        // Remove items from inventory
+        const success = this.inventoryManager.removeItem(item.id, actualQuantity);
         if (success) {
-            this.addGold(sellPrice);
+            this.addGold(totalSellPrice);
             this.playCoinSound(); // Play coin sound effect
-            console.log(`Sold ${item.name} for ${sellPrice} gold`);
+            console.log(`Sold ${actualQuantity}x ${item.name} for ${totalSellPrice} gold`);
             return true;
         }
         return false;
@@ -1569,6 +1591,12 @@ class Game {
     }
 
     handleShopInput(e) {
+        // Check if quantity selection is active first
+        if (this.shop.quantitySelection.active) {
+            this.handleQuantitySelectionInput(e);
+            return;
+        }
+        
         switch(e.key) {
             case 'ArrowUp':
             case 'w':
@@ -1618,22 +1646,202 @@ class Game {
     }
 
     handleShopSelection() {
-        console.log(`Shop selection: mode=${this.shop.mode}, index=${this.shop.selectedIndex}`);
+        console.log(`*** SHOP SELECTION TRIGGERED *** mode=${this.shop.mode}, index=${this.shop.selectedIndex}`);
         
         if (this.shop.mode === 'buy') {
             const itemData = this.shop.npc.shop.buyItems[this.shop.selectedIndex];
             console.log('Trying to buy item:', itemData);
+            
             if (itemData && itemData.stock > 0) {
-                const success = this.buyItem(itemData);
-                if (!success) {
-                    console.log('Purchase failed!');
+                // Show quantity selection if stock > 1, regardless of stackable property
+                console.log(`Stock check: ${itemData.stock} > 1 = ${itemData.stock > 1}`);
+                
+                if (itemData.stock > 1) {
+                    console.log('*** MULTIPLE STOCK DETECTED - SHOWING QUANTITY SELECTION ***');
+                    this.showQuantitySelection(itemData, 'buy', itemData.stock);
+                    
+                    // If quantity selection wasn't activated (no space/gold), try single purchase
+                    if (!this.shop.quantitySelection.active) {
+                        console.log('*** QUANTITY SELECTION FAILED - TRYING DIRECT PURCHASE ***');
+                        const success = this.buyItem(itemData, 1);
+                        if (!success) {
+                            console.log('Direct purchase also failed!');
+                        }
+                    }
+                } else {
+                    console.log('*** SINGLE STOCK - DIRECT PURCHASE ***');
+                    const success = this.buyItem(itemData, 1);
+                    if (!success) {
+                        console.log('Purchase failed!');
+                    }
                 }
             } else {
                 console.log('Item not available or out of stock');
             }
         } else if (this.shop.mode === 'sell') {
-            console.log('Trying to sell item at index:', this.shop.selectedIndex);
-            this.sellItem(this.shop.selectedIndex);
+            const item = this.inventoryManager.getInventory()[this.shop.selectedIndex];
+            console.log('Trying to sell item:', item);
+            
+            if (item) {
+                console.log(`Sell quantity check: ${item.quantity} > 1 = ${item.quantity > 1}`);
+                
+                if (item.quantity > 1) {
+                    console.log('*** MULTIPLE QUANTITY ITEM - SHOWING QUANTITY SELECTION ***');
+                    this.showQuantitySelection(item, 'sell', item.quantity);
+                } else {
+                    console.log('*** SINGLE ITEM - DIRECT SALE ***');
+                    this.sellItem(this.shop.selectedIndex, 1);
+                }
+            } else {
+                console.log('No item selected for sale');
+            }
+        }
+    }
+    
+    showQuantitySelection(itemData, mode, maxQuantity) {
+        console.log(`*** SHOWING QUANTITY SELECTION *** item=${itemData.name || itemData.id}, mode=${mode}, max=${maxQuantity}`);
+        
+        let actualMaxQuantity = maxQuantity;
+        
+        if (mode === 'buy') {
+            // Limit by what player can afford
+            if (itemData.price > 0) {
+                const affordableQuantity = Math.floor(this.player.gold / itemData.price);
+                actualMaxQuantity = Math.min(actualMaxQuantity, affordableQuantity);
+                console.log(`Player can afford ${affordableQuantity}, stock is ${maxQuantity}`);
+            }
+            
+            // Also limit by inventory space
+            let maxByInventorySpace = maxQuantity;
+            for (let testQuantity = maxQuantity; testQuantity > 0; testQuantity--) {
+                if (this.inventoryManager.hasSpaceFor(itemData.id, testQuantity)) {
+                    maxByInventorySpace = testQuantity;
+                    break;
+                }
+            }
+            
+            actualMaxQuantity = Math.min(actualMaxQuantity, maxByInventorySpace);
+            console.log(`Inventory space allows ${maxByInventorySpace}, final max: ${actualMaxQuantity}`);
+        }
+        
+        // Ensure we have at least 1 as max quantity, or show error
+        if (actualMaxQuantity < 1) {
+            console.log('Cannot buy any items - no space or no gold');
+            return;
+        }
+        
+        this.shop.quantitySelection = {
+            active: true,
+            itemData: itemData,
+            mode: mode,
+            quantity: 1,
+            maxQuantity: actualMaxQuantity
+        };
+        
+        console.log('Quantity selection state:', this.shop.quantitySelection);
+    }
+    
+    closeQuantitySelection() {
+        console.log('*** CLOSING QUANTITY SELECTION ***');
+        this.shop.quantitySelection = {
+            active: false,
+            itemData: null,
+            mode: '',
+            quantity: 1,
+            maxQuantity: 1
+        };
+    }
+    
+    confirmQuantitySelection() {
+        const qs = this.shop.quantitySelection;
+        console.log(`*** CONFIRMING QUANTITY SELECTION *** quantity=${qs.quantity}, mode=${qs.mode}`);
+        
+        if (!qs.active || !qs.itemData) {
+            console.log('No active quantity selection to confirm');
+            return;
+        }
+        
+        // Additional validation for buying
+        if (qs.mode === 'buy') {
+            const totalCost = qs.itemData.price * qs.quantity;
+            if (totalCost > this.player.gold) {
+                console.log(`Cannot afford ${qs.quantity} items. Cost: ${totalCost}, Gold: ${this.player.gold}`);
+                this.closeQuantitySelection();
+                return;
+            }
+            
+            if (qs.quantity > qs.itemData.stock) {
+                console.log(`Not enough stock. Requested: ${qs.quantity}, Available: ${qs.itemData.stock}`);
+                this.closeQuantitySelection();
+                return;
+            }
+        }
+        
+        let success = false;
+        
+        if (qs.mode === 'buy') {
+            success = this.buyItem(qs.itemData, qs.quantity);
+        } else if (qs.mode === 'sell') {
+            success = this.sellItem(this.shop.selectedIndex, qs.quantity);
+        }
+        
+        if (success) {
+            console.log(`Successfully ${qs.mode === 'buy' ? 'bought' : 'sold'} ${qs.quantity} items`);
+        } else {
+            console.log(`Failed to ${qs.mode === 'buy' ? 'buy' : 'sell'} items`);
+        }
+        
+        this.closeQuantitySelection();
+    }
+    
+    handleQuantitySelectionInput(e) {
+        if (!this.shop.quantitySelection.active) return;
+        
+        const qs = this.shop.quantitySelection;
+        console.log(`*** QUANTITY SELECTION INPUT *** key=${e.key}, current quantity=${qs.quantity}`);
+        
+        switch(e.key) {
+            case 'ArrowUp':
+            case 'w':
+            case 'W':
+                e.preventDefault();
+                // If at maximum, wrap around to 1. Otherwise, increase by 1.
+                if (qs.quantity === qs.maxQuantity) {
+                    qs.quantity = 1;
+                    console.log(`Quantity wrapped to minimum: ${qs.quantity}`);
+                } else {
+                    qs.quantity = Math.min(qs.maxQuantity, qs.quantity + 1);
+                    // Double-check affordability for buying
+                    if (qs.mode === 'buy' && qs.itemData.price * qs.quantity > this.player.gold) {
+                        qs.quantity = Math.floor(this.player.gold / qs.itemData.price);
+                    }
+                    console.log(`Quantity increased to ${qs.quantity}`);
+                }
+                break;
+                
+            case 'ArrowDown':
+            case 's':
+            case 'S':
+                e.preventDefault();
+                // If quantity is 1, jump to maximum. Otherwise, decrease by 1.
+                if (qs.quantity === 1) {
+                    qs.quantity = qs.maxQuantity;
+                    console.log(`Quantity jumped to maximum: ${qs.quantity}`);
+                } else {
+                    qs.quantity = Math.max(1, qs.quantity - 1);
+                    console.log(`Quantity decreased to: ${qs.quantity}`);
+                }
+                break;
+                
+            case 'Enter':
+                e.preventDefault();
+                this.confirmQuantitySelection();
+                break;
+                
+            case 'Escape':
+                e.preventDefault();
+                this.closeQuantitySelection();
+                break;
         }
     }
     
@@ -2822,6 +3030,107 @@ class Game {
             this.ctx.textAlign = 'center';
             const emptyMessage = this.shop.mode === 'buy' ? 'No items for sale' : 'No items to sell';
             this.ctx.fillText(emptyMessage, windowX + windowWidth / 2, listY + 50);
+        }
+        
+        // Draw quantity selection window if active
+        if (this.shop.quantitySelection.active) {
+            this.renderQuantitySelection();
+        }
+    }
+    
+    renderQuantitySelection() {
+        console.log('*** RENDERING QUANTITY SELECTION ***');
+        
+        // Darken the background further
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+        
+        // Calculate window dimensions
+        const windowWidth = 350;
+        const windowHeight = 250;
+        const windowX = (this.CANVAS_WIDTH - windowWidth) / 2;
+        const windowY = (this.CANVAS_HEIGHT - windowHeight) / 2;
+        
+        // Draw window background
+        this.ctx.fillStyle = 'rgba(20, 20, 20, 0.95)';
+        this.ctx.fillRect(windowX, windowY, windowWidth, windowHeight);
+        
+        // Draw window border
+        this.ctx.strokeStyle = '#FFD700';
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeRect(windowX, windowY, windowWidth, windowHeight);
+        
+        // Get item info
+        const qs = this.shop.quantitySelection;
+        const mode = qs.mode;
+        const quantity = qs.quantity;
+        const maxQuantity = qs.maxQuantity;
+        
+        let itemName = '';
+        let pricePerItem = 0;
+        
+        if (mode === 'buy') {
+            const itemTemplate = this.itemManager.getItem(qs.itemData.id);
+            itemName = itemTemplate ? itemTemplate.name : qs.itemData.id;
+            pricePerItem = qs.itemData.price;
+        } else {
+            itemName = qs.itemData.name;
+            const itemTemplate = this.itemManager.getItem(qs.itemData.id);
+            pricePerItem = itemTemplate ? Math.floor(itemTemplate.value * this.shop.npc.shop.sellMultiplier) : 0;
+        }
+        
+        // Draw title
+        this.ctx.fillStyle = '#FFD700';
+        this.ctx.font = 'bold 22px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(`${mode === 'buy' ? 'Buy' : 'Sell'} ${itemName}`, windowX + windowWidth / 2, windowY + 40);
+        
+        // Draw quantity selector
+        this.ctx.fillStyle = '#FFF';
+        this.ctx.font = '18px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('Select Quantity:', windowX + windowWidth / 2, windowY + 80);
+        
+        // Draw quantity display with visual feedback
+        this.ctx.fillStyle = '#FFD700';
+        this.ctx.font = 'bold 32px Arial';
+        this.ctx.fillText(`${quantity}`, windowX + windowWidth / 2, windowY + 120);
+        
+        // Draw max quantity
+        this.ctx.fillStyle = '#CCC';
+        this.ctx.font = '16px Arial';
+        this.ctx.fillText(`(max: ${maxQuantity})`, windowX + windowWidth / 2, windowY + 145);
+        
+        // Draw total price
+        const totalPrice = pricePerItem * quantity;
+        this.ctx.fillStyle = '#FFF';
+        this.ctx.font = '18px Arial';
+        const priceText = mode === 'buy' ? `Total Cost: ${totalPrice} gold` : `Total Value: ${totalPrice} gold`;
+        this.ctx.fillText(priceText, windowX + windowWidth / 2, windowY + 180);
+        
+        // Draw controls hint (only if debug mode is enabled)
+        if (this.settings.showDebug) {
+            this.ctx.fillStyle = '#CCC';
+            this.ctx.font = '14px Arial';
+            this.ctx.fillText('↑: +1/Min  ↓: Max/-1  Enter: Confirm  Esc: Cancel', windowX + windowWidth / 2, windowY + 210);
+        }
+        
+        // Draw warnings for buying
+        if (mode === 'buy') {
+            let warningY = windowY + 230;
+            
+            if (totalPrice > this.player.gold) {
+                this.ctx.fillStyle = '#FF6666';
+                this.ctx.font = 'bold 16px Arial';
+                this.ctx.fillText('Not enough gold!', windowX + windowWidth / 2, warningY);
+                warningY += 20;
+            }
+            
+            if (!this.inventoryManager.hasSpaceFor(qs.itemData.id, quantity)) {
+                this.ctx.fillStyle = '#FF6666';
+                this.ctx.font = 'bold 16px Arial';
+                this.ctx.fillText('Not enough inventory space!', windowX + windowWidth / 2, warningY);
+            }
         }
     }
     
