@@ -3138,8 +3138,28 @@ class Game {
                 // Show buy items
                 const itemData = this.itemManager.getItem(item.id);
                 if (itemData) {
+                    // Draw item icon
+                    const iconSize = 24;
+                    const iconX = windowX + 15;
+                    const iconY = y - 18;
+                    
+                    if (itemData.sprite && itemData.sprite.complete && itemData.sprite.naturalWidth > 0) {
+                        try {
+                            this.ctx.drawImage(itemData.sprite, iconX, iconY, iconSize, iconSize);
+                        } catch (e) {
+                            // Fallback to colored rectangle if sprite fails
+                            this.ctx.fillStyle = this.getItemRarityColor(itemData.rarity || 'common');
+                            this.ctx.fillRect(iconX, iconY, iconSize, iconSize);
+                        }
+                    } else {
+                        // Fallback to colored rectangle if no sprite
+                        this.ctx.fillStyle = this.getItemRarityColor(itemData.rarity || 'common');
+                        this.ctx.fillRect(iconX, iconY, iconSize, iconSize);
+                    }
+                    
+                    // Draw item name (moved right to make room for icon)
                     this.ctx.fillStyle = this.getItemRarityColor(itemData.rarity || 'common');
-                    this.ctx.fillText(itemData.name, windowX + 20, y);
+                    this.ctx.fillText(itemData.name, windowX + 50, y);
                     
                     // Show stock
                     if (item.stock !== undefined) {
@@ -3157,8 +3177,28 @@ class Game {
                 // Show sell items
                 const itemData = this.itemManager.getItem(item.id);
                 if (itemData) {
+                    // Draw item icon
+                    const iconSize = 24;
+                    const iconX = windowX + 15;
+                    const iconY = y - 18;
+                    
+                    if (itemData.sprite && itemData.sprite.complete && itemData.sprite.naturalWidth > 0) {
+                        try {
+                            this.ctx.drawImage(itemData.sprite, iconX, iconY, iconSize, iconSize);
+                        } catch (e) {
+                            // Fallback to colored rectangle if sprite fails
+                            this.ctx.fillStyle = this.getItemRarityColor(itemData.rarity || 'common');
+                            this.ctx.fillRect(iconX, iconY, iconSize, iconSize);
+                        }
+                    } else {
+                        // Fallback to colored rectangle if no sprite
+                        this.ctx.fillStyle = this.getItemRarityColor(itemData.rarity || 'common');
+                        this.ctx.fillRect(iconX, iconY, iconSize, iconSize);
+                    }
+                    
+                    // Draw item name and quantity (moved right to make room for icon)
                     this.ctx.fillStyle = this.getItemRarityColor(itemData.rarity || 'common');
-                    this.ctx.fillText(`${itemData.name} x${item.quantity}`, windowX + 20, y);
+                    this.ctx.fillText(`${itemData.name} x${item.quantity}`, windowX + 50, y);
                     
                     // Show sell price
                     const sellPrice = Math.floor(itemData.value * this.shop.npc.shop.sellMultiplier);
