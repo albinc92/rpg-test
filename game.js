@@ -179,16 +179,47 @@ class Game {
     }
     
     setupCanvas() {
-        // Set canvas to full screen
-        this.canvas.width = this.CANVAS_WIDTH;
-        this.canvas.height = this.CANVAS_HEIGHT;
+        // Handle high-DPI displays for crisp rendering
+        const pixelRatio = window.devicePixelRatio || 1;
+        
+        // Set canvas display size
+        this.canvas.style.width = this.CANVAS_WIDTH + 'px';
+        this.canvas.style.height = this.CANVAS_HEIGHT + 'px';
+        
+        // Set canvas actual size in memory (accounting for pixel ratio)
+        this.canvas.width = this.CANVAS_WIDTH * pixelRatio;
+        this.canvas.height = this.CANVAS_HEIGHT * pixelRatio;
+        
+        // Scale the context to match the device pixel ratio
+        this.ctx.scale(pixelRatio, pixelRatio);
+        
+        // Disable image smoothing for crisp pixel art
+        this.ctx.imageSmoothingEnabled = false;
+        this.ctx.webkitImageSmoothingEnabled = false;
+        this.ctx.mozImageSmoothingEnabled = false;
+        this.ctx.msImageSmoothingEnabled = false;
         
         // Handle window resize
         window.addEventListener('resize', () => {
             this.CANVAS_WIDTH = window.innerWidth;
             this.CANVAS_HEIGHT = window.innerHeight;
-            this.canvas.width = this.CANVAS_WIDTH;
-            this.canvas.height = this.CANVAS_HEIGHT;
+            
+            // Update canvas display size
+            this.canvas.style.width = this.CANVAS_WIDTH + 'px';
+            this.canvas.style.height = this.CANVAS_HEIGHT + 'px';
+            
+            // Update canvas actual size in memory
+            this.canvas.width = this.CANVAS_WIDTH * pixelRatio;
+            this.canvas.height = this.CANVAS_HEIGHT * pixelRatio;
+            
+            // Re-scale the context
+            this.ctx.scale(pixelRatio, pixelRatio);
+            
+            // Re-disable image smoothing after canvas resize
+            this.ctx.imageSmoothingEnabled = false;
+            this.ctx.webkitImageSmoothingEnabled = false;
+            this.ctx.mozImageSmoothingEnabled = false;
+            this.ctx.msImageSmoothingEnabled = false;
         });
     }
     
