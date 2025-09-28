@@ -75,6 +75,24 @@ class Game {
             options: ['Trade', 'Goodbye']
         };
         
+        // Battle system
+        this.battleState = {
+            active: false,
+            spirit: null,
+            playerStartX: 200,
+            spiritStartX: 600
+        };
+        
+        this.battleDialogue = {
+            active: false,
+            spirit: null,
+            message: '',
+            showTime: 0
+        };
+        
+        // Disappeared spirits tracking (for respawning after flee)
+        this.disappearedSpirits = new Map();
+        
         // Main menu (start of game)
         this.mainMenuOptions = ['New Game', 'Continue', 'Settings', 'Exit'];
         this.selectedMainMenuOption = 0;
@@ -621,8 +639,12 @@ class Game {
                 return;
             } else if (npc.type === 'chest') {
                 this.handleChest(npc);
+            } else if (npc.type === 'spirit') {
+                // Spirits are decorative and don't have dialogue
+                console.log(`You see ${npc.name || 'a spirit'} floating nearby...`);
+                return;
             } else {
-                // Start dialogue for all NPCs (including shop NPCs and spirits)
+                // Start dialogue for all other NPCs (shop NPCs, etc.)
                 this.npcManager.startDialogue(npc, () => this.playSpeechBubbleSound());
             }
         }
@@ -645,8 +667,8 @@ class Game {
         const playerHalfHeight = this.player.height / 2;
         
         for (let npc of currentMapNPCs) {
-            // Skip portals as they don't block movement
-            if (npc.type === 'portal') {
+            // Skip portals and spirits as they don't block movement
+            if (npc.type === 'portal' || npc.type === 'spirit') {
                 continue;
             }
             
@@ -689,6 +711,70 @@ class Game {
             // Automatically teleport
             this.teleportToMap(portal.targetMap, portal.targetX, portal.targetY);
         }
+    }
+    
+    checkSpiritBattleCollisions() {
+        // Don't trigger battles if already in battle
+        if (this.gameState === 'BATTLE' || this.gameState === 'BATTLE_DIALOGUE') return;
+        
+        const currentMapNPCs = this.npcs[this.currentMapId] || [];
+        const playerHalfWidth = this.player.width / 2;
+        const playerHalfHeight = this.player.height / 2;
+        
+        for (let npc of currentMapNPCs) {
+            if (npc.type === 'spirit') {
+                const npcHalfWidth = npc.width / 2;
+                const npcHalfHeight = npc.height / 2;
+                
+                // Check if player is overlapping with spirit (full sprite collision for battle trigger)
+                const playerLeft = this.player.x - playerHalfWidth;
+                const playerRight = this.player.x + playerHalfWidth;
+                const playerTop = this.player.y - playerHalfHeight;
+                const playerBottom = this.player.y + playerHalfHeight;
+                
+                const spiritLeft = npc.x - npcHalfWidth;
+                const spiritRight = npc.x + npcHalfWidth;
+                const spiritTop = npc.y - npcHalfHeight;
+                const spiritBottom = npc.y + npcHalfHeight;
+                
+                // Check for overlap
+                if (playerRight > spiritLeft && 
+                    playerLeft < spiritRight && 
+                    playerBottom > spiritTop && 
+                    playerTop < spiritBottom) {
+                    
+                    // Trigger battle!
+                    this.triggerSpiritBattle(npc);
+                    return;
+                }
+            }
+        }
+    }
+    
+    triggerSpiritBattle(spirit) {
+        // Show battle dialogue and transition to battle scene
+        this.showBattleDialogue(spirit);
+    }
+    
+    showBattleDialogue(spirit) {
+        // Store player's current position and map before battle
+        const playerPreBattleState = {
+            x: this.player.x,
+            y: this.player.y,
+            mapId: this.currentMapId
+        };
+        
+        // Set game state to battle dialogue
+        this.gameState = 'BATTLE_DIALOGUE';
+        this.battleDialogue = {
+            active: true,
+            spirit: spirit,
+            message: 'Battle!',
+            showTime: Date.now(),
+            playerPreBattleState: playerPreBattleState
+        };
+        
+        console.log(`Battle triggered with ${spirit.name} at player position (${playerPreBattleState.x}, ${playerPreBattleState.y})!`);
     }
     
     handleTeleporter(teleporter) {
@@ -1075,6 +1161,10 @@ class Game {
                 this.handleShopOptionsInput(e);
             } else if (this.gameState === 'SHOP') {
                 this.handleShopInput(e);
+            } else if (this.gameState === 'BATTLE_DIALOGUE') {
+                this.handleBattleDialogueInput(e);
+            } else if (this.gameState === 'BATTLE') {
+                this.handleBattleInput(e);
             } else if (this.gameState === 'PLAYING') {
                 if (this.npcManager.isDialogueActive()) {
                     this.handleDialogueInput(e);
@@ -1543,6 +1633,155 @@ class Game {
         }
     }
     
+    handleBattleDialogueInput(e) {
+        switch(e.key) {
+            case 'Enter':
+            case ' ':
+            case 'Escape':
+                // Any key proceeds to battle scene
+                this.proceedToBattle();
+                break;
+        }
+    }
+    
+    proceedToBattle() {
+        if (this.battleDialogue && this.battleDialogue.spirit) {
+            // Get battle scene from current map, fallback to spirit's battle scene if not defined
+            const currentMapData = this.mapManager.getMap(this.currentMapId);
+            const battleScene = currentMapData?.battleScene || this.battleDialogue.spirit.battleScene || 'Forest-Battlescene-0';
+            const spirit = this.battleDialogue.spirit;
+            
+            console.log(`Proceeding to battle scene: ${battleScene} with ${spirit.name} (from map: ${this.currentMapId})`);
+            
+            // Store battle information
+            this.battleState = {
+                active: true,
+                spirit: { ...spirit }, // Copy spirit data
+                playerStartX: 200, // Player on the left
+                spiritStartX: 600, // Spirit on the right
+                playerPreBattleState: this.battleDialogue.playerPreBattleState // Store original position
+            };
+            
+            // Clear battle dialogue
+            this.battleDialogue.active = false;
+            this.gameState = 'BATTLE';
+            
+            // Clear movement state before entering battle
+            this.clearMovementState();
+            
+            // Teleport to battle scene with player positioned on the left
+            this.teleportToMap(battleScene, this.battleState.playerStartX, 300);
+        }
+    }
+    
+    handleBattleInput(e) {
+        switch(e.key) {
+            case 'f':
+            case 'F':
+                // Flee from battle
+                this.fleeBattle();
+                break;
+            case 'Escape':
+                // For now, allow escaping from battle (later can be replaced with proper battle mechanics)
+                this.exitBattle();
+                break;
+            // Add battle-specific controls here later (attack, defend, etc.)
+        }
+    }
+    
+    fleeBattle() {
+        if (this.battleState && this.battleState.spirit) {
+            const spirit = this.battleState.spirit;
+            const originalMapId = spirit.mapId;
+            
+            console.log(`Fleeing from battle with ${spirit.name}`);
+            
+            // Make the spirit disappear temporarily
+            this.makeSpiritsDisappear(spirit.id, originalMapId);
+            
+            // Return to the original map
+            this.exitBattle();
+        }
+    }
+    
+    makeSpiritsDisappear(spiritId, mapId) {
+        // Remove spirit from the current map's NPC list
+        if (this.npcs[mapId]) {
+            const spiritIndex = this.npcs[mapId].findIndex(npc => npc.id === spiritId);
+            if (spiritIndex !== -1) {
+                const spirit = this.npcs[mapId][spiritIndex];
+                
+                // Store the disappeared spirit data for respawning
+                if (!this.disappearedSpirits) {
+                    this.disappearedSpirits = new Map();
+                }
+                
+                this.disappearedSpirits.set(spiritId, {
+                    spiritData: { ...spirit }, // Copy the spirit data
+                    mapId: mapId,
+                    disappearTime: Date.now(),
+                    respawnDelay: spirit.respawnDelay || 30000 // 30 seconds default
+                });
+                
+                // Remove from active NPCs
+                this.npcs[mapId].splice(spiritIndex, 1);
+                
+                console.log(`${spirit.name} disappeared from map ${mapId}, will respawn in ${(spirit.respawnDelay || 30000) / 1000} seconds`);
+            }
+        }
+    }
+    
+    exitBattle() {
+        // Return to the exact position where the battle was triggered
+        if (this.battleState && this.battleState.playerPreBattleState) {
+            const preBattleState = this.battleState.playerPreBattleState;
+            
+            this.battleState.active = false;
+            this.gameState = 'PLAYING';
+            
+            // Clear all movement keys and reset player velocity to prevent auto-walking
+            this.clearMovementState();
+            
+            // Return to the exact pre-battle position
+            this.teleportToMap(preBattleState.mapId, preBattleState.x, preBattleState.y);
+            
+            console.log(`Exited battle, returned to exact pre-battle position (${preBattleState.x}, ${preBattleState.y}) on map ${preBattleState.mapId}`);
+        } else {
+            // Fallback to spirit's spawn location if pre-battle state not available
+            const originalMapId = this.battleState?.spirit?.mapId || '0-0';
+            const originalX = this.battleState?.spirit?.spawnX || 600;
+            const originalY = this.battleState?.spirit?.spawnY || 400;
+            
+            this.battleState.active = false;
+            this.gameState = 'PLAYING';
+            
+            // Clear all movement keys and reset player velocity to prevent auto-walking
+            this.clearMovementState();
+            
+            this.teleportToMap(originalMapId, originalX, originalY);
+            
+            console.log(`Exited battle, fallback to map ${originalMapId} at (${originalX}, ${originalY})`);
+        }
+    }
+    
+    clearMovementState() {
+        // Clear all movement key states
+        this.keys['w'] = false;
+        this.keys['a'] = false;
+        this.keys['s'] = false;
+        this.keys['d'] = false;
+        this.keys['arrowup'] = false;
+        this.keys['arrowdown'] = false;
+        this.keys['arrowleft'] = false;
+        this.keys['arrowright'] = false;
+        
+        // Reset player velocity to stop any ongoing movement
+        this.player.velocityX = 0;
+        this.player.velocityY = 0;
+        
+        console.log('Cleared movement state and player velocity');
+    }
+    
     navigateInventoryGrid(direction) {
         const inventory = this.inventoryManager.getInventory();
         if (inventory.length === 0) return;
@@ -1722,6 +1961,12 @@ class Game {
         // Check for portal collisions
         this.checkPortalCollisions();
         
+        // Check for spirit battle collisions
+        this.checkSpiritBattleCollisions();
+        
+        // Update spirit respawning
+        this.updateSpiritRespawning();
+        
         // Update roaming NPCs
         this.updateRoamingNPCs();
         
@@ -1740,6 +1985,52 @@ class Game {
         };
         
         this.npcManager.updateRoamingNPCs(this.currentMapId, 0.016, mapBounds);
+    }
+    
+    updateSpiritRespawning() {
+        if (!this.disappearedSpirits) return;
+        
+        const currentTime = Date.now();
+        const spiritsToRespawn = [];
+        
+        // Check which spirits are ready to respawn
+        this.disappearedSpirits.forEach((spiritInfo, spiritId) => {
+            const timeSinceDisappear = currentTime - spiritInfo.disappearTime;
+            if (timeSinceDisappear >= spiritInfo.respawnDelay) {
+                spiritsToRespawn.push({ spiritId, spiritInfo });
+            }
+        });
+        
+        // Respawn the spirits
+        spiritsToRespawn.forEach(({ spiritId, spiritInfo }) => {
+            this.respawnSpirit(spiritId, spiritInfo);
+        });
+    }
+    
+    respawnSpirit(spiritId, spiritInfo) {
+        const { spiritData, mapId } = spiritInfo;
+        
+        // Reset spirit to its original spawn position
+        const respawnedSpirit = {
+            ...spiritData,
+            x: spiritData.spawnX,
+            y: spiritData.spawnY,
+            targetX: spiritData.spawnX,
+            targetY: spiritData.spawnY,
+            isPaused: false,
+            pauseStartTime: 0
+        };
+        
+        // Add back to the map's NPC list
+        if (!this.npcs[mapId]) {
+            this.npcs[mapId] = [];
+        }
+        this.npcs[mapId].push(respawnedSpirit);
+        
+        // Remove from disappeared spirits list
+        this.disappearedSpirits.delete(spiritId);
+        
+        console.log(`${spiritData.name} respawned on map ${mapId} at (${spiritData.spawnX}, ${spiritData.spawnY})`);
     }
     
     updateCamera() {
@@ -1811,6 +2102,16 @@ class Game {
         
         if (this.gameState === 'SHOP') {
             this.renderShop();
+            return;
+        }
+        
+        if (this.gameState === 'BATTLE_DIALOGUE') {
+            this.renderBattleDialogue();
+            return;
+        }
+        
+        if (this.gameState === 'BATTLE') {
+            this.renderBattle();
             return;
         }
         
@@ -2494,6 +2795,201 @@ class Game {
         }
     }
     
+    renderBattleDialogue() {
+        // Draw the current game world first (blurred background)
+        this.ctx.save();
+        
+        // Apply camera translation
+        this.ctx.translate(-this.camera.x, -this.camera.y);
+        
+        // Draw map background with optional scaling
+        const mapScale = this.currentMap.mapScale || 1.0;
+        
+        if (mapScale !== 1.0 && this.currentMap.originalWidth && this.currentMap.originalHeight) {
+            // Apply scaling transformation to the map
+            this.ctx.save();
+            this.ctx.scale(mapScale, mapScale);
+            this.ctx.drawImage(this.currentMap.image, 0, 0, this.currentMap.originalWidth, this.currentMap.originalHeight);
+            this.ctx.restore();
+        } else {
+            // Draw map normally
+            const drawWidth = this.currentMap.originalWidth || this.currentMap.width;
+            const drawHeight = this.currentMap.originalHeight || this.currentMap.height;
+            this.ctx.drawImage(this.currentMap.image, 0, 0, drawWidth, drawHeight);
+        }
+        
+        // Draw all sprites in depth order
+        this.drawSpritesInDepthOrder();
+        
+        this.ctx.restore();
+        
+        // Draw dark overlay
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+        
+        // Draw battle dialogue box
+        const boxWidth = 400;
+        const boxHeight = 150;
+        const boxX = (this.CANVAS_WIDTH - boxWidth) / 2;
+        const boxY = (this.CANVAS_HEIGHT - boxHeight) / 2;
+        
+        // Draw dialogue box background
+        this.ctx.fillStyle = 'rgba(20, 20, 40, 0.95)';
+        this.ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+        
+        // Draw dialogue box border
+        this.ctx.strokeStyle = '#FF6B6B';
+        this.ctx.lineWidth = 4;
+        this.ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+        
+        // Draw inner border glow
+        this.ctx.strokeStyle = '#FFB3B3';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(boxX + 2, boxY + 2, boxWidth - 4, boxHeight - 4);
+        
+        // Draw battle message
+        this.ctx.fillStyle = '#FF6B6B';
+        this.ctx.font = 'bold 36px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('Battle!', boxX + boxWidth / 2, boxY + boxHeight / 2 - 10);
+        
+        // Draw spirit name
+        if (this.battleDialogue && this.battleDialogue.spirit) {
+            this.ctx.fillStyle = '#FFB3B3';
+            this.ctx.font = '20px Arial';
+            this.ctx.fillText(`vs ${this.battleDialogue.spirit.name}`, boxX + boxWidth / 2, boxY + boxHeight / 2 + 25);
+        }
+        
+        // Draw "Press any key" instruction
+        this.ctx.fillStyle = '#CCC';
+        this.ctx.font = '14px Arial';
+        this.ctx.fillText('Press any key to continue', boxX + boxWidth / 2, boxY + boxHeight - 20);
+    }
+    
+    renderBattleDialogue() {
+        // Draw semi-transparent background over current scene
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+        
+        // Draw battle announcement
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = 'bold 48px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.strokeStyle = 'black';
+        this.ctx.lineWidth = 3;
+        
+        const message = this.battleDialogue.message;
+        const x = this.CANVAS_WIDTH / 2;
+        const y = this.CANVAS_HEIGHT / 2;
+        
+        // Draw text with outline
+        this.ctx.strokeText(message, x, y);
+        this.ctx.fillText(message, x, y);
+        
+        // Draw instruction
+        this.ctx.font = '20px Arial';
+        const instruction = 'Press any key to continue...';
+        const instructionY = y + 60;
+        
+        this.ctx.strokeText(instruction, x, instructionY);
+        this.ctx.fillText(instruction, x, instructionY);
+    }
+    
+    renderBattle() {
+        if (!this.currentMap.loaded) {
+            this.ctx.fillStyle = 'white';
+            this.ctx.font = '20px Arial';
+            this.ctx.fillText('Loading battle scene...', this.CANVAS_WIDTH / 2 - 100, this.CANVAS_HEIGHT / 2);
+            return;
+        }
+        
+        // Save context for camera transformation
+        this.ctx.save();
+        
+        // Apply camera translation (still use camera system for battle)
+        this.ctx.translate(-this.camera.x, -this.camera.y);
+        
+        // Draw battle background
+        const mapScale = this.currentMap.mapScale || 1.0;
+        
+        if (mapScale !== 1.0 && this.currentMap.originalWidth && this.currentMap.originalHeight) {
+            this.ctx.save();
+            this.ctx.scale(mapScale, mapScale);
+            this.ctx.drawImage(this.currentMap.image, 0, 0, this.currentMap.originalWidth, this.currentMap.originalHeight);
+            this.ctx.restore();
+        } else {
+            const drawWidth = this.currentMap.originalWidth || this.currentMap.width;
+            const drawHeight = this.currentMap.originalHeight || this.currentMap.height;
+            this.ctx.drawImage(this.currentMap.image, 0, 0, drawWidth, drawHeight);
+        }
+        
+        // Draw player sprite (static on the left)
+        this.drawPlayerSprite();
+        
+        // Draw spirit sprite (static on the right)
+        if (this.battleState && this.battleState.spirit) {
+            this.drawBattleSpirit();
+        }
+        
+        // Restore context
+        this.ctx.restore();
+        
+        // Draw battle UI
+        this.drawBattleUI();
+    }
+    
+    drawBattleSpirit() {
+        const spirit = this.battleState.spirit;
+        const mapScale = this.currentMap.scale || 1.0;
+        
+        // Position spirit on the right side
+        const spiritX = this.battleState.spiritStartX;
+        const spiritY = 300; // Center vertically
+        
+        // Apply ethereal effects like in normal rendering
+        this.ctx.save();
+        
+        // Pulsing alpha for ethereal effect
+        const basePulse = Math.sin(this.gameTime * (spirit.pulseSpeed || 1.5)) * 0.2;
+        const spiritAlpha = (spirit.baseAlpha || 0.7) + basePulse;
+        this.ctx.globalAlpha = Math.max(0.3, Math.min(1.0, spiritAlpha));
+        
+        // Glow effect
+        this.ctx.shadowColor = '#87CEEB'; // Sky blue glow
+        this.ctx.shadowBlur = 15;
+        
+        const scaledWidth = spirit.width * mapScale;
+        const scaledHeight = spirit.height * mapScale;
+        const spiritScreenX = spiritX - scaledWidth / 2;
+        const spiritScreenY = spiritY - scaledHeight / 2;
+        
+        // Draw spirit sprite (always facing left in battle to face the player)
+        this.ctx.translate(spiritX, spiritY);
+        this.ctx.scale(-1, 1); // Flip to face left
+        this.ctx.drawImage(spirit.sprite, -scaledWidth / 2, -scaledHeight / 2, scaledWidth, scaledHeight);
+        
+        this.ctx.restore();
+    }
+    
+    drawBattleUI() {
+        // Draw battle status info
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(0, this.CANVAS_HEIGHT - 100, this.CANVAS_WIDTH, 100);
+        
+        // Draw battle text
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = '24px Arial';
+        this.ctx.textAlign = 'center';
+        
+        const spirit = this.battleState.spirit;
+        this.ctx.fillText(`Battle with ${spirit.name}!`, this.CANVAS_WIDTH / 2, this.CANVAS_HEIGHT - 60);
+        
+        // Draw controls
+        this.ctx.font = '16px Arial';
+        this.ctx.fillStyle = '#FFD700';
+        this.ctx.fillText('Press F to FLEE (spirit will disappear temporarily)', this.CANVAS_WIDTH / 2, this.CANVAS_HEIGHT - 30);
+    }
+    
     addGold(amount) {
         this.player.gold += amount;
         console.log(`Added ${amount} gold. Total: ${this.player.gold}`);
@@ -2582,8 +3078,8 @@ class Game {
         let closestDistance = Infinity;
         
         currentMapNPCs.forEach(npc => {
-            // Skip portals as they don't show interaction indicators
-            if (npc.type === 'portal') return;
+            // Skip portals and spirits as they don't show interaction indicators
+            if (npc.type === 'portal' || npc.type === 'spirit') return;
             
             const distance = Math.sqrt(
                 Math.pow(this.player.x - npc.x, 2) + 

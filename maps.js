@@ -23,6 +23,7 @@ class MapManager {
             description: 'A peaceful clearing in the forest where your journey begins.',
             music: 'assets/bgm/00.mp3',
             ambientSound: 'assets/audio/ambience/forest-0.mp3',
+            battleScene: 'Forest-Battlescene-0', // Battle scene for this map
             spawnPoints: {
                 default: { x: 400, y: 300 },
                 fromPortal: { x: 900, y: 200 }
@@ -37,6 +38,7 @@ class MapManager {
             description: 'A winding path through the mountains.',
             music: 'assets/bgm/00.mp3', // Could be different music later
             ambientSound: 'assets/audio/ambience/forest-0.mp3',
+            battleScene: 'Forest-Battlescene-0', // Battle scene for this map
             spawnPoints: {
                 default: { x: 469, y: 949 },
                 fromPortal: { x: 469, y: 949 }
@@ -51,9 +53,25 @@ class MapManager {
             description: 'A cozy shop where you can buy and sell items.',
             music: 'assets/bgm/01.mp3',
             mapScale: 0.7, // Scale the map background down to 70% size
+            battleScene: null, // No battles in shops
             spawnPoints: {
                 default: { x: 400, y: 300 },
                 fromDoor: { x: 400, y: 300 }
+            }
+        });
+
+        // Forest Battle Scene - Where spirit battles take place
+        this.registerMap({
+            id: 'Forest-Battlescene-0',
+            name: 'Forest Battle Arena',
+            imagePath: 'assets/maps/0-0.png', // Reuse forest map for now
+            description: 'A mystical battleground where spirits challenge adventurers.',
+            music: 'assets/bgm/01.mp3', // Different battle music
+            ambientSound: null, // No ambient sound in battle
+            mapScale: 1.0,
+            spawnPoints: {
+                default: { x: 400, y: 300 },
+                battle: { x: 400, y: 300 }
             }
         });
     }

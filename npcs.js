@@ -183,38 +183,13 @@ class NPCManager {
             ]
         });
 
-        // Create roaming spirit NPCs
-        this.createRoamingSpirit('spirit_1', '0-0', 600, 400, {
-            speed: 0.5,
-            roamRadius: 150,
-            pauseTime: 2000,
-            messages: [
-                "I am the spirit of the ancient woods...",
-                "I have been wandering here for centuries.",
-                "Do you seek wisdom, traveler?"
-            ]
-        });
-
-        this.createRoamingSpirit('spirit_2', '0-1', 400, 600, {
-            speed: 0.8,
-            roamRadius: 200,
-            pauseTime: 1500,
-            messages: [
-                "Ooooh... a living soul approaches...",
-                "I remember when this place was different...",
-                "The memories... they fade like mist..."
-            ]
-        });
-
-        this.createRoamingSpirit('spirit_3', '0-0', 1100, 300, {
-            speed: 0.3,
-            roamRadius: 100,
-            pauseTime: 3000,
-            messages: [
-                "So peaceful here... so quiet...",
-                "Time moves differently for spirits.",
-                "Would you like to rest awhile?"
-            ]
+        // Create Sylphie - the roaming spirit NPC
+        this.createRoamingSpirit('sylphie', '0-0', 600, 400, {
+            speed: 0.6,
+            roamRadius: 180,
+            pauseTime: 2500,
+            name: 'Sylphie',
+            respawnDelay: 30000 // 30 seconds respawn time
         });
     }
 
@@ -499,7 +474,9 @@ class NPCManager {
      * @param {number} config.speed - Movement speed
      * @param {number} config.roamRadius - How far from spawn point they can roam
      * @param {number} config.pauseTime - How long to pause between movements (ms)
-     * @param {array} config.messages - Dialogue messages
+     * @param {string} config.name - Display name for the spirit
+     * @param {string} config.battleScene - (Optional) Override battle scene for this specific spirit
+     * @param {number} config.respawnDelay - How long before spirit respawns after fleeing (ms)
      */
     createRoamingSpirit(id, mapId, x, y, config = {}) {
         const spiritNPC = {
@@ -512,7 +489,9 @@ class NPCManager {
             height: 96,
             spriteSrc: 'assets/npc/Spirits/Sylphie00.png',
             direction: 'right',
-            messages: config.messages || ["..."],
+            name: config.name || 'Spirit',
+            battleScene: config.battleScene, // Optional override - will use map's battleScene if not specified
+            respawnDelay: config.respawnDelay || 30000, // Default 30 seconds
             
             // Roaming properties
             isRoaming: true,
@@ -538,7 +517,35 @@ class NPCManager {
         spiritNPC.sprite.src = spiritNPC.spriteSrc;
 
         this.registerNPC(spiritNPC);
-        console.log(`Created roaming spirit ${id} on map ${mapId} at (${x}, ${y})`);
+        const battleInfo = spiritNPC.battleScene ? `with custom battle scene: ${spiritNPC.battleScene}` : 'using map default battle scene';
+        console.log(`Created roaming spirit ${id} on map ${mapId} at (${x}, ${y}) ${battleInfo}`);
+    }
+
+    /**
+     * Quick helper to create additional spirits
+     * Battle scenes are now configured per map in maps.js
+     * Call this method to easily add more spirits to different maps
+     */
+    addAdditionalSpirits() {
+        // Example: Add more spirits to different maps
+        // They will automatically use their map's configured battle scene
+        // Uncomment and modify as needed:
+        
+        // this.createRoamingSpirit('forest_guardian', '0-1', 200, 400, {
+        //     speed: 0.4,
+        //     roamRadius: 120,
+        //     pauseTime: 3000,
+        //     name: 'Forest Guardian'
+        //     // Will use map 0-1's battleScene (Forest-Battlescene-0)
+        // });
+        
+        // this.createRoamingSpirit('mountain_wraith', '0-1', 800, 600, {
+        //     speed: 0.8,
+        //     roamRadius: 200,
+        //     pauseTime: 1500,
+        //     name: 'Mountain Wraith',
+        //     battleScene: 'Mountain-Battlescene-0' // Optional: Override map default
+        // });
     }
 
     /**
