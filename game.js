@@ -899,6 +899,7 @@ class Game {
     }
     
     showLootWindow(items, gold = 0, message = '') {
+        this.clearInputKeys(); // Clear input keys when entering loot window
         this.lootWindow.active = true;
         this.lootWindow.items = items;
         this.lootWindow.gold = gold;
@@ -911,10 +912,17 @@ class Game {
         this.lootWindow.items = [];
         this.lootWindow.gold = 0;
         this.lootWindow.message = '';
+        this.clearInputKeys(); // Clear all input keys to prevent stuck movement
         this.gameState = 'PLAYING';
+    }
+    
+    clearInputKeys() {
+        // Clear all movement and input keys to prevent stuck states
+        this.keys = {};
     }
 
     showShopOptions(npc) {
+        this.clearInputKeys(); // Clear input keys when entering shop
         this.shopOptions.active = true;
         this.shopOptions.npc = npc;
         this.shopOptions.selectedIndex = 0;
@@ -923,6 +931,7 @@ class Game {
     }
 
     handleShop(npc) {
+        this.clearInputKeys(); // Clear input keys when entering shop
         this.shop.active = true;
         this.shop.npc = npc;
         this.shop.mode = 'buy'; // Start in buy mode instead of main
@@ -937,6 +946,7 @@ class Game {
         this.shop.mode = 'buy'; // Reset to buy mode for next time
         this.shop.selectedIndex = 0;
         this.shop.items = [];
+        this.clearInputKeys(); // Clear input keys when closing shop
         this.gameState = 'PLAYING';
     }
 
@@ -1290,6 +1300,7 @@ class Game {
                     
                     // Inventory key
                     if (e.key === 'i' || e.key === 'I') {
+                        this.clearInputKeys(); // Clear input keys when opening inventory
                         this.gameState = 'INVENTORY';
                         this.inventoryManager.openInventory();
                     }
@@ -1310,6 +1321,7 @@ class Game {
                             currentNPC.onDialogueEnd = null; // Clear the callback
                         }
                     } else {
+                        this.clearInputKeys(); // Clear input keys when opening game menu
                         this.gameState = 'GAME_MENU';
                         this.selectedGameMenuOption = 0;
                     }
@@ -1607,6 +1619,7 @@ class Game {
             case 'I':
                 console.log('*** CLOSING INVENTORY ***');
                 this.inventoryManager.closeInventory();
+                this.clearInputKeys(); // Clear input keys when closing inventory
                 this.gameState = 'PLAYING';
                 console.log(`Game state changed to: ${this.gameState}`);
                 break;
@@ -1614,6 +1627,7 @@ class Game {
             case 'Q':
                 // Emergency force close for debugging
                 console.log('*** FORCE CLOSING INVENTORY ***');
+                this.clearInputKeys(); // Clear input keys when force closing inventory
                 this.gameState = 'PLAYING';
                 break;
             case '1':
@@ -1687,6 +1701,7 @@ class Game {
         this.shopOptions.active = false;
         this.shopOptions.npc = null;
         this.shopOptions.selectedIndex = 0;
+        this.clearInputKeys(); // Clear input keys when closing shop options
         this.gameState = 'PLAYING';
     }
 
