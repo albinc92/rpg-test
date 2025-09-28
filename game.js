@@ -199,7 +199,7 @@ class Game {
         
         // Load gold icon
         this.goldIcon = new Image();
-        this.goldIcon.src = 'assets/icon/gold.png';
+        this.goldIcon.src = 'assets/icon/Currency/gold.png';
         
         // Load background music
         this.loadAudio();
@@ -1476,6 +1476,8 @@ class Game {
     }
     
     handleInventoryInput(e) {
+        console.log(`*** INVENTORY INPUT *** key: ${e.key}, gameState: ${this.gameState}`);
+        
         switch(e.key) {
             case 'ArrowUp':
             case 'w':
@@ -1523,8 +1525,26 @@ class Game {
             case 'Escape':
             case 'i':
             case 'I':
+                console.log('*** CLOSING INVENTORY ***');
                 this.inventoryManager.closeInventory();
                 this.gameState = 'PLAYING';
+                console.log(`Game state changed to: ${this.gameState}`);
+                break;
+            case 'q':
+            case 'Q':
+                // Emergency force close for debugging
+                console.log('*** FORCE CLOSING INVENTORY ***');
+                this.gameState = 'PLAYING';
+                break;
+            case '1':
+                // Test navigation - force move to slot 1
+                console.log('*** FORCE MOVE TO SLOT 1 ***');
+                this.inventoryManager.selectedSlot = 1;
+                break;
+            case '2':
+                // Test navigation - force move to slot 2
+                console.log('*** FORCE MOVE TO SLOT 2 ***');
+                this.inventoryManager.selectedSlot = 2;
                 break;
         }
     }
@@ -1999,77 +2019,65 @@ class Game {
     
     navigateInventoryGrid(direction) {
         const inventory = this.inventoryManager.getInventory();
-        if (inventory.length === 0) return;
+        if (inventory.length === 0) {
+            console.log('No inventory items to navigate');
+            return;
+        }
         
         const itemsPerRow = 5; // Same as defined in renderInventory
         const currentSlot = this.inventoryManager.selectedSlot;
         const totalItems = inventory.length;
         
-        // Calculate current row and column
-        const currentRow = Math.floor(currentSlot / itemsPerRow);
-        const currentCol = currentSlot % itemsPerRow;
+        console.log(`*** NAVIGATING *** direction: ${direction}, current: ${currentSlot}, total: ${totalItems}`);
         
         let newSlot = currentSlot;
         
         switch(direction) {
             case 'up':
-                if (currentRow > 0) {
-                    // Go up one row
+                // Simple up navigation with wrapping
+                if (currentSlot >= itemsPerRow) {
                     newSlot = currentSlot - itemsPerRow;
                 } else {
                     // Wrap to bottom row, same column
                     const lastRow = Math.floor((totalItems - 1) / itemsPerRow);
-                    const targetSlot = (lastRow * itemsPerRow) + currentCol;
-                    newSlot = Math.min(targetSlot, totalItems - 1);
+                    const currentCol = currentSlot % itemsPerRow;
+                    newSlot = Math.min((lastRow * itemsPerRow) + currentCol, totalItems - 1);
                 }
                 break;
                 
             case 'down':
+                // Simple down navigation with wrapping
                 if (currentSlot + itemsPerRow < totalItems) {
-                    // Go down one row
                     newSlot = currentSlot + itemsPerRow;
                 } else {
                     // Wrap to top row, same column
-                    newSlot = currentCol;
+                    newSlot = currentSlot % itemsPerRow;
                 }
                 break;
                 
             case 'left':
-                if (currentCol > 0) {
-                    // Move left in same row
+                // Simple left navigation with wrapping
+                if (currentSlot > 0) {
                     newSlot = currentSlot - 1;
                 } else {
-                    // Wrap to end of previous row
-                    if (currentRow > 0) {
-                        const prevRowStart = (currentRow - 1) * itemsPerRow;
-                        const prevRowEnd = Math.min(prevRowStart + itemsPerRow - 1, totalItems - 1);
-                        newSlot = prevRowEnd;
-                    } else {
-                        // Wrap to last item in inventory
-                        newSlot = totalItems - 1;
-                    }
+                    newSlot = totalItems - 1; // Wrap to last item
                 }
                 break;
                 
             case 'right':
-                if (currentCol < itemsPerRow - 1 && currentSlot + 1 < totalItems) {
-                    // Move right in same row
+                // Simple right navigation with wrapping
+                if (currentSlot < totalItems - 1) {
                     newSlot = currentSlot + 1;
                 } else {
-                    // Wrap to beginning of next row
-                    const nextRowStart = (currentRow + 1) * itemsPerRow;
-                    if (nextRowStart < totalItems) {
-                        newSlot = nextRowStart;
-                    } else {
-                        // Wrap to first item
-                        newSlot = 0;
-                    }
+                    newSlot = 0; // Wrap to first item
                 }
                 break;
         }
         
         // Ensure newSlot is within bounds
         newSlot = Math.max(0, Math.min(newSlot, totalItems - 1));
+        
+        console.log(`*** NAVIGATION RESULT *** old slot: ${currentSlot}, new slot: ${newSlot}`);
         this.inventoryManager.selectedSlot = newSlot;
     }
     
@@ -2600,6 +2608,9 @@ class Game {
         const inventory = this.inventoryManager.getInventory();
         const slotInfo = this.inventoryManager.getSlotInfo();
         
+        // Debug: Log inventory contents
+        console.log('Inventory contents:', inventory.map(item => `${item.name} (${item.quantity}, sprite: ${item.sprite ? 'loaded' : 'missing'})`));
+        
         // Draw slot counter
         this.ctx.fillStyle = '#CCCCCC';
         this.ctx.font = '20px Arial';
@@ -2635,9 +2646,32 @@ class Game {
                 this.ctx.lineWidth = 2;
                 this.ctx.strokeRect(x - itemSize/2, y - itemSize/2, itemSize, itemSize);
                 
-                // Draw item sprite (placeholder for now)
-                this.ctx.fillStyle = this.getItemRarityColor(item.rarity);
-                this.ctx.fillRect(x - 25, y - 25, 50, 50);
+                // Draw item sprite with proper scaling and error handling
+                if (item.sprite && item.sprite.complete && item.sprite.naturalWidth > 0) {
+                    try {
+                        // Calculate scaling to fit the item slot properly
+                        const spriteSize = 45; // Slightly smaller than slot for padding
+                        const spriteX = x - spriteSize / 2;
+                        const spriteY = y - spriteSize / 2;
+                        
+                        // Save context for potential transformations
+                        this.ctx.save();
+                        
+                        // Draw the actual item sprite with consistent sizing
+                        this.ctx.drawImage(item.sprite, spriteX, spriteY, spriteSize, spriteSize);
+                        
+                        this.ctx.restore();
+                    } catch (error) {
+                        console.warn(`Failed to draw sprite for ${item.name}:`, error);
+                        // Fallback to colored rectangle if sprite drawing fails
+                        this.ctx.fillStyle = this.getItemRarityColor(item.rarity);
+                        this.ctx.fillRect(x - 25, y - 25, 50, 50);
+                    }
+                } else {
+                    // Fallback to colored rectangle if sprite not loaded or broken
+                    this.ctx.fillStyle = this.getItemRarityColor(item.rarity);
+                    this.ctx.fillRect(x - 25, y - 25, 50, 50);
+                }
                 
                 // Draw quantity if stackable
                 if (item.stackable && item.quantity > 1) {
@@ -2713,8 +2747,23 @@ class Game {
         this.ctx.strokeRect(goldX - 10, goldY - 35, 140, 50);
         
         // Draw gold icon
-        if (this.goldIcon.complete) {
-            this.ctx.drawImage(this.goldIcon, goldX, goldY - 30, 32, 32);
+        if (this.goldIcon.complete && this.goldIcon.naturalWidth > 0) {
+            try {
+                this.ctx.drawImage(this.goldIcon, goldX, goldY - 30, 32, 32);
+            } catch (e) {
+                console.warn('Failed to draw gold icon:', e);
+                // Draw a simple gold circle as fallback
+                this.ctx.fillStyle = '#FFD700';
+                this.ctx.beginPath();
+                this.ctx.arc(goldX + 16, goldY - 14, 12, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+        } else {
+            // Draw a simple gold circle as fallback
+            this.ctx.fillStyle = '#FFD700';
+            this.ctx.beginPath();
+            this.ctx.arc(goldX + 16, goldY - 14, 12, 0, Math.PI * 2);
+            this.ctx.fill();
         }
         
         // Draw gold amount
@@ -2761,8 +2810,23 @@ class Game {
         // Draw gold if any
         if (this.lootWindow.gold > 0) {
             // Draw gold icon and amount
-            if (this.goldIcon.complete) {
-                this.ctx.drawImage(this.goldIcon, windowX + 50, contentY - 25, 32, 32);
+            if (this.goldIcon.complete && this.goldIcon.naturalWidth > 0) {
+                try {
+                    this.ctx.drawImage(this.goldIcon, windowX + 50, contentY - 25, 32, 32);
+                } catch (e) {
+                    console.warn('Failed to draw gold icon in loot window:', e);
+                    // Draw a simple gold circle as fallback
+                    this.ctx.fillStyle = '#FFD700';
+                    this.ctx.beginPath();
+                    this.ctx.arc(windowX + 66, contentY - 9, 12, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+            } else {
+                // Draw a simple gold circle as fallback
+                this.ctx.fillStyle = '#FFD700';
+                this.ctx.beginPath();
+                this.ctx.arc(windowX + 66, contentY - 9, 12, 0, Math.PI * 2);
+                this.ctx.fill();
             }
             
             this.ctx.fillStyle = '#FFD700';

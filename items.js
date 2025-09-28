@@ -24,8 +24,8 @@ class ItemManager {
             rarity: 'common',
             value: 25,
             stackable: true,
-            maxStack: 10,
-            spriteSrc: 'assets/items/health_potion.png',
+            maxStack: 50,
+            spriteSrc: 'assets/icon/Items/HealthPotion-0.png',
             effect: {
                 type: 'heal',
                 amount: 50
@@ -40,8 +40,8 @@ class ItemManager {
             rarity: 'common',
             value: 20,
             stackable: true,
-            maxStack: 10,
-            spriteSrc: 'assets/items/mana_potion.png',
+            maxStack: 50,
+            spriteSrc: 'assets/icon/Items/ManaPotion-0.png',
             effect: {
                 type: 'mana',
                 amount: 30
@@ -86,7 +86,7 @@ class ItemManager {
             rarity: 'common',
             value: 15,
             stackable: true,
-            maxStack: 50,
+            maxStack: Infinity,
             spriteSrc: 'assets/items/iron_ore.png'
         });
 
@@ -124,6 +124,16 @@ class ItemManager {
         if (itemData.spriteSrc) {
             itemData.sprite = new Image();
             itemData.sprite.src = itemData.spriteSrc;
+            
+            // Add error handling for broken images
+            itemData.sprite.onerror = () => {
+                console.warn(`Failed to load sprite for ${itemData.name}: ${itemData.spriteSrc}`);
+                itemData.sprite = null; // Mark as failed
+            };
+            
+            itemData.sprite.onload = () => {
+                console.log(`Successfully loaded sprite for ${itemData.name}`);
+            };
         }
         
         this.itemRegistry.set(itemData.id, itemData);
