@@ -182,6 +182,40 @@ class NPCManager {
                 'iron_ore:15'
             ]
         });
+
+        // Create roaming spirit NPCs
+        this.createRoamingSpirit('spirit_1', '0-0', 600, 400, {
+            speed: 0.5,
+            roamRadius: 150,
+            pauseTime: 2000,
+            messages: [
+                "I am the spirit of the ancient woods...",
+                "I have been wandering here for centuries.",
+                "Do you seek wisdom, traveler?"
+            ]
+        });
+
+        this.createRoamingSpirit('spirit_2', '0-1', 400, 600, {
+            speed: 0.8,
+            roamRadius: 200,
+            pauseTime: 1500,
+            messages: [
+                "Ooooh... a living soul approaches...",
+                "I remember when this place was different...",
+                "The memories... they fade like mist..."
+            ]
+        });
+
+        this.createRoamingSpirit('spirit_3', '0-0', 1100, 300, {
+            speed: 0.3,
+            roamRadius: 100,
+            pauseTime: 3000,
+            messages: [
+                "So peaceful here... so quiet...",
+                "Time moves differently for spirits.",
+                "Would you like to rest awhile?"
+            ]
+        });
     }
 
     /**
@@ -453,6 +487,137 @@ class NPCManager {
         this.registerNPC(chestNPC);
 
         console.log(`Created treasure chest ${id} on map ${mapId} at (${x}, ${y})`);
+    }
+
+    /**
+     * Helper method to create roaming spirit NPCs
+     * @param {string} id - Unique spirit ID
+     * @param {string} mapId - Map where spirit appears
+     * @param {number} x - Initial X position
+     * @param {number} y - Initial Y position
+     * @param {object} config - Spirit configuration
+     * @param {number} config.speed - Movement speed
+     * @param {number} config.roamRadius - How far from spawn point they can roam
+     * @param {number} config.pauseTime - How long to pause between movements (ms)
+     * @param {array} config.messages - Dialogue messages
+     */
+    createRoamingSpirit(id, mapId, x, y, config = {}) {
+        const spiritNPC = {
+            id: id,
+            type: 'spirit',
+            mapId: mapId,
+            x: x,
+            y: y,
+            width: 96,
+            height: 96,
+            spriteSrc: 'assets/npc/Spirits/Sylphie00.png',
+            direction: 'right',
+            messages: config.messages || ["..."],
+            
+            // Roaming properties
+            isRoaming: true,
+            spawnX: x,
+            spawnY: y,
+            targetX: x,
+            targetY: y,
+            speed: config.speed || 0.5,
+            roamRadius: config.roamRadius || 150,
+            pauseTime: config.pauseTime || 2000,
+            lastMoveTime: 0,
+            isPaused: false,
+            pauseStartTime: 0,
+            
+            // Visual properties for spirits
+            baseAlpha: 0.7,
+            pulseSpeed: 1.5,
+            glowEffect: true
+        };
+
+        // Load spirit sprite
+        spiritNPC.sprite = new Image();
+        spiritNPC.sprite.src = spiritNPC.spriteSrc;
+
+        this.registerNPC(spiritNPC);
+        console.log(`Created roaming spirit ${id} on map ${mapId} at (${x}, ${y})`);
+    }
+
+    /**
+     * Update all roaming NPCs on the current map
+     * @param {string} mapId - Current map ID
+     * @param {number} deltaTime - Time elapsed since last update
+     * @param {object} mapBounds - Map boundaries {width, height}
+     */
+    updateRoamingNPCs(mapId, deltaTime, mapBounds) {
+        const mapNPCs = this.getNPCsForMap(mapId);
+        const currentTime = Date.now();
+        
+        mapNPCs.forEach(npc => {
+            if (npc.type === 'spirit' && npc.isRoaming) {
+                this.updateSpiritMovement(npc, currentTime, mapBounds);
+            }
+        });
+    }
+
+    /**
+     * Update movement for a single spirit NPC
+     * @param {object} spirit - The spirit NPC to update
+     * @param {number} currentTime - Current timestamp
+     * @param {object} mapBounds - Map boundaries
+     */
+    updateSpiritMovement(spirit, currentTime, mapBounds) {
+        // Check if spirit is currently paused
+        if (spirit.isPaused) {
+            if (currentTime - spirit.pauseStartTime >= spirit.pauseTime) {
+                spirit.isPaused = false;
+                this.setSpiritNewTarget(spirit, mapBounds);
+            }
+            return;
+        }
+
+        // Calculate distance to target
+        const dx = spirit.targetX - spirit.x;
+        const dy = spirit.targetY - spirit.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // If close to target, pause and set new target
+        if (distance < 5) {
+            spirit.isPaused = true;
+            spirit.pauseStartTime = currentTime;
+            return;
+        }
+
+        // Move towards target
+        const moveDistance = spirit.speed;
+        const moveX = (dx / distance) * moveDistance;
+        const moveY = (dy / distance) * moveDistance;
+
+        spirit.x += moveX;
+        spirit.y += moveY;
+
+        // Set direction based on movement
+        spirit.direction = moveX > 0 ? 'right' : 'left';
+    }
+
+    /**
+     * Set a new random target for a spirit within its roaming radius
+     * @param {object} spirit - The spirit NPC
+     * @param {object} mapBounds - Map boundaries
+     */
+    setSpiritNewTarget(spirit, mapBounds) {
+        // Generate random angle and distance within roaming radius
+        const angle = Math.random() * Math.PI * 2;
+        const distance = Math.random() * spirit.roamRadius;
+        
+        let newX = spirit.spawnX + Math.cos(angle) * distance;
+        let newY = spirit.spawnY + Math.sin(angle) * distance;
+
+        // Keep within map bounds
+        const margin = spirit.width / 2;
+        newX = Math.max(margin, Math.min(mapBounds.width - margin, newX));
+        newY = Math.max(margin, Math.min(mapBounds.height - margin, newY));
+
+        spirit.targetX = newX;
+        spirit.targetY = newY;
     }
 }
 

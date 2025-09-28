@@ -1721,11 +1721,24 @@ class Game {
         // Check for portal collisions
         this.checkPortalCollisions();
         
+        // Update roaming NPCs
+        this.updateRoamingNPCs();
+        
         // Update camera (Zelda-style camera system)
         this.updateCamera();
         
         // Update debug info
         this.updateDebug();
+    }
+    
+    updateRoamingNPCs() {
+        // Update roaming NPCs with current map bounds
+        const mapBounds = {
+            width: this.currentMap.width,
+            height: this.currentMap.height
+        };
+        
+        this.npcManager.updateRoamingNPCs(this.currentMapId, 0.016, mapBounds);
     }
     
     updateCamera() {
@@ -2661,6 +2674,68 @@ class Game {
                              scaledWidth, scaledHeight);
             
             this.ctx.restore();
+        } else if (npc.type === 'spirit') {
+            // Handle spirit NPCs with special ethereal effects
+            this.ctx.save();
+            
+            // Calculate pulsing alpha for ethereal effect
+            const basePulse = Math.sin(this.gameTime * npc.pulseSpeed) * 0.2;
+            const spiritAlpha = npc.baseAlpha + basePulse;
+            this.ctx.globalAlpha = Math.max(0.3, Math.min(1.0, spiritAlpha));
+            
+            // Slight glow effect
+            if (npc.glowEffect) {
+                this.ctx.shadowColor = '#87CEEB'; // Sky blue glow
+                this.ctx.shadowBlur = 15;
+                this.ctx.shadowOffsetX = 0;
+                this.ctx.shadowOffsetY = 0;
+            }
+            
+            const scaledWidth = npc.width * mapScale;
+            const scaledHeight = npc.height * mapScale;
+            const npcScreenX = npc.x - scaledWidth / 2;
+            const npcScreenY = npc.y - scaledHeight / 2;
+            
+            // Spirits don't cast shadows (they're ethereal)
+            // Draw spirit sprite with direction support
+            if (npc.direction === 'left') {
+                // Flip sprite horizontally for left-facing spirits
+                this.ctx.translate(npc.x, npc.y);
+                this.ctx.scale(-1, 1);
+                this.ctx.drawImage(npc.sprite, 
+                                 -scaledWidth / 2, -scaledHeight / 2, 
+                                 scaledWidth, scaledHeight);
+            } else {
+                // Default right-facing or no flip
+                this.ctx.drawImage(npc.sprite, npcScreenX, npcScreenY, scaledWidth, scaledHeight);
+            }
+            
+            this.ctx.restore();
+            
+            // Draw interaction indicator if player is close
+            const distance = Math.sqrt(
+                Math.pow(this.player.x - npc.x, 2) + 
+                Math.pow(this.player.y - npc.y, 2)
+            );
+            
+            const scaledInteractionDistance = 120 * mapScale;
+            if (distance <= scaledInteractionDistance && !this.npcManager.isDialogueActive()) {
+                // Draw ethereal "E" indicator above spirit
+                this.ctx.save();
+                this.ctx.globalAlpha = spiritAlpha;
+                this.ctx.fillStyle = 'rgba(135, 206, 235, 0.9)'; // Sky blue
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+                this.ctx.lineWidth = 2 * mapScale;
+                this.ctx.font = `bold ${Math.round(16 * mapScale)}px Arial`;
+                this.ctx.textAlign = 'center';
+                
+                const indicatorX = npc.x;
+                const indicatorY = npc.y - (scaledHeight / 2) - (20 * mapScale);
+                
+                this.ctx.strokeText('E', indicatorX, indicatorY);
+                this.ctx.fillText('E', indicatorX, indicatorY);
+                this.ctx.restore();
+            }
         } else {
             // Handle regular NPCs with map scaling
             const scaledWidth = npc.width * mapScale;
