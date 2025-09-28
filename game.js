@@ -1727,7 +1727,10 @@ class Game {
                     respawnDelay: spirit.respawnDelay || 30000 // 30 seconds default
                 });
                 
-                // Remove from active NPCs
+                // Remove from NPCManager registry (for roaming behavior)
+                this.npcManager.removeNPC(spiritId);
+                
+                // Remove from active NPCs (for rendering)
                 this.npcs[mapId].splice(spiritIndex, 1);
                 
                 console.log(`${spirit.name} disappeared from map ${mapId}, will respawn in ${(spirit.respawnDelay || 30000) / 1000} seconds`);
@@ -2014,7 +2017,7 @@ class Game {
     respawnSpirit(spiritId, spiritInfo) {
         const { spiritData, mapId } = spiritInfo;
         
-        // Reset spirit to its original spawn position
+        // Reset spirit to its original spawn position while preserving all roaming behavior
         const respawnedSpirit = {
             ...spiritData,
             x: spiritData.spawnX,
@@ -2023,6 +2026,19 @@ class Game {
             targetY: spiritData.spawnY,
             isPaused: false,
             pauseStartTime: 0,
+            lastMoveTime: 0, // Reset movement timing
+            
+            // Preserve roaming properties
+            isRoaming: spiritData.isRoaming,
+            speed: spiritData.speed,
+            roamRadius: spiritData.roamRadius,
+            pauseTime: spiritData.pauseTime,
+            
+            // Preserve visual properties
+            baseAlpha: spiritData.baseAlpha,
+            pulseSpeed: spiritData.pulseSpeed,
+            glowEffect: spiritData.glowEffect,
+            
             // Add spawn effect properties
             spawnEffect: {
                 active: true,
@@ -2032,7 +2048,10 @@ class Game {
             }
         };
         
-        // Add back to the map's NPC list
+        // Re-register the spirit with NPCManager for roaming behavior
+        this.npcManager.registerNPC(respawnedSpirit);
+        
+        // Add back to the map's NPC list for rendering
         if (!this.npcs[mapId]) {
             this.npcs[mapId] = [];
         }
@@ -2041,7 +2060,7 @@ class Game {
         // Remove from disappeared spirits list
         this.disappearedSpirits.delete(spiritId);
         
-        console.log(`${spiritData.name} respawned on map ${mapId} at (${spiritData.spawnX}, ${spiritData.spawnY}) with spawn effect`);
+        console.log(`${spiritData.name} respawned on map ${mapId} at (${spiritData.spawnX}, ${spiritData.spawnY}) with roaming behavior and spawn effect`);
     }
     
     updateCamera() {
@@ -3250,6 +3269,11 @@ class Game {
             
             this.ctx.restore();
             
+            // Draw spawn effect on top of spirit if active
+            if (npc.spawnEffect && npc.spawnEffect.active) {
+                this.drawSpawnEffect(npc);
+            }
+            
             // Draw interaction indicator only if this is the closest NPC
             if (closestNPC && closestNPC.id === npc.id && !this.npcManager.isDialogueActive()) {
                 // Draw ethereal "E" indicator above spirit
@@ -3294,6 +3318,11 @@ class Game {
             }
             
             this.ctx.restore();
+            
+            // Draw spawn effect on top of NPC if active
+            if (npc.spawnEffect && npc.spawnEffect.active) {
+                this.drawSpawnEffect(npc);
+            }
             
             // Draw interaction indicator only if this is the closest NPC
             if (closestNPC && closestNPC.id === npc.id && !this.npcManager.isDialogueActive()) {
@@ -3383,8 +3412,86 @@ class Game {
                     this.ctx.strokeText('E', indicatorX, indicatorY);
                     this.ctx.fillText('E', indicatorX, indicatorY);
                 }
+                
+                // Draw spawn effect on top of everything if active
+                if (npc.spawnEffect && npc.spawnEffect.active) {
+                    this.drawSpawnEffect(npc);
+                }
             }
         });
+    }
+    
+    drawSpawnEffect(npc) {
+        const currentTime = Date.now();
+        const elapsedTime = currentTime - npc.spawnEffect.startTime;
+        const progress = Math.min(elapsedTime / npc.spawnEffect.duration, 1);
+        
+        if (progress >= 1) {
+            // Effect is complete, remove it
+            npc.spawnEffect.active = false;
+            return;
+        }
+        
+        this.ctx.save();
+        
+        // Create expanding light effect
+        const centerX = npc.x;
+        const centerY = npc.y;
+        
+        // Calculate current radius (expands quickly, then fades)
+        const maxRadius = npc.spawnEffect.maxRadius;
+        let currentRadius;
+        let alpha;
+        
+        if (progress < 0.4) {
+            // Rapid expansion phase
+            const expansionProgress = progress / 0.4;
+            currentRadius = maxRadius * expansionProgress;
+            alpha = 0.9 * (1 - expansionProgress * 0.3); // Higher initial alpha
+        } else {
+            // Fade out phase
+            const fadeProgress = (progress - 0.4) / 0.6;
+            currentRadius = maxRadius;
+            alpha = 0.6 * (1 - fadeProgress); // Higher fade alpha
+        }
+        
+        // Create radial gradient for the light effect
+        const gradient = this.ctx.createRadialGradient(
+            centerX, centerY, 0,
+            centerX, centerY, currentRadius
+        );
+        
+        // Bright golden center fading to blue-white edges
+        gradient.addColorStop(0, `rgba(255, 255, 100, ${alpha})`);
+        gradient.addColorStop(0.2, `rgba(255, 255, 255, ${alpha * 0.8})`);
+        gradient.addColorStop(0.5, `rgba(200, 220, 255, ${alpha * 0.6})`);
+        gradient.addColorStop(0.8, `rgba(150, 200, 255, ${alpha * 0.3})`);
+        gradient.addColorStop(1, `rgba(255, 255, 255, 0)`);
+        
+        // Draw the expanding light circle
+        this.ctx.fillStyle = gradient;
+        this.ctx.beginPath();
+        this.ctx.arc(centerX, centerY, currentRadius, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        // Add sparkle effect around the edge
+        if (progress < 0.7) {
+            const sparkleCount = 12;
+            for (let i = 0; i < sparkleCount; i++) {
+                const angle = (i / sparkleCount) * Math.PI * 2 + (currentTime * 0.005);
+                const sparkleRadius = currentRadius * (0.7 + Math.sin(currentTime * 0.01 + i) * 0.2);
+                const sparkleX = centerX + Math.cos(angle) * sparkleRadius;
+                const sparkleY = centerY + Math.sin(angle) * sparkleRadius;
+                
+                const sparkleSize = 2 + Math.sin(currentTime * 0.01 + i) * 2;
+                this.ctx.fillStyle = `rgba(255, 255, 150, ${alpha})`;
+                this.ctx.beginPath();
+                this.ctx.arc(sparkleX, sparkleY, sparkleSize, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+        }
+        
+        this.ctx.restore();
     }
     
     drawDialogue() {
