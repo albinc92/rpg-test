@@ -57,7 +57,7 @@ class ItemManager {
             rarity: 'common',
             value: 100,
             stackable: false,
-            spriteSrc: 'assets/items/iron_sword.png',
+            spriteSrc: 'assets/icon/Items/IronSword-0.png',
             stats: {
                 attack: 10
             }
@@ -71,7 +71,7 @@ class ItemManager {
             rarity: 'common',
             value: 80,
             stackable: false,
-            spriteSrc: 'assets/items/leather_armor.png',
+            spriteSrc: 'assets/icon/Items/LeatherArmor-0.png',
             stats: {
                 defense: 5
             }
@@ -87,7 +87,7 @@ class ItemManager {
             value: 15,
             stackable: true,
             maxStack: Infinity,
-            spriteSrc: 'assets/items/iron_ore.png'
+            spriteSrc: 'assets/icon/Items/IronOre-0.png'
         });
 
         // Quest Items
@@ -99,7 +99,7 @@ class ItemManager {
             rarity: 'rare',
             value: 0,
             stackable: false,
-            spriteSrc: 'assets/items/mysterious_key.png'
+            spriteSrc: 'assets/icon/Items/MysteriousKey-0.png'
         });
 
         this.registerItem({
@@ -111,7 +111,7 @@ class ItemManager {
             value: 25,
             stackable: true,
             maxStack: 10,
-            spriteSrc: 'assets/items/magic_scroll.png'
+            spriteSrc: 'assets/icon/Items/MagicScroll-0.png'
         });
     }
 

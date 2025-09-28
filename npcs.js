@@ -141,7 +141,7 @@ class NPCManager {
                     { id: 'leather_armor', price: 80, stock: 5 },
                     { id: 'iron_ore', price: 15, stock: 20 }
                 ],
-                sellMultiplier: 0.5 // Sells items for 50% of their value
+                sellMultiplier: 0.5
             }
         });
 
