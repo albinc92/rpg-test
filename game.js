@@ -603,7 +603,7 @@ class Game {
         }
         if (this.audio.footstep) {
             const effectVolume = (this.settings.effectVolume / 100) * masterMultiplier;
-            this.audio.footstep.volume = this.settings.audioMuted ? 0 : effectVolume * 0.1; // 10% of effect volume (more subtle)
+            this.audio.footstep.volume = this.settings.audioMuted ? 0 : effectVolume * 0.15; // 50% of effect volume
         }
     }
     
@@ -1278,6 +1278,10 @@ class Game {
         this.player.velocityX = 0;
         this.player.velocityY = 0;
         
+        // Reset ambient sound to ensure it starts fresh
+        this.stopAmbientSound();
+        this.audio.currentAmbient = null;
+        
         // Load starting map
         await this.loadMap('0-0');
         
@@ -1559,29 +1563,22 @@ class Game {
     
     adjustSetting(direction) {
         switch(this.selectedSettingsOption) {
-            case 0: // Player Speed (Walk/Run)
-                if (direction !== 0) {
-                    this.settings.playerSpeed = this.settings.playerSpeed === 'Walk' ? 'Run' : 'Walk';
-                    this.updatePlayerSpeed();
-                    this.saveSettings();
-                }
-                break;
-            case 1: // Master Volume
+            case 0: // Master Volume
                 this.settings.masterVolume = Math.max(0, Math.min(100, this.settings.masterVolume + (direction * 10)));
                 this.updateAudioVolume();
                 this.saveSettings();
                 break;
-            case 2: // BGM Volume
+            case 1: // BGM Volume
                 this.settings.bgmVolume = Math.max(0, Math.min(100, this.settings.bgmVolume + (direction * 10)));
                 this.updateAudioVolume();
                 this.saveSettings();
                 break;
-            case 3: // Effect Volume
+            case 2: // Effect Volume
                 this.settings.effectVolume = Math.max(0, Math.min(100, this.settings.effectVolume + (direction * 10)));
                 this.updateAudioVolume();
                 this.saveSettings();
                 break;
-            case 4: // Mute Audio
+            case 3: // Mute Audio
                 if (direction !== 0) {
                     this.settings.audioMuted = !this.settings.audioMuted;
                     this.updateAudioVolume();
@@ -1593,14 +1590,13 @@ class Game {
     
     selectSettingsOption() {
         switch(this.selectedSettingsOption) {
-            case 0: // Player Speed
-            case 1: // Master Volume
-            case 2: // BGM Volume
-            case 3: // Effect Volume
-            case 4: // Mute Audio
+            case 0: // Master Volume
+            case 1: // BGM Volume
+            case 2: // Effect Volume
+            case 3: // Mute Audio
                 // These are adjusted with left/right arrows
                 break;
-            case 5: // Back to Menu
+            case 4: // Back to Menu
                 this.gameState = this.previousMenuState;
                 break;
         }
@@ -2381,7 +2377,7 @@ class Game {
             
             // Set volume based on effect volume settings
             const effectVolume = (this.settings.effectVolume / 100) * (this.settings.masterVolume / 100);
-            this.audio.footstep.volume = effectVolume * 0.1; // 10% of effect volume for footsteps (more subtle)
+            this.audio.footstep.volume = effectVolume * 0.5; // 50% of effect volume for footsteps
             
             this.audio.footstep.play().catch(e => {
                 // Ignore errors (common with rapid audio playback)
@@ -2716,20 +2712,20 @@ class Game {
             
             // Add current values for settings
             switch(index) {
-                case 0: // Player Speed
-                    valueText = `: ${this.settings.playerSpeed}`;
-                    break;
-                case 1: // Master Volume
+                case 0: // Master Volume
                     valueText = `: ${this.settings.masterVolume}%`;
                     break;
-                case 2: // BGM Volume
+                case 1: // BGM Volume
                     valueText = `: ${this.settings.bgmVolume}%`;
                     break;
-                case 3: // Effect Volume
+                case 2: // Effect Volume
                     valueText = `: ${this.settings.effectVolume}%`;
                     break;
-                case 4: // Mute Audio
+                case 3: // Mute Audio
                     valueText = `: ${this.settings.audioMuted ? 'ON' : 'OFF'}`;
+                    break;
+                case 4: // Back to Menu
+                    valueText = '';
                     break;
             }
             
