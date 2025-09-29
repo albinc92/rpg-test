@@ -619,27 +619,18 @@ class GameEngine {
         // Get all objects that could block movement on current map
         const allObjects = this.getAllGameObjectsOnMap(this.currentMapId);
         
-        // Debug: Log collision checking (remove this later)
-        if (allObjects.length === 0) {
-            console.log('No objects found for collision checking on map:', this.currentMapId);
-        }
-        
         for (let obj of allObjects) {
             // Skip self-collision
             if (obj === movingActor) continue;
             
             // Skip objects that don't block movement or aren't solid
-            if (!obj.blocksMovement || !obj.hasCollision) {
-                console.log('Skipping object - blocksMovement:', obj.blocksMovement, 'hasCollision:', obj.hasCollision, 'type:', obj.type);
-                continue;
-            }
+            if (!obj.blocksMovement || !obj.hasCollision) continue;
             
             // Skip if moving actor can't be blocked
             if (!movingActor.canBeBlocked) continue;
             
             // Check collision using GameObject collision system
             if (movingActor.wouldCollideAt(newX, newY, obj)) {
-                console.log('Collision detected with:', obj.type || obj.constructor.name);
                 return { collides: true, object: obj };
             }
         }
@@ -653,9 +644,9 @@ class GameEngine {
     getAllGameObjectsOnMap(mapId) {
         const objects = [];
         
-        // Add NPCs
-        const npcs = this.npcManager.getAllNPCs();
-        objects.push(...npcs.filter(npc => npc.mapId === mapId));
+        // Add NPCs for this specific map
+        const npcs = this.npcManager.getNPCsForMap(mapId);
+        objects.push(...npcs);
         
         // Add interactive objects
         const interactiveObjects = this.interactiveObjectManager.getObjectsForMap(mapId);
