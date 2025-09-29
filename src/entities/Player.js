@@ -25,6 +25,10 @@ class Player extends Actor {
         this.inputX = 0;
         this.inputY = 0;
         this.isRunning = false;
+        
+        // Footstep audio
+        this.footstepTimer = 0;
+        this.footstepInterval = 0.5; // Base interval between footsteps (seconds)
     }
     
     /**
@@ -38,6 +42,36 @@ class Player extends Actor {
         const speedMultiplier = this.isRunning ? 1.5 : 1.0;
         this.velocityX *= speedMultiplier;
         this.velocityY *= speedMultiplier;
+        
+        // Handle footstep audio
+        this.updateFootsteps(deltaTime, game);
+    }
+    
+    /**
+     * Update footstep audio based on movement
+     */
+    updateFootsteps(deltaTime, game) {
+        // Check if player is moving
+        const speed = Math.sqrt(this.velocityX * this.velocityX + this.velocityY * this.velocityY);
+        const isMoving = speed > 10; // Minimum speed threshold
+        
+        if (isMoving) {
+            // Update footstep timer
+            this.footstepTimer -= deltaTime;
+            
+            if (this.footstepTimer <= 0) {
+                // Play footstep sound
+                game.audioManager?.playEffect('footstep', 0.3);
+                
+                // Set next footstep interval based on speed
+                const speedMultiplier = this.isRunning ? 0.7 : 1.0; // Faster footsteps when running
+                this.footstepInterval = 0.5 * speedMultiplier;
+                this.footstepTimer = this.footstepInterval;
+            }
+        } else {
+            // Reset footstep timer when not moving
+            this.footstepTimer = 0;
+        }
     }
     
     /**

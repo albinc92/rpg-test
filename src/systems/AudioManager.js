@@ -141,7 +141,17 @@ class AudioManager {
      * Play background music with crossfade
      */
     async playBGM(src, volume = 1.0, fadeTime = 1000) {
-        if (this.isMuted) return;
+        console.log(`AudioManager: playBGM called with src: ${src}`);
+        
+        if (this.isMuted) {
+            console.log('AudioManager: BGM muted, not playing');
+            return;
+        }
+        
+        if (!this.audioEnabled) {
+            console.log('AudioManager: Audio not enabled for BGM');
+            return;
+        }
         
         try {
             // Stop current BGM with fade
