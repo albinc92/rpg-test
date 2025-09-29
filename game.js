@@ -2224,9 +2224,9 @@ class Game {
             inputY *= 0.707;
         }
         
-        // Convert speeds to per-second values
-        const accelerationPerSecond = this.player.acceleration * 60; // Adjust for 60fps baseline
-        const maxSpeedPerSecond = this.player.maxSpeed * 60; // Adjust for 60fps baseline
+        // Convert speeds to per-second values (much higher multiplier for good feel)
+        const accelerationPerSecond = this.player.acceleration * 3600; // 60fps * 60 for proper acceleration
+        const maxSpeedPerSecond = this.player.maxSpeed * 300; // Increased for proper movement speed
         const frictionPerSecond = Math.pow(this.player.friction, deltaTime * 60); // Exponential friction
         
         // Apply acceleration based on input (delta-time corrected)

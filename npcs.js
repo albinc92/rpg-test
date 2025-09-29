@@ -627,7 +627,7 @@ class NPCManager {
         }
 
         // Move towards target (delta-time corrected)
-        const speedPerSecond = spirit.speed * 60; // Convert to per-second speed
+        const speedPerSecond = spirit.speed * 300; // Much higher multiplier for proper speed
         const moveDistance = speedPerSecond * this.lastDeltaTime;
         const moveX = (dx / distance) * moveDistance;
         const moveY = (dy / distance) * moveDistance;
