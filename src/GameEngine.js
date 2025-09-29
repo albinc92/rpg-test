@@ -156,7 +156,6 @@ class GameEngine {
      */
     update(deltaTime) {
         // Handle input for current state BEFORE updating input state
-        console.log('GameEngine calling stateManager.handleInput');
         this.stateManager.handleInput(this.inputManager);
         
         // Update input state (this stores current frame as previous frame)
@@ -525,6 +524,29 @@ class GameEngine {
         this.ctx.fillText(`FPS: ${this.fpsCounter.fps}`, 15, this.CANVAS_HEIGHT - 50);
         this.ctx.fillText(`Min: ${this.fpsCounter.minFPS} Max: ${this.fpsCounter.maxFPS}`, 15, this.CANVAS_HEIGHT - 35);
         this.ctx.fillText(`State: ${this.stateManager.getCurrentState()}`, 15, this.CANVAS_HEIGHT - 20);
+    }
+    
+    /**
+     * Draw shadow for game objects
+     */
+    drawShadow(x, y, width, height, altitudeOffset = 0) {
+        // Draw an elliptical shadow proportional to character width
+        const shadowWidth = width * 0.6; // Shadow width based on character width
+        const shadowHeight = width * 0.2; // Shadow height much smaller for ground effect
+        const shadowX = x;
+        const shadowY = y + height * 0.4 + altitudeOffset; // Position shadow at feet level + altitude offset
+        
+        this.ctx.save();
+        // Make shadow fainter for higher altitude objects
+        this.ctx.globalAlpha = Math.max(0.15, 0.35 - (altitudeOffset / 300));
+        this.ctx.fillStyle = 'black';
+        
+        // Create elliptical shadow proportional to character width
+        this.ctx.beginPath();
+        this.ctx.ellipse(shadowX, shadowY, shadowWidth, shadowHeight, 0, 0, 2 * Math.PI);
+        this.ctx.fill();
+        
+        this.ctx.restore();
     }
     
     /**
