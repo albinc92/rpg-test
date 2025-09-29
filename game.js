@@ -4271,41 +4271,57 @@ class Game {
     }
     
     gameLoop() {
+        // Temporarily disable FPS tracking to test performance
         // Only track FPS when actually playing the game
-        if (this.gameState === 'PLAYING') {
-            // Calculate FPS
-            const currentTime = performance.now();
-            const deltaTime = currentTime - this.fps.lastTime;
-            this.fps.lastTime = currentTime;
-            
-            // Calculate current FPS (1000ms / deltaTime gives FPS)
-            if (deltaTime > 0) {
-                const currentFps = 1000 / deltaTime;
-                this.fps.current = Math.round(currentFps);
-                
-                // Increment grace frame counter
-                this.fps.graceFrames++;
-                
-                // Only update min/max after grace period
-                if (this.fps.graceFrames > this.fps.graceFramesNeeded) {
-                    if (currentFps < this.fps.min) {
-                        this.fps.min = Math.round(currentFps);
-                    }
-                    if (currentFps > this.fps.max) {
-                        this.fps.max = Math.round(currentFps);
-                    }
-                }
-            }
-        } else {
-            // Reset grace period when not playing
-            this.fps.graceFrames = 0;
-            this.fps.min = Infinity;
-            this.fps.max = 0;
-        }
+        // if (this.gameState === 'PLAYING') {
+        //     // Calculate FPS
+        //     const currentTime = performance.now();
+        //     const deltaTime = currentTime - this.fps.lastTime;
+        //     this.fps.lastTime = currentTime;
+        //     
+        //     // Calculate current FPS (1000ms / deltaTime gives FPS)
+        //     if (deltaTime > 0) {
+        //         const currentFps = 1000 / deltaTime;
+        //         this.fps.current = Math.round(currentFps);
+        //         
+        //         // Increment grace frame counter
+        //         this.fps.graceFrames++;
+        //         
+        //         // Only update min/max after grace period
+        //         if (this.fps.graceFrames > this.fps.graceFramesNeeded) {
+        //             if (currentFps < this.fps.min) {
+        //                 this.fps.min = Math.round(currentFps);
+        //             }
+        //             if (currentFps > this.fps.max) {
+        //                 this.fps.max = Math.round(currentFps);
+        //             }
+        //         }
+        //     }
+        // } else {
+        //     // Reset grace period when not playing
+        //     this.fps.graceFrames = 0;
+        //     this.fps.min = Infinity;
+        //     this.fps.max = 0;
+        // }
+        
+        // Simple performance tracking
+        const frameStart = performance.now();
         
         this.update();
+        const updateTime = performance.now();
+        
         this.render();
+        const renderTime = performance.now();
+        
         this.updateDebug();
+        const debugTime = performance.now();
+        
+        // Log timing if frame takes too long (over 20ms = under 50fps)
+        const totalFrameTime = debugTime - frameStart;
+        if (totalFrameTime > 20) {
+            console.log(`Slow frame: ${totalFrameTime.toFixed(2)}ms (Update: ${(updateTime-frameStart).toFixed(2)}ms, Render: ${(renderTime-updateTime).toFixed(2)}ms, Debug: ${(debugTime-renderTime).toFixed(2)}ms)`);
+        }
+        
         requestAnimationFrame(() => this.gameLoop());
     }
 }
