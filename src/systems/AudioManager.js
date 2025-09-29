@@ -13,11 +13,47 @@ class AudioManager {
         
         // Audio context for better control (optional)
         this.audioContext = null;
+        this.audioEnabled = false;
+        
         try {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         } catch (e) {
             console.warn('Web Audio API not supported');
         }
+        
+        // Set up user gesture handler to enable audio
+        this.setupAudioActivation();
+    }
+    
+    /**
+     * Setup audio activation on user gesture
+     */
+    setupAudioActivation() {
+        const enableAudio = () => {
+            if (this.audioEnabled) return;
+            
+            // Resume audio context if needed
+            if (this.audioContext && this.audioContext.state === 'suspended') {
+                this.audioContext.resume().then(() => {
+                    console.log('AudioContext resumed');
+                    this.audioEnabled = true;
+                }).catch(e => {
+                    console.warn('Failed to resume AudioContext:', e);
+                });
+            } else {
+                this.audioEnabled = true;
+            }
+            
+            // Remove listeners after first activation
+            document.removeEventListener('keydown', enableAudio);
+            document.removeEventListener('click', enableAudio);
+            document.removeEventListener('touchstart', enableAudio);
+        };
+        
+        // Listen for user gestures
+        document.addEventListener('keydown', enableAudio, { once: true });
+        document.addEventListener('click', enableAudio, { once: true });
+        document.addEventListener('touchstart', enableAudio, { once: true });
     }
     
     /**
@@ -46,7 +82,17 @@ class AudioManager {
      * Play a sound effect
      */
     async playEffect(soundId, volume = 1.0, loop = false) {
-        if (this.isMuted) return null;
+        console.log(`AudioManager: playEffect called with soundId: ${soundId}`);
+        
+        if (this.isMuted) {
+            console.log('AudioManager: Audio is muted, not playing');
+            return null;
+        }
+        
+        if (!this.audioEnabled) {
+            console.log('AudioManager: Audio not enabled yet, waiting for user gesture');
+            return null;
+        }
         
         try {
             let audio = this.audioCache.get(soundId);
@@ -55,11 +101,9 @@ class AudioManager {
                 // Try to load common sound effects
                 const commonSounds = {
                     'coin': 'assets/audio/effect/coin.mp3',
-                    'footstep': 'assets/audio/effect/footstep-01.mp3',
+                    'footstep': 'assets/audio/effect/footstep-0.mp3',
                     'menu-navigation': 'assets/audio/effect/menu-navigation.mp3',
-                    'speech-bubble': 'assets/audio/effect/speech-bubble.mp3',
-                    'chest-open': 'assets/audio/effect/chest-open.mp3',
-                    'portal-travel': 'assets/audio/effect/portal-travel.mp3'
+                    'speech-bubble': 'assets/audio/effect/speech-bubble.mp3'
                 };
                 
                 if (commonSounds[soundId]) {
@@ -75,9 +119,15 @@ class AudioManager {
             audioClone.volume = volume * this.effectsVolume * this.masterVolume;
             audioClone.loop = loop;
             
+            console.log(`AudioManager: Playing sound ${soundId} with volume ${audioClone.volume}`);
+            
             const playPromise = audioClone.play();
             if (playPromise) {
-                return playPromise.catch(e => console.warn('Audio play failed:', e));
+                return playPromise.catch(e => {
+                    console.error('Audio play failed:', e);
+                    console.error('Sound ID:', soundId);
+                    console.error('Audio source:', audio.src);
+                });
             }
             
             return audioClone;
@@ -219,7 +269,7 @@ class AudioManager {
     async preloadCommonAudio() {
         const commonSounds = [
             { id: 'coin', src: 'assets/audio/effect/coin.mp3' },
-            { id: 'footstep', src: 'assets/audio/effect/footstep-01.mp3' },
+            { id: 'footstep', src: 'assets/audio/effect/footstep-0.mp3' },
             { id: 'menu-navigation', src: 'assets/audio/effect/menu-navigation.mp3' },
             { id: 'speech-bubble', src: 'assets/audio/effect/speech-bubble.mp3' }
         ];
