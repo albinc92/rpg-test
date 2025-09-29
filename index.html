@@ -34,18 +34,26 @@
         <div id="debug"></div>
     </div>
     <canvas id="gameCanvas"></canvas>
-    <!-- Load base classes first -->
-    <script src="Actor.js"></script>
-    <script src="Player.js"></script>
-    <script src="NPC.js"></script>
-    <script src="Spirit.js"></script>
-    <script src="StaticObject.js"></script>
+    
+    <!-- Load core classes first -->
+    <script src="src/core/GameObject.js"></script>
+    <script src="src/core/Actor.js"></script>
+    
+    <!-- Load entity classes -->
+    <script src="src/entities/Player.js"></script>
+    <script src="src/entities/NPC.js"></script>
+    <script src="src/entities/Spirit.js"></script>
+    
+    <!-- Load object classes -->
+    <script src="src/objects/StaticObject.js"></script>
     
     <!-- Load game systems -->
-    <script src="maps.js"></script>
-    <script src="npcs.js"></script>
-    <script src="items.js"></script>
-    <script src="inventory.js"></script>
+    <script src="src/systems/maps.js"></script>
+    <script src="src/systems/npcs.js"></script>
+    <script src="src/systems/items.js"></script>
+    <script src="src/systems/inventory.js"></script>
+    
+    <!-- Load main game -->
     <script src="game.js"></script>
 </body>
 </html>
