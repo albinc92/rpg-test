@@ -603,7 +603,7 @@ class Game {
         }
         if (this.audio.footstep) {
             const effectVolume = (this.settings.effectVolume / 100) * masterMultiplier;
-            this.audio.footstep.volume = this.settings.audioMuted ? 0 : effectVolume * 0.3; // 30% of effect volume
+            this.audio.footstep.volume = this.settings.audioMuted ? 0 : effectVolume * 0.1; // 10% of effect volume (more subtle)
         }
     }
     
@@ -2381,7 +2381,7 @@ class Game {
             
             // Set volume based on effect volume settings
             const effectVolume = (this.settings.effectVolume / 100) * (this.settings.masterVolume / 100);
-            this.audio.footstep.volume = effectVolume * 0.3; // 30% of effect volume for footsteps
+            this.audio.footstep.volume = effectVolume * 0.1; // 10% of effect volume for footsteps (more subtle)
             
             this.audio.footstep.play().catch(e => {
                 // Ignore errors (common with rapid audio playback)
