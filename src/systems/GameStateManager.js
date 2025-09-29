@@ -318,9 +318,13 @@ class MainMenuState extends GameState {
  * Playing State - Main gameplay
  */
 class PlayingState extends GameState {
-    enter() {
+    async enter() {
         // Initialize gameplay
         console.log('Entering gameplay state');
+        
+        // Load the initial map and start BGM
+        await this.game.loadMap(this.game.currentMapId);
+        this.game.positionPlayerOnMap(this.game.currentMapId);
     }
     
     update(deltaTime) {

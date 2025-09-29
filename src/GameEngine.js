@@ -80,11 +80,7 @@ class GameEngine {
             this.maps = this.mapManager.initializeAllMaps();
             this.npcs = this.npcManager.initializeAllNPCs();
             
-            // Initialize current map
-            await this.loadMap(this.currentMapId);
-            
-            // Position player
-            this.positionPlayerOnMap(this.currentMapId);
+            // Don't load map yet - wait until game starts
             
             // Start game loop
             this.startGameLoop();
@@ -365,6 +361,9 @@ class GameEngine {
         
         this.currentMapId = mapId;
         this.currentMap = mapData;
+        
+        // Load interactive objects for this map
+        this.interactiveObjectManager.loadObjectsForMap(mapId);
         
         // Load map music
         if (mapData.music) {
