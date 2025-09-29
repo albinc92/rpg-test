@@ -110,13 +110,12 @@ class Game {
         this.selectedGameMenuOption = 0;
         
         // Settings menu
-        this.settingsOptions = ['Player Speed', 'Master Volume', 'BGM Volume', 'Effect Volume', 'Mute Audio', 'Back to Menu'];
+        this.settingsOptions = ['Master Volume', 'BGM Volume', 'Effect Volume', 'Mute Audio', 'Back to Menu'];
         this.selectedSettingsOption = 0;
         this.previousMenuState = 'MAIN_MENU'; // Track which menu we came from
         
         // Game settings
         this.settings = {
-            playerSpeed: 'Walk', // 'Walk' or 'Run'
             showDebug: true,
             masterVolume: 100,   // Overall volume multiplier (affects all sound)
             bgmVolume: 100,      // Background music volume
@@ -124,10 +123,13 @@ class Game {
             audioMuted: false
         };
         
+        // Running state (hold-to-run)
+        this.isRunning = false;
+        
         // Speed values
         this.speedSettings = {
             'Walk': 2,
-            'Run': 3
+            'Run': 4.5  // Much faster running speed
         };
         
         // Audio system
@@ -707,13 +709,10 @@ class Game {
     
 
     
-    toggleWalkRun() {
-        this.settings.playerSpeed = this.settings.playerSpeed === 'Walk' ? 'Run' : 'Walk';
-        this.updatePlayerSpeed();
-    }
-    
     updatePlayerSpeed() {
-        this.player.maxSpeed = this.speedSettings[this.settings.playerSpeed];
+        // Set speed based on whether player is holding run key
+        const currentSpeedType = this.isRunning ? 'Run' : 'Walk';
+        this.player.maxSpeed = this.speedSettings[currentSpeedType];
     }
     
     checkNPCCollisions(newX, newY) {
@@ -1322,9 +1321,10 @@ class Game {
                         this.inventoryManager.openInventory();
                     }
                     
-                    // Toggle walk/run with Shift key
+                    // Hold SHIFT to run
                     if (e.key === 'Shift') {
-                        this.toggleWalkRun();
+                        this.isRunning = true;
+                        this.updatePlayerSpeed();
                     }
                 }
                 
@@ -1362,6 +1362,12 @@ class Game {
                 if (e.key === 'ArrowDown') this.keys['s'] = false;
                 if (e.key === 'ArrowLeft') this.keys['a'] = false;
                 if (e.key === 'ArrowRight') this.keys['d'] = false;
+                
+                // Release SHIFT to stop running
+                if (e.key === 'Shift') {
+                    this.isRunning = false;
+                    this.updatePlayerSpeed();
+                }
             }
         });
     }
@@ -4252,7 +4258,7 @@ class Game {
             Camera: (${Math.round(this.camera.x)}, ${Math.round(this.camera.y)})<br>
             Velocity: (${this.player.velocityX.toFixed(2)}, ${this.player.velocityY.toFixed(2)})<br>
             Speed: ${speed.toFixed(2)}/${this.player.maxSpeed}<br>
-            Mode: ${this.settings.playerSpeed} (SHIFT to toggle)<br>
+            Mode: ${this.isRunning ? 'Running' : 'Walking'} (Hold SHIFT to run)<br>
             Map: ${this.currentMap.width}x${this.currentMap.height}<br>
             Boundaries: X(${minX}-${maxX}) Y(${minY}-${maxY})<br>
             Facing: ${this.player.facingRight ? 'Left' : 'Right'}<br>
