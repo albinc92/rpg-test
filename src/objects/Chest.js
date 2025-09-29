@@ -6,8 +6,7 @@ class Chest extends InteractiveObject {
         super({
             type: 'chest',
             name: 'Treasure Chest',
-            width: 48,
-            height: 48,
+            scale: options.scale || 0.75,
             maxUsages: 1, // Can only be looted once
             collisionPercent: 0.7, // Chests are fairly solid
             collisionOffsetY: 5, // Collision slightly towards bottom of sprite

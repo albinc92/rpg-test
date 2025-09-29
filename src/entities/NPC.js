@@ -4,8 +4,7 @@
 class NPC extends Actor {
     constructor(options = {}) {
         super({
-            width: 64,
-            height: 64,
+            scale: options.scale || 1.0,
             maxSpeed: 100,
             behaviorType: 'static',
             ...options

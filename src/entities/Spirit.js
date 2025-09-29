@@ -4,8 +4,7 @@
 class Spirit extends Actor {
     constructor(options = {}) {
         super({
-            width: 64,
-            height: 64,
+            scale: options.scale || 0.8,
             maxSpeed: 80,
             behaviorType: 'roaming',
             altitude: 40, // Default floating altitude

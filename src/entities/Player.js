@@ -4,8 +4,7 @@
 class Player extends Actor {
     constructor(options = {}) {
         super({
-            width: 64,
-            height: 64,
+            scale: 1.0,
             maxSpeed: 300,
             acceleration: 800,
             friction: 0.8,

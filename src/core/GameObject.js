@@ -44,16 +44,31 @@ class GameObject {
         this.sprite = new Image();
         this.sprite.onload = () => {
             this.spriteLoaded = true;
-            // Update dimensions based on sprite if not explicitly set
-            if (!this.width || !this.height) {
-                this.width = this.sprite.width * this.scale;
-                this.height = this.sprite.height * this.scale;
-            }
+            // Store actual sprite dimensions
+            this.spriteWidth = this.sprite.width;
+            this.spriteHeight = this.sprite.height;
         };
         this.sprite.onerror = () => {
             console.error(`Failed to load sprite: ${src}`);
+            // Use fallback dimensions if sprite fails to load
+            this.spriteWidth = this.fallbackWidth;
+            this.spriteHeight = this.fallbackHeight;
         };
         this.sprite.src = src;
+    }
+    
+    /**
+     * Get actual rendered width based on sprite and scale
+     */
+    getWidth() {
+        return (this.spriteWidth || this.fallbackWidth) * this.scale;
+    }
+    
+    /**
+     * Get actual rendered height based on sprite and scale
+     */
+    getHeight() {
+        return (this.spriteHeight || this.fallbackHeight) * this.scale;
     }
     
     /**
@@ -70,8 +85,8 @@ class GameObject {
         if (!this.spriteLoaded || !this.sprite) return;
         
         const mapScale = game.currentMap?.scale || 1.0;
-        const scaledWidth = this.width * mapScale;
-        const scaledHeight = this.height * mapScale;
+        const scaledWidth = this.getWidth() * mapScale;
+        const scaledHeight = this.getHeight() * mapScale;
         
         // Calculate altitude offset
         const altitudeOffset = this.altitude * mapScale;
@@ -118,11 +133,13 @@ class GameObject {
      * Get bounding box for collision detection (full sprite bounds)
      */
     getBounds() {
+        const width = this.getWidth();
+        const height = this.getHeight();
         return {
-            left: this.x - this.width / 2,
-            right: this.x + this.width / 2,
-            top: this.y - this.height / 2,
-            bottom: this.y + this.height / 2
+            left: this.x - width / 2,
+            right: this.x + width / 2,
+            top: this.y - height / 2,
+            bottom: this.y + height / 2
         };
     }
     
@@ -130,8 +147,10 @@ class GameObject {
      * Get collision box (reduced bounds based on collisionPercent)
      */
     getCollisionBounds() {
-        const collisionWidth = this.width * this.collisionPercent;
-        const collisionHeight = this.height * this.collisionPercent;
+        const width = this.getWidth();
+        const height = this.getHeight();
+        const collisionWidth = width * this.collisionPercent;
+        const collisionHeight = height * this.collisionPercent;
         const offsetY = this.collisionOffsetY;
         
         return {

@@ -6,8 +6,7 @@ class Portal extends InteractiveObject {
         super({
             type: 'portal',
             name: 'Portal',
-            width: 64,
-            height: 64,
+            scale: options.scale || 1.0,
             interactionRadius: 100,
             blocksMovement: false, // Portals don't block movement - you walk through them
             hasCollision: false, // Portals use distance-based detection instead of collision

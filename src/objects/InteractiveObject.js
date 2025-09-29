@@ -5,8 +5,7 @@
 class InteractiveObject extends GameObject {
     constructor(options = {}) {
         super({
-            width: 64,
-            height: 64,
+            scale: options.scale || 1.0,
             hasCollision: true,
             blocksMovement: true,
             canBeBlocked: false, // Interactive objects don't get blocked by others
