@@ -55,10 +55,6 @@ class Actor extends GameObject {
      * Apply physics and movement
      */
     updatePhysics(deltaTime, game) {
-        // Apply velocity to position
-        this.x += this.velocityX * deltaTime;
-        this.y += this.velocityY * deltaTime;
-        
         // Apply friction
         const frictionFactor = Math.pow(this.friction, deltaTime * 60);
         this.velocityX *= frictionFactor;
@@ -70,6 +66,39 @@ class Actor extends GameObject {
             const speedRatio = this.maxSpeed / currentSpeed;
             this.velocityX *= speedRatio;
             this.velocityY *= speedRatio;
+        }
+        
+        // Calculate new position
+        const newX = this.x + this.velocityX * deltaTime;
+        const newY = this.y + this.velocityY * deltaTime;
+        
+        // Check collisions if game instance is available and actor can be blocked
+        if (game && this.canBeBlocked && (this.velocityX !== 0 || this.velocityY !== 0)) {
+            const collision = game.checkActorCollisions(newX, newY, this);
+            if (!collision.collides) {
+                // Move to new position if no collision
+                this.x = newX;
+                this.y = newY;
+            } else {
+                // Try sliding along walls by testing X and Y movement separately
+                const collisionX = game.checkActorCollisions(newX, this.y, this);
+                if (!collisionX.collides) {
+                    this.x = newX; // Can move horizontally
+                } else {
+                    this.velocityX = 0; // Stop horizontal movement
+                }
+                
+                const collisionY = game.checkActorCollisions(this.x, newY, this);
+                if (!collisionY.collides) {
+                    this.y = newY; // Can move vertically
+                } else {
+                    this.velocityY = 0; // Stop vertical movement
+                }
+            }
+        } else {
+            // No collision checking - move freely
+            this.x = newX;
+            this.y = newY;
         }
     }
     

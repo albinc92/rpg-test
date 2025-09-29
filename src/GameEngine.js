@@ -597,6 +597,74 @@ class GameEngine {
     }
     
     /**
+     * Check actor collisions with other objects and map boundaries
+     */
+    checkActorCollisions(newX, newY, movingActor) {
+        // Check map boundaries first
+        if (this.currentMap && movingActor.canBeBlocked) {
+            const actorWidth = movingActor.getWidth();
+            const actorHeight = movingActor.getHeight();
+            const halfWidth = actorWidth / 2;
+            const halfHeight = actorHeight / 2;
+            
+            // Check if actor would be outside map bounds
+            if (newX - halfWidth < 0 || 
+                newX + halfWidth > this.currentMap.width ||
+                newY - halfHeight < 0 || 
+                newY + halfHeight > this.currentMap.height) {
+                return { collides: true, object: 'map_boundary' };
+            }
+        }
+        
+        // Get all objects that could block movement on current map
+        const allObjects = this.getAllGameObjectsOnMap(this.currentMapId);
+        
+        // Debug: Log collision checking (remove this later)
+        if (allObjects.length === 0) {
+            console.log('No objects found for collision checking on map:', this.currentMapId);
+        }
+        
+        for (let obj of allObjects) {
+            // Skip self-collision
+            if (obj === movingActor) continue;
+            
+            // Skip objects that don't block movement or aren't solid
+            if (!obj.blocksMovement || !obj.hasCollision) {
+                console.log('Skipping object - blocksMovement:', obj.blocksMovement, 'hasCollision:', obj.hasCollision, 'type:', obj.type);
+                continue;
+            }
+            
+            // Skip if moving actor can't be blocked
+            if (!movingActor.canBeBlocked) continue;
+            
+            // Check collision using GameObject collision system
+            if (movingActor.wouldCollideAt(newX, newY, obj)) {
+                console.log('Collision detected with:', obj.type || obj.constructor.name);
+                return { collides: true, object: obj };
+            }
+        }
+        
+        return { collides: false, object: null };
+    }
+    
+    /**
+     * Get all GameObjects on a specific map (NPCs, interactive objects, etc.)
+     */
+    getAllGameObjectsOnMap(mapId) {
+        const objects = [];
+        
+        // Add NPCs
+        const npcs = this.npcManager.getAllNPCs();
+        objects.push(...npcs.filter(npc => npc.mapId === mapId));
+        
+        // Add interactive objects
+        const interactiveObjects = this.interactiveObjectManager.getObjectsForMap(mapId);
+        objects.push(...interactiveObjects);
+        
+        return objects;
+    }
+
+    /**
      * Render debug information
      */
     renderDebugInfo() {

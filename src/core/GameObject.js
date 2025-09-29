@@ -11,9 +11,15 @@ class GameObject {
         
         // Visual properties
         this.direction = options.direction || 'left'; // 'left' or 'right'
-        this.width = options.width || 64;
-        this.height = options.height || 64;
         this.scale = options.scale || 1.0;
+        
+        // Sprite dimensions (will be set when sprite loads)
+        this.spriteWidth = 0;
+        this.spriteHeight = 0;
+        
+        // Fallback dimensions if sprite fails to load
+        this.fallbackWidth = options.width || 64;
+        this.fallbackHeight = options.height || 64;
         
         // Sprite handling
         this.spriteSrc = options.spriteSrc || null;
