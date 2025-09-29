@@ -6,9 +6,11 @@ class AudioManager {
     constructor() {
         this.audioCache = new Map();
         this.currentBGM = null;
+        this.currentAmbience = null;
         this.masterVolume = 1.0;
         this.effectsVolume = 1.0;
         this.musicVolume = 1.0;
+        this.ambienceVolume = 0.6; // Ambient sounds are usually quieter
         this.isMuted = false;
         
         // Audio context for better control (optional)
@@ -186,6 +188,58 @@ class AudioManager {
         if (this.currentBGM) {
             this.fadeOut(this.currentBGM, fadeTime);
             this.currentBGM = null;
+        }
+    }
+    
+    /**
+     * Play ambient sound with crossfade
+     */
+    async playAmbience(src, volume = 1.0, fadeTime = 2000) {
+        console.log(`AudioManager: playAmbience called with src: ${src}`);
+        
+        if (this.isMuted) {
+            console.log('AudioManager: Ambience muted, not playing');
+            return;
+        }
+        
+        if (!this.audioEnabled) {
+            console.log('AudioManager: Audio not enabled for ambience');
+            return;
+        }
+        
+        try {
+            // Stop current ambience with fade
+            if (this.currentAmbience) {
+                this.fadeOut(this.currentAmbience, fadeTime);
+            }
+            
+            // Load new ambience
+            const ambience = await this.loadAudio(src);
+            const ambienceClone = ambience.cloneNode();
+            
+            ambienceClone.loop = true;
+            ambienceClone.volume = 0;
+            
+            const playPromise = ambienceClone.play();
+            if (playPromise) {
+                await playPromise;
+            }
+            
+            this.currentAmbience = ambienceClone;
+            this.fadeIn(ambienceClone, volume * this.ambienceVolume * this.masterVolume, fadeTime);
+            
+        } catch (error) {
+            console.warn('Failed to play ambience:', error);
+        }
+    }
+    
+    /**
+     * Stop ambient sound
+     */
+    stopAmbience(fadeTime = 2000) {
+        if (this.currentAmbience) {
+            this.fadeOut(this.currentAmbience, fadeTime);
+            this.currentAmbience = null;
         }
     }
     

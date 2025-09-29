@@ -356,6 +356,8 @@ class GameEngine {
             throw new Error(`Map not found: ${mapId}`);
         }
         
+        console.log(`Loading map ${mapId} with data:`, mapData);
+        
         // Load map image
         await this.mapManager.loadMap(mapId);
         
@@ -367,7 +369,16 @@ class GameEngine {
         
         // Load map music
         if (mapData.music) {
+            console.log(`Loading BGM: ${mapData.music}`);
             this.audioManager.playBGM(mapData.music);
+        }
+        
+        // Load map ambient sound
+        if (mapData.ambience) {
+            console.log(`Loading ambience: ${mapData.ambience}`);
+            this.audioManager.playAmbience(mapData.ambience);
+        } else {
+            console.log(`No ambience found for map ${mapId}`);
         }
         
         console.log(`Loaded map: ${mapId}`);
