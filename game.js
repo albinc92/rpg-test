@@ -2264,21 +2264,17 @@ class Game {
         
         // Check boundaries and stop velocity if hitting them
         if (newX < minX) {
-            console.log(`Hit left boundary: newX=${newX}, minX=${minX}`);
             newX = minX;
             this.player.velocityX = 0;
         } else if (newX > maxX) {
-            console.log(`Hit right boundary: newX=${newX}, maxX=${maxX}`);
             newX = maxX;
             this.player.velocityX = 0;
         }
         
         if (newY < minY) {
-            console.log(`Hit top boundary: newY=${newY}, minY=${minY}`);
             newY = minY;
             this.player.velocityY = 0;
         } else if (newY > maxY) {
-            console.log(`Hit bottom boundary: newY=${newY}, maxY=${maxY}`);
             newY = maxY;
             this.player.velocityY = 0;
         }
@@ -2309,9 +2305,6 @@ class Game {
         
         // Update camera (Zelda-style camera system)
         this.updateCamera();
-        
-        // Update debug info
-        this.updateDebug();
     }
     
     updateRoamingNPCs() {
@@ -2721,9 +2714,6 @@ class Game {
         // Get inventory items
         const inventory = this.inventoryManager.getInventory();
         const slotInfo = this.inventoryManager.getSlotInfo();
-        
-        // Debug: Log inventory contents
-        console.log('Inventory contents:', inventory.map(item => `${item.name} (${item.quantity}, sprite: ${item.sprite ? 'loaded' : 'missing'})`));
         
         // Draw slot counter
         this.ctx.fillStyle = '#CCCCCC';
