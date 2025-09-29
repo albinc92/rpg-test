@@ -10,89 +10,119 @@ class NPCManager {
     }
     
     /**
-     * Initialize all NPCs
+     * Initialize all NPCs - coordinates initialization of all NPC types
      */
     initializeAllNPCs() {
-        // Initialize NPCs for each map
+        // Initialize empty map structure
         this.npcs = {
-            '0-0': [
-                new NPC({
-                    x: 600,
-                    y: 400,
-                    spriteSrc: 'assets/npc/sage-0.png',
-                    type: 'sage',
-                    name: 'Elder Sage',
-                    dialogue: "Welcome, young adventurer! The world is full of mysteries waiting to be discovered.",
-                    scale: 0.08
-                }),
-                new NPC({
-                    x: 300,
-                    y: 500,
-                    spriteSrc: 'assets/npc/navigation-0.png',
-                    type: 'merchant',
-                    name: 'Trader Bob',
-                    dialogue: "I have the finest goods in all the land! Care to take a look?",
-                    scale: 0.08
-                }),
-                new Spirit({
-                    x: 800,
-                    y: 200,
-                    spriteSrc: 'assets/npc/navigation-0.png',
-                    name: 'Lost Spirit',
-                    altitude: 30,
-                    floatingSpeed: 2,
-                    floatingRange: 20,
-                    scale: 0.06
-                })
-            ],
-            '0-1': [
-                new NPC({
-                    x: 500,
-                    y: 400,
-                    spriteSrc: 'assets/npc/sage-0.png',
-                    type: 'guard',
-                    name: 'Town Guard',
-                    dialogue: "Stay safe, traveler. There are dangerous creatures beyond these walls.",
-                    scale: 0.08
-                })
-            ]
+            '0-0': [],
+            '0-1': []
+        };
+        this.roamingNPCs = {
+            '0-0': [],
+            '0-1': []
         };
         
-        // Set up roaming NPCs
+        // Initialize each type of NPC
+        this.initializeStaticNPCs();
+        this.initializeMerchantNPCs();
+        this.initializeGuardNPCs();
+        this.initializeSpiritNPCs();
         this.initializeRoamingNPCs();
         
         return this.npcs;
     }
     
     /**
-     * Initialize roaming NPCs
+     * Initialize static dialogue NPCs
+     */
+    initializeStaticNPCs() {
+        // Elder Sage on map 0-0
+        const elderSage = new NPC({
+            x: 600,
+            y: 400,
+            spriteSrc: 'assets/npc/sage-0.png',
+            type: 'sage',
+            name: 'Elder Sage',
+            dialogue: "Welcome, young adventurer! The world is full of mysteries waiting to be discovered.",
+            scale: 0.08
+        });
+        this.npcs['0-0'].push(elderSage);
+    }
+    
+    /**
+     * Initialize merchant NPCs
+     */
+    initializeMerchantNPCs() {
+        // Trader Bob on map 0-0
+        const traderBob = new NPC({
+            x: 300,
+            y: 500,
+            spriteSrc: 'assets/npc/navigation-0.png',
+            type: 'merchant',
+            name: 'Trader Bob',
+            dialogue: "I have the finest goods in all the land! Care to take a look?",
+            scale: 0.08
+        });
+        this.npcs['0-0'].push(traderBob);
+    }
+    
+    /**
+     * Initialize guard NPCs
+     */
+    initializeGuardNPCs() {
+        // Town Guard on map 0-1
+        const townGuard = new NPC({
+            x: 500,
+            y: 400,
+            spriteSrc: 'assets/npc/sage-0.png',
+            type: 'guard',
+            name: 'Town Guard',
+            dialogue: "Stay safe, traveler. There are dangerous creatures beyond these walls.",
+            scale: 0.08
+        });
+        this.npcs['0-1'].push(townGuard);
+    }
+    
+    /**
+     * Initialize spirit NPCs (static floating spirits)
+     */
+    initializeSpiritNPCs() {
+        // Lost Spirit on map 0-0
+        const lostSpirit = new Spirit({
+            x: 800,
+            y: 200,
+            spriteSrc: 'assets/npc/navigation-0.png',
+            name: 'Lost Spirit',
+            altitude: 30,
+            floatingSpeed: 2,
+            floatingRange: 20,
+            scale: 0.06
+        });
+        this.npcs['0-0'].push(lostSpirit);
+    }
+    
+    /**
+     * Initialize roaming NPCs (spirits that move around)
      */
     initializeRoamingNPCs() {
-        this.roamingNPCs = {
-            '0-0': [
-                new Spirit({
-                    x: 1200,
-                    y: 600,
-                    spriteSrc: 'assets/npc/navigation-0.png',
-                    name: 'Wandering Spirit',
-                    altitude: 25,
-                    floatingSpeed: 1.5,
-                    floatingRange: 15,
-                    roamingSpeed: 50,
-                    roamingRange: 200,
-                    roamingBounds: { x: 1000, y: 400, width: 400, height: 400 },
-                    scale: 0.06
-                })
-            ]
-        };
-        
-        // Add roaming NPCs to main NPC arrays
-        Object.keys(this.roamingNPCs).forEach(mapId => {
-            if (!this.npcs[mapId]) {
-                this.npcs[mapId] = [];
-            }
-            this.npcs[mapId].push(...this.roamingNPCs[mapId]);
+        // Wandering Spirit on map 0-0
+        const wanderingSpirit = new Spirit({
+            x: 1200,
+            y: 600,
+            spriteSrc: 'assets/npc/navigation-0.png',
+            name: 'Wandering Spirit',
+            altitude: 25,
+            floatingSpeed: 1.5,
+            floatingRange: 15,
+            roamingSpeed: 50,
+            roamingRange: 200,
+            roamingBounds: { x: 1000, y: 400, width: 400, height: 400 },
+            scale: 0.06
         });
+        
+        this.roamingNPCs['0-0'].push(wanderingSpirit);
+        this.npcs['0-0'].push(wanderingSpirit); // Add to main NPC list for collision detection
     }
     
     /**
