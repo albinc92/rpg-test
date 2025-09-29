@@ -589,6 +589,7 @@ class NPCManager {
     updateRoamingNPCs(mapId, deltaTime, mapBounds) {
         const mapNPCs = this.getNPCsForMap(mapId);
         const currentTime = Date.now();
+        this.lastDeltaTime = deltaTime; // Store delta time for movement calculations
         
         mapNPCs.forEach(npc => {
             if (npc.type === 'spirit' && npc.isRoaming) {
@@ -625,8 +626,9 @@ class NPCManager {
             return;
         }
 
-        // Move towards target
-        const moveDistance = spirit.speed;
+        // Move towards target (delta-time corrected)
+        const speedPerSecond = spirit.speed * 60; // Convert to per-second speed
+        const moveDistance = speedPerSecond * this.lastDeltaTime;
         const moveX = (dx / distance) * moveDistance;
         const moveY = (dy / distance) * moveDistance;
 

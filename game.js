@@ -2195,13 +2195,13 @@ class Game {
         this.inventoryManager.selectedSlot = newSlot;
     }
     
-    update() {
+    update(deltaTime) {
         if (this.gameState !== 'PLAYING') return;
         if (!this.currentMap.loaded) return;
         if (this.npcManager.isDialogueActive()) return; // Don't allow movement during dialogue
         
-        // Update game time for animations
-        this.gameTime += 0.016; // Approximate 60fps timing
+        // Update game time for animations using actual delta time
+        this.gameTime += deltaTime;
         
         // Handle movement input with acceleration
         let inputX = 0;
@@ -2224,35 +2224,40 @@ class Game {
             inputY *= 0.707;
         }
         
-        // Apply acceleration based on input
+        // Convert speeds to per-second values
+        const accelerationPerSecond = this.player.acceleration * 60; // Adjust for 60fps baseline
+        const maxSpeedPerSecond = this.player.maxSpeed * 60; // Adjust for 60fps baseline
+        const frictionPerSecond = Math.pow(this.player.friction, deltaTime * 60); // Exponential friction
+        
+        // Apply acceleration based on input (delta-time corrected)
         if (inputX !== 0) {
-            this.player.velocityX += inputX * this.player.acceleration;
+            this.player.velocityX += inputX * accelerationPerSecond * deltaTime;
         } else {
-            // Apply friction when no input
-            this.player.velocityX *= this.player.friction;
+            // Apply friction when no input (delta-time corrected)
+            this.player.velocityX *= frictionPerSecond;
         }
         
         if (inputY !== 0) {
-            this.player.velocityY += inputY * this.player.acceleration;
+            this.player.velocityY += inputY * accelerationPerSecond * deltaTime;
         } else {
-            // Apply friction when no input
-            this.player.velocityY *= this.player.friction;
+            // Apply friction when no input (delta-time corrected)
+            this.player.velocityY *= frictionPerSecond;
         }
         
         // Clamp velocity to max speed
         const currentSpeed = Math.sqrt(this.player.velocityX * this.player.velocityX + this.player.velocityY * this.player.velocityY);
-        if (currentSpeed > this.player.maxSpeed) {
-            this.player.velocityX = (this.player.velocityX / currentSpeed) * this.player.maxSpeed;
-            this.player.velocityY = (this.player.velocityY / currentSpeed) * this.player.maxSpeed;
+        if (currentSpeed > maxSpeedPerSecond) {
+            this.player.velocityX = (this.player.velocityX / currentSpeed) * maxSpeedPerSecond;
+            this.player.velocityY = (this.player.velocityY / currentSpeed) * maxSpeedPerSecond;
         }
         
         // Stop very slow movement to prevent jitter
         if (Math.abs(this.player.velocityX) < 0.01) this.player.velocityX = 0;
         if (Math.abs(this.player.velocityY) < 0.01) this.player.velocityY = 0;
         
-        // Calculate new position
-        let newX = this.player.x + this.player.velocityX;
-        let newY = this.player.y + this.player.velocityY;
+        // Calculate new position (delta-time corrected)
+        let newX = this.player.x + this.player.velocityX * deltaTime;
+        let newY = this.player.y + this.player.velocityY * deltaTime;
         
         // Calculate sprite boundaries
         const halfWidth = this.player.width / 2;
@@ -2301,20 +2306,20 @@ class Game {
         this.updateSpiritRespawning();
         
         // Update roaming NPCs
-        this.updateRoamingNPCs();
+        this.updateRoamingNPCs(deltaTime);
         
         // Update camera (Zelda-style camera system)
         this.updateCamera();
     }
     
-    updateRoamingNPCs() {
+    updateRoamingNPCs(deltaTime) {
         // Update roaming NPCs with current map bounds
         const mapBounds = {
             width: this.currentMap.width,
             height: this.currentMap.height
         };
         
-        this.npcManager.updateRoamingNPCs(this.currentMapId, 0.016, mapBounds);
+        this.npcManager.updateRoamingNPCs(this.currentMapId, deltaTime, mapBounds);
     }
     
     updateSpiritRespawning() {
@@ -4271,43 +4276,48 @@ class Game {
     }
     
     gameLoop() {
-        // Temporarily disable FPS tracking to test performance
-        // Only track FPS when actually playing the game
-        // if (this.gameState === 'PLAYING') {
-        //     // Calculate FPS
-        //     const currentTime = performance.now();
-        //     const deltaTime = currentTime - this.fps.lastTime;
-        //     this.fps.lastTime = currentTime;
-        //     
-        //     // Calculate current FPS (1000ms / deltaTime gives FPS)
-        //     if (deltaTime > 0) {
-        //         const currentFps = 1000 / deltaTime;
-        //         this.fps.current = Math.round(currentFps);
-        //         
-        //         // Increment grace frame counter
-        //         this.fps.graceFrames++;
-        //         
-        //         // Only update min/max after grace period
-        //         if (this.fps.graceFrames > this.fps.graceFramesNeeded) {
-        //             if (currentFps < this.fps.min) {
-        //                 this.fps.min = Math.round(currentFps);
-        //             }
-        //             if (currentFps > this.fps.max) {
-        //                 this.fps.max = Math.round(currentFps);
-        //             }
-        //         }
-        //     }
-        // } else {
-        //     // Reset grace period when not playing
-        //     this.fps.graceFrames = 0;
-        //     this.fps.min = Infinity;
-        //     this.fps.max = 0;
-        // }
+        // Track FPS when actually playing the game
+        if (this.gameState === 'PLAYING') {
+            // Calculate FPS
+            const currentTime = performance.now();
+            const deltaTime = currentTime - this.fps.lastTime;
+            this.fps.lastTime = currentTime;
+            
+            // Calculate current FPS (1000ms / deltaTime gives FPS)
+            if (deltaTime > 0) {
+                const currentFps = 1000 / deltaTime;
+                this.fps.current = Math.round(currentFps);
+                
+                // Increment grace frame counter
+                this.fps.graceFrames++;
+                
+                // Only update min/max after grace period
+                if (this.fps.graceFrames > this.fps.graceFramesNeeded) {
+                    if (currentFps < this.fps.min) {
+                        this.fps.min = Math.round(currentFps);
+                    }
+                    if (currentFps > this.fps.max) {
+                        this.fps.max = Math.round(currentFps);
+                    }
+                }
+            }
+        } else {
+            // Reset grace period when not playing
+            this.fps.graceFrames = 0;
+            this.fps.min = Infinity;
+            this.fps.max = 0;
+        }
         
         // Simple performance tracking
         const frameStart = performance.now();
         
-        this.update();
+        // Calculate delta time for movement (cap at 100ms to prevent large jumps)
+        const currentTime = performance.now();
+        if (!this.lastFrameTime) this.lastFrameTime = currentTime;
+        const deltaTime = Math.min((currentTime - this.lastFrameTime) / 1000, 0.1); // Convert to seconds, cap at 100ms
+        this.lastFrameTime = currentTime;
+        
+        this.update(deltaTime);
         const updateTime = performance.now();
         
         this.render();
