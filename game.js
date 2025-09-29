@@ -3825,7 +3825,20 @@ class Game {
             const spiritAlpha = npc.baseAlpha + basePulse;
             this.ctx.globalAlpha = Math.max(0.3, Math.min(1.0, spiritAlpha));
             
-            // Slight glow effect
+            const scaledWidth = npc.width * mapScale;
+            const scaledHeight = npc.height * mapScale;
+            const npcScreenX = npc.x - scaledWidth / 2;
+            const npcScreenY = npc.y - scaledHeight / 2;
+            
+            // Draw shadow first (behind spirit) - ethereal spirits cast faint shadows
+            this.ctx.save();
+            this.ctx.globalAlpha = 0.15; // Very faint shadow for ethereal spirits
+            this.ctx.shadowColor = 'transparent'; // Remove glow from shadow
+            this.ctx.shadowBlur = 0;
+            this.drawShadow(npc.x, npc.y, scaledWidth, scaledHeight);
+            this.ctx.restore();
+            
+            // Apply glow effect for the sprite
             if (npc.glowEffect) {
                 this.ctx.shadowColor = '#87CEEB'; // Sky blue glow
                 this.ctx.shadowBlur = 15;
@@ -3833,12 +3846,6 @@ class Game {
                 this.ctx.shadowOffsetY = 0;
             }
             
-            const scaledWidth = npc.width * mapScale;
-            const scaledHeight = npc.height * mapScale;
-            const npcScreenX = npc.x - scaledWidth / 2;
-            const npcScreenY = npc.y - scaledHeight / 2;
-            
-            // Spirits don't cast shadows (they're ethereal)
             // Draw spirit sprite with direction support
             if (npc.direction === 'left') {
                 // Flip sprite horizontally for left-facing spirits

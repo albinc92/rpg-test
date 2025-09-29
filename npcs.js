@@ -29,8 +29,7 @@ class NPCManager {
             mapId: '0-0',
             x: 1000,
             y: 600,
-            width: 96,
-            height: 96,
+            scale: 0.1, // Use original sprite size
             spriteSrc: 'assets/npc/sage-0.png',
             direction: 'right', // 'left' or 'right'
             messages: [
@@ -49,8 +48,7 @@ class NPCManager {
             mapId: '0-0',
             x: 867,
             y: 156,
-            width: 80,
-            height: 80,
+            scale: 0.1, // Slightly smaller than original
             spriteSrc: 'assets/npc/navigation-0.png',
             rotation: 310,
             targetMap: '0-1',
@@ -68,8 +66,7 @@ class NPCManager {
             mapId: '0-1',
             x: 475,
             y: 960,
-            width: 80,
-            height: 80,
+            scale: 0.1, // Slightly smaller than original
             spriteSrc: 'assets/npc/navigation-0.png',
             rotation: 225,
             targetMap: '0-0',
@@ -87,8 +84,7 @@ class NPCManager {
             mapId: '0-1',
             x: 695,
             y: 515,
-            width: 80,
-            height: 80,
+            scale: 0.1, // Slightly smaller than original
             spriteSrc: 'assets/npc/door-0.png',
             rotation: 0,
             targetMap: '0-1-shop',
@@ -106,8 +102,7 @@ class NPCManager {
             mapId: '0-1-shop',
             x: 400,
             y: 200,
-            width: 80,
-            height: 80,
+            scale: 0.1, // Slightly smaller than original
             spriteSrc: 'assets/npc/door-0.png',
             rotation: 0,
             targetMap: '0-1',
@@ -126,8 +121,7 @@ class NPCManager {
             mapId: '0-1-shop',
             x: 600,
             y: 400,
-            width: 96,
-            height: 96,
+            scale: 0.1, // Use original size for shopkeeper
             spriteSrc: 'assets/npc/merchant-0.png',
             direction: 'left',
             messages: [
@@ -191,7 +185,8 @@ class NPCManager {
             roamRadius: 180,
             pauseTime: 2500,
             name: 'Sylphie',
-            respawnDelay: 3000 // 30 seconds respawn time
+            scale: 0.1, // Slightly smaller spirit
+            respawnDelay: 3000 // 3 seconds respawn time
         });
     }
 
@@ -218,13 +213,43 @@ class NPCManager {
      * @param {object} npcData - The NPC data object
      */
     registerNPC(npcData) {
+        // Set default scale if not provided
+        if (npcData.scale === undefined) {
+            npcData.scale = 0.1; // Default to original size
+        }
+        
+        // Set temporary dimensions for collision detection until sprite loads
+        // Use fallback values based on common NPC sizes
+        if (!npcData.width && !npcData.height) {
+            npcData.width = 96 * npcData.scale; // Default fallback width
+            npcData.height = 96 * npcData.scale; // Default fallback height
+        }
+        
         // Create sprite object if spriteSrc is provided
         if (npcData.spriteSrc) {
             npcData.sprite = new Image();
+            npcData.sprite.onload = () => {
+                // Calculate width and height based on scale when sprite loads
+                this.calculateNPCDimensions(npcData);
+            };
             npcData.sprite.src = npcData.spriteSrc;
         }
         
         this.npcRegistry.set(npcData.id, npcData);
+    }
+    
+    /**
+     * Calculate NPC dimensions based on original sprite size and scale
+     * @param {object} npcData - The NPC data object
+     */
+    calculateNPCDimensions(npcData) {
+        if (npcData.sprite && npcData.sprite.complete) {
+            // Calculate scaled dimensions
+            npcData.width = npcData.sprite.naturalWidth * npcData.scale;
+            npcData.height = npcData.sprite.naturalHeight * npcData.scale;
+            
+            console.log(`NPC ${npcData.id}: Original(${npcData.sprite.naturalWidth}x${npcData.sprite.naturalHeight}) Scale(${npcData.scale}) Final(${npcData.width}x${npcData.height})`);
+        }
     }
 
     /**
@@ -442,8 +467,7 @@ class NPCManager {
             mapId: mapId,
             x: x,
             y: y,
-            width: 96,
-            height: 96,
+            scale: 0.1, // Use original chest size
             spriteSrc: 'assets/npc/chest-0.png',
             openSpriteSrc: 'assets/npc/chest-0-open.png',
             direction: 'right',
@@ -454,8 +478,11 @@ class NPCManager {
             }
         };
 
-        // Load both sprites
+        // Load both sprites with dimension calculation
         chestNPC.sprite = new Image();
+        chestNPC.sprite.onload = () => {
+            this.calculateNPCDimensions(chestNPC);
+        };
         chestNPC.sprite.src = chestNPC.spriteSrc;
         
         chestNPC.openSprite = new Image();
@@ -487,8 +514,7 @@ class NPCManager {
             mapId: mapId,
             x: x,
             y: y,
-            width: 96,
-            height: 96,
+            scale: config.scale || 1.0, // Allow custom scale for spirits
             spriteSrc: 'assets/npc/Spirits/Sylphie00.png',
             direction: 'right',
             name: config.name || 'Spirit',
@@ -514,8 +540,11 @@ class NPCManager {
             glowEffect: true
         };
 
-        // Load spirit sprite
+        // Load spirit sprite with dimension calculation
         spiritNPC.sprite = new Image();
+        spiritNPC.sprite.onload = () => {
+            this.calculateNPCDimensions(spiritNPC);
+        };
         spiritNPC.sprite.src = spiritNPC.spriteSrc;
 
         this.registerNPC(spiritNPC);
