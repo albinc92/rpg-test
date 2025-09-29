@@ -64,6 +64,9 @@ class GameEngine {
             showDebug: false
         };
         
+        // Debug controls
+        this.isPaused = false;
+        
         // Initialize
         this.initialize();
     }
@@ -103,13 +106,6 @@ class GameEngine {
             scale: 0.07,
             gold: 100
         });
-        
-        // Set up player sprite loading callback
-        if (this.player.sprite) {
-            this.player.sprite.onload = () => {
-                console.log('Player sprite loaded');
-            };
-        }
     }
     
     /**
@@ -136,14 +132,35 @@ class GameEngine {
      * Start the main game loop
      */
     startGameLoop() {
+        // Add pause control with P key
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyP') {
+                this.isPaused = !this.isPaused;
+                console.log(`Game ${this.isPaused ? 'PAUSED' : 'UNPAUSED'}`);
+            }
+        });
+        
         const gameLoop = (currentTime) => {
             const deltaTime = (currentTime - this.lastTime) / 1000;
             this.lastTime = currentTime;
             
-            this.update(deltaTime);
-            this.render();
-            
-            this.updateFPS(deltaTime);
+            if (!this.isPaused) {
+                this.update(deltaTime);
+                this.render();
+                this.updateFPS(deltaTime);
+            } else {
+                // Still render when paused, just don't update
+                this.render();
+                
+                // Show pause indicator
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+                this.ctx.fillStyle = '#fff';
+                this.ctx.font = '48px Arial';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText('PAUSED', this.CANVAS_WIDTH / 2, this.CANVAS_HEIGHT / 2);
+                this.ctx.fillText('Press P to continue', this.CANVAS_WIDTH / 2, this.CANVAS_HEIGHT / 2 + 60);
+            }
             
             requestAnimationFrame(gameLoop);
         };
