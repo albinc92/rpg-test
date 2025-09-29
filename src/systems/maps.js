@@ -21,7 +21,7 @@ class MapManager {
             name: 'Forest Clearing',
             imagePath: 'assets/maps/0-0.png',
             description: 'A peaceful clearing in the forest where your journey begins.',
-            music: 'assets/bgm/00.mp3',
+            music: 'assets/audio/bgm/00.mp3',
             ambientSound: 'assets/audio/ambience/forest-0.mp3',
             battleScene: 'Forest-Battlescene-0', // Battle scene for this map
             spawnPoints: {
@@ -36,7 +36,7 @@ class MapManager {
             name: 'Mountain Path',
             imagePath: 'assets/maps/0-1.png',
             description: 'A winding path through the mountains.',
-            music: 'assets/bgm/00.mp3', // Could be different music later
+            music: 'assets/audio/bgm/00.mp3', // Could be different music later
             ambientSound: 'assets/audio/ambience/forest-0.mp3',
             battleScene: 'Forest-Battlescene-0', // Battle scene for this map
             spawnPoints: {
@@ -51,7 +51,7 @@ class MapManager {
             name: 'Village Shop',
             imagePath: 'assets/maps/0-1-shop.png',
             description: 'A cozy shop where you can buy and sell items.',
-            music: 'assets/bgm/01.mp3',
+            music: 'assets/audio/bgm/01.mp3',
             mapScale: 0.7, // Scale the map background down to 70% size
             battleScene: null, // No battles in shops
             spawnPoints: {
@@ -66,7 +66,7 @@ class MapManager {
             name: 'Forest Battle Arena',
             imagePath: 'assets/maps/0-0.png', // Reuse forest map for now
             description: 'A mystical battleground where spirits challenge adventurers.',
-            music: 'assets/bgm/01.mp3', // Different battle music
+            music: 'assets/audio/bgm/01.mp3', // Different battle music
             ambientSound: null, // No ambient sound in battle
             mapScale: 1.0,
             spawnPoints: {
