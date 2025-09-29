@@ -128,8 +128,8 @@ class Game {
         
         // Speed values
         this.speedSettings = {
-            'Walk': 2,
-            'Run': 4.5  // Much faster running speed
+            'Walk': 0.8,
+            'Run': 1.2  // Faster but more reasonable
         };
         
         // Audio system
