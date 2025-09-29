@@ -13,8 +13,9 @@ class Game {
         this.player = {
             x: 400, // Start in center of canvas
             y: 300,
-            width: 96,
-            height: 96,
+            width: 96,  // Will be calculated from scale
+            height: 96, // Will be calculated from scale
+            scale: 0.07, // Scale factor for sprite dimensions
             facingRight: true,
             sprite: null,
             velocityX: 0,
@@ -248,7 +249,11 @@ class Game {
         
         // Wait for player sprite to load
         await new Promise(resolve => {
-            this.player.sprite.onload = resolve;
+            this.player.sprite.onload = () => {
+                // Calculate width and height based on scale when sprite loads
+                this.npcManager.calculateSpriteDimensions(this.player);
+                resolve();
+            };
         });
         
         // Add some test items to inventory for demonstration

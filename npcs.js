@@ -185,7 +185,7 @@ class NPCManager {
             roamRadius: 180,
             pauseTime: 2500,
             name: 'Sylphie',
-            scale: 0.1, // Slightly smaller spirit
+            scale: 0.05, // Slightly smaller spirit
             respawnDelay: 3000 // 3 seconds respawn time
         });
     }
@@ -230,7 +230,7 @@ class NPCManager {
             npcData.sprite = new Image();
             npcData.sprite.onload = () => {
                 // Calculate width and height based on scale when sprite loads
-                this.calculateNPCDimensions(npcData);
+                this.calculateSpriteDimensions(npcData);
             };
             npcData.sprite.src = npcData.spriteSrc;
         }
@@ -239,16 +239,17 @@ class NPCManager {
     }
     
     /**
-     * Calculate NPC dimensions based on original sprite size and scale
-     * @param {object} npcData - The NPC data object
+     * Calculate sprite dimensions based on original sprite size and scale
+     * @param {object} spriteObject - Any object with sprite, scale properties
      */
-    calculateNPCDimensions(npcData) {
-        if (npcData.sprite && npcData.sprite.complete) {
+    calculateSpriteDimensions(spriteObject) {
+        if (spriteObject.sprite && spriteObject.sprite.complete) {
             // Calculate scaled dimensions
-            npcData.width = npcData.sprite.naturalWidth * npcData.scale;
-            npcData.height = npcData.sprite.naturalHeight * npcData.scale;
+            spriteObject.width = spriteObject.sprite.naturalWidth * spriteObject.scale;
+            spriteObject.height = spriteObject.sprite.naturalHeight * spriteObject.scale;
             
-            console.log(`NPC ${npcData.id}: Original(${npcData.sprite.naturalWidth}x${npcData.sprite.naturalHeight}) Scale(${npcData.scale}) Final(${npcData.width}x${npcData.height})`);
+            const objectName = spriteObject.id || spriteObject.name || 'Sprite';
+            console.log(`${objectName}: Original(${spriteObject.sprite.naturalWidth}x${spriteObject.sprite.naturalHeight}) Scale(${spriteObject.scale}) Final(${spriteObject.width}x${spriteObject.height})`);
         }
     }
 
@@ -481,7 +482,7 @@ class NPCManager {
         // Load both sprites with dimension calculation
         chestNPC.sprite = new Image();
         chestNPC.sprite.onload = () => {
-            this.calculateNPCDimensions(chestNPC);
+            this.calculateSpriteDimensions(chestNPC);
         };
         chestNPC.sprite.src = chestNPC.spriteSrc;
         
@@ -543,7 +544,7 @@ class NPCManager {
         // Load spirit sprite with dimension calculation
         spiritNPC.sprite = new Image();
         spiritNPC.sprite.onload = () => {
-            this.calculateNPCDimensions(spiritNPC);
+            this.calculateSpriteDimensions(spiritNPC);
         };
         spiritNPC.sprite.src = spiritNPC.spriteSrc;
 
