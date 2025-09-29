@@ -41,12 +41,29 @@ class Player extends Actor {
     }
     
     /**
-     * Set input state
+     * Set input state (expects object format)
      */
-    setInput(inputX, inputY, isRunning = false) {
-        this.inputX = inputX;
-        this.inputY = inputY;
-        this.isRunning = isRunning;
+    setInput(input) {
+        this.inputX = input.moveX || 0;
+        this.inputY = input.moveY || 0;
+        this.isRunning = input.isRunning || false;
+    }
+    
+    /**
+     * Set player position
+     */
+    setPosition(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+    
+    /**
+     * Calculate distance to another object
+     */
+    distanceTo(other) {
+        const dx = this.x - other.x;
+        const dy = this.y - other.y;
+        return Math.sqrt(dx * dx + dy * dy);
     }
     
     /**

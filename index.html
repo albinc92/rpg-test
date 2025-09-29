@@ -50,14 +50,25 @@
     <script src="src/objects/Chest.js"></script>
     <script src="src/objects/Portal.js"></script>
     
-    <!-- Load game systems -->
-    <script src="src/systems/maps.js"></script>
-    <script src="src/systems/npcs.js"></script>
+    <!-- Load manager systems -->
+    <script src="src/systems/AudioManager.js"></script>
+    <script src="src/systems/InputManager.js"></script>
+    <script src="src/systems/GameStateManager.js"></script>
+    <script src="src/systems/MapManager.js"></script>
+    <script src="src/systems/NPCManager.js"></script>
     <script src="src/systems/interactiveObjects.js"></script>
-    <script src="src/systems/items.js"></script>
-    <script src="src/systems/inventory.js"></script>
+    <script src="src/systems/ItemManager.js"></script>
+    <script src="src/systems/InventoryManager.js"></script>
     
-    <!-- Load main game -->
-    <script src="game.js"></script>
+    <!-- Load game engine -->
+    <script src="src/GameEngine.js"></script>
+    
+    <!-- Initialize game -->
+    <script>
+        // Initialize the game engine when page loads
+        window.addEventListener('load', () => {
+            window.game = new GameEngine();
+        });
+    </script>
 </body>
 </html>
