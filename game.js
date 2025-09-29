@@ -3836,19 +3836,21 @@ class Game {
         this.ctx.restore();
     }
     
-    drawShadow(x, y, width, height) {
-        // Draw a circular shadow underneath characters
-        const shadowRadius = Math.min(width, height) * 0.3; // Shadow size relative to character
+    drawShadow(x, y, width, height, altitudeOffset = 0) {
+        // Draw an elliptical shadow proportional to character width
+        const shadowWidth = width * 0.6; // Shadow width based on character width
+        const shadowHeight = width * 0.2; // Shadow height much smaller for ground effect
         const shadowX = x;
-        const shadowY = y + height * 0.4; // Position shadow slightly below center of character
+        const shadowY = y + height * 0.4 + altitudeOffset; // Position shadow at feet level + altitude offset
         
         this.ctx.save();
-        this.ctx.globalAlpha = 0.3; // Make shadow transparent
+        // Make shadow fainter for higher altitude objects
+        this.ctx.globalAlpha = Math.max(0.15, 0.35 - (altitudeOffset / 300));
         this.ctx.fillStyle = 'black';
         
-        // Create elliptical shadow (squashed circle)
+        // Create elliptical shadow proportional to character width
         this.ctx.beginPath();
-        this.ctx.ellipse(shadowX, shadowY, shadowRadius, shadowRadius * 0.5, 0, 0, 2 * Math.PI);
+        this.ctx.ellipse(shadowX, shadowY, shadowWidth, shadowHeight, 0, 0, 2 * Math.PI);
         this.ctx.fill();
         
         this.ctx.restore();
@@ -3917,7 +3919,7 @@ class Game {
             this.ctx.globalAlpha = 0.15; // Very faint shadow for ethereal spirits
             this.ctx.shadowColor = 'transparent'; // Remove glow from shadow
             this.ctx.shadowBlur = 0;
-            this.drawShadow(npc.x, npc.y, scaledWidth, scaledHeight);
+            this.drawShadow(npc.x, npc.y, scaledWidth, scaledHeight, altitudeOffset);
             this.ctx.restore();
             
             // Apply glow effect for the sprite
@@ -3988,7 +3990,7 @@ class Game {
             const npcScreenY = npc.y - scaledHeight / 2 - altitudeOffset;
             
             // Draw shadow first (behind NPC) - also scaled
-            this.drawShadow(npc.x, npc.y, scaledWidth, scaledHeight);
+            this.drawShadow(npc.x, npc.y, scaledWidth, scaledHeight, altitudeOffset);
             
             // Draw NPC sprite with direction support
             this.ctx.save();
@@ -4061,7 +4063,7 @@ class Game {
                 const npcScreenY = npc.y - npc.height / 2;
                 
                 // Draw shadow first (behind NPC)
-                this.drawShadow(npc.x, npc.y, npc.width, npc.height);
+                this.drawShadow(npc.x, npc.y, npc.width, npc.height, 0);
                 
                 // Draw NPC sprite with direction support
                 this.ctx.save();
