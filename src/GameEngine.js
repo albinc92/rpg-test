@@ -155,7 +155,11 @@ class GameEngine {
      * Main update loop
      */
     update(deltaTime) {
-        // Update input
+        // Handle input for current state BEFORE updating input state
+        console.log('GameEngine calling stateManager.handleInput');
+        this.stateManager.handleInput(this.inputManager);
+        
+        // Update input state (this stores current frame as previous frame)
         this.inputManager.update();
         
         // Update current state

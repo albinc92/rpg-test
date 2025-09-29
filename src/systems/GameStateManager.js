@@ -51,9 +51,12 @@ class GameStateManager {
      * Handle input for current state
      */
     handleInput(inputManager) {
+        console.log(`StateManager handleInput called, current state: ${this.currentState}`);
         const state = this.states[this.currentState];
         if (state && state.handleInput) {
             state.handleInput(inputManager);
+        } else {
+            console.log(`No handleInput method for state: ${this.currentState}`);
         }
     }
     
@@ -265,17 +268,31 @@ class MainMenuState extends GameState {
     }
     
     handleInput(inputManager) {
+        console.log('MainMenu handleInput called');
+        
+        // Debug: Test the input methods directly
+        console.log('Testing input methods:');
+        console.log('  isJustPressed(up):', inputManager.isJustPressed('up'));
+        console.log('  isJustPressed(down):', inputManager.isJustPressed('down'));
+        console.log('  isJustPressed(confirm):', inputManager.isJustPressed('confirm'));
+        console.log('  isPressed(up):', inputManager.isPressed('up'));
+        console.log('  keys object:', inputManager.keys);
+        console.log('  prevKeys object:', inputManager.prevKeys);
+        
         if (inputManager.isJustPressed('up')) {
+            console.log('UP pressed');
             this.selectedOption = Math.max(0, this.selectedOption - 1);
             this.game.audioManager?.playEffect('menu-navigation');
         }
         
         if (inputManager.isJustPressed('down')) {
+            console.log('DOWN pressed');
             this.selectedOption = Math.min(this.options.length - 1, this.selectedOption + 1);
             this.game.audioManager?.playEffect('menu-navigation');
         }
         
         if (inputManager.isJustPressed('confirm')) {
+            console.log('CONFIRM pressed');
             this.selectOption();
         }
     }
