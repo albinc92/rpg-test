@@ -3847,15 +3847,16 @@ class Game {
             }
             
             // Draw spirit sprite with direction support
-            if (npc.direction === 'left') {
-                // Flip sprite horizontally for left-facing spirits
+            // Note: Spirit sprites face left by default (like other NPCs)
+            if (npc.direction === 'right') {
+                // Flip sprite horizontally for right-facing spirits
                 this.ctx.translate(npc.x, npc.y);
                 this.ctx.scale(-1, 1);
                 this.ctx.drawImage(npc.sprite, 
                                  -scaledWidth / 2, -scaledHeight / 2, 
                                  scaledWidth, scaledHeight);
             } else {
-                // Default right-facing or no flip
+                // Default left-facing (no flip needed)
                 this.ctx.drawImage(npc.sprite, npcScreenX, npcScreenY, scaledWidth, scaledHeight);
             }
             
