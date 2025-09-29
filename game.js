@@ -140,7 +140,16 @@ class Game {
             currentAmbient: null,
             menuNavigation: null,
             speechBubble: null,
-            coin: null
+            coin: null,
+            footstep: null
+        };
+        
+        // Footstep system
+        this.footsteps = {
+            isPlaying: false,
+            lastStepTime: 0,
+            stepInterval: 0,
+            baseStepInterval: 400 // Base interval in ms for walking
         };
         
         // Map system
@@ -286,6 +295,9 @@ class Game {
         
         // Load coin sound effect
         this.audio.coin = new Audio('assets/audio/effect/coin.mp3');
+        
+        // Load footstep sound effect
+        this.audio.footstep = new Audio('assets/audio/effect/footstep-0.mp3');
         
         // Set initial volumes
         this.updateAudioVolume();
@@ -588,6 +600,10 @@ class Game {
         if (this.audio.ambientSound) {
             const ambientVolume = (this.settings.effectVolume / 100) * masterMultiplier * 0.7; // Increased volume
             this.audio.ambientSound.volume = this.settings.audioMuted ? 0 : ambientVolume;
+        }
+        if (this.audio.footstep) {
+            const effectVolume = (this.settings.effectVolume / 100) * masterMultiplier;
+            this.audio.footstep.volume = this.settings.audioMuted ? 0 : effectVolume * 0.3; // 30% of effect volume
         }
     }
     
@@ -2316,6 +2332,9 @@ class Game {
         
         // Update camera (Zelda-style camera system)
         this.updateCamera();
+        
+        // Update footsteps based on movement
+        this.updateFootsteps(inputX, inputY);
     }
     
     updateRoamingNPCs(deltaTime) {
@@ -2326,6 +2345,48 @@ class Game {
         };
         
         this.npcManager.updateRoamingNPCs(this.currentMapId, deltaTime, mapBounds);
+    }
+    
+    updateFootsteps(inputX, inputY) {
+        const isMoving = inputX !== 0 || inputY !== 0;
+        const currentTime = Date.now();
+        
+        if (isMoving) {
+            // Calculate step interval based on current speed
+            const currentSpeedType = this.isRunning ? 'Run' : 'Walk';
+            const currentSpeed = this.speedSettings[currentSpeedType];
+            
+            // Faster speed = shorter interval between steps
+            // Base interval (400ms for walking) divided by speed ratio
+            const speedMultiplier = currentSpeed / this.speedSettings['Walk'];
+            this.footsteps.stepInterval = this.footsteps.baseStepInterval / speedMultiplier;
+            
+            // Play footstep if enough time has passed
+            if (currentTime - this.footsteps.lastStepTime >= this.footsteps.stepInterval) {
+                this.playFootstep();
+                this.footsteps.lastStepTime = currentTime;
+            }
+            
+            this.footsteps.isPlaying = true;
+        } else {
+            // Stop footsteps when not moving
+            this.footsteps.isPlaying = false;
+        }
+    }
+    
+    playFootstep() {
+        if (this.audio.footstep && !this.settings.audioMuted) {
+            // Reset audio to beginning for rapid playback
+            this.audio.footstep.currentTime = 0;
+            
+            // Set volume based on effect volume settings
+            const effectVolume = (this.settings.effectVolume / 100) * (this.settings.masterVolume / 100);
+            this.audio.footstep.volume = effectVolume * 0.3; // 30% of effect volume for footsteps
+            
+            this.audio.footstep.play().catch(e => {
+                // Ignore errors (common with rapid audio playback)
+            });
+        }
     }
     
     updateSpiritRespawning() {
