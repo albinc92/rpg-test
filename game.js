@@ -163,6 +163,18 @@ class Game {
         // Animation timing
         this.gameTime = 0;
         
+        // FPS tracking
+        this.fps = {
+            current: 0,
+            min: Infinity,
+            max: 0,
+            lastTime: performance.now(),
+            frameCount: 0,
+            lastFpsUpdate: performance.now(),
+            graceFrames: 0,
+            graceFramesNeeded: 60 // Wait for 60 frames (~1 second) before tracking min/max
+        };
+        
         // Load saved settings before initializing
         this.loadSettings();
         
@@ -4226,7 +4238,19 @@ class Game {
         const minY = halfHeight;
         const maxY = this.currentMap.height - halfHeight;
         
+        // FPS display with grace period status
+        let fpsDisplay;
+        if (this.gameState !== 'PLAYING') {
+            fpsDisplay = 'FPS: Not tracking (menu/loading)';
+        } else if (this.fps.graceFrames <= this.fps.graceFramesNeeded) {
+            const remainingFrames = this.fps.graceFramesNeeded - this.fps.graceFrames;
+            fpsDisplay = `FPS: ${this.fps.current} (Stabilizing... ${remainingFrames} frames)`;
+        } else {
+            fpsDisplay = `FPS: ${this.fps.current} (Min: ${this.fps.min === Infinity ? '-' : this.fps.min} | Max: ${this.fps.max})`;
+        }
+        
         this.debug.innerHTML = `
+            ${fpsDisplay}<br>
             Player: (${Math.round(this.player.x)}, ${Math.round(this.player.y)})<br>
             Player Size: ${this.player.width}x${this.player.height}<br>
             Camera: (${Math.round(this.camera.x)}, ${Math.round(this.camera.y)})<br>
@@ -4256,6 +4280,38 @@ class Game {
     }
     
     gameLoop() {
+        // Only track FPS when actually playing the game
+        if (this.gameState === 'PLAYING') {
+            // Calculate FPS
+            const currentTime = performance.now();
+            const deltaTime = currentTime - this.fps.lastTime;
+            this.fps.lastTime = currentTime;
+            
+            // Calculate current FPS (1000ms / deltaTime gives FPS)
+            if (deltaTime > 0) {
+                const currentFps = 1000 / deltaTime;
+                this.fps.current = Math.round(currentFps);
+                
+                // Increment grace frame counter
+                this.fps.graceFrames++;
+                
+                // Only update min/max after grace period
+                if (this.fps.graceFrames > this.fps.graceFramesNeeded) {
+                    if (currentFps < this.fps.min) {
+                        this.fps.min = Math.round(currentFps);
+                    }
+                    if (currentFps > this.fps.max) {
+                        this.fps.max = Math.round(currentFps);
+                    }
+                }
+            }
+        } else {
+            // Reset grace period when not playing
+            this.fps.graceFrames = 0;
+            this.fps.min = Infinity;
+            this.fps.max = 0;
+        }
+        
         this.update();
         this.render();
         this.updateDebug();
