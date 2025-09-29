@@ -3656,39 +3656,32 @@ class Game {
         // Find the closest interactable NPC first
         const closestNPC = this.findClosestInteractableNPC();
         
-        // Collect all sprites (player + NPCs) with their Y coordinates
-        const sprites = [];
-        
-        // Add player to sprites list
-        sprites.push({
-            type: 'player',
-            y: this.player.y,
-            drawFunc: () => this.drawPlayerSprite()
-        });
-        
-        // Add NPCs to sprites list
+        // Get current map NPCs
         const currentMapNPCs = this.npcs[this.currentMapId] || [];
-        currentMapNPCs.forEach(npc => {
-            sprites.push({
-                type: 'npc',
-                y: npc.y,
-                npc: npc,
-                drawFunc: () => this.drawNPCSprite(npc, closestNPC)
-            });
-        });
         
-        // Sort sprites by Y coordinate (lower Y = drawn first = behind)
-        // Use bottom of sprite for sorting (y + height/2)
-        sprites.sort((a, b) => {
-            const aBottom = a.y + (a.type === 'player' ? this.player.height/2 : a.npc.height/2);
-            const bBottom = b.y + (b.type === 'player' ? this.player.height/2 : b.npc.height/2);
-            return aBottom - bBottom;
-        });
+        // Calculate player bottom for depth sorting
+        const playerBottom = this.player.y + this.player.height/2;
         
-        // Draw sprites in order
-        sprites.forEach(sprite => {
-            sprite.drawFunc();
-        });
+        // Draw NPCs that should be behind player
+        for (let i = 0; i < currentMapNPCs.length; i++) {
+            const npc = currentMapNPCs[i];
+            const npcBottom = npc.y + npc.height/2;
+            if (npcBottom <= playerBottom) {
+                this.drawNPCSprite(npc, closestNPC);
+            }
+        }
+        
+        // Draw player
+        this.drawPlayerSprite();
+        
+        // Draw NPCs that should be in front of player
+        for (let i = 0; i < currentMapNPCs.length; i++) {
+            const npc = currentMapNPCs[i];
+            const npcBottom = npc.y + npc.height/2;
+            if (npcBottom > playerBottom) {
+                this.drawNPCSprite(npc, closestNPC);
+            }
+        }
     }
     
     findClosestInteractableNPC() {
@@ -4132,8 +4125,16 @@ class Game {
         // Calculate bubble dimensions
         const lineHeight = 20;
         const bubbleHeight = (lines.length * lineHeight) + (padding * 2) + 30; // +30 for name
-        let bubbleWidth = Math.max(minWidth, Math.min(maxWidth, 
-            Math.max(...lines.map(line => this.ctx.measureText(line).width)) + (padding * 2)));
+        
+        // Find widest line without creating array
+        let maxLineWidth = 0;
+        for (let i = 0; i < lines.length; i++) {
+            const lineWidth = this.ctx.measureText(lines[i]).width;
+            if (lineWidth > maxLineWidth) {
+                maxLineWidth = lineWidth;
+            }
+        }
+        let bubbleWidth = Math.max(minWidth, Math.min(maxWidth, maxLineWidth + (padding * 2)));
         
         // Position above NPC's head
         const bubbleX = npcScreenX - bubbleWidth / 2;
