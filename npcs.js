@@ -186,7 +186,10 @@ class NPCManager {
             pauseTime: 2500,
             name: 'Sylphie',
             scale: 0.05, // Slightly smaller spirit
-            respawnDelay: 3000 // 3 seconds respawn time
+            respawnDelay: 3000, // 3 seconds respawn time
+            altitude: 25, // Hover 25 pixels above ground
+            floatingSpeed: 1.5, // Gentle floating animation
+            floatingRange: 10 // Float up and down 10 pixels
         });
     }
 
@@ -216,6 +219,11 @@ class NPCManager {
         // Set default scale if not provided
         if (npcData.scale === undefined) {
             npcData.scale = 0.1; // Default to original size
+        }
+        
+        // Set default altitude if not provided
+        if (npcData.altitude === undefined) {
+            npcData.altitude = 0; // Default to ground level
         }
         
         // Set temporary dimensions for collision detection until sprite loads
@@ -538,7 +546,12 @@ class NPCManager {
             // Visual properties for spirits
             baseAlpha: 0.7,
             pulseSpeed: 1.5,
-            glowEffect: true
+            glowEffect: true,
+            
+            // Altitude properties for hovering/flying
+            altitude: config.altitude || 20, // Default 20 pixels above ground
+            floatingSpeed: config.floatingSpeed || 2.0, // Speed of floating animation
+            floatingRange: config.floatingRange || 8 // Range of floating motion in pixels
         };
 
         // Load spirit sprite with dimension calculation

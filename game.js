@@ -3895,10 +3895,24 @@ class Game {
             
             const scaledWidth = npc.width * mapScale;
             const scaledHeight = npc.height * mapScale;
+            
+            // Calculate altitude offset with floating animation
+            let altitudeOffset = 0;
+            if (npc.altitude !== undefined && npc.altitude > 0) {
+                altitudeOffset = npc.altitude * mapScale;
+                
+                // Add floating animation if specified
+                if (npc.floatingSpeed && npc.floatingRange) {
+                    const floatingOffset = Math.sin(this.gameTime * npc.floatingSpeed) * (npc.floatingRange * mapScale);
+                    altitudeOffset += floatingOffset;
+                }
+            }
+            
             const npcScreenX = npc.x - scaledWidth / 2;
-            const npcScreenY = npc.y - scaledHeight / 2;
+            const npcScreenY = npc.y - scaledHeight / 2 - altitudeOffset;
             
             // Draw shadow first (behind spirit) - ethereal spirits cast faint shadows
+            // Note: Shadows stay on the ground level regardless of altitude
             this.ctx.save();
             this.ctx.globalAlpha = 0.15; // Very faint shadow for ethereal spirits
             this.ctx.shadowColor = 'transparent'; // Remove glow from shadow
@@ -3918,7 +3932,7 @@ class Game {
             // Note: Spirit sprites face left by default (like other NPCs)
             if (npc.direction === 'right') {
                 // Flip sprite horizontally for right-facing spirits
-                this.ctx.translate(npc.x, npc.y);
+                this.ctx.translate(npc.x, npc.y - altitudeOffset);
                 this.ctx.scale(-1, 1);
                 this.ctx.drawImage(npc.sprite, 
                                  -scaledWidth / 2, -scaledHeight / 2, 
@@ -3947,7 +3961,7 @@ class Game {
                 this.ctx.textAlign = 'center';
                 
                 const indicatorX = npc.x;
-                const indicatorY = npc.y - (scaledHeight / 2) - (20 * mapScale);
+                const indicatorY = npc.y - altitudeOffset - (scaledHeight / 2) - (20 * mapScale);
                 
                 this.ctx.strokeText('E', indicatorX, indicatorY);
                 this.ctx.fillText('E', indicatorX, indicatorY);
@@ -3957,8 +3971,21 @@ class Game {
             // Handle regular NPCs with map scaling
             const scaledWidth = npc.width * mapScale;
             const scaledHeight = npc.height * mapScale;
+            
+            // Calculate altitude offset with floating animation
+            let altitudeOffset = 0;
+            if (npc.altitude !== undefined && npc.altitude > 0) {
+                altitudeOffset = npc.altitude * mapScale;
+                
+                // Add floating animation if specified
+                if (npc.floatingSpeed && npc.floatingRange) {
+                    const floatingOffset = Math.sin(this.gameTime * npc.floatingSpeed) * (npc.floatingRange * mapScale);
+                    altitudeOffset += floatingOffset;
+                }
+            }
+            
             const npcScreenX = npc.x - scaledWidth / 2;
-            const npcScreenY = npc.y - scaledHeight / 2;
+            const npcScreenY = npc.y - scaledHeight / 2 - altitudeOffset;
             
             // Draw shadow first (behind NPC) - also scaled
             this.drawShadow(npc.x, npc.y, scaledWidth, scaledHeight);
@@ -3968,7 +3995,7 @@ class Game {
             
             if (npc.direction === 'left') {
                 // Flip sprite horizontally for left-facing NPCs
-                this.ctx.translate(npc.x, npc.y);
+                this.ctx.translate(npc.x, npc.y - altitudeOffset);
                 this.ctx.scale(-1, 1);
                 this.ctx.drawImage(npc.sprite, 
                                  -scaledWidth / 2, -scaledHeight / 2, 
@@ -3995,7 +4022,7 @@ class Game {
                 this.ctx.textAlign = 'center';
                 
                 const indicatorX = npc.x;
-                const indicatorY = npc.y - (scaledHeight / 2) - (20 * mapScale);
+                const indicatorY = npc.y - altitudeOffset - (scaledHeight / 2) - (20 * mapScale);
                 
                 this.ctx.strokeText('E', indicatorX, indicatorY);
                 this.ctx.fillText('E', indicatorX, indicatorY);
