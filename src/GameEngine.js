@@ -108,19 +108,45 @@ class GameEngine {
      * Setup canvas properties
      */
     setupCanvas() {
-        this.canvas.width = this.CANVAS_WIDTH;
-        this.canvas.height = this.CANVAS_HEIGHT;
+        // Get device pixel ratio for high DPI displays
+        const devicePixelRatio = window.devicePixelRatio || 1;
+        
+        // Set actual canvas size
+        this.canvas.width = this.CANVAS_WIDTH * devicePixelRatio;
+        this.canvas.height = this.CANVAS_HEIGHT * devicePixelRatio;
+        
+        // Set display size
+        this.canvas.style.width = this.CANVAS_WIDTH + 'px';
+        this.canvas.style.height = this.CANVAS_HEIGHT + 'px';
         this.canvas.style.cursor = 'none';
         
-        // Pixel-perfect rendering
-        this.ctx.imageSmoothingEnabled = false;
+        // Scale context for high DPI
+        this.ctx.scale(devicePixelRatio, devicePixelRatio);
+        
+        // Enable smooth rendering
+        this.ctx.imageSmoothingEnabled = true;
+        this.ctx.imageSmoothingQuality = 'high';
+        
+        // Improve text rendering
+        this.ctx.textBaseline = 'alphabetic';
+        this.ctx.textRendering = 'optimizeQuality';
         
         // Handle window resize
         window.addEventListener('resize', () => {
             this.CANVAS_WIDTH = window.innerWidth;
             this.CANVAS_HEIGHT = window.innerHeight;
-            this.canvas.width = this.CANVAS_WIDTH;
-            this.canvas.height = this.CANVAS_HEIGHT;
+            
+            const devicePixelRatio = window.devicePixelRatio || 1;
+            this.canvas.width = this.CANVAS_WIDTH * devicePixelRatio;
+            this.canvas.height = this.CANVAS_HEIGHT * devicePixelRatio;
+            this.canvas.style.width = this.CANVAS_WIDTH + 'px';
+            this.canvas.style.height = this.CANVAS_HEIGHT + 'px';
+            
+            this.ctx.scale(devicePixelRatio, devicePixelRatio);
+            this.ctx.imageSmoothingEnabled = true;
+            this.ctx.imageSmoothingQuality = 'high';
+            this.ctx.textBaseline = 'alphabetic';
+            this.ctx.textRendering = 'optimizeQuality';
         });
     }
     
