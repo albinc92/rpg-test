@@ -24,6 +24,13 @@ class GameObject {
         this.altitude = options.altitude || 0;
         this.castsShadow = options.castsShadow !== false; // Default true
         
+        // Collision properties
+        this.hasCollision = options.hasCollision !== false; // Default true
+        this.collisionPercent = options.collisionPercent || 0.8; // How much of the sprite is solid (0.0 to 1.0)
+        this.collisionOffsetY = options.collisionOffsetY || 0; // Vertical offset for collision box
+        this.blocksMovement = options.blocksMovement !== false; // Default true - whether this object blocks other objects
+        this.canBeBlocked = options.canBeBlocked !== false; // Default true - whether this object can be blocked by others
+        
         // Load sprite if provided
         if (this.spriteSrc) {
             this.loadSprite(this.spriteSrc);
@@ -108,7 +115,7 @@ class GameObject {
     }
     
     /**
-     * Get bounding box for collision detection
+     * Get bounding box for collision detection (full sprite bounds)
      */
     getBounds() {
         return {
@@ -120,7 +127,23 @@ class GameObject {
     }
     
     /**
-     * Check if this object intersects with another
+     * Get collision box (reduced bounds based on collisionPercent)
+     */
+    getCollisionBounds() {
+        const collisionWidth = this.width * this.collisionPercent;
+        const collisionHeight = this.height * this.collisionPercent;
+        const offsetY = this.collisionOffsetY;
+        
+        return {
+            left: this.x - collisionWidth / 2,
+            right: this.x + collisionWidth / 2,
+            top: this.y - collisionHeight / 2 + offsetY,
+            bottom: this.y + collisionHeight / 2 + offsetY
+        };
+    }
+    
+    /**
+     * Check if this object intersects with another (using full bounds)
      */
     intersects(other) {
         const thisBounds = this.getBounds();
@@ -130,6 +153,46 @@ class GameObject {
                 thisBounds.left > otherBounds.right ||
                 thisBounds.bottom < otherBounds.top ||
                 thisBounds.top > otherBounds.bottom);
+    }
+    
+    /**
+     * Check if this object's collision box intersects with another's collision box
+     */
+    collidesWith(other) {
+        if (!this.hasCollision || !other.hasCollision) return false;
+        
+        const thisBounds = this.getCollisionBounds();
+        const otherBounds = other.getCollisionBounds();
+        
+        return !(thisBounds.right < otherBounds.left ||
+                thisBounds.left > otherBounds.right ||
+                thisBounds.bottom < otherBounds.top ||
+                thisBounds.top > otherBounds.bottom);
+    }
+    
+    /**
+     * Check if this object would collide with another at a specific position
+     */
+    wouldCollideAt(x, y, other) {
+        if (!this.hasCollision || !other.hasCollision) return false;
+        if (!this.canBeBlocked || !other.blocksMovement) return false;
+        
+        // Temporarily store current position
+        const originalX = this.x;
+        const originalY = this.y;
+        
+        // Set test position
+        this.x = x;
+        this.y = y;
+        
+        // Check collision
+        const collision = this.collidesWith(other);
+        
+        // Restore original position
+        this.x = originalX;
+        this.y = originalY;
+        
+        return collision;
     }
     
     /**

@@ -23,7 +23,14 @@ class Game {
             acceleration: 0.5,
             friction: 0.8,
             maxSpeed: 2, // Will be set based on walk/run setting
-            gold: 100 // Starting gold amount
+            gold: 100, // Starting gold amount
+            
+            // Collision properties
+            hasCollision: true,
+            blocksMovement: true,
+            canBeBlocked: true,
+            collisionPercent: 0.25, // Player collision is bottom 25% of sprite (feet area)
+            collisionOffsetY: 15 // Collision box at bottom of sprite
         };
         
         // Camera properties
@@ -160,6 +167,9 @@ class Game {
         this.npcManager = new NPCManager();
         this.npcs = {}; // NPCs organized by map ID (will be populated by NPCManager)
         
+        // Interactive Object system
+        this.interactiveObjectManager = new InteractiveObjectManager();
+        
         // Item and Inventory system
         this.itemManager = new ItemManager();
         this.inventoryManager = new InventoryManager(this.itemManager);
@@ -275,6 +285,10 @@ class Game {
             this.player.sprite.onload = () => {
                 // Calculate width and height based on scale when sprite loads
                 this.npcManager.calculateSpriteDimensions(this.player);
+                
+                // Add collision methods to player
+                this.addCollisionMethodsToObject(this.player);
+                
                 resolve();
             };
         });
@@ -701,17 +715,21 @@ class Game {
     }
     
     checkNPCInteraction() {
-        // Use the same logic as the visual indicator - interact with the closest NPC
+        // First check for interactive objects (chests, portals via manual interaction)
+        const interactiveObj = this.interactiveObjectManager.checkNearbyInteractions(this.player, this.currentMapId);
+        
+        if (interactiveObj) {
+            const result = this.interactiveObjectManager.handleInteraction(interactiveObj, this.player, this);
+            this.handleInteractionResult(result);
+            return;
+        }
+        
+        // Then check for NPCs
         const npc = this.findClosestInteractableNPC();
         
         if (npc) {
             if (npc.type === 'teleporter') {
                 this.handleTeleporter(npc);
-            } else if (npc.type === 'portal') {
-                // Portals are handled automatically in checkPortalCollisions
-                return;
-            } else if (npc.type === 'chest') {
-                this.handleChest(npc);
             } else if (npc.type === 'spirit') {
                 // Spirits are decorative and don't have dialogue
                 console.log(`You see ${npc.name || 'a spirit'} floating nearby...`);
@@ -731,55 +749,137 @@ class Game {
         this.player.maxSpeed = this.speedSettings[currentSpeedType];
     }
     
-    checkNPCCollisions(newX, newY) {
-        const currentMapNPCs = this.npcs[this.currentMapId] || [];
-        const playerHalfWidth = this.player.width / 2;
-        const playerHalfHeight = this.player.height / 2;
+    /**
+     * Unified collision detection system - works with any GameObject
+     */
+    checkGameObjectCollisions(newX, newY, movingObject = this.player) {
+        // Get all objects that could block movement on current map
+        const allObjects = this.getAllGameObjectsOnMap(this.currentMapId);
         
-        for (let npc of currentMapNPCs) {
-            // Skip portals and spirits as they don't block movement
-            if (npc.type === 'portal' || npc.type === 'spirit') {
-                continue;
-            }
+        for (let obj of allObjects) {
+            // Skip self-collision
+            if (obj === movingObject) continue;
             
-            const npcHalfWidth = npc.width / 2;
-            const npcHalfHeight = npc.height / 2;
+            // Skip objects that don't block movement or aren't solid
+            if (!obj.blocksMovement || !obj.hasCollision) continue;
             
-            // Calculate collision boundaries
-            // Only the bottom portion blocks movement (simulate depth)
-            // For chests, use slightly more collision area (bottom 40%) since they're solid objects
-            const npcCollisionPercent = npc.type === 'chest' ? 0.5 : 0.33; // 40% for chests, 25% for NPCs
-            const npcCollisionTop = npc.y + npcHalfHeight - (npc.height * npcCollisionPercent);
-            const npcCollisionBottom = npc.y + npcHalfHeight;
-            const npcCollisionLeft = npc.x - npcHalfWidth;
-            const npcCollisionRight = npc.x + npcHalfWidth;
+            // Skip if moving object can't be blocked
+            if (!movingObject.canBeBlocked) continue;
             
-            // Player collision area - only bottom 25% of sprite
-            const playerCollisionPercent = 0.25; // Bottom 25% of player sprite
-            const playerCollisionTop = newY + playerHalfHeight - (this.player.height * playerCollisionPercent);
-            const playerCollisionBottom = newY + playerHalfHeight;
-            const playerLeft = newX - playerHalfWidth;
-            const playerRight = newX + playerHalfWidth;
-            
-            // Check for collision between player's bottom 25% and NPC's collision area
-            if (playerRight > npcCollisionLeft && 
-                playerLeft < npcCollisionRight && 
-                playerCollisionBottom > npcCollisionTop && 
-                playerCollisionTop < npcCollisionBottom) {
-                
-                return { collides: true, npc: npc };
+            // Check collision using GameObject collision system
+            if (movingObject.wouldCollideAt(newX, newY, obj)) {
+                return { collides: true, object: obj };
             }
         }
         
-        return { collides: false, npc: null };
+        return { collides: false, object: null };
+    }
+
+    /**
+     * Get all GameObjects on a specific map (NPCs, interactive objects, etc.)
+     */
+    getAllGameObjectsOnMap(mapId) {
+        const allObjects = [];
+        
+        // Add NPCs (convert legacy NPCs to have collision properties if needed)
+        const currentMapNPCs = this.npcs[mapId] || [];
+        for (let npc of currentMapNPCs) {
+            // Add collision properties to legacy NPCs if they don't have them
+            if (npc.hasCollision === undefined) {
+                npc.hasCollision = true;
+                npc.blocksMovement = (npc.type !== 'spirit' && npc.type !== 'portal');
+                npc.canBeBlocked = true;
+                npc.collisionPercent = (npc.type === 'chest') ? 0.7 : 0.4;
+                npc.collisionOffsetY = (npc.type === 'chest') ? 5 : 10;
+                
+                // Add collision methods to legacy objects
+                this.addCollisionMethodsToObject(npc);
+            }
+            
+            // Only add objects that have collision enabled
+            if (npc.hasCollision && npc.blocksMovement) {
+                allObjects.push(npc);
+            }
+        }
+        
+        // Add interactive objects
+        const interactiveObjects = this.interactiveObjectManager.getObjectsForMap(mapId);
+        allObjects.push(...interactiveObjects.filter(obj => obj.hasCollision && obj.blocksMovement));
+        
+        // Add static objects if they exist
+        // TODO: Add static objects when implemented
+        
+        return allObjects;
+    }
+
+    /**
+     * Add collision methods to legacy game objects
+     */
+    addCollisionMethodsToObject(obj) {
+        obj.getCollisionBounds = function() {
+            const collisionWidth = this.width * this.collisionPercent;
+            const collisionHeight = this.height * this.collisionPercent;
+            const offsetY = this.collisionOffsetY;
+            
+            return {
+                left: this.x - collisionWidth / 2,
+                right: this.x + collisionWidth / 2,
+                top: this.y - collisionHeight / 2 + offsetY,
+                bottom: this.y + collisionHeight / 2 + offsetY
+            };
+        };
+        
+        obj.collidesWith = function(other) {
+            if (!this.hasCollision || !other.hasCollision) return false;
+            
+            const thisBounds = this.getCollisionBounds();
+            const otherBounds = other.getCollisionBounds();
+            
+            return !(thisBounds.right < otherBounds.left ||
+                    thisBounds.left > otherBounds.right ||
+                    thisBounds.bottom < otherBounds.top ||
+                    thisBounds.top > otherBounds.bottom);
+        };
+        
+        obj.wouldCollideAt = function(x, y, other) {
+            if (!this.hasCollision || !other.hasCollision) return false;
+            if (!this.canBeBlocked || !other.blocksMovement) return false;
+            
+            const originalX = this.x;
+            const originalY = this.y;
+            
+            this.x = x;
+            this.y = y;
+            
+            const collision = this.collidesWith(other);
+            
+            this.x = originalX;
+            this.y = originalY;
+            
+            return collision;
+        };
+    }
+
+    // Backwards compatibility - delegate to unified collision system
+    checkNPCCollisions(newX, newY) {
+        const result = this.checkGameObjectCollisions(newX, newY);
+        return { collides: result.collides, npc: result.object };
     }
 
     checkPortalCollisions() {
-        const portal = this.npcManager.checkPortalCollisions(this.player, this.currentMapId);
+        const portal = this.interactiveObjectManager.checkPortalCollisions(this.player, this.currentMapId);
         
         if (portal) {
-            // Automatically teleport
-            this.teleportToMap(portal.targetMap, portal.targetX, portal.targetY);
+            // Get spawn point from map
+            const targetMapData = this.mapManager.getMapData(portal.targetMap);
+            const spawnPoint = targetMapData?.spawnPoints[portal.spawnPoint] || targetMapData?.spawnPoints.default;
+            
+            if (spawnPoint) {
+                this.teleportToMap(portal.targetMap, spawnPoint.x, spawnPoint.y);
+            } else {
+                // Fallback to map center
+                this.teleportToMap(portal.targetMap, 400, 300);
+            }
         }
     }
     
@@ -928,6 +1028,82 @@ class Game {
         this.showLootWindow(lootedItems, goldAmount);
         
         console.log(`Chest ${chest.id} looted:`, chest.loot);
+    }
+    
+    /**
+     * Handle interaction results from interactive objects
+     */
+    handleInteractionResult(result) {
+        switch (result.type) {
+            case 'loot':
+                // Handle chest loot
+                this.handleChestLoot(result);
+                break;
+            case 'portal':
+                // Handle portal teleportation
+                this.handlePortalTeleport(result);
+                break;
+            case 'dialogue':
+                // Handle simple dialogue messages
+                this.showTemporaryMessage(result.message);
+                break;
+            case 'none':
+                // No interaction available
+                break;
+            default:
+                console.log('Unhandled interaction result:', result);
+        }
+    }
+    
+    /**
+     * Handle chest loot from interactive objects
+     */
+    handleChestLoot(result) {
+        const lootedItems = [];
+        
+        // Add items to inventory
+        if (result.items && result.items.length > 0) {
+            result.items.forEach(item => {
+                const success = this.inventoryManager.addItem(item.id, item.quantity || 1);
+                if (success) {
+                    lootedItems.push({
+                        id: item.id,
+                        name: this.itemManager.getItem(item.id)?.name || item.id,
+                        quantity: item.quantity || 1
+                    });
+                }
+            });
+        }
+        
+        // Add gold
+        if (result.gold > 0) {
+            this.addGold(result.gold);
+        }
+        
+        // Show loot window
+        this.showLootWindow(lootedItems, result.gold, result.message);
+    }
+    
+    /**
+     * Handle portal teleportation (for manual portal activation)
+     */
+    handlePortalTeleport(result) {
+        const targetMapData = this.mapManager.getMapData(result.targetMap);
+        const spawnPoint = targetMapData?.spawnPoints[result.spawnPoint] || targetMapData?.spawnPoints.default;
+        
+        if (spawnPoint) {
+            this.teleportToMap(result.targetMap, spawnPoint.x, spawnPoint.y);
+        } else {
+            this.teleportToMap(result.targetMap, 400, 300);
+        }
+    }
+    
+    /**
+     * Show a temporary message to the player
+     */
+    showTemporaryMessage(message) {
+        // You could implement a temporary message display system here
+        console.log(message);
     }
     
     showLootWindow(items, gold = 0, message = '') {
@@ -1139,7 +1315,8 @@ class Game {
             currentMapId: this.currentMapId,
             settings: { ...this.settings },
             gameStarted: this.gameStarted,
-            npcStates: this.npcManager.getNPCStates() // Save NPC states (like chest looted status)
+            npcStates: this.npcManager.getNPCStates(), // Save NPC states
+            interactiveObjectStates: this.interactiveObjectManager.getObjectStates() // Save interactive object states (chest looted, etc.)
         };
         
         try {
@@ -1192,9 +1369,14 @@ class Game {
             // Restore game state
             this.gameStarted = saveData.gameStarted;
             
-            // Restore NPC states (like chest looted status)
+            // Restore NPC states
             if (saveData.npcStates) {
                 this.npcManager.restoreNPCStates(saveData.npcStates);
+            }
+            
+            // Restore interactive object states (chest looted status, etc.)
+            if (saveData.interactiveObjectStates) {
+                this.interactiveObjectManager.restoreObjectStates(saveData.interactiveObjectStates);
             }
             
             // Load inventory
@@ -2325,6 +2507,9 @@ class Game {
         
         // Update roaming NPCs
         this.updateRoamingNPCs(deltaTime);
+        
+        // Update interactive objects (animations, effects, etc.)
+        this.interactiveObjectManager.updateObjects(this.currentMapId, deltaTime, this);
         
         // Update camera (Zelda-style camera system)
         this.updateCamera();
@@ -3750,6 +3935,53 @@ class Game {
                 this.drawNPCSprite(npc, closestNPC);
             }
         }
+        
+        // Draw interactive objects (chests, portals, etc.) with depth sorting
+        this.drawInteractiveObjects(playerBottom, closestNPC);
+    }
+    
+    drawInteractiveObjects(playerBottom, closestNPC) {
+        const interactiveObjects = this.interactiveObjectManager.getObjectsForMap(this.currentMapId);
+        
+        // Draw objects behind player first
+        for (let obj of interactiveObjects) {
+            const objBottom = obj.y + obj.height/2;
+            if (objBottom <= playerBottom) {
+                obj.render(this.ctx, this);
+                this.drawInteractiveObjectIndicator(obj, closestNPC);
+            }
+        }
+        
+        // Then draw objects in front of player
+        for (let obj of interactiveObjects) {
+            const objBottom = obj.y + obj.height/2;
+            if (objBottom > playerBottom) {
+                obj.render(this.ctx, this);
+                this.drawInteractiveObjectIndicator(obj, closestNPC);
+            }
+        }
+    }
+    
+    drawInteractiveObjectIndicator(obj, closestNPC) {
+        // Check if this is the closest interactable object
+        const closestInteractable = this.interactiveObjectManager.checkNearbyInteractions(this.player, this.currentMapId);
+        
+        if (closestInteractable && closestInteractable.id === obj.id) {
+            const mapScale = this.currentMap?.scale || 1.0;
+            
+            // Draw "E" indicator above object
+            this.ctx.save();
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+            this.ctx.lineWidth = 2 * mapScale;
+            this.ctx.font = `${Math.floor(24 * mapScale)}px Arial`;
+            this.ctx.textAlign = 'center';
+            
+            const indicatorY = obj.y - (obj.height/2) - (30 * mapScale);
+            this.ctx.strokeText('E', obj.x, indicatorY);
+            this.ctx.fillText('E', obj.x, indicatorY);
+            this.ctx.restore();
+        }
     }
     
     findClosestInteractableNPC() {
@@ -3761,8 +3993,8 @@ class Game {
         let closestDistance = Infinity;
         
         currentMapNPCs.forEach(npc => {
-            // Skip portals and spirits as they don't show interaction indicators
-            if (npc.type === 'portal' || npc.type === 'spirit') return;
+            // Skip portals, chests, and spirits as they don't show interaction indicators (handled by InteractiveObjectManager)
+            if (npc.type === 'portal' || npc.type === 'chest' || npc.type === 'spirit') return;
             
             const distance = Math.sqrt(
                 Math.pow(this.player.x - npc.x, 2) + 

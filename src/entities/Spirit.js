@@ -9,6 +9,9 @@ class Spirit extends Actor {
             maxSpeed: 80,
             behaviorType: 'roaming',
             altitude: 40, // Default floating altitude
+            blocksMovement: false, // Spirits are ethereal and don't block movement
+            canBeBlocked: false, // Spirits can phase through objects
+            collisionPercent: 0.3, // Smaller collision area for spirits
             ...options
         });
         

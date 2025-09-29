@@ -41,77 +41,7 @@ class NPCManager {
             ]
         });
 
-        // Portal from map 0-0 to 0-1
-        this.registerNPC({
-            id: 'portal_to_0-1',
-            type: 'portal',
-            mapId: '0-0',
-            x: 867,
-            y: 156,
-            scale: 0.1, // Slightly smaller than original
-            spriteSrc: 'assets/npc/navigation-0.png',
-            rotation: 310,
-            targetMap: '0-1',
-            targetX: 535,
-            targetY: 865,
-            pulseSpeed: 2.0,
-            baseAlpha: 0.7,
-            pulseAlpha: 0.3
-        });
-
-        // Portal from map 0-1 to 0-0
-        this.registerNPC({
-            id: 'portal_to_0-0',
-            type: 'portal',
-            mapId: '0-1',
-            x: 475,
-            y: 960,
-            scale: 0.1, // Slightly smaller than original
-            spriteSrc: 'assets/npc/navigation-0.png',
-            rotation: 225,
-            targetMap: '0-0',
-            targetX: 900,
-            targetY: 200,
-            pulseSpeed: 2.0,
-            baseAlpha: 0.7,
-            pulseAlpha: 0.3
-        });
-
-        // Door portal from map 0-1 to shop
-        this.registerNPC({
-            id: 'portal_to_shop',
-            type: 'portal',
-            mapId: '0-1',
-            x: 695,
-            y: 515,
-            scale: 0.1, // Slightly smaller than original
-            spriteSrc: 'assets/npc/door-0.png',
-            rotation: 0,
-            targetMap: '0-1-shop',
-            targetX: 400,
-            targetY: 300,
-            pulseSpeed: 2.0,
-            baseAlpha: 0.7,
-            pulseAlpha: 0.3
-        });
-
-        // Return portal from shop to map 0-1
-        this.registerNPC({
-            id: 'portal_from_shop',
-            type: 'portal',
-            mapId: '0-1-shop',
-            x: 400,
-            y: 200,
-            scale: 0.1, // Slightly smaller than original
-            spriteSrc: 'assets/npc/door-0.png',
-            rotation: 0,
-            targetMap: '0-1',
-            targetX: 695,
-            targetY: 600,
-            pulseSpeed: 2.0,
-            baseAlpha: 0.7,
-            pulseAlpha: 0.3
-        });
+        // Portals are now managed by InteractiveObjectManager
 
         // Shop Keeper NPC
         this.registerNPC({
@@ -141,43 +71,7 @@ class NPCManager {
             }
         });
 
-        // Register treasure chests using the chest helper method
-        this.createTreasureChest('treasure_chest_1', '0-0', 1200, 400, {
-            gold: 75,
-            items: [
-                'health_potion:3',
-                'iron_sword:1',
-                'iron_ore:5'
-            ]
-        });
-
-        this.createTreasureChest('treasure_chest_2', '0-1', 300, 700, {
-            gold: 150,
-            items: [
-                'mana_potion:2',
-                'leather_armor:1',
-                'magic_scroll:1',
-                'iron_ore:8'
-            ]
-        });
-
-        // More treasure chests for testing
-        this.createTreasureChest('treasure_chest_3', '0-0', 500, 800, {
-            gold: 50,
-            items: [
-                'health_potion:2',
-                'mana_potion:1'
-            ]
-        });
-
-        this.createTreasureChest('treasure_chest_4', '0-1', 800, 300, {
-            gold: 200,
-            items: [
-                'iron_sword:1',
-                'leather_armor:1',
-                'iron_ore:15'
-            ]
-        });
+        // Treasure chests are now managed by InteractiveObjectManager
 
         // Create Sylphie - the roaming spirit NPC
         this.createRoamingSpirit('sylphie', '0-0', 600, 400, {
@@ -312,32 +206,7 @@ class NPCManager {
         return null;
     }
 
-    /**
-     * Check for portal collisions (automatic teleportation)
-     * @param {object} player - Player object with x, y, width, height
-     * @param {string} mapId - Current map ID
-     * @returns {object|null} Portal NPC if collision detected, null otherwise
-     */
-    checkPortalCollisions(player, mapId) {
-        const mapNPCs = this.getNPCsForMap(mapId);
-        
-        for (let npc of mapNPCs) {
-            if (npc.type === 'portal') {
-                const distance = Math.sqrt(
-                    Math.pow(player.x - npc.x, 2) + 
-                    Math.pow(player.y - npc.y, 2)
-                );
-                
-                // Check if player is touching the portal (collision detection)
-                const collisionDistance = (npc.width + player.width) / 4; // Smaller collision area
-                if (distance <= collisionDistance) {
-                    return npc;
-                }
-            }
-        }
-        
-        return null;
-    }
+    // Portal collision checking is now handled by InteractiveObjectManager
 
     /**
      * Start dialogue with an NPC
@@ -407,20 +276,19 @@ class NPCManager {
     }
 
     /**
-     * Get NPC states for saving (e.g., chest looted status)
+     * Get NPC states for saving
      * @returns {object} Object with NPC states
      */
     getNPCStates() {
         const states = {};
         
         this.npcRegistry.forEach((npc, id) => {
-            // Save states for NPCs that can change
-            if (npc.type === 'chest') {
-                states[id] = {
-                    looted: npc.looted || false
-                };
-            }
-            // Add other NPC types that need state saving here
+            // Save states for NPCs that can change (dialogue progress, mood, etc.)
+            states[id] = {
+                currentMessageIndex: npc.currentMessageIndex || 0,
+                mood: npc.mood || 'neutral',
+                faction: npc.faction || null
+            };
         });
         
         return states;
@@ -435,71 +303,14 @@ class NPCManager {
         
         Object.entries(states).forEach(([npcId, state]) => {
             const npc = this.npcRegistry.get(npcId);
-            if (npc && npc.type === 'chest') {
-                npc.looted = state.looted || false;
-                // Switch to open sprite if chest was looted
-                if (npc.looted && npc.openSprite && npc.openSprite.complete) {
-                    npc.sprite = npc.openSprite;
-                }
+            if (npc) {
+                npc.currentMessageIndex = state.currentMessageIndex || 0;
+                npc.mood = state.mood || npc.mood;
+                npc.faction = state.faction || npc.faction;
             }
-            // Add other NPC types that need state restoration here
         });
         
         console.log('NPC states restored');
-    }
-
-    /**
-     * Helper method to create treasure chests easily
-     * @param {string} id - Unique chest ID
-     * @param {string} mapId - Map where chest appears
-     * @param {number} x - X position
-     * @param {number} y - Y position
-     * @param {object} loot - Loot configuration
-     * @param {number} loot.gold - Gold amount
-     * @param {array} loot.items - Array of item strings in format 'itemId:quantity'
-     */
-    createTreasureChest(id, mapId, x, y, loot = {}) {
-        // Parse items from string format to object format
-        const parsedItems = [];
-        if (loot.items && Array.isArray(loot.items)) {
-            loot.items.forEach(itemString => {
-                const [itemId, quantityStr] = itemString.split(':');
-                const quantity = parseInt(quantityStr) || 1;
-                parsedItems.push({ id: itemId.trim(), quantity });
-            });
-        }
-
-        // Create the chest NPC with both closed and open sprites
-        const chestNPC = {
-            id: id,
-            type: 'chest',
-            mapId: mapId,
-            x: x,
-            y: y,
-            scale: 0.1, // Use original chest size
-            spriteSrc: 'assets/npc/chest-0.png',
-            openSpriteSrc: 'assets/npc/chest-0-open.png',
-            direction: 'right',
-            looted: false,
-            loot: {
-                gold: loot.gold || 0,
-                items: parsedItems
-            }
-        };
-
-        // Load both sprites with dimension calculation
-        chestNPC.sprite = new Image();
-        chestNPC.sprite.onload = () => {
-            this.calculateSpriteDimensions(chestNPC);
-        };
-        chestNPC.sprite.src = chestNPC.spriteSrc;
-        
-        chestNPC.openSprite = new Image();
-        chestNPC.openSprite.src = chestNPC.openSpriteSrc;
-
-        this.registerNPC(chestNPC);
-
-        console.log(`Created treasure chest ${id} on map ${mapId} at (${x}, ${y})`);
     }
 
     /**

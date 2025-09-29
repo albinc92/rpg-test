@@ -11,6 +11,8 @@ class Player extends Actor {
             friction: 0.8,
             health: 100,
             spriteSrc: 'assets/npc/main-0.png',
+            collisionPercent: 0.25, // Player collision is bottom 25% of sprite (feet area)
+            collisionOffsetY: 15, // Collision box at bottom of sprite
             ...options
         });
         

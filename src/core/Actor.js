@@ -4,7 +4,14 @@
  */
 class Actor extends GameObject {
     constructor(options = {}) {
-        super(options);
+        super({
+            hasCollision: true,
+            blocksMovement: true,
+            canBeBlocked: true,
+            collisionPercent: 0.4, // Actors typically use lower body for collision (40%)
+            collisionOffsetY: 10, // Collision box towards bottom of sprite (feet area)
+            ...options
+        });
         
         // Movement properties
         this.maxSpeed = options.maxSpeed || 200;

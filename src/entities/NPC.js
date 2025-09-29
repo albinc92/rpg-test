@@ -14,7 +14,7 @@ class NPC extends Actor {
         // NPC-specific properties
         this.id = options.id || `npc_${Date.now()}`;
         this.name = options.name || 'Unknown NPC';
-        this.type = options.type || 'dialogue'; // 'dialogue', 'merchant', 'portal', etc.
+        this.type = options.type || 'dialogue'; // 'dialogue', 'merchant', 'guard', etc.
         this.mapId = options.mapId || null;
         
         // Dialogue system
@@ -25,9 +25,9 @@ class NPC extends Actor {
         this.interactionRadius = options.interactionRadius || 80;
         this.canInteract = options.canInteract !== false;
         
-        // State tracking
-        this.hasBeenLooted = false;
-        this.isOpen = false;
+        // NPC state
+        this.mood = options.mood || 'neutral'; // 'friendly', 'neutral', 'hostile', etc.
+        this.faction = options.faction || null;
     }
     
     /**
@@ -122,12 +122,12 @@ class NPC extends Actor {
                 return this.handleDialogue(player, game);
             case 'merchant':
                 return this.handleMerchant(player, game);
-            case 'portal':
-                return this.handlePortal(player, game);
-            case 'chest':
-                return this.handleChest(player, game);
+            case 'guard':
+                return this.handleGuard(player, game);
+            case 'quest':
+                return this.handleQuest(player, game);
             default:
-                return { type: 'none' };
+                return this.handleDialogue(player, game); // Default to dialogue
         }
     }
     
@@ -152,36 +152,33 @@ class NPC extends Actor {
     handleMerchant(player, game) {
         return {
             type: 'merchant',
-            npc: this
+            npc: this,
+            message: this.getCurrentMessage() || "Welcome to my shop!"
         };
     }
     
     /**
-     * Handle portal interaction
+     * Handle guard interaction
      */
-    handlePortal(player, game) {
-        return {
-            type: 'portal',
-            targetMap: this.targetMap || '0-0'
-        };
-    }
-    
-    /**
-     * Handle chest interaction
-     */
-    handleChest(player, game) {
-        if (!this.hasBeenLooted) {
-            this.hasBeenLooted = true;
-            this.isOpen = true;
-            return {
-                type: 'loot',
-                items: this.loot || [],
-                gold: this.gold || 0
-            };
-        }
+    handleGuard(player, game) {
+        const message = this.getCurrentMessage() || "Halt! State your business.";
         return {
             type: 'dialogue',
-            message: "This chest is empty."
+            message: message,
+            hasMore: this.currentMessageIndex < this.messages.length - 1
+        };
+    }
+    
+    /**
+     * Handle quest interaction
+     */
+    handleQuest(player, game) {
+        const message = this.getCurrentMessage() || "I have a task for you...";
+        return {
+            type: 'quest',
+            message: message,
+            npc: this,
+            hasMore: this.currentMessageIndex < this.messages.length - 1
         };
     }
     
@@ -195,8 +192,8 @@ class NPC extends Actor {
             y: this.y,
             direction: this.direction,
             currentMessageIndex: this.currentMessageIndex,
-            hasBeenLooted: this.hasBeenLooted,
-            isOpen: this.isOpen
+            mood: this.mood,
+            faction: this.faction
         };
     }
     
@@ -208,7 +205,7 @@ class NPC extends Actor {
         this.y = state.y || this.y;
         this.direction = state.direction || this.direction;
         this.currentMessageIndex = state.currentMessageIndex || 0;
-        this.hasBeenLooted = state.hasBeenLooted || false;
-        this.isOpen = state.isOpen || false;
+        this.mood = state.mood || this.mood;
+        this.faction = state.faction || this.faction;
     }
 }
