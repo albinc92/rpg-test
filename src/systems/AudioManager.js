@@ -31,31 +31,90 @@ class AudioManager {
      * Setup audio activation on user gesture
      */
     setupAudioActivation() {
+        this.pendingAudio = []; // Queue for audio that should play when enabled
+        
         const enableAudio = () => {
             if (this.audioEnabled) return;
             
             // Resume audio context if needed
             if (this.audioContext && this.audioContext.state === 'suspended') {
                 this.audioContext.resume().then(() => {
-                    console.log('AudioContext resumed');
                     this.audioEnabled = true;
+                    this.processPendingAudio();
                 }).catch(e => {
-                    console.warn('Failed to resume AudioContext:', e);
+                    // Silently fail, user will just not get audio
+                    this.audioEnabled = true;
+                    this.processPendingAudio();
                 });
             } else {
                 this.audioEnabled = true;
+                this.processPendingAudio();
             }
-            
-            // Remove listeners after first activation
-            document.removeEventListener('keydown', enableAudio);
-            document.removeEventListener('click', enableAudio);
-            document.removeEventListener('touchstart', enableAudio);
         };
         
-        // Listen for user gestures
+        // Listen for ANY user interaction - be very aggressive
         document.addEventListener('keydown', enableAudio, { once: true });
+        document.addEventListener('keyup', enableAudio, { once: true });
         document.addEventListener('click', enableAudio, { once: true });
+        document.addEventListener('mousedown', enableAudio, { once: true });
         document.addEventListener('touchstart', enableAudio, { once: true });
+        document.addEventListener('touchend', enableAudio, { once: true });
+        
+        // Also try to enable on focus events
+        window.addEventListener('focus', enableAudio, { once: true });
+        
+        // Force enable audio after a short delay (some browsers allow this)
+        setTimeout(() => {
+            if (!this.audioEnabled) {
+                enableAudio();
+            }
+        }, 1000);
+    }
+    
+    /**
+     * Process queued audio that was waiting for user gesture
+     */
+    processPendingAudio() {
+        if (!this.audioEnabled || this.pendingAudio.length === 0) return;
+        
+        this.pendingAudio.forEach(pendingItem => {
+            if (pendingItem.type === 'effect') {
+                this.playEffect(pendingItem.soundId, pendingItem.volume, pendingItem.loop);
+            } else if (pendingItem.type === 'bgm') {
+                this.playBGM(pendingItem.src, pendingItem.volume, pendingItem.fadeTime);
+            } else if (pendingItem.type === 'ambience') {
+                this.playAmbience(pendingItem.src, pendingItem.volume, pendingItem.fadeTime);
+            }
+        });
+        
+        this.pendingAudio = []; // Clear the queue
+    }
+    
+    /**
+     * Try to force enable audio (for important cases like menu music)
+     */
+    tryForceEnableAudio() {
+        if (this.audioEnabled) return;
+        
+        // Try to create and play a silent audio to trigger permission
+        try {
+            const silentAudio = new Audio();
+            silentAudio.volume = 0;
+            silentAudio.muted = true;
+            
+            // Try to play silent audio - this might enable audio context
+            const playPromise = silentAudio.play();
+            if (playPromise) {
+                playPromise.then(() => {
+                    this.audioEnabled = true;
+                    this.processPendingAudio();
+                }).catch(() => {
+                    // Silent fail - user still needs to interact
+                });
+            }
+        } catch (e) {
+            // Silent fail - user still needs to interact
+        }
     }
     
     /**
@@ -84,15 +143,18 @@ class AudioManager {
      * Play a sound effect
      */
     async playEffect(soundId, volume = 1.0, loop = false) {
-        console.log(`AudioManager: playEffect called with soundId: ${soundId}`);
-        
         if (this.isMuted) {
-            console.log('AudioManager: Audio is muted, not playing');
             return null;
         }
         
         if (!this.audioEnabled) {
-            console.log('AudioManager: Audio not enabled yet, waiting for user gesture');
+            // Queue the audio to play when enabled, but don't wait
+            this.pendingAudio.push({
+                type: 'effect',
+                soundId: soundId,
+                volume: volume,
+                loop: loop
+            });
             return null;
         }
         
@@ -111,7 +173,7 @@ class AudioManager {
                 if (commonSounds[soundId]) {
                     audio = await this.loadAudio(commonSounds[soundId], soundId);
                 } else {
-                    console.warn(`Sound not found: ${soundId}`);
+                    // Sound not found, fail silently
                     return null;
                 }
             }
@@ -121,20 +183,18 @@ class AudioManager {
             audioClone.volume = volume * this.effectsVolume * this.masterVolume;
             audioClone.loop = loop;
             
-            console.log(`AudioManager: Playing sound ${soundId} with volume ${audioClone.volume}`);
+            // Playing sound effect
             
             const playPromise = audioClone.play();
             if (playPromise) {
                 return playPromise.catch(e => {
-                    console.error('Audio play failed:', e);
-                    console.error('Sound ID:', soundId);
-                    console.error('Audio source:', audio.src);
+                    // Audio play failed silently
                 });
             }
             
             return audioClone;
         } catch (error) {
-            console.warn('Failed to play sound effect:', error);
+            // Failed to play sound effect silently
             return null;
         }
     }
@@ -143,15 +203,21 @@ class AudioManager {
      * Play background music with crossfade
      */
     async playBGM(src, volume = 1.0, fadeTime = 1000) {
-        console.log(`AudioManager: playBGM called with src: ${src}`);
-        
         if (this.isMuted) {
-            console.log('AudioManager: BGM muted, not playing');
             return;
         }
         
         if (!this.audioEnabled) {
-            console.log('AudioManager: Audio not enabled for BGM');
+            // Queue BGM to play when enabled
+            this.pendingAudio.push({
+                type: 'bgm',
+                src: src,
+                volume: volume,
+                fadeTime: fadeTime
+            });
+            
+            // Try to force enable audio for important BGM (like menu music)
+            this.tryForceEnableAudio();
             return;
         }
         
@@ -177,7 +243,7 @@ class AudioManager {
             this.fadeIn(bgmClone, volume * this.musicVolume * this.masterVolume, fadeTime);
             
         } catch (error) {
-            console.warn('Failed to play BGM:', error);
+            // Failed to play BGM silently
         }
     }
     
@@ -195,15 +261,18 @@ class AudioManager {
      * Play ambient sound with crossfade
      */
     async playAmbience(src, volume = 1.0, fadeTime = 2000) {
-        console.log(`AudioManager: playAmbience called with src: ${src}`);
-        
         if (this.isMuted) {
-            console.log('AudioManager: Ambience muted, not playing');
             return;
         }
         
         if (!this.audioEnabled) {
-            console.log('AudioManager: Audio not enabled for ambience');
+            // Queue ambience to play when enabled
+            this.pendingAudio.push({
+                type: 'ambience',
+                src: src,
+                volume: volume,
+                fadeTime: fadeTime
+            });
             return;
         }
         
@@ -229,7 +298,7 @@ class AudioManager {
             this.fadeIn(ambienceClone, volume * this.ambienceVolume * this.masterVolume, fadeTime);
             
         } catch (error) {
-            console.warn('Failed to play ambience:', error);
+            // Failed to play ambience silently
         }
     }
     

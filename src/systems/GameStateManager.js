@@ -266,17 +266,40 @@ class MainMenuState extends GameState {
     enter() {
         this.selectedOption = 0;
         this.options = ['New Game', 'Continue', 'Settings', 'Exit'];
+        this.musicStarted = false;
         
         // Stop all gameplay audio when entering main menu
         if (this.game.audioManager) {
             this.game.audioManager.stopBGM(500); // Quick fade out
             this.game.audioManager.stopAmbience(500); // Quick fade out
             
-            // Play main menu theme music
-            this.game.audioManager.playBGM('assets/audio/bgm/00.mp3', 0.6, 1000);
+            // Try to play main menu theme music immediately
+            this.startMenuMusic();
         }
         
         console.log('Entered main menu - stopped all gameplay audio');
+    }
+    
+    startMenuMusic() {
+        if (this.musicStarted) return;
+        
+        // Try multiple approaches to start the music
+        this.game.audioManager.playBGM('assets/audio/bgm/00.mp3', 0.6, 1000);
+        this.musicStarted = true;
+        
+        // If audio wasn't enabled, set up a one-time listener for any interaction
+        if (!this.game.audioManager.audioEnabled) {
+            const enableAndPlay = () => {
+                if (this.game.audioManager.audioEnabled) {
+                    this.game.audioManager.playBGM('assets/audio/bgm/00.mp3', 0.6, 1000);
+                    document.removeEventListener('keydown', enableAndPlay);
+                    document.removeEventListener('click', enableAndPlay);
+                }
+            };
+            
+            document.addEventListener('keydown', enableAndPlay, { once: true });
+            document.addEventListener('click', enableAndPlay, { once: true });
+        }
     }
     
     exit() {
@@ -288,6 +311,11 @@ class MainMenuState extends GameState {
     }
     
     handleInput(inputManager) {
+        // Ensure music starts on first interaction
+        if (!this.game.audioManager.audioEnabled) {
+            this.startMenuMusic();
+        }
+        
         if (inputManager.isJustPressed('up')) {
             this.selectedOption = Math.max(0, this.selectedOption - 1);
             this.game.audioManager?.playEffect('menu-navigation');
@@ -338,6 +366,13 @@ class MainMenuState extends GameState {
             ctx.fillStyle = index === this.selectedOption ? '#ff0' : '#fff';
             ctx.fillText(option, canvasWidth / 2, 350 + index * 50);
         });
+        
+        // Show subtle audio hint if audio isn't enabled yet
+        if (this.game.audioManager && !this.game.audioManager.audioEnabled) {
+            ctx.fillStyle = '#666';
+            ctx.font = '14px Arial';
+            ctx.fillText('Audio will start with your first interaction', canvasWidth / 2, canvasHeight - 30);
+        }
     }
 }
 
