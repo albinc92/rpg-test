@@ -268,98 +268,59 @@ class MainMenuState extends GameState {
         this.options = ['New Game', 'Continue', 'Settings', 'Exit'];
         this.musicStarted = false;
         
-        // Always stop gameplay audio and start menu music when entering
-        // (resume() method will handle returns from pushed states)
-        if (this.game.audioManager) {
-            this.game.audioManager.stopBGM(500); // Quick fade out
-            this.game.audioManager.stopAmbience(500); // Quick fade out
-            
-            // Start menu music
-            this.startMenuMusic();
-        }
+        // Check if we're entering fresh or returning from a pushed state
+        const returningFromSettings = this.stateManager.stateStack.length > 0;
         
-        console.log('Entered main menu - starting fresh');
+        if (returningFromSettings) {
+            console.log('🔄 RETURNING TO MAIN MENU FROM SETTINGS - NOT TOUCHING BGM');
+            // Don't do ANYTHING with BGM, it should already be playing
+        } else {
+            console.log('🆕 ENTERING MAIN MENU FRESH - STARTING BGM');
+            // Fresh entry, start the music (and stop any gameplay music)
+            if (this.game.audioManager) {
+                // Only stop BGM if we're coming from gameplay, not from settings
+                this.game.audioManager.stopAmbience(500); 
+                this.startMenuMusic();
+            }
+        }
     }
     
     startMenuMusic() {
         if (this.musicStarted) return;
         
-        // Try multiple approaches to start the music
-        this.game.audioManager.playBGM('assets/audio/bgm/00.mp3', 0.6, 1000);
+        // Use new AudioManager API - just pass the filename
+        this.game.audioManager.playBGM('00.mp3');
         this.musicStarted = true;
-        
-        // If audio wasn't enabled, set up a one-time listener for any interaction
-        if (!this.game.audioManager.audioEnabled) {
-            const enableAndPlay = () => {
-                if (this.game.audioManager.audioEnabled) {
-                    this.game.audioManager.playBGM('assets/audio/bgm/00.mp3', 0.6, 1000);
-                    document.removeEventListener('keydown', enableAndPlay);
-                    document.removeEventListener('click', enableAndPlay);
-                }
-            };
-            
-            document.addEventListener('keydown', enableAndPlay, { once: true });
-            document.addEventListener('click', enableAndPlay, { once: true });
-        }
     }
     
-    ensureMenuMusicPlaying() {
-        // Check if the correct main menu music is playing
-        if (this.game.audioManager && this.game.audioManager.audioEnabled) {
-            // If no BGM is playing, or it's not the menu music, start it
-            if (!this.game.audioManager.currentBGM) {
-                this.startMenuMusic();
-            }
-        }
-    }
+    // REMOVED ensureMenuMusicPlaying - was causing duplicate BGM
     
     resume() {
         // Called when returning from a pushed state like Settings
-        // Check if we need to restart the menu music
-        console.log('Main menu resumed - checking music state');
+        // DON'T restart BGM - it should continue playing from where it was
+        console.log('Main menu resumed - BGM should continue playing');
         
-        // If audio was muted and then unmuted in settings, we need to restart menu music
-        if (this.game.audioManager && !this.game.audioManager.isMuted) {
-            // If no BGM is currently playing, or it's paused, start/restart menu music
-            if (!this.game.audioManager.currentBGM || 
-                this.game.audioManager.currentBGM.paused ||
-                this.game.audioManager.currentBGM.volume === 0) {
-                console.log('Restarting main menu BGM after settings');
-                this.musicStarted = false; // Reset flag so we can start music again
-                this.startMenuMusic();
-            } else {
-                // Music is playing, just ensure it's at the right volume
-                this.ensureMenuMusicPlaying();
-            }
-        }
+        // Do nothing - the main menu BGM should already be playing
+        // The AudioManager handles volume changes from settings
     }
     
     exit() {
-        // Stop menu audio when leaving main menu
-        console.log('🚪 MAIN MENU EXIT CALLED - STOPPING BGM');
-        if (this.game.audioManager) {
-            this.game.audioManager.stopBGM(0); // Stop immediately, no fade
-        }
-        console.log('🚪 MAIN MENU EXITED');
+        // DON'T STOP BGM - let the AudioManager handle crossfading when new BGM is requested
+        console.log('🚪 MAIN MENU EXITED - letting AudioManager handle crossfade');
     }
     
     handleInput(inputManager) {
-        console.log('🚨 MainMenuState.handleInput called! Current state:', this.stateManager.getCurrentState());
-        
-        // Ensure music starts on first interaction
-        if (!this.game.audioManager.audioEnabled) {
-            console.log('🚨 STARTING MAIN MENU MUSIC FROM HANDLEINPUT!');
-            this.startMenuMusic();
-        }
+        // DON'T restart music on input - it should already be playing
+        // Only start music when ENTERING main menu, not on every input
         
         if (inputManager.isJustPressed('up')) {
             this.selectedOption = Math.max(0, this.selectedOption - 1);
-            this.game.audioManager?.playEffect('menu-navigation');
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
         }
         
         if (inputManager.isJustPressed('down')) {
             this.selectedOption = Math.min(this.options.length - 1, this.selectedOption + 1);
-            this.game.audioManager?.playEffect('menu-navigation');
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
         }
         
         if (inputManager.isJustPressed('confirm')) {
@@ -542,12 +503,12 @@ class SettingsState extends GameState {
         
         if (inputManager.isJustPressed('up')) {
             this.selectedOption = Math.max(0, this.selectedOption - 1);
-            this.game.audioManager?.playEffect('menu-navigation');
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
         }
         
         if (inputManager.isJustPressed('down')) {
             this.selectedOption = Math.min(this.options.length - 1, this.selectedOption + 1);
-            this.game.audioManager?.playEffect('menu-navigation');
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
         }
         
         if (inputManager.isJustPressed('left')) {
@@ -579,7 +540,7 @@ class SettingsState extends GameState {
             
             // Play a test sound for volume adjustment feedback
             if (option.key === 'effectsVolume' || option.key === 'masterVolume') {
-                this.game.audioManager?.playEffect('menu-navigation');
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
             }
         } else if (option.type === 'toggle') {
             settings[option.key] = !settings[option.key];
