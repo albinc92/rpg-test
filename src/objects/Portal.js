@@ -117,7 +117,7 @@ class Portal extends InteractiveObject {
         
         // Play portal sound
         if (game.audioManager) {
-            game.audioManager.playEffect('portal-travel');
+            game.audioManager.playEffect('coin.mp3');
         }
         
         return {

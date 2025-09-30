@@ -69,7 +69,7 @@ class Chest extends InteractiveObject {
         
         // Play chest opening sound
         if (game.audioManager) {
-            game.audioManager.playEffect('chest-open');
+            game.audioManager.playEffect('coin.mp3');
         }
         
         // Give loot to player

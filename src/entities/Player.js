@@ -60,7 +60,7 @@ class Player extends Actor {
             
             if (this.footstepTimer <= 0) {
                 // Play footstep sound
-                game.audioManager?.playEffect('footstep', 0.3);
+                game.audioManager?.playEffect('footstep-0.mp3', 0.3);
                 
                 // Set next footstep interval based on speed
                 const speedMultiplier = this.isRunning ? 0.7 : 1.0; // Faster footsteps when running

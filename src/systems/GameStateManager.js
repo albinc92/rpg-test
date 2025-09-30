@@ -613,14 +613,18 @@ class SettingsState extends GameState {
         const audioManager = this.game.audioManager;
         
         if (audioManager) {
-            // Convert percentage to 0-1 range
+            // Convert percentage to 0-1 range and use correct method names
             audioManager.setMasterVolume(settings.masterVolume / 100);
-            audioManager.setMusicVolume(settings.musicVolume / 100);
-            audioManager.setEffectsVolume(settings.effectsVolume / 100);
+            audioManager.setBGMVolume(settings.musicVolume / 100);
+            audioManager.setEffectVolume(settings.effectsVolume / 100);
             audioManager.setMuted(settings.isMuted);
             
-            // Don't call updateAllVolumes() here since setMuted() already handles it
-            // and we don't want to interfere with the muting process
+            console.log('[SettingsState] ✅ Audio settings applied:', {
+                master: settings.masterVolume / 100,
+                bgm: settings.musicVolume / 100,
+                effects: settings.effectsVolume / 100,
+                muted: settings.isMuted
+            });
         }
     }
     

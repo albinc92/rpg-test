@@ -164,11 +164,23 @@ class GameEngine {
      * Start the main game loop
      */
     startGameLoop() {
-        // Add pause control with P key
+        // Add pause control with P key and debug controls
         document.addEventListener('keydown', (e) => {
             if (e.code === 'KeyP') {
                 this.isPaused = !this.isPaused;
                 console.log(`Game ${this.isPaused ? 'PAUSED' : 'UNPAUSED'}`);
+            }
+            
+            // F5 - Clear audio cache and debug
+            if (e.code === 'F5') {
+                this.audioManager.clearAudioCache();
+                this.debugAudioAssignments();
+                console.log('Audio cache cleared! Refresh the page for fresh audio.');
+            }
+            
+            // F6 - Debug audio assignments
+            if (e.code === 'F6') {
+                this.debugAudioAssignments();
             }
         });
         
@@ -355,7 +367,7 @@ class GameEngine {
         if (npc.type === 'merchant') {
             this.stateManager.pushState('SHOP', { npc: npc });
         } else {
-            this.npcManager.startDialogue(npc, () => this.audioManager.playEffect('speech-bubble'));
+            this.npcManager.startDialogue(npc, () => this.audioManager.playEffect('speech-bubble.mp3'));
             this.stateManager.pushState('DIALOGUE', { npc: npc });
         }
     }
@@ -392,6 +404,12 @@ class GameEngine {
             throw new Error(`Map not found: ${mapId}`);
         }
         
+        // Check if we're loading a different map
+        const previousMapId = this.currentMapId;
+        const isDifferentMap = previousMapId !== mapId;
+        
+        console.log('🗺️ Loading map:', mapId, 'Previous:', previousMapId, 'Different:', isDifferentMap);
+        
         // Load map image
         await this.mapManager.loadMap(mapId);
         
@@ -401,17 +419,23 @@ class GameEngine {
         // Load interactive objects for this map
         this.interactiveObjectManager.loadObjectsForMap(mapId);
         
-        // Load map music
+        // Handle BGM - extract just the filename from the full path
+        let bgmFilename = null;
         if (mapData.music) {
-            this.audioManager.playBGM(mapData.music);
+            bgmFilename = mapData.music.split('/').pop(); // Get just the filename like '01.mp3'
         }
         
-        // Load map ambient sound
+        console.log('🎵 Requesting BGM:', bgmFilename);
+        this.audioManager.playBGM(bgmFilename); // AudioManager handles duplicate detection
+        
+        // Handle Ambience - extract just the filename from the full path
+        let ambienceFilename = null;
         if (mapData.ambience) {
-            this.audioManager.playAmbience(mapData.ambience);
+            ambienceFilename = mapData.ambience.split('/').pop(); // Get just the filename like 'forest-0.mp3'
         }
         
-        console.log(`Loaded map: ${mapId}`);
+        console.log('🌲 Requesting Ambience:', ambienceFilename);
+        this.audioManager.playAmbience(ambienceFilename); // AudioManager handles duplicate detection        console.log(`Loaded map: ${mapId}`);
     }
     
     /**
@@ -713,13 +737,85 @@ class GameEngine {
     applyAudioSettings() {
         if (this.audioManager) {
             this.audioManager.setMasterVolume(this.settings.masterVolume / 100);
-            this.audioManager.setMusicVolume(this.settings.musicVolume / 100);
-            this.audioManager.setEffectsVolume(this.settings.effectsVolume / 100);
-            this.audioManager.isMuted = this.settings.isMuted;
-            this.audioManager.updateAllVolumes();
+            this.audioManager.setBGMVolume(this.settings.musicVolume / 100);
+            this.audioManager.setEffectVolume(this.settings.effectsVolume / 100);
+            this.audioManager.setMuted(this.settings.isMuted);
+            console.log('[GameEngine] ✅ Audio settings applied:', {
+                master: this.settings.masterVolume / 100,
+                bgm: this.settings.musicVolume / 100,
+                effects: this.settings.effectsVolume / 100,
+                muted: this.settings.isMuted
+            });
         }
+    }
+    
+    /**
+     * Debug method to check what audio should be playing
+     */
+    debugAudioAssignments() {
+        console.log('=== AUDIO DEBUG ===');
+        console.log('Main Menu BGM should be: assets/audio/bgm/00.mp3');
+        
+        const mapData0_0 = this.mapManager.getMapData('0-0');
+        const mapData0_1 = this.mapManager.getMapData('0-1');
+        
+        console.log('Map 0-0 BGM should be:', mapData0_0?.music || 'NOT FOUND');
+        console.log('Map 0-1 BGM should be:', mapData0_1?.music || 'NOT FOUND');
+        console.log('Current State:', this.stateManager.getCurrentState());
+        console.log('Audio Enabled:', this.audioManager.audioEnabled);
+        console.log('Audio Muted:', this.audioManager.isMuted);
+        console.log('==================');
     }
 }
 
 // Export for use
 window.GameEngine = GameEngine;
+
+// Global debug methods
+window.debugAudio = function() {
+    if (window.game) {
+        window.game.debugAudioAssignments();
+    } else {
+        console.log('Game not loaded yet');
+    }
+};
+
+window.clearAudioCache = function() {
+    if (window.game && window.game.audioManager) {
+        window.game.audioManager.clearAudioCache();
+        console.log('Audio cache cleared! Please refresh the page.');
+    } else {
+        console.log('AudioManager not available');
+    }
+};
+
+window.forceCorrectAudio = function() {
+    if (window.game && window.game.audioManager) {
+        window.game.audioManager.clearAudioCache();
+        // Force reload main menu music
+        setTimeout(() => {
+            window.game.audioManager.playBGM('00.mp3');
+            console.log('Forced main menu music reload');
+        }, 500);
+    }
+};
+
+window.testAudio = function() {
+    if (window.game && window.game.audioManager) {
+        console.log('=== AUDIO TEST ===');
+        console.log('Audio enabled:', window.game.audioManager.audioEnabled);
+        console.log('Audio muted:', window.game.audioManager.isMuted);
+        console.log('Pending audio queue length:', window.game.audioManager.pendingAudio?.length || 0);
+        
+        // Test sound effect
+        window.game.audioManager.playEffect('menu-navigation.mp3');
+        console.log('Attempted to play menu navigation sound');
+        
+        // Test BGM
+        window.game.audioManager.playBGM('00.mp3');
+        console.log('Attempted to play BGM');
+        console.log('==================');
+    } else {
+        console.log('Game or AudioManager not available');
+    }
+};
