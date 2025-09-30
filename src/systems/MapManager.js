@@ -17,7 +17,7 @@ class MapManager {
                 width: 1920,
                 height: 1080,
                 scale: 1.0,
-                music: 'assets/audio/bgm/00.mp3',
+                music: 'assets/audio/bgm/01.mp3',
                 ambience: 'assets/audio/ambience/forest-0.mp3',
                 spawnPoints: {
                     default: { x: 400, y: 300 },
@@ -29,7 +29,7 @@ class MapManager {
                 width: 1920,
                 height: 1080,
                 scale: 1.0,
-                music: 'assets/audio/bgm/00.mp3',
+                music: 'assets/audio/bgm/01.mp3',
                 ambience: 'assets/audio/ambience/forest-0.mp3',
                 spawnPoints: {
                     default: { x: 100, y: 300 },
