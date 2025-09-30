@@ -60,12 +60,19 @@ class GameEngine {
             masterVolume: 100,
             musicVolume: 100,
             effectsVolume: 100,
+            isMuted: false,
             showFPS: true,
             showDebug: false
         };
         
         // Debug controls
         this.isPaused = false;
+        
+        // Load saved settings
+        this.loadSettings();
+        
+        // Apply loaded settings to audio manager
+        this.applyAudioSettings();
         
         // Initialize
         this.initialize();
@@ -681,6 +688,36 @@ class GameEngine {
         this.ctx.fillText(`Movement: (${debugInfo.movementInput.x.toFixed(2)}, ${debugInfo.movementInput.y.toFixed(2)})`, this.CANVAS_WIDTH - 300, y);
         y += 15;
         this.ctx.fillText(`Keys: ${debugInfo.pressedKeys.join(', ')}`, this.CANVAS_WIDTH - 300, y);
+    }
+    
+    /**
+     * Load settings from localStorage
+     */
+    loadSettings() {
+        try {
+            const savedSettings = localStorage.getItem('rpg-game-settings');
+            if (savedSettings) {
+                const parsedSettings = JSON.parse(savedSettings);
+                // Merge saved settings with defaults
+                this.settings = { ...this.settings, ...parsedSettings };
+                console.log('Settings loaded from localStorage');
+            }
+        } catch (error) {
+            console.warn('Failed to load settings:', error);
+        }
+    }
+    
+    /**
+     * Apply audio settings to AudioManager
+     */
+    applyAudioSettings() {
+        if (this.audioManager) {
+            this.audioManager.setMasterVolume(this.settings.masterVolume / 100);
+            this.audioManager.setMusicVolume(this.settings.musicVolume / 100);
+            this.audioManager.setEffectsVolume(this.settings.effectsVolume / 100);
+            this.audioManager.isMuted = this.settings.isMuted;
+            this.audioManager.updateAllVolumes();
+        }
     }
 }
 

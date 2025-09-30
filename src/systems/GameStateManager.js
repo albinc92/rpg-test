@@ -421,12 +421,176 @@ class PausedState extends GameState {
     }
 }
 
+/**
+ * Settings State
+ */
+class SettingsState extends GameState {
+    enter() {
+        this.selectedOption = 0;
+        this.options = [
+            { name: 'Master Volume', type: 'slider', key: 'masterVolume', min: 0, max: 100, step: 10 },
+            { name: 'BGM Volume', type: 'slider', key: 'musicVolume', min: 0, max: 100, step: 10 },
+            { name: 'Effect Volume', type: 'slider', key: 'effectsVolume', min: 0, max: 100, step: 10 },
+            { name: 'Mute Audio', type: 'toggle', key: 'isMuted' },
+            { name: 'Back', type: 'action' }
+        ];
+    }
+    
+    handleInput(inputManager) {
+        if (inputManager.isJustPressed('cancel')) {
+            this.stateManager.popState();
+            return;
+        }
+        
+        if (inputManager.isJustPressed('up')) {
+            this.selectedOption = Math.max(0, this.selectedOption - 1);
+            this.game.audioManager?.playEffect('menu-navigation');
+        }
+        
+        if (inputManager.isJustPressed('down')) {
+            this.selectedOption = Math.min(this.options.length - 1, this.selectedOption + 1);
+            this.game.audioManager?.playEffect('menu-navigation');
+        }
+        
+        if (inputManager.isJustPressed('left')) {
+            this.adjustSetting(-1);
+        }
+        
+        if (inputManager.isJustPressed('right')) {
+            this.adjustSetting(1);
+        }
+        
+        if (inputManager.isJustPressed('confirm')) {
+            this.selectOption();
+        }
+    }
+    
+    adjustSetting(direction) {
+        const option = this.options[this.selectedOption];
+        if (!option || !option.key) return;
+        
+        const settings = this.game.settings;
+        
+        if (option.type === 'slider') {
+            const currentValue = settings[option.key];
+            const newValue = Math.max(option.min, Math.min(option.max, currentValue + (direction * option.step)));
+            settings[option.key] = newValue;
+            
+            // Apply the setting change to audio manager
+            this.applyAudioSettings();
+            
+            // Play a test sound for volume adjustment feedback
+            if (option.key === 'effectsVolume' || option.key === 'masterVolume') {
+                this.game.audioManager?.playEffect('menu-navigation');
+            }
+        } else if (option.type === 'toggle') {
+            settings[option.key] = !settings[option.key];
+            this.applyAudioSettings();
+        }
+        
+        // Save settings
+        this.saveSettings();
+    }
+    
+    selectOption() {
+        const option = this.options[this.selectedOption];
+        
+        if (option.type === 'action') {
+            if (option.name === 'Back') {
+                this.stateManager.popState();
+            }
+        } else if (option.type === 'toggle') {
+            this.adjustSetting(1); // Toggle the setting
+        }
+    }
+    
+    applyAudioSettings() {
+        const settings = this.game.settings;
+        const audioManager = this.game.audioManager;
+        
+        if (audioManager) {
+            // Convert percentage to 0-1 range
+            audioManager.setMasterVolume(settings.masterVolume / 100);
+            audioManager.setMusicVolume(settings.musicVolume / 100);
+            audioManager.setEffectsVolume(settings.effectsVolume / 100);
+            audioManager.isMuted = settings.isMuted;
+            
+            // Update current playing audio
+            audioManager.updateAllVolumes();
+        }
+    }
+    
+    saveSettings() {
+        // Save to localStorage
+        try {
+            localStorage.setItem('rpg-game-settings', JSON.stringify(this.game.settings));
+        } catch (error) {
+            console.warn('Failed to save settings:', error);
+        }
+    }
+    
+    render(ctx) {
+        // Use the game's logical canvas dimensions
+        const canvasWidth = this.game.CANVAS_WIDTH;
+        const canvasHeight = this.game.CANVAS_HEIGHT;
+        
+        // Draw semi-transparent overlay
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        // Draw title
+        ctx.fillStyle = '#fff';
+        ctx.font = '36px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Settings', canvasWidth / 2, 150);
+        
+        // Draw settings options
+        ctx.font = '20px Arial';
+        const startY = 250;
+        const lineHeight = 60;
+        
+        this.options.forEach((option, index) => {
+            const y = startY + (index * lineHeight);
+            const isSelected = index === this.selectedOption;
+            
+            // Highlight selected option
+            if (isSelected) {
+                ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+                ctx.fillRect(50, y - 25, canvasWidth - 100, 40);
+                ctx.strokeStyle = '#FFD700';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(50, y - 25, canvasWidth - 100, 40);
+            }
+            
+            // Draw option name
+            ctx.fillStyle = isSelected ? '#FFD700' : '#fff';
+            ctx.textAlign = 'left';
+            ctx.fillText(option.name, 100, y);
+            
+            // Draw option value
+            ctx.textAlign = 'right';
+            if (option.type === 'slider') {
+                const value = this.game.settings[option.key];
+                ctx.fillText(`< ${value}% >`, canvasWidth - 100, y);
+            } else if (option.type === 'toggle') {
+                const value = this.game.settings[option.key];
+                ctx.fillText(`< ${value ? 'ON' : 'OFF'} >`, canvasWidth - 100, y);
+            }
+        });
+        
+        // Draw instructions
+        ctx.fillStyle = '#ccc';
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Use Arrow Keys to Navigate • Left/Right to Adjust • Enter to Select • ESC to Go Back', canvasWidth / 2, canvasHeight - 50);
+    }
+}
+
 // Placeholder states - implement as needed
 class InventoryState extends GameState {}
 class DialogueState extends GameState {}
 class ShopState extends GameState {}
 class LootWindowState extends GameState {}
-class SettingsState extends GameState {}
 class BattleState extends GameState {}
 
 // Export for use in other files
