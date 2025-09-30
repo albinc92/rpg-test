@@ -105,7 +105,13 @@ class GameStateManager {
         this.exitCurrentState();
         
         const previousState = this.stateStack.pop();
-        this.enterState(previousState.state, previousState.data);
+        console.log('🔄 Popping state, returning to:', previousState.state);
+        console.log('Previous state data:', previousState.data);
+        
+        // Mark that we're resuming from a pause/overlay
+        const resumeData = { ...previousState.data, isResumingFromPause: true };
+        console.log('Resume data being passed:', resumeData);
+        this.enterState(previousState.state, resumeData);
         
         // Resume previous state if it supports it
         const currentState = this.states[this.currentState];
@@ -420,18 +426,40 @@ class MainMenuState extends GameState {
  * Playing State - Main gameplay
  */
 class PlayingState extends GameState {
-    async enter() {
+    async enter(data = {}) {
         // Initialize gameplay
         console.log('Entering gameplay state');
+        console.log('Data received:', data);
         
-        // Load the initial map and start BGM
-        await this.game.loadMap(this.game.currentMapId);
-        this.game.positionPlayerOnMap(this.game.currentMapId);
+        // Check if we're resuming from a pause/overlay state
+        const isResumingFromPause = data.isResumingFromPause === true;
+        
+        if (!isResumingFromPause) {
+            console.log('🆕 Fresh entry to gameplay - loading map and positioning player');
+            // Load the initial map and start BGM
+            await this.game.loadMap(this.game.currentMapId);
+            this.game.positionPlayerOnMap(this.game.currentMapId);
+        } else {
+            console.log('🔄 Resuming gameplay - preserving player position');
+            // Just ensure the map is loaded but don't reset player position
+            await this.game.loadMap(this.game.currentMapId);
+        }
     }
     
     exit() {
         // Clean up when leaving gameplay
         console.log('Exiting gameplay state');
+    }
+    
+    pause() {
+        // Called when pushing a state on top (like pause menu)
+        console.log('🔄 Gameplay paused');
+    }
+    
+    resume() {
+        // Called when returning from a pushed state (like pause menu)
+        console.log('🔄 Gameplay resumed - player position preserved');
+        // Don't do anything - player position should be preserved
     }
     
     update(deltaTime) {
