@@ -7,8 +7,25 @@ class AudioManager {
         this.effectsAudio = new Map();
         
         // Crossfade settings
-        this.DEFAULT_CROSSFADE_DURATION = 1500; // 1.5 seconds default
+                      // Stop and cleanup old audio
+                if (oldAudio && !oldAudio.paused) {
+                    oldAudio.pause();
+                    oldAudio.currentTime = 0;
+                    oldAudio.src = '';
+                    this.audioElements.delete(oldAudio);
+                }
+                
+                // Set new audio as current
+                this.bgmAudio = newAudio;
+                this.currentBGM = newFilename;
+                newAudio.volume = this.calculateBGMVolume();
+                
+                console.log(`[AudioManager] ✅ BGM Crossfade complete, now playing: ${newFilename}`);LT_CROSSFADE_DURATION = 1500; // 1.5 seconds default
         this.activeCrossfades = new Set();
+        
+        // Cache busting - only set on initial launch
+        this.cacheBuster = Date.now();
+        console.log(`[AudioManager] Cache buster initialized: ${this.cacheBuster}`);
         
         // Audio settings
         this.settings = {
@@ -22,42 +39,154 @@ class AudioManager {
         this.audioContext = null;
         this.audioEnabled = false;
         this.pendingActions = [];
+        this.gestureAttempted = false;
+        
+        // Cleanup tracking
+        this.audioElements = new Set();
         
         this.initializeAudioContext();
+        this.setupCleanupHandlers();
     }
 
     initializeAudioContext() {
         try {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            console.log(`[AudioManager] Audio context created, state: ${this.audioContext.state}`);
             
-            // Attempt to enable audio on first user interaction
+            // Attempt to enable audio immediately and on user interaction
             const enableAudio = () => {
+                if (this.gestureAttempted) return;
+                this.gestureAttempted = true;
+                
+                console.log('[AudioManager] Attempting to enable audio...');
                 if (this.audioContext.state === 'suspended') {
                     this.audioContext.resume().then(() => {
                         this.audioEnabled = true;
-                        console.log('[AudioManager] Audio context enabled');
+                        console.log('[AudioManager] ✅ Audio context enabled via resume');
                         this.processPendingActions();
+                    }).catch(error => {
+                        console.error('[AudioManager] ❌ Failed to resume audio context:', error);
                     });
                 } else {
                     this.audioEnabled = true;
+                    console.log('[AudioManager] ✅ Audio context already running');
                     this.processPendingActions();
                 }
             };
 
-            // Listen for any user interaction to enable audio
-            ['click', 'keydown', 'touchstart'].forEach(event => {
+            // Try to enable immediately (might work in some browsers)
+            setTimeout(() => {
+                console.log('[AudioManager] Attempting immediate audio activation...');
+                enableAudio();
+            }, 100);
+
+            // Listen for any user interaction to enable audio as fallback
+            ['click', 'keydown', 'touchstart', 'mousedown'].forEach(event => {
                 document.addEventListener(event, enableAudio, { once: true });
             });
 
         } catch (error) {
-            console.error('[AudioManager] Failed to initialize audio context:', error);
+            console.error('[AudioManager] ❌ Failed to initialize audio context:', error);
         }
     }
 
     processPendingActions() {
+        console.log(`[AudioManager] Processing ${this.pendingActions.length} pending audio actions`);
         while (this.pendingActions.length > 0) {
             const action = this.pendingActions.shift();
-            action();
+            try {
+                action();
+            } catch (error) {
+                console.error('[AudioManager] ❌ Error processing pending action:', error);
+            }
+        }
+    }
+
+    setupCleanupHandlers() {
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            this.cleanup();
+        });
+
+        // Cleanup on visibility change (tab switching)
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                console.log('[AudioManager] Page hidden, pausing non-essential audio');
+            } else {
+                console.log('[AudioManager] Page visible, resuming audio');
+            }
+        });
+    }
+
+    cleanup() {
+        console.log('[AudioManager] Performing cleanup...');
+        
+        // Clear all crossfades
+        this.clearAllCrossfades();
+        
+        // Stop and cleanup all audio
+        if (this.bgmAudio) {
+            this.bgmAudio.pause();
+            this.bgmAudio.src = '';
+        }
+        if (this.ambienceAudio) {
+            this.ambienceAudio.pause();
+            this.ambienceAudio.src = '';
+        }
+        
+        // Cleanup all effects
+        this.effectsAudio.forEach(audio => {
+            audio.pause();
+            audio.src = '';
+        });
+        this.effectsAudio.clear();
+        
+        // Cleanup tracked elements
+        this.audioElements.forEach(audio => {
+            if (audio && !audio.paused) {
+                audio.pause();
+                audio.src = '';
+            }
+        });
+        this.audioElements.clear();
+        
+        console.log('[AudioManager] ✅ Cleanup complete');
+    }
+
+    // Ensure filename has .mp3 extension
+    ensureMp3Extension(filename) {
+        if (!filename) return filename;
+        if (typeof filename !== 'string') {
+            console.warn(`[AudioManager] ⚠️ Invalid filename type: ${typeof filename}, expected string`);
+            return null;
+        }
+        return filename.endsWith('.mp3') ? filename : `${filename}.mp3`;
+    }
+
+    // Create audio element with proper tracking and error handling
+    createAudioElement(path, type = 'unknown') {
+        try {
+            const audio = new Audio(`${path}?cb=${this.cacheBuster}`);
+            this.audioElements.add(audio);
+            
+            // Add error handling
+            audio.addEventListener('error', (e) => {
+                console.error(`[AudioManager] ❌ Failed to load ${type} audio:`, path, e);
+                this.audioElements.delete(audio);
+            });
+            
+            // Cleanup when done
+            audio.addEventListener('ended', () => {
+                if (type === 'effect') {
+                    this.audioElements.delete(audio);
+                }
+            });
+            
+            console.log(`[AudioManager] 🎵 Created ${type} audio element: ${path}`);
+            return audio;
+        } catch (error) {
+            console.error(`[AudioManager] ❌ Failed to create ${type} audio element:`, error);
+            return null;
         }
     }
 
@@ -77,10 +206,21 @@ class AudioManager {
         }
 
         const playAction = () => {
-            console.log(`[AudioManager] Playing BGM with crossfade: ${filename} (${crossfadeDuration}ms)`);
+            const safeFilename = this.ensureMp3Extension(filename);
+            if (!safeFilename) {
+                console.error('[AudioManager] ❌ Invalid BGM filename provided');
+                return;
+            }
+
+            console.log(`[AudioManager] 🎵 Playing BGM with crossfade: ${safeFilename} (${crossfadeDuration}ms)`);
             
-            // Create new audio element
-            const newBGM = new Audio(`assets/audio/bgm/${filename}?t=${Date.now()}`);
+            // Create new audio element with proper error handling
+            const newBGM = this.createAudioElement(`assets/audio/bgm/${safeFilename}`, 'BGM');
+            if (!newBGM) {
+                console.error(`[AudioManager] ❌ Failed to create BGM audio element for: ${safeFilename}`);
+                return;
+            }
+
             newBGM.loop = true;
             newBGM.volume = 0; // Start at 0 for crossfade in
             
@@ -88,10 +228,11 @@ class AudioManager {
             const playPromise = newBGM.play();
             if (playPromise !== undefined) {
                 playPromise.then(() => {
-                    console.log(`[AudioManager] New BGM '${filename}' loaded, starting crossfade`);
-                    this.crossfadeBGM(this.bgmAudio, newBGM, crossfadeDuration, filename);
+                    console.log(`[AudioManager] ✅ BGM '${safeFilename}' loaded successfully, starting crossfade`);
+                    this.crossfadeBGM(this.bgmAudio, newBGM, crossfadeDuration, safeFilename);
                 }).catch(error => {
-                    console.error(`[AudioManager] Failed to play BGM '${filename}':`, error);
+                    console.error(`[AudioManager] ❌ Failed to play BGM '${safeFilename}':`, error);
+                    this.audioElements.delete(newBGM);
                 });
             }
         };
@@ -238,10 +379,21 @@ class AudioManager {
         }
 
         const playAction = () => {
-            console.log(`[AudioManager] Playing Ambience with crossfade: ${filename} (${crossfadeDuration}ms)`);
+            const safeFilename = this.ensureMp3Extension(filename);
+            if (!safeFilename) {
+                console.error('[AudioManager] ❌ Invalid ambience filename provided');
+                return;
+            }
+
+            console.log(`[AudioManager] 🌲 Playing Ambience with crossfade: ${safeFilename} (${crossfadeDuration}ms)`);
             
-            // Create new audio element
-            const newAmbience = new Audio(`assets/audio/ambience/${filename}?t=${Date.now()}`);
+            // Create new audio element with proper error handling
+            const newAmbience = this.createAudioElement(`assets/audio/ambience/${safeFilename}`, 'Ambience');
+            if (!newAmbience) {
+                console.error(`[AudioManager] ❌ Failed to create ambience audio element for: ${safeFilename}`);
+                return;
+            }
+
             newAmbience.loop = true;
             newAmbience.volume = 0; // Start at 0 for crossfade in
             
@@ -249,10 +401,11 @@ class AudioManager {
             const playPromise = newAmbience.play();
             if (playPromise !== undefined) {
                 playPromise.then(() => {
-                    console.log(`[AudioManager] New Ambience '${filename}' loaded, starting crossfade`);
-                    this.crossfadeAmbience(this.ambienceAudio, newAmbience, crossfadeDuration, filename);
+                    console.log(`[AudioManager] ✅ Ambience '${safeFilename}' loaded successfully, starting crossfade`);
+                    this.crossfadeAmbience(this.ambienceAudio, newAmbience, crossfadeDuration, safeFilename);
                 }).catch(error => {
-                    console.error(`[AudioManager] Failed to play ambience '${filename}':`, error);
+                    console.error(`[AudioManager] ❌ Failed to play ambience '${safeFilename}':`, error);
+                    this.audioElements.delete(newAmbience);
                 });
             }
         };
@@ -303,6 +456,8 @@ class AudioManager {
                 if (oldAudio && !oldAudio.paused) {
                     oldAudio.pause();
                     oldAudio.currentTime = 0;
+                    oldAudio.src = '';
+                    this.audioElements.delete(oldAudio);
                 }
                 
                 // Set new audio as current
@@ -310,7 +465,7 @@ class AudioManager {
                 this.currentAmbience = newFilename;
                 newAudio.volume = this.calculateAmbienceVolume();
                 
-                console.log(`[AudioManager] Ambience crossfade complete, now playing: ${newFilename}`);
+                console.log(`[AudioManager] ✅ Ambience crossfade complete, now playing: ${newFilename}`);
             }
         }, stepTime);
     }
@@ -385,21 +540,38 @@ class AudioManager {
 
     playEffect(filename, volume = 1.0) {
         const playAction = () => {
-            const effectId = `${filename}_${Date.now()}_${Math.random()}`;
-            const audio = new Audio(`assets/audio/effect/${filename}?t=${Date.now()}`);
-            audio.volume = this.calculateEffectVolume() * volume;
+            const safeFilename = this.ensureMp3Extension(filename);
+            if (!safeFilename) {
+                console.error('[AudioManager] ❌ Invalid effect filename provided');
+                return;
+            }
+
+            const effectId = `${safeFilename}_${Date.now()}_${Math.random()}`;
+            const audio = this.createAudioElement(`assets/audio/effect/${safeFilename}`, 'Effect');
             
+            if (!audio) {
+                console.error(`[AudioManager] ❌ Failed to create effect audio element for: ${safeFilename}`);
+                return;
+            }
+
+            audio.volume = this.calculateEffectVolume() * volume;
             this.effectsAudio.set(effectId, audio);
             
+            // Cleanup when effect ends
             audio.addEventListener('ended', () => {
                 this.effectsAudio.delete(effectId);
+                this.audioElements.delete(audio);
+                console.log(`[AudioManager] 🔊 Effect '${safeFilename}' completed and cleaned up`);
             });
 
             const playPromise = audio.play();
             if (playPromise !== undefined) {
-                playPromise.catch(error => {
-                    console.error(`[AudioManager] Failed to play effect '${filename}':`, error);
+                playPromise.then(() => {
+                    console.log(`[AudioManager] ✅ Effect '${safeFilename}' started successfully`);
+                }).catch(error => {
+                    console.error(`[AudioManager] ❌ Failed to play effect '${safeFilename}':`, error);
                     this.effectsAudio.delete(effectId);
+                    this.audioElements.delete(audio);
                 });
             }
         };
@@ -407,6 +579,7 @@ class AudioManager {
         if (this.audioEnabled) {
             playAction();
         } else {
+            console.log(`[AudioManager] 📋 Queueing effect: ${filename} (audio not enabled yet)`);
             this.pendingActions.push(playAction);
         }
     }
@@ -476,10 +649,54 @@ class AudioManager {
         this.updateAllVolumes();
     }
 
+    // Simulate user gesture to enable audio immediately
+    simulateUserGesture() {
+        if (this.audioEnabled) {
+            console.log('[AudioManager] Audio already enabled');
+            return Promise.resolve();
+        }
+
+        console.log('[AudioManager] 🎯 Simulating user gesture to enable audio...');
+        
+        return new Promise((resolve) => {
+            // Create a silent audio element and try to play it
+            const silentAudio = new Audio('data:audio/wav;base64,UklGRnoAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoAAAC/hBqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhCiuBzvLZiTYIG2m98OScSkANUarm7bllGgU+ltDzx3EnBSl+zPLaizsIJXK/9N2QRgQAAAAAAAAAAAAAAAA=');
+            
+            const enableAttempt = () => {
+                if (this.audioContext && this.audioContext.state === 'suspended') {
+                    this.audioContext.resume().then(() => {
+                        this.audioEnabled = true;
+                        console.log('[AudioManager] ✅ Audio enabled via simulated gesture');
+                        this.processPendingActions();
+                        resolve();
+                    }).catch(() => {
+                        console.log('[AudioManager] ⚠️ Simulated gesture failed, waiting for real user interaction');
+                        resolve();
+                    });
+                } else {
+                    this.audioEnabled = true;
+                    console.log('[AudioManager] ✅ Audio context already ready');
+                    this.processPendingActions();
+                    resolve();
+                }
+            };
+
+            // Try playing silent audio
+            silentAudio.play().then(() => {
+                console.log('[AudioManager] ✅ Silent audio played successfully');
+                silentAudio.pause();
+                enableAttempt();
+            }).catch(() => {
+                console.log('[AudioManager] ⚠️ Silent audio failed, trying context resume directly');
+                enableAttempt();
+            });
+        });
+    }
+
     // Crossfade management
     clearAllCrossfades() {
+        console.log(`[AudioManager] 🧹 Clearing ${this.activeCrossfades.size} active crossfades`);
         this.activeCrossfades.clear();
-        console.log('[AudioManager] All crossfades cleared');
     }
 
     // Debug methods
@@ -506,9 +723,14 @@ class AudioManager {
             isBGMPlaying: this.isBGMPlaying(),
             isAmbiencePlaying: this.isAmbiencePlaying(),
             audioEnabled: this.audioEnabled,
+            audioContextState: this.audioContext?.state || 'null',
             pendingActions: this.pendingActions.length,
             activeCrossfades: this.activeCrossfades.size,
             crossfadeDuration: this.DEFAULT_CROSSFADE_DURATION,
+            activeEffects: this.effectsAudio.size,
+            trackedElements: this.audioElements.size,
+            cacheBuster: this.cacheBuster,
+            gestureAttempted: this.gestureAttempted,
             settings: this.settings
         };
     }
@@ -516,3 +738,21 @@ class AudioManager {
 
 // Create global instance
 window.AudioManager = new AudioManager();
+
+// Auto-attempt to enable audio after a short delay
+setTimeout(() => {
+    if (window.AudioManager && !window.AudioManager.audioEnabled) {
+        console.log('[AudioManager] 🚀 Auto-attempting to enable audio...');
+        window.AudioManager.simulateUserGesture();
+    }
+}, 500);
+
+// Global debug helpers
+window.audioDebug = {
+    info: () => console.table(window.AudioManager.getDebugInfo()),
+    enable: () => window.AudioManager.simulateUserGesture(),
+    cleanup: () => window.AudioManager.cleanup(),
+    testBGM: (filename = '00.mp3') => window.AudioManager.playBGM(filename),
+    testEffect: (filename = 'coin.mp3') => window.AudioManager.playEffect(filename),
+    testAmbience: (filename = 'forest-0.mp3') => window.AudioManager.playAmbience(filename)
+};
