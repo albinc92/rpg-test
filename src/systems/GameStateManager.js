@@ -215,12 +215,12 @@ class LoadingState extends GameState {
         // In a real game, this would load assets, maps, etc.
         
         this.loadingText = 'Loading audio...';
-        await this.game.audioManager?.preloadCommonAudio?.();
-        this.loadingProgress = 0.3;
+        await this.waitForAudio();
+        this.loadingProgress = 0.4;
         
         this.loadingText = 'Loading maps...';
         // Load maps here
-        this.loadingProgress = 0.6;
+        this.loadingProgress = 0.7;
         
         this.loadingText = 'Initializing game...';
         // Initialize game systems
@@ -230,6 +230,33 @@ class LoadingState extends GameState {
         setTimeout(() => {
             this.stateManager.changeState('MAIN_MENU');
         }, 500);
+    }
+
+    // Wait for audio to be ready (either immediately or after user interaction)
+    waitForAudio() {
+        return new Promise((resolve) => {
+            // If audio is already ready, resolve immediately
+            if (window.audioReady || this.game.audioManager?.audioEnabled) {
+                console.log('[LoadingState] Audio already ready');
+                resolve();
+                return;
+            }
+
+            // Update loading text to indicate waiting for user interaction
+            this.loadingText = 'Click anywhere to start';
+            this.waitingForAudio = true;
+
+            // Wait for audioReady event
+            const handleAudioReady = () => {
+                console.log('[LoadingState] Audio ready event received');
+                document.removeEventListener('audioReady', handleAudioReady);
+                this.waitingForAudio = false;
+                resolve();
+            };
+
+            document.addEventListener('audioReady', handleAudioReady);
+            console.log('[LoadingState] Waiting for audio to be ready...');
+        });
     }
     
     render(ctx) {
@@ -241,21 +268,33 @@ class LoadingState extends GameState {
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
         ctx.fillStyle = '#fff';
-        ctx.font = '32px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(this.loadingText, canvasWidth / 2, canvasHeight / 2);
         
-        // Loading bar
-        const barWidth = 400;
-        const barHeight = 20;
-        const barX = canvasWidth / 2 - barWidth / 2;
-        const barY = canvasHeight / 2 + 50;
-        
-        ctx.strokeStyle = '#fff';
-        ctx.strokeRect(barX, barY, barWidth, barHeight);
-        
-        ctx.fillStyle = '#0f0';
-        ctx.fillRect(barX, barY, barWidth * this.loadingProgress, barHeight);
+        if (this.waitingForAudio) {
+            // Show "Click to Start" screen
+            ctx.font = '48px Arial';
+            ctx.fillText('Click to Start', canvasWidth / 2, canvasHeight / 2 - 20);
+            
+            ctx.font = '24px Arial';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.fillText('Click anywhere or press any key to start the game', canvasWidth / 2, canvasHeight / 2 + 30);
+        } else {
+            // Show normal loading screen
+            ctx.font = '32px Arial';
+            ctx.fillText(this.loadingText, canvasWidth / 2, canvasHeight / 2);
+            
+            // Loading bar
+            const barWidth = 400;
+            const barHeight = 20;
+            const barX = canvasWidth / 2 - barWidth / 2;
+            const barY = canvasHeight / 2 + 50;
+            
+            ctx.strokeStyle = '#fff';
+            ctx.strokeRect(barX, barY, barWidth, barHeight);
+            
+            ctx.fillStyle = '#0f0';
+            ctx.fillRect(barX, barY, barWidth * this.loadingProgress, barHeight);
+        }
     }
 }
 

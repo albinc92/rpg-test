@@ -7,20 +7,7 @@ class AudioManager {
         this.effectsAudio = new Map();
         
         // Crossfade settings
-                      // Stop and cleanup old audio
-                if (oldAudio && !oldAudio.paused) {
-                    oldAudio.pause();
-                    oldAudio.currentTime = 0;
-                    oldAudio.src = '';
-                    this.audioElements.delete(oldAudio);
-                }
-                
-                // Set new audio as current
-                this.bgmAudio = newAudio;
-                this.currentBGM = newFilename;
-                newAudio.volume = this.calculateBGMVolume();
-                
-                console.log(`[AudioManager] ✅ BGM Crossfade complete, now playing: ${newFilename}`);LT_CROSSFADE_DURATION = 1500; // 1.5 seconds default
+        this.DEFAULT_CROSSFADE_DURATION = 1500; // 1.5 seconds default
         this.activeCrossfades = new Set();
         
         // Cache busting - only set on initial launch
@@ -56,11 +43,14 @@ class AudioManager {
             // Check if audio needs user interaction
             if (this.audioContext.state === 'suspended') {
                 console.log('[AudioManager] Audio context suspended - user interaction required');
-                this.showStartScreen();
+                
+                // Let the game handle the start screen, just listen for clicks
+                this.setupUserInteractionListener();
             } else {
                 console.log('[AudioManager] ✅ Audio context ready immediately');
                 this.audioEnabled = true;
                 this.processPendingActions();
+                this.notifyAudioReady();
             }
 
         } catch (error) {
@@ -627,56 +617,10 @@ class AudioManager {
         this.updateAllVolumes();
     }
 
-    // Show "Click to Start" screen
-    showStartScreen() {
-        if (this.startScreenShown) return;
-        this.startScreenShown = true;
-
-        console.log('[AudioManager] 🎮 Showing start screen for audio activation');
+    // Setup user interaction listener without showing overlay
+    setupUserInteractionListener() {
+        console.log('[AudioManager] 🎮 Setting up user interaction listener');
         
-        // Create overlay
-        const overlay = document.createElement('div');
-        overlay.id = 'audio-start-screen';
-        overlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.9);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            color: white;
-            font-family: Arial, sans-serif;
-            cursor: pointer;
-            user-select: none;
-        `;
-
-        // Create content
-        const title = document.createElement('h1');
-        title.textContent = 'Click to Start';
-        title.style.cssText = `
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
-        `;
-
-        const subtitle = document.createElement('p');
-        subtitle.textContent = 'Click anywhere or press any key to enable audio and start the game';
-        subtitle.style.cssText = `
-            font-size: 1.2rem;
-            opacity: 0.8;
-            text-align: center;
-            margin: 0;
-        `;
-
-        overlay.appendChild(title);
-        overlay.appendChild(subtitle);
-        document.body.appendChild(overlay);
-
         // Enable audio on any interaction
         const enableAudio = () => {
             console.log('[AudioManager] 🎯 User interaction detected, enabling audio...');
@@ -686,22 +630,21 @@ class AudioManager {
                     this.audioEnabled = true;
                     console.log('[AudioManager] ✅ Audio context enabled via user interaction');
                     this.processPendingActions();
-                    this.hideStartScreen();
+                    this.notifyAudioReady();
                 }).catch(error => {
                     console.error('[AudioManager] ❌ Failed to enable audio context:', error);
-                    this.hideStartScreen(); // Hide screen anyway
+                    this.notifyAudioReady(); // Allow game to continue anyway
                 });
             } else {
                 this.audioEnabled = true;
                 console.log('[AudioManager] ✅ Audio context already running');
                 this.processPendingActions();
-                this.hideStartScreen();
+                this.notifyAudioReady();
             }
         };
 
         // Listen for interactions
         ['click', 'keydown', 'touchstart'].forEach(event => {
-            overlay.addEventListener(event, enableAudio, { once: true });
             document.addEventListener(event, enableAudio, { once: true });
         });
     }
@@ -713,6 +656,20 @@ class AudioManager {
             overlay.remove();
             console.log('[AudioManager] ✅ Start screen removed');
         }
+    }
+
+    // Notify game that audio is ready
+    notifyAudioReady() {
+        console.log('[AudioManager] 🎵 Notifying game that audio is ready');
+        
+        // Dispatch custom event for game to listen to
+        const audioReadyEvent = new CustomEvent('audioReady', {
+            detail: { audioEnabled: this.audioEnabled }
+        });
+        document.dispatchEvent(audioReadyEvent);
+        
+        // Also set a global flag for simpler checking
+        window.audioReady = true;
     }
 
     // Crossfade management
