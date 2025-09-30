@@ -6,6 +6,10 @@ class AudioManager {
         this.currentAmbience = null;
         this.effectsAudio = new Map();
         
+        // Crossfade settings
+        this.DEFAULT_CROSSFADE_DURATION = 1500; // 1.5 seconds default
+        this.activeCrossfades = new Set();
+        
         // Audio settings
         this.settings = {
             masterVolume: 1.0,
@@ -57,14 +61,12 @@ class AudioManager {
         }
     }
 
-    // Core BGM method - implements the requirement: "if a request is sent to play a bgm 
-    // and that bgm is already recorded as playing then the request should be ignored"
-    playBGM(filename) {
+    // Core BGM method with crossfade support
+    playBGM(filename, crossfadeDuration = this.DEFAULT_CROSSFADE_DURATION) {
         // Handle null/empty filename (no BGM should play)
         if (!filename) {
             console.log('[AudioManager] No BGM filename provided, stopping current BGM');
-            this.stopBGM();
-            this.currentBGM = null;
+            this.crossfadeBGMOut(crossfadeDuration);
             return;
         }
 
@@ -75,30 +77,21 @@ class AudioManager {
         }
 
         const playAction = () => {
-            console.log(`[AudioManager] Playing BGM: ${filename}`);
+            console.log(`[AudioManager] Playing BGM with crossfade: ${filename} (${crossfadeDuration}ms)`);
             
-            // Stop current BGM if playing
-            if (this.bgmAudio && !this.bgmAudio.paused) {
-                this.bgmAudio.pause();
-                this.bgmAudio.currentTime = 0;
-            }
-
             // Create new audio element
-            this.bgmAudio = new Audio(`assets/audio/bgm/${filename}?t=${Date.now()}`);
-            this.bgmAudio.loop = true;
-            this.bgmAudio.volume = this.calculateBGMVolume();
+            const newBGM = new Audio(`assets/audio/bgm/${filename}?t=${Date.now()}`);
+            newBGM.loop = true;
+            newBGM.volume = 0; // Start at 0 for crossfade in
             
-            // Track the current BGM
-            this.currentBGM = filename;
-
-            // Play the audio
-            const playPromise = this.bgmAudio.play();
+            // Start playing the new track
+            const playPromise = newBGM.play();
             if (playPromise !== undefined) {
                 playPromise.then(() => {
-                    console.log(`[AudioManager] BGM '${filename}' started successfully`);
+                    console.log(`[AudioManager] New BGM '${filename}' loaded, starting crossfade`);
+                    this.crossfadeBGM(this.bgmAudio, newBGM, crossfadeDuration, filename);
                 }).catch(error => {
                     console.error(`[AudioManager] Failed to play BGM '${filename}':`, error);
-                    this.currentBGM = null;
                 });
             }
         };
@@ -109,6 +102,95 @@ class AudioManager {
             console.log(`[AudioManager] Audio not enabled yet, queueing BGM: ${filename}`);
             this.pendingActions.push(playAction);
         }
+    }
+
+    // Crossfade between BGM tracks
+    crossfadeBGM(oldAudio, newAudio, duration, newFilename) {
+        const steps = 50; // Number of volume steps
+        const stepTime = duration / steps;
+        const volumeStep = this.calculateBGMVolume() / steps;
+        
+        let currentStep = 0;
+        const crossfadeId = `bgm_${Date.now()}`;
+        this.activeCrossfades.add(crossfadeId);
+
+        const fadeInterval = setInterval(() => {
+            if (!this.activeCrossfades.has(crossfadeId)) {
+                clearInterval(fadeInterval);
+                return;
+            }
+
+            currentStep++;
+            const progress = currentStep / steps;
+            
+            // Fade out old audio
+            if (oldAudio && !oldAudio.paused) {
+                oldAudio.volume = Math.max(0, this.calculateBGMVolume() * (1 - progress));
+            }
+            
+            // Fade in new audio
+            if (newAudio && !newAudio.paused) {
+                newAudio.volume = Math.min(this.calculateBGMVolume(), this.calculateBGMVolume() * progress);
+            }
+            
+            if (currentStep >= steps) {
+                // Crossfade complete
+                clearInterval(fadeInterval);
+                this.activeCrossfades.delete(crossfadeId);
+                
+                // Stop and cleanup old audio
+                if (oldAudio && !oldAudio.paused) {
+                    oldAudio.pause();
+                    oldAudio.currentTime = 0;
+                }
+                
+                // Set new audio as current
+                this.bgmAudio = newAudio;
+                this.currentBGM = newFilename;
+                newAudio.volume = this.calculateBGMVolume();
+                
+                console.log(`[AudioManager] Crossfade complete, now playing: ${newFilename}`);
+            }
+        }, stepTime);
+    }
+
+    // Crossfade out current BGM (for stopping)
+    crossfadeBGMOut(duration = this.DEFAULT_CROSSFADE_DURATION) {
+        if (!this.bgmAudio || this.bgmAudio.paused) return;
+
+        const steps = 50;
+        const stepTime = duration / steps;
+        const volumeStep = this.bgmAudio.volume / steps;
+        
+        let currentStep = 0;
+        const crossfadeId = `bgm_out_${Date.now()}`;
+        this.activeCrossfades.add(crossfadeId);
+
+        const fadeInterval = setInterval(() => {
+            if (!this.activeCrossfades.has(crossfadeId)) {
+                clearInterval(fadeInterval);
+                return;
+            }
+
+            currentStep++;
+            
+            if (this.bgmAudio && !this.bgmAudio.paused) {
+                this.bgmAudio.volume = Math.max(0, this.bgmAudio.volume - volumeStep);
+            }
+            
+            if (currentStep >= steps) {
+                clearInterval(fadeInterval);
+                this.activeCrossfades.delete(crossfadeId);
+                
+                if (this.bgmAudio) {
+                    this.bgmAudio.pause();
+                    this.bgmAudio.currentTime = 0;
+                }
+                this.currentBGM = null;
+                
+                console.log('[AudioManager] BGM crossfade out complete');
+            }
+        }, stepTime);
     }
 
     stopBGM() {
@@ -140,13 +222,12 @@ class AudioManager {
         }
     }
 
-    // Core Ambience method - works exactly like BGM but on separate channel
-    playAmbience(filename) {
+    // Core Ambience method with crossfade support
+    playAmbience(filename, crossfadeDuration = this.DEFAULT_CROSSFADE_DURATION) {
         // Handle null/empty filename (no ambience should play)
         if (!filename) {
             console.log('[AudioManager] No ambience filename provided, stopping current ambience');
-            this.stopAmbience();
-            this.currentAmbience = null;
+            this.crossfadeAmbienceOut(crossfadeDuration);
             return;
         }
 
@@ -157,30 +238,21 @@ class AudioManager {
         }
 
         const playAction = () => {
-            console.log(`[AudioManager] Playing Ambience: ${filename}`);
+            console.log(`[AudioManager] Playing Ambience with crossfade: ${filename} (${crossfadeDuration}ms)`);
             
-            // Stop current ambience if playing
-            if (this.ambienceAudio && !this.ambienceAudio.paused) {
-                this.ambienceAudio.pause();
-                this.ambienceAudio.currentTime = 0;
-            }
-
             // Create new audio element
-            this.ambienceAudio = new Audio(`assets/audio/ambience/${filename}?t=${Date.now()}`);
-            this.ambienceAudio.loop = true;
-            this.ambienceAudio.volume = this.calculateAmbienceVolume();
+            const newAmbience = new Audio(`assets/audio/ambience/${filename}?t=${Date.now()}`);
+            newAmbience.loop = true;
+            newAmbience.volume = 0; // Start at 0 for crossfade in
             
-            // Track the current ambience
-            this.currentAmbience = filename;
-
-            // Play the audio
-            const playPromise = this.ambienceAudio.play();
+            // Start playing the new track
+            const playPromise = newAmbience.play();
             if (playPromise !== undefined) {
                 playPromise.then(() => {
-                    console.log(`[AudioManager] Ambience '${filename}' started successfully`);
+                    console.log(`[AudioManager] New Ambience '${filename}' loaded, starting crossfade`);
+                    this.crossfadeAmbience(this.ambienceAudio, newAmbience, crossfadeDuration, filename);
                 }).catch(error => {
                     console.error(`[AudioManager] Failed to play ambience '${filename}':`, error);
-                    this.currentAmbience = null;
                 });
             }
         };
@@ -191,6 +263,95 @@ class AudioManager {
             console.log(`[AudioManager] Audio not enabled yet, queueing ambience: ${filename}`);
             this.pendingActions.push(playAction);
         }
+    }
+
+    // Crossfade between Ambience tracks
+    crossfadeAmbience(oldAudio, newAudio, duration, newFilename) {
+        const steps = 50; // Number of volume steps
+        const stepTime = duration / steps;
+        const volumeStep = this.calculateAmbienceVolume() / steps;
+        
+        let currentStep = 0;
+        const crossfadeId = `ambience_${Date.now()}`;
+        this.activeCrossfades.add(crossfadeId);
+
+        const fadeInterval = setInterval(() => {
+            if (!this.activeCrossfades.has(crossfadeId)) {
+                clearInterval(fadeInterval);
+                return;
+            }
+
+            currentStep++;
+            const progress = currentStep / steps;
+            
+            // Fade out old audio
+            if (oldAudio && !oldAudio.paused) {
+                oldAudio.volume = Math.max(0, this.calculateAmbienceVolume() * (1 - progress));
+            }
+            
+            // Fade in new audio
+            if (newAudio && !newAudio.paused) {
+                newAudio.volume = Math.min(this.calculateAmbienceVolume(), this.calculateAmbienceVolume() * progress);
+            }
+            
+            if (currentStep >= steps) {
+                // Crossfade complete
+                clearInterval(fadeInterval);
+                this.activeCrossfades.delete(crossfadeId);
+                
+                // Stop and cleanup old audio
+                if (oldAudio && !oldAudio.paused) {
+                    oldAudio.pause();
+                    oldAudio.currentTime = 0;
+                }
+                
+                // Set new audio as current
+                this.ambienceAudio = newAudio;
+                this.currentAmbience = newFilename;
+                newAudio.volume = this.calculateAmbienceVolume();
+                
+                console.log(`[AudioManager] Ambience crossfade complete, now playing: ${newFilename}`);
+            }
+        }, stepTime);
+    }
+
+    // Crossfade out current ambience (for stopping)
+    crossfadeAmbienceOut(duration = this.DEFAULT_CROSSFADE_DURATION) {
+        if (!this.ambienceAudio || this.ambienceAudio.paused) return;
+
+        const steps = 50;
+        const stepTime = duration / steps;
+        const volumeStep = this.ambienceAudio.volume / steps;
+        
+        let currentStep = 0;
+        const crossfadeId = `ambience_out_${Date.now()}`;
+        this.activeCrossfades.add(crossfadeId);
+
+        const fadeInterval = setInterval(() => {
+            if (!this.activeCrossfades.has(crossfadeId)) {
+                clearInterval(fadeInterval);
+                return;
+            }
+
+            currentStep++;
+            
+            if (this.ambienceAudio && !this.ambienceAudio.paused) {
+                this.ambienceAudio.volume = Math.max(0, this.ambienceAudio.volume - volumeStep);
+            }
+            
+            if (currentStep >= steps) {
+                clearInterval(fadeInterval);
+                this.activeCrossfades.delete(crossfadeId);
+                
+                if (this.ambienceAudio) {
+                    this.ambienceAudio.pause();
+                    this.ambienceAudio.currentTime = 0;
+                }
+                this.currentAmbience = null;
+                
+                console.log('[AudioManager] Ambience crossfade out complete');
+            }
+        }, stepTime);
     }
 
     stopAmbience() {
@@ -315,6 +476,12 @@ class AudioManager {
         this.updateAllVolumes();
     }
 
+    // Crossfade management
+    clearAllCrossfades() {
+        this.activeCrossfades.clear();
+        console.log('[AudioManager] All crossfades cleared');
+    }
+
     // Debug methods
     getCurrentBGM() {
         return this.currentBGM;
@@ -340,6 +507,8 @@ class AudioManager {
             isAmbiencePlaying: this.isAmbiencePlaying(),
             audioEnabled: this.audioEnabled,
             pendingActions: this.pendingActions.length,
+            activeCrossfades: this.activeCrossfades.size,
+            crossfadeDuration: this.DEFAULT_CROSSFADE_DURATION,
             settings: this.settings
         };
     }
