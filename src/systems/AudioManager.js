@@ -17,6 +17,10 @@ class AudioManager {
         this.audioContext = null;
         this.audioEnabled = false;
         
+        // BULLETPROOF TRACKING - Track ALL audio elements created
+        this.allAudioElements = new Set();
+        this.debugMode = true;
+        
         try {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         } catch (e) {
@@ -27,7 +31,122 @@ class AudioManager {
         this.setupAudioActivation();
         
         // Debug log to confirm AudioManager is working
-        console.log('AudioManager initialized successfully');
+        console.log('🎵 NEW BULLETPROOF AudioManager initialized');
+        
+        // Monitor ALL audio elements on the page
+        this.monitorAllPageAudio();
+        
+        // Expose global debug functions
+        window.audioDebug = {
+            listAll: () => this.debugListAllAudio(),
+            killAll: () => this.killAllAudio(),
+            status: () => this.debugStatus()
+        };
+    }
+    
+    /**
+     * Monitor ALL audio elements on the page to catch rogue audio
+     */
+    monitorAllPageAudio() {
+        // Override Audio constructor to track all audio elements
+        const originalAudio = window.Audio;
+        const self = this;
+        
+        window.Audio = function(src) {
+            const audio = new originalAudio(src);
+            self.allAudioElements.add(audio);
+            
+            if (self.debugMode) {
+                console.log('🎵 NEW AUDIO ELEMENT CREATED:', src || 'no src');
+                console.trace('Audio creation stack trace:');
+            }
+            
+            // Monitor when it starts playing
+            audio.addEventListener('play', () => {
+                if (self.debugMode) {
+                    console.log('🎵 AUDIO STARTED PLAYING:', audio.src);
+                }
+            });
+            
+            // Monitor when it's paused/stopped
+            audio.addEventListener('pause', () => {
+                if (self.debugMode) {
+                    console.log('🎵 AUDIO PAUSED:', audio.src);
+                }
+            });
+            
+            return audio;
+        };
+        
+        // Copy static methods
+        for (let prop in originalAudio) {
+            window.Audio[prop] = originalAudio[prop];
+        }
+    }
+    
+    /**
+     * Debug function to list all audio elements
+     */
+    debugListAllAudio() {
+        console.log('🎵 ALL TRACKED AUDIO ELEMENTS:');
+        let count = 0;
+        this.allAudioElements.forEach(audio => {
+            count++;
+            console.log(`${count}. ${audio.src} - Playing: ${!audio.paused} - Volume: ${audio.volume} - Muted: ${audio.muted}`);
+        });
+        console.log(`Total: ${count} audio elements tracked`);
+        
+        // Also check for any rogue audio elements not tracked
+        const allAudioInDOM = document.querySelectorAll('audio');
+        console.log('🎵 AUDIO ELEMENTS IN DOM:', allAudioInDOM.length);
+        allAudioInDOM.forEach((audio, i) => {
+            console.log(`DOM ${i + 1}. ${audio.src} - Playing: ${!audio.paused} - Volume: ${audio.volume}`);
+        });
+    }
+    
+    /**
+     * Kill ALL audio on the page
+     */
+    killAllAudio() {
+        console.log('🎵 KILLING ALL AUDIO ELEMENTS');
+        
+        // Kill tracked audio
+        this.allAudioElements.forEach(audio => {
+            audio.pause();
+            audio.volume = 0;
+            audio.src = '';
+            audio.currentTime = 0;
+        });
+        
+        // Kill DOM audio
+        const allAudioInDOM = document.querySelectorAll('audio');
+        allAudioInDOM.forEach(audio => {
+            audio.pause();
+            audio.volume = 0;
+            audio.src = '';
+            audio.currentTime = 0;
+        });
+        
+        // Clear our references
+        this.currentBGM = null;
+        this.currentAmbience = null;
+        this.allAudioElements.clear();
+        
+        console.log('🎵 ALL AUDIO KILLED');
+    }
+    
+    /**
+     * Debug status
+     */
+    debugStatus() {
+        console.log('🎵 AUDIOMANAGER STATUS:');
+        console.log('Current BGM:', this.currentBGM?.src || 'none');
+        console.log('Current Ambience:', this.currentAmbience?.src || 'none');
+        console.log('Muted:', this.isMuted);
+        console.log('Master Volume:', this.masterVolume);
+        console.log('Music Volume:', this.musicVolume);
+        console.log('Effects Volume:', this.effectsVolume);
+        console.log('Tracked elements:', this.allAudioElements.size);
     }
     
     /**
@@ -131,6 +250,8 @@ class AudioManager {
     async loadAudio(src, id = null) {
         const audioId = id || src;
         
+        console.log('🎵 LOADING AUDIO:', src, 'ID:', audioId);
+        
         // Force fresh load by clearing cache and adding timestamp
         if (this.audioCache.has(audioId)) {
             this.audioCache.delete(audioId);
@@ -138,12 +259,20 @@ class AudioManager {
         
         return new Promise((resolve, reject) => {
             const audio = new Audio();
+            
+            // Audio is automatically tracked by our overridden constructor
+            
             audio.addEventListener('canplaythrough', () => {
+                console.log('🎵 AUDIO LOADED:', src);
                 this.audioCache.set(audioId, audio);
                 resolve(audio);
             }, { once: true });
             
-            audio.addEventListener('error', reject);
+            audio.addEventListener('error', (e) => {
+                console.error('🎵 AUDIO LOAD ERROR:', src, e);
+                reject(e);
+            });
+            
             // Add cache-busting timestamp
             const cacheBuster = Date.now();
             audio.src = `${src}?v=${cacheBuster}`;
@@ -218,16 +347,26 @@ class AudioManager {
      * Play background music with crossfade
      */
     async playBGM(src, volume = 1.0, fadeTime = 1000) {
-        console.log(`AudioManager: playBGM called - ${src}, muted: ${this.isMuted}, enabled: ${this.audioEnabled}`);
+        console.log(`🎵 PLAY BGM CALLED: ${src}, muted: ${this.isMuted}, enabled: ${this.audioEnabled}`);
+        console.trace('BGM call stack:');
+        
+        // ALWAYS stop any existing BGM first, regardless of mute state
+        if (this.currentBGM) {
+            console.log('🎵 STOPPING EXISTING BGM:', this.currentBGM.src);
+            this.currentBGM.pause();
+            this.currentBGM.volume = 0;
+            this.currentBGM.src = '';
+            this.currentBGM = null;
+        }
         
         if (this.isMuted) {
-            console.log('AudioManager: BGM is muted, not playing');
+            console.log('🎵 BGM is muted, not starting new BGM');
             return;
         }
         
         if (!this.audioEnabled) {
             // Queue BGM to play when enabled
-            console.log('AudioManager: Audio not enabled, queuing BGM:', src);
+            console.log('🎵 Audio not enabled, queuing BGM:', src);
             this.pendingAudio.push({
                 type: 'bgm',
                 src: src,
@@ -241,28 +380,26 @@ class AudioManager {
         }
         
         try {
-            // Stop current BGM with fade
-            if (this.currentBGM) {
-                this.fadeOut(this.currentBGM, fadeTime);
-            }
+            console.log('🎵 LOADING NEW BGM:', src);
             
             // Load new BGM
             const bgm = await this.loadAudio(src);
             const bgmClone = bgm.cloneNode();
             
             bgmClone.loop = true;
-            bgmClone.volume = 0;
+            bgmClone.volume = this.isMuted ? 0 : (volume * this.musicVolume * this.masterVolume);
             
+            console.log('🎵 STARTING BGM PLAYBACK:', src);
             const playPromise = bgmClone.play();
             if (playPromise) {
                 await playPromise;
             }
             
             this.currentBGM = bgmClone;
-            this.fadeIn(bgmClone, volume * this.musicVolume * this.masterVolume, fadeTime);
+            console.log('🎵 BGM NOW PLAYING:', src);
             
         } catch (error) {
-            // Failed to play BGM silently
+            console.error('🎵 FAILED TO PLAY BGM:', src, error);
         }
     }
     
@@ -270,10 +407,40 @@ class AudioManager {
      * Stop background music
      */
     stopBGM(fadeTime = 1000) {
+        console.log('🎵 STOP BGM CALLED, fadeTime:', fadeTime);
+        
         if (this.currentBGM) {
-            this.fadeOut(this.currentBGM, fadeTime);
-            this.currentBGM = null;
+            console.log('🎵 STOPPING BGM:', this.currentBGM.src);
+            
+            if (fadeTime === 0) {
+                // Stop immediately and aggressively
+                this.currentBGM.pause();
+                this.currentBGM.volume = 0;
+                this.currentBGM.src = '';
+                this.currentBGM.currentTime = 0;
+                this.currentBGM = null;
+                console.log('🎵 BGM STOPPED IMMEDIATELY');
+            } else {
+                // Fade out but don't clear currentBGM until fade is complete
+                const bgmToStop = this.currentBGM;
+                this.currentBGM = null; // Clear reference so new BGM can start
+                this.fadeOut(bgmToStop, fadeTime);
+                console.log('🎵 BGM FADE OUT STARTED');
+            }
+        } else {
+            console.log('🎵 NO BGM TO STOP');
         }
+        
+        // NUCLEAR OPTION: Kill any rogue BGM that might be playing
+        console.log('🎵 CHECKING FOR ROGUE AUDIO...');
+        this.allAudioElements.forEach(audio => {
+            if (!audio.paused && audio.src.includes('00.mp3')) {
+                console.log('🎵 FOUND ROGUE MAIN MENU BGM, KILLING IT:', audio.src);
+                audio.pause();
+                audio.volume = 0;
+                audio.src = '';
+            }
+        });
     }
     
     /**
@@ -372,6 +539,8 @@ class AudioManager {
             if (currentStep >= steps) {
                 clearInterval(fadeInterval);
                 audio.pause();
+                audio.currentTime = 0; // Reset to beginning
+                audio.src = ''; // Clear the source to fully stop it
             }
         }, stepTime);
     }
@@ -399,35 +568,10 @@ class AudioManager {
      * Set mute state and immediately apply it
      */
     setMuted(muted) {
-        const wasUnmuting = this.isMuted && !muted;
-        const wasMuting = !this.isMuted && muted;
         this.isMuted = muted;
-        
-        if (this.isMuted) {
-            // Immediately stop all audio when muting
-            console.log('AudioManager: Muting audio');
-            if (this.currentBGM) {
-                this.currentBGM.volume = 0;
-                this.currentBGM.pause();
-                console.log('AudioManager: BGM paused');
-            }
-            if (this.currentAmbience) {
-                this.currentAmbience.volume = 0;
-                this.currentAmbience.pause();
-                console.log('AudioManager: Ambience paused');
-            }
-            // Clear pending audio queue when muting
-            this.pendingAudio = [];
-        } else {
-            // When unmuting, restore volumes and try to resume paused audio
-            console.log('AudioManager: Unmuting audio');
-            this.updateAllVolumes();
-            
-            // Log unmuting for debugging
-            if (wasUnmuting) {
-                console.log('AudioManager: Audio was unmuted, volumes restored');
-            }
-        }
+        // Just update volumes - don't stop/start anything
+        // BGM continues playing in background, just at volume 0 when muted
+        this.updateAllVolumes();
     }
     
     /**
@@ -442,40 +586,14 @@ class AudioManager {
      * Update all volume levels
      */
     updateAllVolumes() {
-        if (this.isMuted) {
-            // When muted, ensure all audio is at volume 0 and paused
-            if (this.currentBGM) {
-                this.currentBGM.volume = 0;
-                if (!this.currentBGM.paused) {
-                    this.currentBGM.pause();
-                }
-            }
-            if (this.currentAmbience) {
-                this.currentAmbience.volume = 0;
-                if (!this.currentAmbience.paused) {
-                    this.currentAmbience.pause();
-                }
-            }
-        } else {
-            // When not muted, apply proper volume levels
-            if (this.currentBGM) {
-                this.currentBGM.volume = this.musicVolume * this.masterVolume;
-                // If BGM was paused due to muting, resume it
-                if (this.currentBGM.paused) {
-                    this.currentBGM.play().catch(e => {
-                        // Silent fail if can't resume
-                    });
-                }
-            }
-            if (this.currentAmbience) {
-                this.currentAmbience.volume = this.ambienceVolume * this.masterVolume;
-                // If ambience was paused due to muting, resume it
-                if (this.currentAmbience.paused) {
-                    this.currentAmbience.play().catch(e => {
-                        // Silent fail if can't resume
-                    });
-                }
-            }
+        // Calculate effective volumes based on mute state
+        const effectiveMasterVolume = this.isMuted ? 0 : this.masterVolume;
+        
+        if (this.currentBGM) {
+            this.currentBGM.volume = this.musicVolume * effectiveMasterVolume;
+        }
+        if (this.currentAmbience) {
+            this.currentAmbience.volume = this.ambienceVolume * effectiveMasterVolume;
         }
     }
     
