@@ -307,27 +307,31 @@ class MainMenuState extends GameState {
         this.options = ['New Game', 'Continue', 'Settings', 'Exit'];
         this.musicStarted = false;
         
-        // Check if we're entering fresh or returning from a pushed state
+        // Check what state we're coming from
+        const previousState = this.stateManager.previousState;
         const returningFromSettings = this.stateManager.stateStack.length > 0;
         
-        if (returningFromSettings) {
-            console.log('🔄 RETURNING TO MAIN MENU FROM SETTINGS - NOT TOUCHING BGM');
-            // Don't do ANYTHING with BGM, it should already be playing
+        console.log(`🎮 MAIN MENU ENTERED - Previous: ${previousState}, Stack length: ${this.stateManager.stateStack.length}`);
+        
+        if (returningFromSettings && previousState === 'SETTINGS') {
+            console.log('🔄 RETURNING FROM SETTINGS - BGM should continue playing');
+            // Don't touch BGM when returning from settings menu
         } else {
-            console.log('🆕 ENTERING MAIN MENU FRESH - STARTING BGM');
-            // Fresh entry, start the music (and stop any gameplay music)
+            console.log('🆕 ENTERING MAIN MENU - STARTING MAIN MENU BGM');
+            // Always start main menu BGM when entering from any other state
             if (this.game.audioManager) {
-                // Only stop BGM if we're coming from gameplay, not from settings
-                this.game.audioManager.stopAmbience(500); 
+                // Stop any ambience from maps
+                this.game.audioManager.stopAmbience(); 
+                // Request main menu BGM (will crossfade from any current BGM)
                 this.startMenuMusic();
             }
         }
     }
     
     startMenuMusic() {
-        if (this.musicStarted) return;
+        console.log(`🎵 Starting main menu music (musicStarted: ${this.musicStarted})`);
         
-        // Use new AudioManager API - just pass the filename
+        // Always request main menu BGM - AudioManager will handle duplicates
         this.game.audioManager.playBGM('00.mp3');
         this.musicStarted = true;
     }
