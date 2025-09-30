@@ -39,7 +39,7 @@ class AudioManager {
         this.audioContext = null;
         this.audioEnabled = false;
         this.pendingActions = [];
-        this.gestureAttempted = false;
+        this.startScreenShown = false;
         
         // Cleanup tracking
         this.audioElements = new Set();
@@ -53,37 +53,15 @@ class AudioManager {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             console.log(`[AudioManager] Audio context created, state: ${this.audioContext.state}`);
             
-            // Attempt to enable audio immediately and on user interaction
-            const enableAudio = () => {
-                if (this.gestureAttempted) return;
-                this.gestureAttempted = true;
-                
-                console.log('[AudioManager] Attempting to enable audio...');
-                if (this.audioContext.state === 'suspended') {
-                    this.audioContext.resume().then(() => {
-                        this.audioEnabled = true;
-                        console.log('[AudioManager] ✅ Audio context enabled via resume');
-                        this.processPendingActions();
-                    }).catch(error => {
-                        console.error('[AudioManager] ❌ Failed to resume audio context:', error);
-                    });
-                } else {
-                    this.audioEnabled = true;
-                    console.log('[AudioManager] ✅ Audio context already running');
-                    this.processPendingActions();
-                }
-            };
-
-            // Try to enable immediately (might work in some browsers)
-            setTimeout(() => {
-                console.log('[AudioManager] Attempting immediate audio activation...');
-                enableAudio();
-            }, 100);
-
-            // Listen for any user interaction to enable audio as fallback
-            ['click', 'keydown', 'touchstart', 'mousedown'].forEach(event => {
-                document.addEventListener(event, enableAudio, { once: true });
-            });
+            // Check if audio needs user interaction
+            if (this.audioContext.state === 'suspended') {
+                console.log('[AudioManager] Audio context suspended - user interaction required');
+                this.showStartScreen();
+            } else {
+                console.log('[AudioManager] ✅ Audio context ready immediately');
+                this.audioEnabled = true;
+                this.processPendingActions();
+            }
 
         } catch (error) {
             console.error('[AudioManager] ❌ Failed to initialize audio context:', error);
@@ -649,48 +627,92 @@ class AudioManager {
         this.updateAllVolumes();
     }
 
-    // Simulate user gesture to enable audio immediately
-    simulateUserGesture() {
-        if (this.audioEnabled) {
-            console.log('[AudioManager] Audio already enabled');
-            return Promise.resolve();
-        }
+    // Show "Click to Start" screen
+    showStartScreen() {
+        if (this.startScreenShown) return;
+        this.startScreenShown = true;
 
-        console.log('[AudioManager] 🎯 Simulating user gesture to enable audio...');
+        console.log('[AudioManager] 🎮 Showing start screen for audio activation');
         
-        return new Promise((resolve) => {
-            // Create a silent audio element and try to play it
-            const silentAudio = new Audio('data:audio/wav;base64,UklGRnoAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoAAAC/hBqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhCiuBzvLZiTYIG2m98OScSkANUarm7bllGgU+ltDzx3EnBSl+zPLaizsIJXK/9N2QRgQAAAAAAAAAAAAAAAA=');
-            
-            const enableAttempt = () => {
-                if (this.audioContext && this.audioContext.state === 'suspended') {
-                    this.audioContext.resume().then(() => {
-                        this.audioEnabled = true;
-                        console.log('[AudioManager] ✅ Audio enabled via simulated gesture');
-                        this.processPendingActions();
-                        resolve();
-                    }).catch(() => {
-                        console.log('[AudioManager] ⚠️ Simulated gesture failed, waiting for real user interaction');
-                        resolve();
-                    });
-                } else {
-                    this.audioEnabled = true;
-                    console.log('[AudioManager] ✅ Audio context already ready');
-                    this.processPendingActions();
-                    resolve();
-                }
-            };
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'audio-start-screen';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            color: white;
+            font-family: Arial, sans-serif;
+            cursor: pointer;
+            user-select: none;
+        `;
 
-            // Try playing silent audio
-            silentAudio.play().then(() => {
-                console.log('[AudioManager] ✅ Silent audio played successfully');
-                silentAudio.pause();
-                enableAttempt();
-            }).catch(() => {
-                console.log('[AudioManager] ⚠️ Silent audio failed, trying context resume directly');
-                enableAttempt();
-            });
+        // Create content
+        const title = document.createElement('h1');
+        title.textContent = 'Click to Start';
+        title.style.cssText = `
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+        `;
+
+        const subtitle = document.createElement('p');
+        subtitle.textContent = 'Click anywhere or press any key to enable audio and start the game';
+        subtitle.style.cssText = `
+            font-size: 1.2rem;
+            opacity: 0.8;
+            text-align: center;
+            margin: 0;
+        `;
+
+        overlay.appendChild(title);
+        overlay.appendChild(subtitle);
+        document.body.appendChild(overlay);
+
+        // Enable audio on any interaction
+        const enableAudio = () => {
+            console.log('[AudioManager] 🎯 User interaction detected, enabling audio...');
+            
+            if (this.audioContext.state === 'suspended') {
+                this.audioContext.resume().then(() => {
+                    this.audioEnabled = true;
+                    console.log('[AudioManager] ✅ Audio context enabled via user interaction');
+                    this.processPendingActions();
+                    this.hideStartScreen();
+                }).catch(error => {
+                    console.error('[AudioManager] ❌ Failed to enable audio context:', error);
+                    this.hideStartScreen(); // Hide screen anyway
+                });
+            } else {
+                this.audioEnabled = true;
+                console.log('[AudioManager] ✅ Audio context already running');
+                this.processPendingActions();
+                this.hideStartScreen();
+            }
+        };
+
+        // Listen for interactions
+        ['click', 'keydown', 'touchstart'].forEach(event => {
+            overlay.addEventListener(event, enableAudio, { once: true });
+            document.addEventListener(event, enableAudio, { once: true });
         });
+    }
+
+    // Hide start screen
+    hideStartScreen() {
+        const overlay = document.getElementById('audio-start-screen');
+        if (overlay) {
+            overlay.remove();
+            console.log('[AudioManager] ✅ Start screen removed');
+        }
     }
 
     // Crossfade management
@@ -730,7 +752,7 @@ class AudioManager {
             activeEffects: this.effectsAudio.size,
             trackedElements: this.audioElements.size,
             cacheBuster: this.cacheBuster,
-            gestureAttempted: this.gestureAttempted,
+            startScreenShown: this.startScreenShown,
             settings: this.settings
         };
     }
@@ -739,18 +761,11 @@ class AudioManager {
 // Create global instance
 window.AudioManager = new AudioManager();
 
-// Auto-attempt to enable audio after a short delay
-setTimeout(() => {
-    if (window.AudioManager && !window.AudioManager.audioEnabled) {
-        console.log('[AudioManager] 🚀 Auto-attempting to enable audio...');
-        window.AudioManager.simulateUserGesture();
-    }
-}, 500);
-
 // Global debug helpers
 window.audioDebug = {
     info: () => console.table(window.AudioManager.getDebugInfo()),
-    enable: () => window.AudioManager.simulateUserGesture(),
+    showStartScreen: () => window.AudioManager.showStartScreen(),
+    hideStartScreen: () => window.AudioManager.hideStartScreen(),
     cleanup: () => window.AudioManager.cleanup(),
     testBGM: (filename = '00.mp3') => window.AudioManager.playBGM(filename),
     testEffect: (filename = 'coin.mp3') => window.AudioManager.playEffect(filename),
