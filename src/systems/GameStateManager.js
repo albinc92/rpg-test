@@ -452,6 +452,8 @@ class PlayingState extends GameState {
  */
 class PausedState extends GameState {
     enter() {
+        console.log('⏸️ PAUSE MENU ENTERED');
+        console.log('Current BGM:', this.game.audioManager?.currentBGM?.src || 'none');
         this.selectedOption = 0;
         this.options = ['Resume', 'Settings', 'Main Menu'];
     }
@@ -517,6 +519,8 @@ class PausedState extends GameState {
  */
 class SettingsState extends GameState {
     enter(data = {}) {
+        console.log('🔧 SETTINGS ENTER DEBUG START 🔧');
+        
         this.selectedOption = 0;
         this.options = [
             { name: 'Master Volume', type: 'slider', key: 'masterVolume', min: 0, max: 100, step: 10 },
@@ -528,7 +532,15 @@ class SettingsState extends GameState {
         
         // Track where we came from to know what BGM to play when unmuting
         this.previousState = this.stateManager.previousState;
-        console.log('Settings entered from state:', this.previousState);
+        
+        // Check if we're in a nested state situation (e.g., PLAYING -> PAUSED -> SETTINGS)
+        // In this case, we need to look deeper to find the real origin state
+        this.originState = this.findOriginState();
+        
+        console.log('Settings entered from state:', this.previousState, 'origin state:', this.originState);
+        console.log('Current BGM playing:', this.game.audioManager?.currentBGM?.src || 'none');
+        console.log('Audio muted:', this.game.audioManager?.isMuted);
+        console.log('🔧 SETTINGS ENTER DEBUG END 🔧');
     }
     
     handleInput(inputManager) {
@@ -627,17 +639,57 @@ class SettingsState extends GameState {
         }
     }
     
-    handleUnmute() {
-        console.log('Audio was unmuted in settings, previous state was:', this.previousState);
+    findOriginState() {
+        console.log('DEBUG: Finding origin state...');
+        console.log('DEBUG: previousState =', this.previousState);
+        console.log('DEBUG: stateStack =', this.stateManager.stateStack);
+        console.log('DEBUG: stateStack length =', this.stateManager.stateStack.length);
         
-        // Only start BGM if we came from the main menu
-        if (this.previousState === 'MAIN_MENU' && this.game.audioManager) {
-            console.log('Starting main menu BGM immediately in settings');
-            // Start main menu BGM since that's where we came from
-            this.game.audioManager.playBGM('assets/audio/bgm/00.mp3', 0.6, 500);
+        // If we came directly from MAIN_MENU, that's our origin
+        if (this.previousState === 'MAIN_MENU') {
+            console.log('DEBUG: Origin is MAIN_MENU (direct)');
+            return 'MAIN_MENU';
         }
-        // If we came from PAUSED (during gameplay), don't start any BGM
-        // The game will handle resuming the correct BGM when we return
+        
+        // If we came from PAUSED, check the state stack to find what was before PAUSED
+        if (this.previousState === 'PAUSED' && this.stateManager.stateStack.length > 0) {
+            // Look at the state stack to find the original state before pause
+            const stackStates = this.stateManager.stateStack;
+            console.log('DEBUG: Stack states:', stackStates.map(s => s.state));
+            // The bottom of the stack should be the original gameplay state
+            if (stackStates.length > 0) {
+                const bottomState = stackStates[0].state;
+                console.log('DEBUG: Bottom state of stack is:', bottomState);
+                return bottomState; // This should be 'PLAYING'
+            }
+        }
+        
+        console.log('DEBUG: Returning previous state as fallback:', this.previousState);
+        return this.previousState;
+    }
+    
+    handleUnmute() {
+        console.log('=== UNMUTE DEBUG ===');
+        console.log('Previous state:', this.previousState);
+        console.log('Origin state:', this.originState);
+        console.log('Current map ID:', this.game.currentMapId);
+        
+        // Only start BGM if we originally came from the main menu
+        if (this.originState === 'MAIN_MENU' && this.game.audioManager) {
+            console.log('🎵 DECISION: Starting main menu BGM (00.mp3)');
+            this.game.audioManager.playBGM('assets/audio/bgm/00.mp3', 0.6, 500);
+        } else if (this.originState === 'PLAYING' && this.game.audioManager) {
+            // We came from gameplay, so restart the current map's BGM
+            const currentMapData = this.game.mapManager?.getMapData(this.game.currentMapId);
+            console.log('Current map data:', currentMapData);
+            console.log('🎵 DECISION: Starting map BGM:', currentMapData?.music);
+            if (currentMapData?.music) {
+                this.game.audioManager.playBGM(currentMapData.music, 0.6, 500);
+            }
+        } else {
+            console.log('🎵 DECISION: Not starting any BGM (origin state:', this.originState, ')');
+        }
+        console.log('==================');
     }
     
     saveSettings() {
