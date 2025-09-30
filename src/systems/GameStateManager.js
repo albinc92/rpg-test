@@ -233,19 +233,23 @@ class LoadingState extends GameState {
     }
     
     render(ctx) {
+        // Use the game's logical canvas dimensions
+        const canvasWidth = this.game.CANVAS_WIDTH;
+        const canvasHeight = this.game.CANVAS_HEIGHT;
+        
         ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
         ctx.fillStyle = '#fff';
         ctx.font = '32px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(this.loadingText, ctx.canvas.width / 2, ctx.canvas.height / 2);
+        ctx.fillText(this.loadingText, canvasWidth / 2, canvasHeight / 2);
         
         // Loading bar
         const barWidth = 400;
         const barHeight = 20;
-        const barX = ctx.canvas.width / 2 - barWidth / 2;
-        const barY = ctx.canvas.height / 2 + 50;
+        const barX = canvasWidth / 2 - barWidth / 2;
+        const barY = canvasHeight / 2 + 50;
         
         ctx.strokeStyle = '#fff';
         ctx.strokeRect(barX, barY, barWidth, barHeight);
@@ -298,18 +302,22 @@ class MainMenuState extends GameState {
     }
     
     render(ctx) {
+        // Use the game's logical canvas dimensions instead of ctx.canvas.width/height
+        const canvasWidth = this.game.CANVAS_WIDTH;
+        const canvasHeight = this.game.CANVAS_HEIGHT;
+        
         ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
         ctx.fillStyle = '#fff';
         ctx.font = '48px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('RPG Game', ctx.canvas.width / 2, 200);
+        ctx.fillText('RPG Game', canvasWidth / 2, 200);
         
         ctx.font = '24px Arial';
         this.options.forEach((option, index) => {
             ctx.fillStyle = index === this.selectedOption ? '#ff0' : '#fff';
-            ctx.fillText(option, ctx.canvas.width / 2, 350 + index * 50);
+            ctx.fillText(option, canvasWidth / 2, 350 + index * 50);
         });
     }
 }
@@ -391,20 +399,24 @@ class PausedState extends GameState {
     }
     
     render(ctx) {
+        // Use the game's logical canvas dimensions
+        const canvasWidth = this.game.CANVAS_WIDTH;
+        const canvasHeight = this.game.CANVAS_HEIGHT;
+        
         // Draw translucent overlay
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
         // Draw pause menu
         ctx.fillStyle = '#fff';
         ctx.font = '36px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('PAUSED', ctx.canvas.width / 2, 200);
+        ctx.fillText('PAUSED', canvasWidth / 2, 200);
         
         ctx.font = '24px Arial';
         this.options.forEach((option, index) => {
             ctx.fillStyle = index === this.selectedOption ? '#ff0' : '#fff';
-            ctx.fillText(option, ctx.canvas.width / 2, 300 + index * 50);
+            ctx.fillText(option, canvasWidth / 2, 300 + index * 50);
         });
     }
 }

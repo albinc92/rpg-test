@@ -111,21 +111,20 @@ class GameEngine {
         // Get device pixel ratio for high DPI displays
         const devicePixelRatio = window.devicePixelRatio || 1;
         
-        // Set actual canvas size
-        this.canvas.width = this.CANVAS_WIDTH * devicePixelRatio;
-        this.canvas.height = this.CANVAS_HEIGHT * devicePixelRatio;
-        
-        // Set display size
+        // Set display size first
         this.canvas.style.width = this.CANVAS_WIDTH + 'px';
         this.canvas.style.height = this.CANVAS_HEIGHT + 'px';
         this.canvas.style.cursor = 'none';
         
-        // Scale context for high DPI
+        // Set actual canvas size (scaled for high DPI)
+        this.canvas.width = this.CANVAS_WIDTH * devicePixelRatio;
+        this.canvas.height = this.CANVAS_HEIGHT * devicePixelRatio;
+        
+        // Scale context back to logical pixels
         this.ctx.scale(devicePixelRatio, devicePixelRatio);
         
-        // Enable smooth rendering
-        this.ctx.imageSmoothingEnabled = true;
-        this.ctx.imageSmoothingQuality = 'high';
+        // Disable image smoothing for pixel art (if needed)
+        this.ctx.imageSmoothingEnabled = false;
         
         // Improve text rendering
         this.ctx.textBaseline = 'alphabetic';
@@ -137,14 +136,18 @@ class GameEngine {
             this.CANVAS_HEIGHT = window.innerHeight;
             
             const devicePixelRatio = window.devicePixelRatio || 1;
-            this.canvas.width = this.CANVAS_WIDTH * devicePixelRatio;
-            this.canvas.height = this.CANVAS_HEIGHT * devicePixelRatio;
+            
+            // Set display size first
             this.canvas.style.width = this.CANVAS_WIDTH + 'px';
             this.canvas.style.height = this.CANVAS_HEIGHT + 'px';
             
+            // Set actual canvas size (scaled for high DPI)
+            this.canvas.width = this.CANVAS_WIDTH * devicePixelRatio;
+            this.canvas.height = this.CANVAS_HEIGHT * devicePixelRatio;
+            
+            // Scale context back to logical pixels
             this.ctx.scale(devicePixelRatio, devicePixelRatio);
-            this.ctx.imageSmoothingEnabled = true;
-            this.ctx.imageSmoothingQuality = 'high';
+            this.ctx.imageSmoothingEnabled = false;
             this.ctx.textBaseline = 'alphabetic';
             this.ctx.textRendering = 'optimizeQuality';
         });
