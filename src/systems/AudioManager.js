@@ -25,6 +25,9 @@ class AudioManager {
         
         // Set up user gesture handler to enable audio
         this.setupAudioActivation();
+        
+        // Debug log to confirm AudioManager is working
+        console.log('AudioManager initialized successfully');
     }
     
     /**
@@ -36,18 +39,23 @@ class AudioManager {
         const enableAudio = () => {
             if (this.audioEnabled) return;
             
+            console.log('AudioManager: User gesture detected, enabling audio');
+            
             // Resume audio context if needed
             if (this.audioContext && this.audioContext.state === 'suspended') {
                 this.audioContext.resume().then(() => {
                     this.audioEnabled = true;
+                    console.log('AudioManager: Audio context resumed, processing pending audio');
                     this.processPendingAudio();
                 }).catch(e => {
                     // Silently fail, user will just not get audio
+                    console.log('AudioManager: Audio context resume failed, but enabling audio anyway');
                     this.audioEnabled = true;
                     this.processPendingAudio();
                 });
             } else {
                 this.audioEnabled = true;
+                console.log('AudioManager: Audio enabled, processing pending audio');
                 this.processPendingAudio();
             }
         };
@@ -123,8 +131,9 @@ class AudioManager {
     async loadAudio(src, id = null) {
         const audioId = id || src;
         
+        // Force fresh load by clearing cache and adding timestamp
         if (this.audioCache.has(audioId)) {
-            return this.audioCache.get(audioId);
+            this.audioCache.delete(audioId);
         }
         
         return new Promise((resolve, reject) => {
@@ -135,7 +144,9 @@ class AudioManager {
             }, { once: true });
             
             audio.addEventListener('error', reject);
-            audio.src = src;
+            // Add cache-busting timestamp
+            const cacheBuster = Date.now();
+            audio.src = `${src}?v=${cacheBuster}`;
         });
     }
     
@@ -143,12 +154,16 @@ class AudioManager {
      * Play a sound effect
      */
     async playEffect(soundId, volume = 1.0, loop = false) {
+        console.log(`AudioManager: playEffect called - ${soundId}, muted: ${this.isMuted}, enabled: ${this.audioEnabled}`);
+        
         if (this.isMuted) {
+            console.log('AudioManager: Audio is muted, not playing');
             return null;
         }
         
         if (!this.audioEnabled) {
             // Queue the audio to play when enabled, but don't wait
+            console.log('AudioManager: Audio not enabled, queuing sound:', soundId);
             this.pendingAudio.push({
                 type: 'effect',
                 soundId: soundId,
@@ -203,12 +218,16 @@ class AudioManager {
      * Play background music with crossfade
      */
     async playBGM(src, volume = 1.0, fadeTime = 1000) {
+        console.log(`AudioManager: playBGM called - ${src}, muted: ${this.isMuted}, enabled: ${this.audioEnabled}`);
+        
         if (this.isMuted) {
+            console.log('AudioManager: BGM is muted, not playing');
             return;
         }
         
         if (!this.audioEnabled) {
             // Queue BGM to play when enabled
+            console.log('AudioManager: Audio not enabled, queuing BGM:', src);
             this.pendingAudio.push({
                 type: 'bgm',
                 src: src,
@@ -377,13 +396,45 @@ class AudioManager {
     }
     
     /**
+     * Set mute state and immediately apply it
+     */
+    setMuted(muted) {
+        const wasUnmuting = this.isMuted && !muted;
+        const wasMuting = !this.isMuted && muted;
+        this.isMuted = muted;
+        
+        if (this.isMuted) {
+            // Immediately stop all audio when muting
+            console.log('AudioManager: Muting audio');
+            if (this.currentBGM) {
+                this.currentBGM.volume = 0;
+                this.currentBGM.pause();
+                console.log('AudioManager: BGM paused');
+            }
+            if (this.currentAmbience) {
+                this.currentAmbience.volume = 0;
+                this.currentAmbience.pause();
+                console.log('AudioManager: Ambience paused');
+            }
+            // Clear pending audio queue when muting
+            this.pendingAudio = [];
+        } else {
+            // When unmuting, restore volumes and try to resume paused audio
+            console.log('AudioManager: Unmuting audio');
+            this.updateAllVolumes();
+            
+            // Log unmuting for debugging
+            if (wasUnmuting) {
+                console.log('AudioManager: Audio was unmuted, volumes restored');
+            }
+        }
+    }
+    
+    /**
      * Toggle mute
      */
     toggleMute() {
-        this.isMuted = !this.isMuted;
-        if (this.isMuted) {
-            this.stopBGM(0);
-        }
+        this.setMuted(!this.isMuted);
         return this.isMuted;
     }
     
@@ -391,8 +442,40 @@ class AudioManager {
      * Update all volume levels
      */
     updateAllVolumes() {
-        if (this.currentBGM) {
-            this.currentBGM.volume = this.musicVolume * this.masterVolume;
+        if (this.isMuted) {
+            // When muted, ensure all audio is at volume 0 and paused
+            if (this.currentBGM) {
+                this.currentBGM.volume = 0;
+                if (!this.currentBGM.paused) {
+                    this.currentBGM.pause();
+                }
+            }
+            if (this.currentAmbience) {
+                this.currentAmbience.volume = 0;
+                if (!this.currentAmbience.paused) {
+                    this.currentAmbience.pause();
+                }
+            }
+        } else {
+            // When not muted, apply proper volume levels
+            if (this.currentBGM) {
+                this.currentBGM.volume = this.musicVolume * this.masterVolume;
+                // If BGM was paused due to muting, resume it
+                if (this.currentBGM.paused) {
+                    this.currentBGM.play().catch(e => {
+                        // Silent fail if can't resume
+                    });
+                }
+            }
+            if (this.currentAmbience) {
+                this.currentAmbience.volume = this.ambienceVolume * this.masterVolume;
+                // If ambience was paused due to muting, resume it
+                if (this.currentAmbience.paused) {
+                    this.currentAmbience.play().catch(e => {
+                        // Silent fail if can't resume
+                    });
+                }
+            }
         }
     }
     
@@ -415,6 +498,26 @@ class AudioManager {
         
         await Promise.allSettled(loadPromises);
         console.log('Common audio files preloaded');
+    }
+    
+    /**
+     * Clear all cached audio to force fresh loads
+     */
+    clearAudioCache() {
+        // Stop any currently playing audio
+        if (this.currentBGM) {
+            this.currentBGM.pause();
+            this.currentBGM = null;
+        }
+        if (this.currentAmbience) {
+            this.currentAmbience.pause();
+            this.currentAmbience = null;
+        }
+        
+        // Clear the cache
+        this.audioCache.clear();
+        
+        console.log('Audio cache cleared - forcing fresh audio loads');
     }
 }
 

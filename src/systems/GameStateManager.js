@@ -263,21 +263,22 @@ class LoadingState extends GameState {
  * Main Menu State
  */
 class MainMenuState extends GameState {
-    enter() {
+    enter(data = {}) {
         this.selectedOption = 0;
         this.options = ['New Game', 'Continue', 'Settings', 'Exit'];
         this.musicStarted = false;
         
-        // Stop all gameplay audio when entering main menu
+        // Always stop gameplay audio and start menu music when entering
+        // (resume() method will handle returns from pushed states)
         if (this.game.audioManager) {
             this.game.audioManager.stopBGM(500); // Quick fade out
             this.game.audioManager.stopAmbience(500); // Quick fade out
             
-            // Try to play main menu theme music immediately
+            // Start menu music
             this.startMenuMusic();
         }
         
-        console.log('Entered main menu - stopped all gameplay audio');
+        console.log('Entered main menu - starting fresh');
     }
     
     startMenuMusic() {
@@ -299,6 +300,37 @@ class MainMenuState extends GameState {
             
             document.addEventListener('keydown', enableAndPlay, { once: true });
             document.addEventListener('click', enableAndPlay, { once: true });
+        }
+    }
+    
+    ensureMenuMusicPlaying() {
+        // Check if the correct main menu music is playing
+        if (this.game.audioManager && this.game.audioManager.audioEnabled) {
+            // If no BGM is playing, or it's not the menu music, start it
+            if (!this.game.audioManager.currentBGM) {
+                this.startMenuMusic();
+            }
+        }
+    }
+    
+    resume() {
+        // Called when returning from a pushed state like Settings
+        // Check if we need to restart the menu music
+        console.log('Main menu resumed - checking music state');
+        
+        // If audio was muted and then unmuted in settings, we need to restart menu music
+        if (this.game.audioManager && !this.game.audioManager.isMuted) {
+            // If no BGM is currently playing, or it's paused, start/restart menu music
+            if (!this.game.audioManager.currentBGM || 
+                this.game.audioManager.currentBGM.paused ||
+                this.game.audioManager.currentBGM.volume === 0) {
+                console.log('Restarting main menu BGM after settings');
+                this.musicStarted = false; // Reset flag so we can start music again
+                this.startMenuMusic();
+            } else {
+                // Music is playing, just ensure it's at the right volume
+                this.ensureMenuMusicPlaying();
+            }
         }
     }
     
@@ -484,7 +516,7 @@ class PausedState extends GameState {
  * Settings State
  */
 class SettingsState extends GameState {
-    enter() {
+    enter(data = {}) {
         this.selectedOption = 0;
         this.options = [
             { name: 'Master Volume', type: 'slider', key: 'masterVolume', min: 0, max: 100, step: 10 },
@@ -493,6 +525,10 @@ class SettingsState extends GameState {
             { name: 'Mute Audio', type: 'toggle', key: 'isMuted' },
             { name: 'Back', type: 'action' }
         ];
+        
+        // Track where we came from to know what BGM to play when unmuting
+        this.previousState = this.stateManager.previousState;
+        console.log('Settings entered from state:', this.previousState);
     }
     
     handleInput(inputManager) {
@@ -529,6 +565,7 @@ class SettingsState extends GameState {
         if (!option || !option.key) return;
         
         const settings = this.game.settings;
+        const wasAudioMuted = settings.isMuted;
         
         if (option.type === 'slider') {
             const currentValue = settings[option.key];
@@ -545,6 +582,11 @@ class SettingsState extends GameState {
         } else if (option.type === 'toggle') {
             settings[option.key] = !settings[option.key];
             this.applyAudioSettings();
+            
+            // If we just unmuted audio and we're in settings from main menu, start main menu BGM
+            if (option.key === 'isMuted' && wasAudioMuted && !settings.isMuted) {
+                this.handleUnmute();
+            }
         }
         
         // Save settings
@@ -559,7 +601,13 @@ class SettingsState extends GameState {
                 this.stateManager.popState();
             }
         } else if (option.type === 'toggle') {
+            const wasAudioMuted = this.game.settings[option.key];
             this.adjustSetting(1); // Toggle the setting
+            
+            // Handle unmute for Enter key as well
+            if (option.key === 'isMuted' && wasAudioMuted && !this.game.settings.isMuted) {
+                this.handleUnmute();
+            }
         }
     }
     
@@ -572,11 +620,24 @@ class SettingsState extends GameState {
             audioManager.setMasterVolume(settings.masterVolume / 100);
             audioManager.setMusicVolume(settings.musicVolume / 100);
             audioManager.setEffectsVolume(settings.effectsVolume / 100);
-            audioManager.isMuted = settings.isMuted;
+            audioManager.setMuted(settings.isMuted);
             
-            // Update current playing audio
-            audioManager.updateAllVolumes();
+            // Don't call updateAllVolumes() here since setMuted() already handles it
+            // and we don't want to interfere with the muting process
         }
+    }
+    
+    handleUnmute() {
+        console.log('Audio was unmuted in settings, previous state was:', this.previousState);
+        
+        // Only start BGM if we came from the main menu
+        if (this.previousState === 'MAIN_MENU' && this.game.audioManager) {
+            console.log('Starting main menu BGM immediately in settings');
+            // Start main menu BGM since that's where we came from
+            this.game.audioManager.playBGM('assets/audio/bgm/00.mp3', 0.6, 500);
+        }
+        // If we came from PAUSED (during gameplay), don't start any BGM
+        // The game will handle resuming the correct BGM when we return
     }
     
     saveSettings() {
