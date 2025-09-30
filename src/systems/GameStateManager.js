@@ -266,6 +266,25 @@ class MainMenuState extends GameState {
     enter() {
         this.selectedOption = 0;
         this.options = ['New Game', 'Continue', 'Settings', 'Exit'];
+        
+        // Stop all gameplay audio when entering main menu
+        if (this.game.audioManager) {
+            this.game.audioManager.stopBGM(500); // Quick fade out
+            this.game.audioManager.stopAmbience(500); // Quick fade out
+            
+            // Play main menu theme music
+            this.game.audioManager.playBGM('assets/audio/bgm/00.mp3', 0.6, 1000);
+        }
+        
+        console.log('Entered main menu - stopped all gameplay audio');
+    }
+    
+    exit() {
+        // Stop menu audio when leaving main menu
+        if (this.game.audioManager) {
+            this.game.audioManager.stopBGM(800); // Fade out menu music
+        }
+        console.log('Exiting main menu');
     }
     
     handleInput(inputManager) {
@@ -333,6 +352,11 @@ class PlayingState extends GameState {
         // Load the initial map and start BGM
         await this.game.loadMap(this.game.currentMapId);
         this.game.positionPlayerOnMap(this.game.currentMapId);
+    }
+    
+    exit() {
+        // Clean up when leaving gameplay
+        console.log('Exiting gameplay state');
     }
     
     update(deltaTime) {

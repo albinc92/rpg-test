@@ -21,7 +21,7 @@ class MapManager {
             name: 'Forest Clearing',
             imagePath: 'assets/maps/0-0.png',
             description: 'A peaceful clearing in the forest where your journey begins.',
-            music: 'assets/audio/bgm/00.mp3',
+            music: 'assets/audio/bgm/01.mp3',
             ambientSound: 'assets/audio/ambience/forest-0.mp3',
             battleScene: 'Forest-Battlescene-0', // Battle scene for this map
             spawnPoints: {
@@ -36,7 +36,7 @@ class MapManager {
             name: 'Mountain Path',
             imagePath: 'assets/maps/0-1.png',
             description: 'A winding path through the mountains.',
-            music: 'assets/audio/bgm/00.mp3', // Could be different music later
+            music: 'assets/audio/bgm/01.mp3',
             ambientSound: 'assets/audio/ambience/forest-0.mp3',
             battleScene: 'Forest-Battlescene-0', // Battle scene for this map
             spawnPoints: {
