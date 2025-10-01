@@ -412,23 +412,24 @@ class MainMenuState extends GameState {
         }
     }
     
-    selectOption() {
+    async selectOption() {
         switch (this.selectedOption) {
             case 0: // New Game
                 // Start new game - reset playtime
                 this.game.playtime = 0;
-                this.stateManager.changeState('PLAYING');
+                this.stateManager.changeState('PLAYING', { isNewGame: true });
                 break;
             case 1: // Continue
                 if (this.hasSaveFiles) {
                     // Load the latest save
                     const latestSave = this.game.saveGameManager.getLatestSave();
                     if (latestSave) {
-                        this.game.saveGameManager.loadGame(latestSave.id, this.game);
-                        // Load the map and start playing
-                        this.game.loadMap(this.game.currentMapId).then(() => {
-                            this.stateManager.changeState('PLAYING');
-                        });
+                        // Load game (this now loads the map and restores everything)
+                        const success = await this.game.saveGameManager.loadGame(latestSave.id, this.game);
+                        if (success) {
+                            // Pass flag to indicate we're loading from save (don't reset player position)
+                            this.stateManager.changeState('PLAYING', { isLoadedGame: true });
+                        }
                     }
                 }
                 // If no saves, do nothing (button is grayed out)
@@ -528,10 +529,14 @@ class PlayingState extends GameState {
         console.log('Entering gameplay state');
         console.log('Data received:', data);
         
-        // Check if we're resuming from a pause/overlay state
+        // Check if we're resuming from a pause/overlay state or loading from save
         const isResumingFromPause = data.isResumingFromPause === true;
+        const isLoadedGame = data.isLoadedGame === true;
         
-        if (!isResumingFromPause) {
+        if (isLoadedGame) {
+            console.log('💾 Loaded game - player position already restored, map already loaded');
+            // Everything is already loaded by SaveGameManager, don't do anything
+        } else if (!isResumingFromPause) {
             console.log('🆕 Fresh entry to gameplay - loading map and positioning player');
             // Load the initial map and start BGM
             await this.game.loadMap(this.game.currentMapId);
@@ -743,15 +748,15 @@ class SaveLoadState extends GameState {
             // Load selected save
             if (this.saves[this.selectedOption]) {
                 const save = this.saves[this.selectedOption];
-                if (this.game.saveGameManager.loadGame(save.id, this.game)) {
-                    console.log('✅ Game loaded!');
-                    // Load the map and return to gameplay
-                    this.game.loadMap(this.game.currentMapId).then(() => {
-                        // Pop back to gameplay
+                // Load game (this now loads the map and restores everything including audio)
+                this.game.saveGameManager.loadGame(save.id, this.game).then((success) => {
+                    if (success) {
+                        console.log('✅ Game loaded!');
+                        // Pop back to gameplay (map and audio are already loaded)
                         this.stateManager.popState(); // Exit save/load menu
                         this.stateManager.popState(); // Exit pause menu
-                    });
-                }
+                    }
+                });
             }
         }
     }

@@ -105,8 +105,9 @@ class SaveGameManager {
 
     /**
      * Load a saved game
+     * Returns a Promise that resolves when the game is fully loaded
      */
-    loadGame(saveId, game) {
+    async loadGame(saveId, game) {
         try {
             const slotKey = this.saveKeyPrefix + saveId;
             const saveDataJson = localStorage.getItem(slotKey);
@@ -118,16 +119,19 @@ class SaveGameManager {
 
             const saveData = JSON.parse(saveDataJson);
 
-            // Restore player position and state
+            // Set map ID first (before loading map)
+            if (saveData.currentMapId) {
+                game.currentMapId = saveData.currentMapId;
+            }
+
+            // Load the map (this will trigger map loading with proper BGM/ambience)
+            await game.loadMap(game.currentMapId);
+
+            // Restore player position and state AFTER map is loaded
             if (saveData.player) {
                 game.player.x = saveData.player.x;
                 game.player.y = saveData.player.y;
                 game.player.direction = saveData.player.direction;
-            }
-
-            // Load the map (this will trigger map loading)
-            if (saveData.currentMapId) {
-                game.currentMapId = saveData.currentMapId;
             }
 
             // Restore inventory
