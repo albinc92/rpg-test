@@ -8,6 +8,9 @@ class GameEngine {
         this.ctx = this.canvas.getContext('2d');
         this.debug = document.getElementById('debug');
         
+        // Event listener cleanup tracking (MUST be initialized BEFORE setupCanvas)
+        this.eventListeners = [];
+        
         // Canvas setup
         this.CANVAS_WIDTH = window.innerWidth;
         this.CANVAS_HEIGHT = window.innerHeight;
@@ -139,7 +142,7 @@ class GameEngine {
         this.ctx.textRendering = 'optimizeQuality';
         
         // Handle window resize
-        window.addEventListener('resize', () => {
+        this.handleResize = () => {
             this.CANVAS_WIDTH = window.innerWidth;
             this.CANVAS_HEIGHT = window.innerHeight;
             
@@ -158,48 +161,57 @@ class GameEngine {
             this.ctx.imageSmoothingEnabled = false;
             this.ctx.textBaseline = 'alphabetic';
             this.ctx.textRendering = 'optimizeQuality';
-        });
+        };
+        
+        window.addEventListener('resize', this.handleResize);
+        this.eventListeners.push({ target: window, type: 'resize', handler: this.handleResize });
     }
     
+    /**
+     * Handle debug key presses
+     */
+    handleDebugKeys = (e) => {
+        if (e.code === 'KeyP') {
+            this.isPaused = !this.isPaused;
+            console.log(`Game ${this.isPaused ? 'PAUSED' : 'UNPAUSED'}`);
+            
+            // Pause/resume audio
+            if (this.audioManager) {
+                if (this.isPaused) {
+                    this.audioManager.pauseAll();
+                } else {
+                    this.audioManager.resumeAll();
+                }
+            }
+        }
+        
+        // F1 - Toggle debug info display
+        if (e.code === 'F1') {
+            this.settings.showDebugInfo = !this.settings.showDebugInfo;
+            console.log(`Debug info ${this.settings.showDebugInfo ? 'ENABLED' : 'DISABLED'}`);
+            e.preventDefault(); // Prevent browser's help menu
+        }
+        
+        // F5 - Clear audio cache and debug
+        if (e.code === 'F5') {
+            this.audioManager.clearAudioCache();
+            this.debugAudioAssignments();
+            console.log('Audio cache cleared! Refresh the page for fresh audio.');
+        }
+        
+        // F6 - Debug audio assignments
+        if (e.code === 'F6') {
+            this.debugAudioAssignments();
+        }
+    }
+
     /**
      * Start the main game loop
      */
     startGameLoop() {
         // Add pause control with P key and debug controls
-        document.addEventListener('keydown', (e) => {
-            if (e.code === 'KeyP') {
-                this.isPaused = !this.isPaused;
-                console.log(`Game ${this.isPaused ? 'PAUSED' : 'UNPAUSED'}`);
-                
-                // Pause/resume audio
-                if (this.audioManager) {
-                    if (this.isPaused) {
-                        this.audioManager.pauseAll();
-                    } else {
-                        this.audioManager.resumeAll();
-                    }
-                }
-            }
-            
-            // F1 - Toggle debug info display
-            if (e.code === 'F1') {
-                this.settings.showDebugInfo = !this.settings.showDebugInfo;
-                console.log(`Debug info ${this.settings.showDebugInfo ? 'ENABLED' : 'DISABLED'}`);
-                e.preventDefault(); // Prevent browser's help menu
-            }
-            
-            // F5 - Clear audio cache and debug
-            if (e.code === 'F5') {
-                this.audioManager.clearAudioCache();
-                this.debugAudioAssignments();
-                console.log('Audio cache cleared! Refresh the page for fresh audio.');
-            }
-            
-            // F6 - Debug audio assignments
-            if (e.code === 'F6') {
-                this.debugAudioAssignments();
-            }
-        });
+        document.addEventListener('keydown', this.handleDebugKeys);
+        this.eventListeners.push({ target: document, type: 'keydown', handler: this.handleDebugKeys });
         
         const gameLoop = (currentTime) => {
             const deltaTime = (currentTime - this.lastTime) / 1000;
@@ -788,6 +800,32 @@ class GameEngine {
         console.log('Audio Enabled:', this.audioManager.audioEnabled);
         console.log('Audio Muted:', this.audioManager.isMuted);
         console.log('==================');
+    }
+
+    /**
+     * Cleanup method - properly destroy the game engine
+     */
+    destroy() {
+        console.log('🧹 Cleaning up GameEngine...');
+        
+        // Remove all event listeners
+        this.eventListeners.forEach(({ target, type, handler }) => {
+            target.removeEventListener(type, handler);
+        });
+        this.eventListeners = [];
+        
+        // Cleanup audio
+        if (this.audioManager) {
+            this.audioManager.cleanup();
+        }
+        
+        // Clear references
+        this.player = null;
+        this.currentMap = null;
+        this.maps = {};
+        this.npcs = {};
+        
+        console.log('✅ GameEngine cleanup complete');
     }
 }
 
