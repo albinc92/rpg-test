@@ -39,6 +39,13 @@ async function loadGameScripts() {
         await loadScript('/src/systems/ItemManager.js');
         await loadScript('/src/systems/InventoryManager.js');
         
+        // Load new subsystems for better architecture
+        await loadScript('/src/systems/RenderSystem.js');
+        await loadScript('/src/systems/CollisionSystem.js');
+        await loadScript('/src/systems/InteractionSystem.js');
+        await loadScript('/src/systems/SettingsManager.js');
+        await loadScript('/src/systems/PerformanceMonitor.js');
+        
         // Load game engine
         await loadScript('/src/GameEngine.js');
         

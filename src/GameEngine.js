@@ -28,6 +28,13 @@ class GameEngine {
         this.itemManager = new ItemManager();
         this.inventoryManager = new InventoryManager(this.itemManager);
         
+        // NEW: Specialized subsystems for better architecture
+        this.renderSystem = new RenderSystem(this.canvas, this.ctx);
+        this.collisionSystem = new CollisionSystem();
+        this.interactionSystem = new InteractionSystem();
+        this.settingsManager = new SettingsManager();
+        this.performanceMonitor = new PerformanceMonitor();
+        
         // Game state
         this.currentMapId = '0-0';
         this.currentMap = null;
@@ -38,42 +45,18 @@ class GameEngine {
         this.player = null;
         this.initializePlayer();
         
-        // Camera system
-        this.camera = {
-            x: 0,
-            y: 0,
-            targetX: 0,
-            targetY: 0,
-            smoothing: 0.1
-        };
+        // Camera system (delegated to RenderSystem, but keep reference for compatibility)
+        this.camera = this.renderSystem.camera;
         
-        // Performance tracking
-        this.lastTime = 0;
-        this.fpsCounter = {
-            fps: 60,
-            frameCount: 0,
-            lastSecond: 0,
-            minFPS: Infinity,  // Start with Infinity so any real FPS becomes the min
-            maxFPS: 0,         // Start with 0 so any real FPS becomes the max
-            gracePeriod: 2     // Skip first 2 seconds for accurate measurement
-        };
-        
-        // Game settings
-        this.settings = {
-            masterVolume: 100,
-            musicVolume: 100,
-            effectsVolume: 100,
-            isMuted: false,
-            showFPS: true,
-            showDebug: false,
-            showDebugInfo: true
-        };
+        // Performance tracking (delegated to PerformanceMonitor, but keep reference for compatibility)
+        this.fpsCounter = this.performanceMonitor;
         
         // Debug controls
         this.isPaused = false;
         
-        // Load saved settings
-        this.loadSettings();
+        // Load saved settings using new SettingsManager
+        this.settingsManager.load();
+        this.settings = this.settingsManager.getAll();
         
         // Apply loaded settings to audio manager
         this.applyAudioSettings();
@@ -305,18 +288,17 @@ class GameEngine {
     renderGameplay(ctx) {
         if (!this.currentMap || !this.player) return;
         
-        // Set camera transform
-        ctx.save();
-        ctx.translate(-this.camera.x, -this.camera.y);
+        // Use RenderSystem for world rendering
+        const currentMapNPCs = this.npcs[this.currentMapId] || [];
+        const currentMapObjects = this.interactiveObjectManager.getObjectsForMap(this.currentMapId);
         
-        // Render map
-        this.renderMap(ctx);
-        
-        // Render game objects with depth sorting
-        this.renderGameObjects(ctx);
-        
-        // Restore transform
-        ctx.restore();
+        this.renderSystem.renderWorld(
+            this.currentMap,
+            currentMapObjects,
+            currentMapNPCs,
+            this.player,
+            this
+        );
         
         // Render UI elements (not affected by camera)
         this.renderUI(ctx);
@@ -480,20 +462,17 @@ class GameEngine {
      * Update camera system
      */
     updateCamera() {
-        if (!this.player) return;
+        if (!this.player || !this.currentMap) return;
         
-        const targetX = this.player.x - this.CANVAS_WIDTH / 2;
-        const targetY = this.player.y - this.CANVAS_HEIGHT / 2;
-        
-        // Smooth camera movement
-        this.camera.x += (targetX - this.camera.x) * this.camera.smoothing;
-        this.camera.y += (targetY - this.camera.y) * this.camera.smoothing;
-        
-        // Keep camera within map bounds
-        if (this.currentMap) {
-            this.camera.x = Math.max(0, Math.min(this.currentMap.width - this.CANVAS_WIDTH, this.camera.x));
-            this.camera.y = Math.max(0, Math.min(this.currentMap.height - this.CANVAS_HEIGHT, this.camera.y));
-        }
+        // Delegate camera update to RenderSystem
+        this.renderSystem.updateCamera(
+            this.player.x,
+            this.player.y,
+            this.CANVAS_WIDTH,
+            this.CANVAS_HEIGHT,
+            this.currentMap.width,
+            this.currentMap.height
+        );
     }
     
     /**
@@ -570,99 +549,30 @@ class GameEngine {
      */
     findClosestInteractableNPC() {
         const currentMapNPCs = this.npcs[this.currentMapId] || [];
-        const interactionDistance = 120;
-        
-        let closestNPC = null;
-        let closestDistance = Infinity;
-        
-        currentMapNPCs.forEach(npc => {
-            if (npc.type === 'spirit') return; // Spirits don't have dialogue
-            
-            const distance = this.player.distanceTo(npc);
-            if (distance <= interactionDistance && distance < closestDistance) {
-                closestDistance = distance;
-                closestNPC = npc;
-            }
-        });
-        
-        return closestNPC;
+        // Delegate to InteractionSystem
+        return this.interactionSystem.findClosestNPC(this.player, currentMapNPCs);
     }
     
     /**
      * Update FPS counter
      */
     updateFPS(deltaTime) {
-        const currentSecond = Math.floor(performance.now() / 1000);
-        
-        if (currentSecond !== this.fpsCounter.lastSecond) {
-            this.fpsCounter.fps = this.fpsCounter.frameCount;
-            this.fpsCounter.frameCount = 0;
-            this.fpsCounter.lastSecond = currentSecond;
-            
-            // Track min/max FPS after grace period
-            if (this.fpsCounter.gracePeriod <= 0) {
-                // Initialize min/max on first valid reading
-                if (this.fpsCounter.minFPS === Infinity) {
-                    this.fpsCounter.minFPS = this.fpsCounter.fps;
-                    this.fpsCounter.maxFPS = this.fpsCounter.fps;
-                } else {
-                    this.fpsCounter.minFPS = Math.min(this.fpsCounter.minFPS, this.fpsCounter.fps);
-                    this.fpsCounter.maxFPS = Math.max(this.fpsCounter.maxFPS, this.fpsCounter.fps);
-                }
-            } else {
-                this.fpsCounter.gracePeriod--;
-            }
-        }
-        
-        this.fpsCounter.frameCount++;
+        // Delegate to PerformanceMonitor
+        this.performanceMonitor.update(deltaTime);
     }
     
     /**
      * Render FPS display
      */
     renderDebugInfo() {
-        // Bottom left debug panel with improved styling
-        const panelWidth = 260;
-        const panelHeight = 110;
-        const padding = 12;
-        const lineHeight = 16;
-        
-        // Semi-transparent background with border
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-        this.ctx.fillRect(10, this.CANVAS_HEIGHT - panelHeight - 10, panelWidth, panelHeight);
-        
-        // Border
-        this.ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
-        this.ctx.lineWidth = 1;
-        this.ctx.strokeRect(10, this.CANVAS_HEIGHT - panelHeight - 10, panelWidth, panelHeight);
-        
-        // Text styling
-        this.ctx.fillStyle = '#00ff00';
-        this.ctx.font = '14px Courier New, monospace';
-        this.ctx.textAlign = 'left';
-        
-        let y = this.CANVAS_HEIGHT - panelHeight + padding;
-        
-        // FPS info
-        this.ctx.fillText(`FPS: ${this.fpsCounter.fps}`, 20, y);
-        y += lineHeight;
-        
-        // Display min/max (show "--" if not yet initialized)
-        const minDisplay = this.fpsCounter.minFPS === Infinity ? '--' : this.fpsCounter.minFPS;
-        const maxDisplay = this.fpsCounter.maxFPS === 0 ? '--' : this.fpsCounter.maxFPS;
-        this.ctx.fillText(`Min: ${minDisplay}  Max: ${maxDisplay}`, 20, y);
-        y += lineHeight;
-        
-        // Game state info
-        this.ctx.fillText(`State: ${this.stateManager.getCurrentState()}`, 20, y);
-        y += lineHeight;
-        this.ctx.fillText(`Map: ${this.currentMapId}`, 20, y);
-        y += lineHeight + 4;
-        
-        // F1 hint in dimmer color
-        this.ctx.fillStyle = '#666666';
-        this.ctx.font = '12px Courier New, monospace';
-        this.ctx.fillText('Press F1 to toggle debug info', 20, y);
+        // Delegate to PerformanceMonitor
+        this.performanceMonitor.render(
+            this.ctx,
+            this.CANVAS_WIDTH,
+            this.CANVAS_HEIGHT,
+            this.stateManager.getCurrentState(),
+            this.currentMapId
+        );
     }
     
     /**

@@ -37,7 +37,7 @@ class RenderSystem {
     /**
      * Render the game world
      */
-    renderWorld(map, objects, npcs, player) {
+    renderWorld(map, objects, npcs, player, game) {
         // Set camera transform
         this.ctx.save();
         this.ctx.translate(-this.camera.x, -this.camera.y);
@@ -52,17 +52,17 @@ class RenderSystem {
         
         // Add NPCs
         npcs.forEach(npc => {
-            renderables.push({ obj: npc, y: npc.y + npc.spriteHeight });
+            renderables.push({ obj: npc, y: npc.y + (npc.spriteHeight || 0) });
         });
         
         // Add player
         if (player) {
-            renderables.push({ obj: player, y: player.y + player.spriteHeight });
+            renderables.push({ obj: player, y: player.y + (player.spriteHeight || 0) });
         }
         
         // Add interactive objects
         objects.forEach(obj => {
-            renderables.push({ obj: obj, y: obj.y + obj.spriteHeight });
+            renderables.push({ obj: obj, y: obj.y + (obj.spriteHeight || 0) });
         });
         
         // Sort by y position for proper depth
@@ -70,7 +70,7 @@ class RenderSystem {
         
         // Render all objects in sorted order
         renderables.forEach(({ obj }) => {
-            obj.render(this.ctx);
+            obj.render(this.ctx, game);
         });
         
         // Restore camera transform
