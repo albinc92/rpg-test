@@ -471,14 +471,19 @@ class GameEngine {
     updateCamera() {
         if (!this.player || !this.currentMap) return;
         
+        // Calculate actual map dimensions (accounting for scale)
+        const mapScale = this.currentMap.scale || 1.0;
+        const actualMapWidth = this.currentMap.width * mapScale;
+        const actualMapHeight = this.currentMap.height * mapScale;
+        
         // Delegate camera update to RenderSystem
         this.renderSystem.updateCamera(
             this.player.x,
             this.player.y,
             this.CANVAS_WIDTH,
             this.CANVAS_HEIGHT,
-            this.currentMap.width,
-            this.currentMap.height
+            actualMapWidth,
+            actualMapHeight
         );
     }
     
