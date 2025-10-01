@@ -8,15 +8,12 @@ class Player extends Actor {
             maxSpeed: 800,
             acceleration: 2500,
             friction: 0.8,
-            health: 100,
             spriteSrc: 'assets/npc/main-0.png',
             ...options
         });
         
         // Player-specific properties
         this.gold = options.gold || 100;
-        this.level = options.level || 1;
-        this.experience = options.experience || 0;
         
         // Input state
         this.inputX = 0;
@@ -113,28 +110,7 @@ class Player extends Actor {
         return false;
     }
     
-    /**
-     * Add experience
-     */
-    addExperience(amount) {
-        this.experience += amount;
-        // Check for level up (simple formula)
-        const requiredExp = this.level * 100;
-        if (this.experience >= requiredExp) {
-            this.levelUp();
-        }
-    }
-    
-    /**
-     * Level up
-     */
-    levelUp() {
-        this.level++;
-        this.experience = 0;
-        this.maxHealth += 20;
-        this.health = this.maxHealth; // Full heal on level up
-        console.log(`Level up! Now level ${this.level}`);
-    }
+
     
     /**
      * Get save data
@@ -144,11 +120,7 @@ class Player extends Actor {
             x: this.x,
             y: this.y,
             direction: this.direction,
-            gold: this.gold,
-            level: this.level,
-            experience: this.experience,
-            health: this.health,
-            maxHealth: this.maxHealth
+            gold: this.gold
         };
     }
     
@@ -160,9 +132,5 @@ class Player extends Actor {
         this.y = data.y || this.y;
         this.direction = data.direction || this.direction;
         this.gold = data.gold || this.gold;
-        this.level = data.level || this.level;
-        this.experience = data.experience || this.experience;
-        this.health = data.health || this.health;
-        this.maxHealth = data.maxHealth || this.maxHealth;
     }
 }

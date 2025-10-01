@@ -15,10 +15,6 @@ class Actor extends GameObject {
         this.maxSpeed = options.maxSpeed || 200;
         this.acceleration = options.acceleration || 800;
         this.friction = options.friction || 0.8;
-        
-        // Actor-specific properties
-        this.health = options.health || 100;
-        this.maxHealth = options.maxHealth || 100;
         this.isMoving = false;
         
         // AI/Behavior properties
@@ -124,25 +120,4 @@ class Actor extends GameObject {
         }
     }
     
-    /**
-     * Take damage
-     */
-    takeDamage(amount) {
-        this.health = Math.max(0, this.health - amount);
-        return this.health <= 0; // Returns true if actor is dead
-    }
-    
-    /**
-     * Heal
-     */
-    heal(amount) {
-        this.health = Math.min(this.maxHealth, this.health + amount);
-    }
-    
-    /**
-     * Check if actor is alive
-     */
-    isAlive() {
-        return this.health > 0;
-    }
 }
