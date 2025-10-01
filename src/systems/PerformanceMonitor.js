@@ -52,7 +52,7 @@ class PerformanceMonitor {
         if (!this.enabled) return;
         
         const panelWidth = 260;
-        const panelHeight = 110;
+        const panelHeight = 128; // Increased height for collision box indicator
         const padding = 12;
         const lineHeight = 16;
         
@@ -86,6 +86,11 @@ class PerformanceMonitor {
         ctx.fillText(`State: ${currentState}`, 20, y);
         y += lineHeight;
         ctx.fillText(`Map: ${currentMapId}`, 20, y);
+        y += lineHeight;
+        
+        // Collision boxes indicator
+        ctx.fillStyle = '#ff0000';
+        ctx.fillText('■ Collision boxes visible', 20, y);
         y += lineHeight + 4;
         
         // F1 hint in dimmer color

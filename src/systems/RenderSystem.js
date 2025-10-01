@@ -101,7 +101,53 @@ class RenderSystem {
             obj.render(this.ctx, game);
         });
         
+        // Render debug collision boxes if debug mode is enabled
+        if (game.settings && game.settings.showDebugInfo) {
+            this.renderDebugCollisionBoxes(renderables, game);
+        }
+        
         // Restore camera transform
+        this.ctx.restore();
+    }
+    
+    /**
+     * Render collision boxes for debugging
+     */
+    renderDebugCollisionBoxes(renderables, game) {
+        this.ctx.save();
+        
+        // Draw collision boxes for all objects
+        renderables.forEach(({ obj }) => {
+            if (!obj.hasCollision) return;
+            
+            const bounds = obj.getCollisionBounds();
+            
+            // Draw collision box with red outline
+            this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+            this.ctx.lineWidth = 2;
+            this.ctx.strokeRect(
+                bounds.left,
+                bounds.top,
+                bounds.right - bounds.left,
+                bounds.bottom - bounds.top
+            );
+            
+            // Fill with semi-transparent red
+            this.ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+            this.ctx.fillRect(
+                bounds.left,
+                bounds.top,
+                bounds.right - bounds.left,
+                bounds.bottom - bounds.top
+            );
+            
+            // Draw a small circle at the object's actual position (center point)
+            this.ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
+            this.ctx.beginPath();
+            this.ctx.arc(obj.x, obj.y, 3, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+        
         this.ctx.restore();
     }
     
