@@ -38,6 +38,8 @@ class GameEngine {
         );
         
         console.log(`[GameEngine] Resolution scale: ${this.resolutionScale.toFixed(3)} (${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT} / ${this.BASE_WIDTH}x${this.BASE_HEIGHT})`);
+        console.log(`[GameEngine] BASE_WIDTH: ${this.BASE_WIDTH}, BASE_HEIGHT: ${this.BASE_HEIGHT}`);
+        console.log(`[GameEngine] CANVAS_WIDTH: ${this.CANVAS_WIDTH}, CANVAS_HEIGHT: ${this.CANVAS_HEIGHT}`);
         
         this.setupCanvas();
         

@@ -78,33 +78,7 @@ class StaticObject extends GameObject {
         this.rotation = (this.rotation || 0) + (this.animationSpeed * this.animationIntensity);
     }
     
-    /**
-     * Render static object with animations
-     */
-    render(ctx, game) {
-        if (!this.spriteLoaded || !this.sprite) return;
-        
-        const mapScale = game.currentMap?.scale || 1.0;
-        let scaledWidth = this.getWidth() * mapScale;
-        let scaledHeight = this.getHeight() * mapScale;
-        
-        // Apply pulse scaling
-        if (this.animationType === 'pulse' && this.pulseScale) {
-            scaledWidth *= this.pulseScale;
-            scaledHeight *= this.pulseScale;
-        }
-        
-        // Calculate altitude offset
-        const altitudeOffset = this.altitude * mapScale;
-        
-        // Draw shadow
-        if (this.castsShadow) {
-            this.renderShadow(ctx, game, scaledWidth, scaledHeight, altitudeOffset);
-        }
-        
-        // Draw sprite with animations
-        this.renderSprite(ctx, game, scaledWidth, scaledHeight, altitudeOffset);
-    }
+
     
     /**
      * Render sprite with animation support
@@ -140,35 +114,7 @@ class StaticObject extends GameObject {
         ctx.restore();
     }
     
-    /**
-     * Get collision bounds (uses custom bounds if set, otherwise uses parent class logic)
-     * Custom bounds are useful for legacy objects but new objects should use
-     * collisionPercent, collisionWidthPercent, collisionHeightPercent, and offsets
-     */
-    getCollisionBounds(game) {
-        // If custom collision bounds are set (legacy objects), use them
-        if (this.collisionBounds) {
-            // Custom bounds need to account for map scale
-            const mapScale = game?.currentMap?.scale || 1.0;
-            const scaledWidth = this.collisionBounds.width * mapScale;
-            const scaledHeight = this.collisionBounds.height * mapScale;
-            const scaledX = this.collisionBounds.x * mapScale;
-            const scaledY = this.collisionBounds.y * mapScale;
-            
-            return {
-                x: this.x + scaledX,
-                y: this.y + scaledY,
-                width: scaledWidth,
-                height: scaledHeight,
-                left: this.x + scaledX,
-                right: this.x + scaledX + scaledWidth,
-                top: this.y + scaledY,
-                bottom: this.y + scaledY + scaledHeight
-            };
-        }
-        // Otherwise use the standard GameObject collision logic (recommended)
-        return super.getCollisionBounds(game);
-    }
+
     
     /**
      * Check if object blocks movement

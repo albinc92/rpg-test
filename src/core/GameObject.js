@@ -116,6 +116,19 @@ class GameObject {
         const scaledWidth = baseWidth * finalScale * mapScale;
         const scaledHeight = baseHeight * finalScale * mapScale;
         
+        // DEBUG
+        if (this.type === 'tree' && Math.random() < 0.01) {
+            console.log(`RENDER DEBUG for ${this.id}:`, {
+                scale: this.scale,
+                finalScale,
+                mapScale,
+                baseWidth,
+                baseHeight,
+                scaledWidth,
+                scaledHeight
+            });
+        }
+        
         // Calculate altitude offset
         const altitudeOffset = this.altitude * mapScale;
         
@@ -214,6 +227,20 @@ class GameObject {
         const baseHeight = this.spriteHeight || this.fallbackHeight;
         const renderedWidth = baseWidth * finalScale * mapScale;
         const renderedHeight = baseHeight * finalScale * mapScale;
+        
+        // DEBUG
+        if (this.type === 'tree' && Math.random() < 0.01) {
+            console.log(`COLLISION DEBUG for ${this.id}:`, {
+                scale: this.scale,
+                finalScale,
+                mapScale,
+                baseWidth,
+                baseHeight,
+                renderedWidth,
+                renderedHeight,
+                spriteLoaded: this.spriteLoaded
+            });
+        }
         
         // STEP 2: Apply collision percents (shrink/expand from rendered size)
         const widthPercent = this.collisionWidthPercent !== undefined 
