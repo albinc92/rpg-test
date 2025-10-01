@@ -506,6 +506,24 @@ class AudioManager {
         }
     }
 
+    /**
+     * Pause all audio (BGM and Ambience)
+     */
+    pauseAll() {
+        console.log('[AudioManager] ⏸️ Pausing all audio');
+        this.pauseBGM();
+        this.pauseAmbience();
+    }
+
+    /**
+     * Resume all audio (BGM and Ambience)
+     */
+    resumeAll() {
+        console.log('[AudioManager] ▶️ Resuming all audio');
+        this.resumeBGM();
+        this.resumeAmbience();
+    }
+
     playEffect(filename, volume = 1.0) {
         const playAction = () => {
             const safeFilename = this.ensureMp3Extension(filename);

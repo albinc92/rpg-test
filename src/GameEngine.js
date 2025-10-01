@@ -170,6 +170,15 @@ class GameEngine {
             if (e.code === 'KeyP') {
                 this.isPaused = !this.isPaused;
                 console.log(`Game ${this.isPaused ? 'PAUSED' : 'UNPAUSED'}`);
+                
+                // Pause/resume audio
+                if (this.audioManager) {
+                    if (this.isPaused) {
+                        this.audioManager.pauseAll();
+                    } else {
+                        this.audioManager.resumeAll();
+                    }
+                }
             }
             
             // F1 - Toggle debug info display
