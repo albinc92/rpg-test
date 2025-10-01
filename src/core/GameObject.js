@@ -78,6 +78,15 @@ class GameObject {
     }
     
     /**
+     * Get final render scale (object scale × resolution scale)
+     * This combines per-object artistic scale with screen-size adaptation
+     */
+    getFinalScale(game) {
+        const resolutionScale = game?.resolutionScale || 1.0;
+        return this.scale * resolutionScale;
+    }
+    
+    /**
      * Update object state (to be overridden by subclasses)
      */
     update(deltaTime, game) {
@@ -90,9 +99,13 @@ class GameObject {
     render(ctx, game) {
         if (!this.spriteLoaded || !this.sprite) return;
         
+        // Calculate final scale: object scale × resolution scale × map scale
+        const finalScale = this.getFinalScale(game);
         const mapScale = game.currentMap?.scale || 1.0;
-        const scaledWidth = this.getWidth() * mapScale;
-        const scaledHeight = this.getHeight() * mapScale;
+        const baseWidth = this.spriteWidth || this.fallbackWidth;
+        const baseHeight = this.spriteHeight || this.fallbackHeight;
+        const scaledWidth = baseWidth * finalScale * mapScale;
+        const scaledHeight = baseHeight * finalScale * mapScale;
         
         // Calculate altitude offset
         const altitudeOffset = this.altitude * mapScale;

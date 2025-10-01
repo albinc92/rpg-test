@@ -16,6 +16,10 @@ class GameEngine {
         // Mobile: Full device resolution (native size)
         this.isMobile = this.detectMobile();
         
+        // Base resolution for sprite scaling (1920x1080 is our design resolution)
+        this.BASE_WIDTH = 1920;
+        this.BASE_HEIGHT = 1080;
+        
         if (this.isMobile) {
             // Mobile: Use full native resolution for sharp rendering
             this.CANVAS_WIDTH = window.innerWidth;
@@ -25,6 +29,15 @@ class GameEngine {
             this.CANVAS_WIDTH = 1920;
             this.CANVAS_HEIGHT = 1080;
         }
+        
+        // Calculate resolution scale factor (how much to scale sprites relative to base resolution)
+        // This ensures sprites look proportionally correct on any screen size
+        this.resolutionScale = Math.min(
+            this.CANVAS_WIDTH / this.BASE_WIDTH,
+            this.CANVAS_HEIGHT / this.BASE_HEIGHT
+        );
+        
+        console.log(`[GameEngine] Resolution scale: ${this.resolutionScale.toFixed(3)} (${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT} / ${this.BASE_WIDTH}x${this.BASE_HEIGHT})`);
         
         this.setupCanvas();
         
