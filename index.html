@@ -11,11 +11,22 @@
             background-color: #000;
             overflow: hidden;
             font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100vw;
+            height: 100vh;
         }
         
-        canvas {
+        #gameCanvas {
             display: block;
+            /* High-quality scaling - smooth but still crisp */
             image-rendering: auto;
+            image-rendering: -webkit-optimize-contrast;
+            /* Fill screen while maintaining aspect ratio */
+            width: 100vw;
+            height: 100vh;
+            object-fit: contain;
         }
         
 

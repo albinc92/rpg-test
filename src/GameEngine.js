@@ -11,9 +11,10 @@ class GameEngine {
         // Event listener cleanup tracking (MUST be initialized BEFORE setupCanvas)
         this.eventListeners = [];
         
-        // Canvas setup
-        this.CANVAS_WIDTH = window.innerWidth;
-        this.CANVAS_HEIGHT = window.innerHeight;
+        // Fixed internal resolution (16:9) - CSS will scale to fit screen
+        // Game always renders at this resolution for consistency
+        this.CANVAS_WIDTH = 1920;
+        this.CANVAS_HEIGHT = 1080;
         this.setupCanvas();
         
         // Core systems
@@ -103,55 +104,24 @@ class GameEngine {
     }
     
     /**
-     * Setup canvas properties
+     * Setup canvas with fixed resolution (CSS handles scaling)
      */
     setupCanvas() {
-        // Get device pixel ratio for high DPI displays
-        const devicePixelRatio = window.devicePixelRatio || 1;
-        
-        // Set display size first
-        this.canvas.style.width = this.CANVAS_WIDTH + 'px';
-        this.canvas.style.height = this.CANVAS_HEIGHT + 'px';
+        // Set canvas internal resolution (fixed at 1920x1080)
+        this.canvas.width = this.CANVAS_WIDTH;
+        this.canvas.height = this.CANVAS_HEIGHT;
         this.canvas.style.cursor = 'none';
         
-        // Set actual canvas size (scaled for high DPI)
-        this.canvas.width = this.CANVAS_WIDTH * devicePixelRatio;
-        this.canvas.height = this.CANVAS_HEIGHT * devicePixelRatio;
-        
-        // Scale context back to logical pixels
-        this.ctx.scale(devicePixelRatio, devicePixelRatio);
-        
-        // Disable image smoothing for pixel art (if needed)
-        this.ctx.imageSmoothingEnabled = false;
+        // Enable smooth scaling for better quality (change to false for crisp pixel art)
+        this.ctx.imageSmoothingEnabled = true;
+        this.ctx.imageSmoothingQuality = 'high';
         
         // Improve text rendering
         this.ctx.textBaseline = 'alphabetic';
         this.ctx.textRendering = 'optimizeQuality';
         
-        // Handle window resize
-        this.handleResize = () => {
-            this.CANVAS_WIDTH = window.innerWidth;
-            this.CANVAS_HEIGHT = window.innerHeight;
-            
-            const devicePixelRatio = window.devicePixelRatio || 1;
-            
-            // Set display size first
-            this.canvas.style.width = this.CANVAS_WIDTH + 'px';
-            this.canvas.style.height = this.CANVAS_HEIGHT + 'px';
-            
-            // Set actual canvas size (scaled for high DPI)
-            this.canvas.width = this.CANVAS_WIDTH * devicePixelRatio;
-            this.canvas.height = this.CANVAS_HEIGHT * devicePixelRatio;
-            
-            // Scale context back to logical pixels
-            this.ctx.scale(devicePixelRatio, devicePixelRatio);
-            this.ctx.imageSmoothingEnabled = false;
-            this.ctx.textBaseline = 'alphabetic';
-            this.ctx.textRendering = 'optimizeQuality';
-        };
-        
-        window.addEventListener('resize', this.handleResize);
-        this.eventListeners.push({ target: window, type: 'resize', handler: this.handleResize });
+        // CSS in index.html handles scaling the canvas to fit the screen
+        // No resize handler needed - canvas resolution stays constant
     }
     
     /**
