@@ -28,15 +28,44 @@ class ObjectManager {
             '0-0': {
                 // Static objects (trees, rocks, decorations)
                 static: [
-                    // Trees scattered around edges
-                    { id: 'tree_01', x: 200, y: 150, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1, type: 'tree' },
-                    { id: 'tree_02', x: 1750, y: 200, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1, type: 'tree' },
-                    { id: 'tree_03', x: 300, y: 900, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1, type: 'tree' },
-                    { id: 'tree_04', x: 1650, y: 950, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1, type: 'tree' },
-                    { id: 'tree_05', x: 100, y: 500, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1, type: 'tree' },
-                    { id: 'tree_06', x: 1850, y: 600, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1, type: 'tree' },
-                    { id: 'tree_07', x: 950, y: 100, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1, type: 'tree' },
-                    { id: 'tree_08', x: 1000, y: 1000, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1, type: 'tree' },
+                    // Trees scattered around edges with size variation
+                    { id: 'tree_01', x: 200, y: 150, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 0.95, type: 'tree' },
+                    { id: 'tree_02', x: 1750, y: 200, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1.1, type: 'tree' },
+                    { id: 'tree_03', x: 300, y: 900, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1.05, type: 'tree' },
+                    { id: 'tree_04', x: 1650, y: 950, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1.0, type: 'tree' },
+                    { id: 'tree_05', x: 100, y: 500, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 0.9, type: 'tree' },
+                    { id: 'tree_06', x: 1850, y: 600, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1.08, type: 'tree' },
+                    { id: 'tree_07', x: 950, y: 100, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 0.98, type: 'tree' },
+                    { id: 'tree_08', x: 1000, y: 1000, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1.03, type: 'tree' },
+                    
+                    // Bushes scattered in outskirts (between trees and center)
+                    { id: 'bush_01', x: 350, y: 280, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.45, type: 'bush' },
+                    { id: 'bush_02', x: 520, y: 220, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.42, type: 'bush' },
+                    { id: 'bush_03', x: 680, y: 180, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.48, type: 'bush' },
+                    { id: 'bush_04', x: 1450, y: 240, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.44, type: 'bush' },
+                    { id: 'bush_05', x: 1580, y: 320, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.46, type: 'bush' },
+                    { id: 'bush_06', x: 1320, y: 180, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.41, type: 'bush' },
+                    
+                    { id: 'bush_07', x: 280, y: 420, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.43, type: 'bush' },
+                    { id: 'bush_08', x: 180, y: 650, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.47, type: 'bush' },
+                    { id: 'bush_09', x: 320, y: 780, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.42, type: 'bush' },
+                    { id: 'bush_10', x: 1520, y: 820, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.44, type: 'bush' },
+                    { id: 'bush_11', x: 1680, y: 720, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.43, type: 'bush' },
+                    { id: 'bush_12', x: 1580, y: 580, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.49, type: 'bush' },
+                    
+                    { id: 'bush_13', x: 450, y: 850, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.42, type: 'bush' },
+                    { id: 'bush_14', x: 620, y: 920, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.46, type: 'bush' },
+                    { id: 'bush_15', x: 820, y: 880, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.44, type: 'bush' },
+                    { id: 'bush_16', x: 1120, y: 850, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.43, type: 'bush' },
+                    { id: 'bush_17', x: 1380, y: 900, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.48, type: 'bush' },
+                    { id: 'bush_18', x: 1240, y: 780, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.41, type: 'bush' },
+                    
+                    { id: 'bush_19', x: 280, y: 320, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.44, type: 'bush' },
+                    { id: 'bush_20', x: 1650, y: 450, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.42, type: 'bush' },
+                    { id: 'bush_21', x: 750, y: 250, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.47, type: 'bush' },
+                    { id: 'bush_22', x: 540, y: 780, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.43, type: 'bush' },
+                    { id: 'bush_23', x: 1280, y: 320, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.49, type: 'bush' },
+                    { id: 'bush_24', x: 920, y: 820, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.45, type: 'bush' },
                 ],
                 
                 // NPCs (characters, merchants, spirits)
