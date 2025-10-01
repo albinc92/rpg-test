@@ -50,9 +50,9 @@ class GameEngine {
             fps: 60,
             frameCount: 0,
             lastSecond: 0,
-            minFPS: 60,
-            maxFPS: 60,
-            gracePeriod: 60 // Skip first 60 frames for accurate measurement
+            minFPS: Infinity,  // Start with Infinity so any real FPS becomes the min
+            maxFPS: 0,         // Start with 0 so any real FPS becomes the max
+            gracePeriod: 2     // Skip first 2 seconds for accurate measurement
         };
         
         // Game settings
@@ -580,8 +580,14 @@ class GameEngine {
             
             // Track min/max FPS after grace period
             if (this.fpsCounter.gracePeriod <= 0) {
-                this.fpsCounter.minFPS = Math.min(this.fpsCounter.minFPS, this.fpsCounter.fps);
-                this.fpsCounter.maxFPS = Math.max(this.fpsCounter.maxFPS, this.fpsCounter.fps);
+                // Initialize min/max on first valid reading
+                if (this.fpsCounter.minFPS === Infinity) {
+                    this.fpsCounter.minFPS = this.fpsCounter.fps;
+                    this.fpsCounter.maxFPS = this.fpsCounter.fps;
+                } else {
+                    this.fpsCounter.minFPS = Math.min(this.fpsCounter.minFPS, this.fpsCounter.fps);
+                    this.fpsCounter.maxFPS = Math.max(this.fpsCounter.maxFPS, this.fpsCounter.fps);
+                }
             } else {
                 this.fpsCounter.gracePeriod--;
             }
@@ -619,7 +625,11 @@ class GameEngine {
         // FPS info
         this.ctx.fillText(`FPS: ${this.fpsCounter.fps}`, 20, y);
         y += lineHeight;
-        this.ctx.fillText(`Min: ${this.fpsCounter.minFPS}  Max: ${this.fpsCounter.maxFPS}`, 20, y);
+        
+        // Display min/max (show "--" if not yet initialized)
+        const minDisplay = this.fpsCounter.minFPS === Infinity ? '--' : this.fpsCounter.minFPS;
+        const maxDisplay = this.fpsCounter.maxFPS === 0 ? '--' : this.fpsCounter.maxFPS;
+        this.ctx.fillText(`Min: ${minDisplay}  Max: ${maxDisplay}`, 20, y);
         y += lineHeight;
         
         // Game state info
