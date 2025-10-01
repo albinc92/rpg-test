@@ -8,8 +8,6 @@ class Chest extends InteractiveObject {
             name: 'Treasure Chest',
             scale: options.scale || 0.75,
             maxUsages: 1, // Can only be looted once
-            collisionPercent: 0.7, // Chests are fairly solid
-            collisionOffsetY: 5, // Collision slightly towards bottom of sprite
             ...options
         });
         

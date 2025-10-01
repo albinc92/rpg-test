@@ -4,14 +4,7 @@
  */
 class InteractiveObject extends GameObject {
     constructor(options = {}) {
-        super({
-            scale: options.scale || 1.0,
-            hasCollision: true,
-            blocksMovement: true,
-            canBeBlocked: false, // Interactive objects don't get blocked by others
-            collisionPercent: 0.6, // Most interactive objects use 60% of their sprite for collision
-            ...options
-        });
+        super(options);
         
         // Interactive properties
         this.id = options.id || `interactive_${Date.now()}`;

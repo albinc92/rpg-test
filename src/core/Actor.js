@@ -4,12 +4,7 @@
  */
 class Actor extends GameObject {
     constructor(options = {}) {
-        super({
-            hasCollision: true,
-            blocksMovement: true,
-            canBeBlocked: true,
-            ...options
-        });
+        super(options);
         
         // Movement properties
         this.maxSpeed = options.maxSpeed || 200;

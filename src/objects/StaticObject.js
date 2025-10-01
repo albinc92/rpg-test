@@ -4,19 +4,12 @@
  */
 class StaticObject extends GameObject {
     constructor(options = {}) {
-        super({
-            castsShadow: true,
-            ...options
-        });
+        super(options);
         
         // Static object properties
         this.id = options.id || `static_${Date.now()}`;
         this.name = options.name || 'Static Object';
         this.type = options.type || 'decoration'; // 'decoration', 'obstacle', 'interactive'
-        
-        // Collision properties
-        this.hasCollision = options.hasCollision !== false;
-        this.collisionBounds = options.collisionBounds || null; // Custom collision box
         
         // Interactive properties
         this.canInteract = options.canInteract || false;
