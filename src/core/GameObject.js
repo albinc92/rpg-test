@@ -32,8 +32,17 @@ class GameObject {
         
         // Collision properties
         this.hasCollision = options.hasCollision !== false; // Default true
-        this.collisionPercent = options.collisionPercent || 0.8; // How much of the sprite is solid (0.0 to 1.0)
+        
+        // Collision size (how much of the rendered sprite is used for collision)
+        this.collisionPercent = options.collisionPercent || 0.8; // General percent for both width and height (0.0 to 1.0)
+        this.collisionWidthPercent = options.collisionWidthPercent; // Optional: override width percent specifically
+        this.collisionHeightPercent = options.collisionHeightPercent; // Optional: override height percent specifically
+        
+        // Collision position offsets (relative to object center, in pixels at base scale)
+        this.collisionOffsetX = options.collisionOffsetX || 0; // Horizontal offset for collision box
         this.collisionOffsetY = options.collisionOffsetY || 0; // Vertical offset for collision box
+        
+        // Collision behavior
         this.blocksMovement = options.blocksMovement !== false; // Default true - whether this object blocks other objects
         this.canBeBlocked = options.canBeBlocked !== false; // Default true - whether this object can be blocked by others
         
@@ -149,12 +158,39 @@ class GameObject {
     }
     
     /**
-     * Get bounding box for collision detection (full sprite bounds)
+     * Get the actual rendered width (applies ALL scaling: object × resolution × map)
+     * This is what the player actually SEES on screen
      */
-    getBounds() {
-        const width = this.getWidth();
-        const height = this.getHeight();
+    getActualWidth(game) {
+        const finalScale = this.getFinalScale(game);
+        const mapScale = game?.currentMap?.scale || 1.0;
+        const baseWidth = this.spriteWidth || this.fallbackWidth;
+        return baseWidth * finalScale * mapScale;
+    }
+    
+    /**
+     * Get the actual rendered height (applies ALL scaling: object × resolution × map)
+     * This is what the player actually SEES on screen
+     */
+    getActualHeight(game) {
+        const finalScale = this.getFinalScale(game);
+        const mapScale = game?.currentMap?.scale || 1.0;
+        const baseHeight = this.spriteHeight || this.fallbackHeight;
+        return baseHeight * finalScale * mapScale;
+    }
+    
+    /**
+     * Get bounding box for collision detection (full sprite bounds)
+     * Now uses actual rendered size to match what player sees
+     */
+    getBounds(game) {
+        const width = this.getActualWidth(game);
+        const height = this.getActualHeight(game);
         return {
+            x: this.x - width / 2,
+            y: this.y - height / 2,
+            width: width,
+            height: height,
             left: this.x - width / 2,
             right: this.x + width / 2,
             top: this.y - height / 2,
@@ -163,18 +199,43 @@ class GameObject {
     }
     
     /**
-     * Get collision box (reduced bounds based on collisionPercent)
+     * Get collision box (reduced bounds based on collisionPercent and offsets)
+     * Now properly matches sprite scaling so collision boxes are pixel-perfect
+     * 
+     * Collision box calculation:
+     * 1. Start with actual rendered size (sprite × object scale × resolution scale × map scale)
+     * 2. Apply collisionPercent (default behavior, e.g., 0.8 = 80% of rendered size)
+     * 3. Apply collisionWidthPercent/heightPercent if overridden (custom width/height tweaks)
+     * 4. Apply collisionOffsetX/Y (repositioning the box)
      */
-    getCollisionBounds() {
-        const width = this.getWidth();
-        const height = this.getHeight();
-        const collisionWidth = width * this.collisionPercent;
-        const collisionHeight = height * this.collisionPercent;
-        const offsetY = this.collisionOffsetY;
+    getCollisionBounds(game) {
+        // Get actual rendered dimensions (what player sees on screen)
+        const actualWidth = this.getActualWidth(game);
+        const actualHeight = this.getActualHeight(game);
+        
+        // Calculate collision dimensions
+        // Use specific width/height percents if set, otherwise use general collisionPercent
+        const widthPercent = this.collisionWidthPercent !== undefined 
+            ? this.collisionWidthPercent 
+            : this.collisionPercent;
+        const heightPercent = this.collisionHeightPercent !== undefined 
+            ? this.collisionHeightPercent 
+            : this.collisionPercent;
+            
+        const collisionWidth = actualWidth * widthPercent;
+        const collisionHeight = actualHeight * heightPercent;
+        
+        // Apply offsets (defaults to 0 if not specified)
+        const offsetX = this.collisionOffsetX || 0;
+        const offsetY = this.collisionOffsetY || 0;
         
         return {
-            left: this.x - collisionWidth / 2,
-            right: this.x + collisionWidth / 2,
+            x: this.x - collisionWidth / 2 + offsetX,
+            y: this.y - collisionHeight / 2 + offsetY,
+            width: collisionWidth,
+            height: collisionHeight,
+            left: this.x - collisionWidth / 2 + offsetX,
+            right: this.x + collisionWidth / 2 + offsetX,
             top: this.y - collisionHeight / 2 + offsetY,
             bottom: this.y + collisionHeight / 2 + offsetY
         };
@@ -183,9 +244,9 @@ class GameObject {
     /**
      * Check if this object intersects with another (using full bounds)
      */
-    intersects(other) {
-        const thisBounds = this.getBounds();
-        const otherBounds = other.getBounds();
+    intersects(other, game) {
+        const thisBounds = this.getBounds(game);
+        const otherBounds = other.getBounds(game);
         
         return !(thisBounds.right < otherBounds.left ||
                 thisBounds.left > otherBounds.right ||
@@ -196,11 +257,11 @@ class GameObject {
     /**
      * Check if this object's collision box intersects with another's collision box
      */
-    collidesWith(other) {
+    collidesWith(other, game) {
         if (!this.hasCollision || !other.hasCollision) return false;
         
-        const thisBounds = this.getCollisionBounds();
-        const otherBounds = other.getCollisionBounds();
+        const thisBounds = this.getCollisionBounds(game);
+        const otherBounds = other.getCollisionBounds(game);
         
         return !(thisBounds.right < otherBounds.left ||
                 thisBounds.left > otherBounds.right ||
@@ -211,7 +272,7 @@ class GameObject {
     /**
      * Check if this object would collide with another at a specific position
      */
-    wouldCollideAt(x, y, other) {
+    wouldCollideAt(x, y, other, game) {
         if (!this.hasCollision || !other.hasCollision) return false;
         if (!this.canBeBlocked || !other.blocksMovement) return false;
         
@@ -224,7 +285,7 @@ class GameObject {
         this.y = y;
         
         // Check collision
-        const collision = this.collidesWith(other);
+        const collision = this.collidesWith(other, game);
         
         // Restore original position
         this.x = originalX;

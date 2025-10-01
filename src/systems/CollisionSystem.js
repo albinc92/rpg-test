@@ -1,5 +1,11 @@
 /**
- * CollisionSystem - Handles all collision detection
+ * CollisionSystem - Handles all collision detection with proper sprite scaling
+ * 
+ * Key feature: Collision boxes now match the ACTUAL rendered size of sprites
+ * - Takes into account: sprite size × object scale × resolution scale × map scale
+ * - Collision boxes are pixel-perfect with what the player sees on screen
+ * - Supports custom collision offsets and size percentages for fine-tuning
+ * 
  * Responsible for: portal checks, NPC collisions, object boundaries
  */
 class CollisionSystem {
@@ -11,14 +17,14 @@ class CollisionSystem {
     /**
      * Check if player is colliding with any portals
      */
-    checkPortalCollisions(player, portals, deltaTime) {
+    checkPortalCollisions(player, portals, deltaTime, game) {
         this.portalCheckThrottle -= deltaTime;
         
         if (this.portalCheckThrottle <= 0) {
             this.portalCheckThrottle = this.PORTAL_CHECK_INTERVAL;
             
             for (const portal of portals) {
-                if (this.checkCollision(player, portal)) {
+                if (this.checkCollision(player, portal, game)) {
                     return portal; // Return the portal for teleportation
                 }
             }
@@ -29,21 +35,22 @@ class CollisionSystem {
     
     /**
      * Basic AABB collision detection
+     * Now properly accounts for all sprite scaling
      */
-    checkCollision(objA, objB) {
-        const boundsA = objA.getCollisionBounds();
-        const boundsB = objB.getCollisionBounds();
+    checkCollision(objA, objB, game) {
+        const boundsA = objA.getCollisionBounds(game);
+        const boundsB = objB.getCollisionBounds(game);
         
         return (
-            boundsA.x < boundsB.x + boundsB.width &&
-            boundsA.x + boundsA.width > boundsB.x &&
-            boundsA.y < boundsB.y + boundsB.height &&
-            boundsA.y + boundsA.height > boundsB.y
+            boundsA.left < boundsB.right &&
+            boundsA.right > boundsB.left &&
+            boundsA.top < boundsB.bottom &&
+            boundsA.bottom > boundsB.top
         );
     }
     
     /**
-     * Check distance between two objects
+     * Check distance between two objects (center to center)
      */
     getDistance(objA, objB) {
         const dx = objA.x - objB.x;
@@ -54,7 +61,7 @@ class CollisionSystem {
     /**
      * Find closest object within range
      */
-    findClosestInRange(source, targets, maxDistance) {
+    findClosestInRange(source, targets, maxDistance, game) {
         let closest = null;
         let closestDistance = Infinity;
         
@@ -67,5 +74,25 @@ class CollisionSystem {
         });
         
         return closest;
+    }
+    
+    /**
+     * Get collision bounds for an object (helper method)
+     */
+    getCollisionBounds(obj, game) {
+        return obj.getCollisionBounds(game);
+    }
+    
+    /**
+     * Check if a point is inside an object's collision bounds
+     */
+    pointInCollisionBounds(x, y, obj, game) {
+        const bounds = obj.getCollisionBounds(game);
+        return (
+            x >= bounds.left &&
+            x <= bounds.right &&
+            y >= bounds.top &&
+            y <= bounds.bottom
+        );
     }
 }

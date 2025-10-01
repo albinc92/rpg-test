@@ -292,16 +292,13 @@ class InteractiveObjectManager {
     /**
      * Check for portal collisions (automatic teleportation)
      */
-    checkPortalCollisions(player, mapId) {
+    checkPortalCollisions(player, mapId, game) {
         const mapObjects = this.getObjectsForMap(mapId);
         
         for (let obj of mapObjects) {
             if (obj instanceof Portal) {
-                const distance = obj.distanceTo(player);
-                
-                // Check if player is touching the portal
-                const collisionDistance = (obj.width + player.width) / 4;
-                if (distance <= collisionDistance) {
+                // Use proper collision detection with scaling
+                if (player.collidesWith(obj, game)) {
                     return obj;
                 }
             }

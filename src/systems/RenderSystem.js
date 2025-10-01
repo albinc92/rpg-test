@@ -111,7 +111,7 @@ class RenderSystem {
     }
     
     /**
-     * Render collision boxes for debugging
+     * Render collision boxes for debugging (now pixel-perfect with sprite scaling)
      */
     renderDebugCollisionBoxes(renderables, game) {
         this.ctx.save();
@@ -120,25 +120,26 @@ class RenderSystem {
         renderables.forEach(({ obj }) => {
             if (!obj.hasCollision) return;
             
-            const bounds = obj.getCollisionBounds();
+            // Get collision bounds with proper scaling
+            const bounds = obj.getCollisionBounds(game);
             
             // Draw collision box with red outline
             this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
             this.ctx.lineWidth = 2;
             this.ctx.strokeRect(
-                bounds.left,
-                bounds.top,
-                bounds.right - bounds.left,
-                bounds.bottom - bounds.top
+                bounds.x,
+                bounds.y,
+                bounds.width,
+                bounds.height
             );
             
             // Fill with semi-transparent red
             this.ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
             this.ctx.fillRect(
-                bounds.left,
-                bounds.top,
-                bounds.right - bounds.left,
-                bounds.bottom - bounds.top
+                bounds.x,
+                bounds.y,
+                bounds.width,
+                bounds.height
             );
             
             // Draw a small circle at the object's actual position (center point)

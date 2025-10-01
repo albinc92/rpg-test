@@ -74,21 +74,21 @@ class Actor extends GameObject {
         
         // Check collisions if game instance is available and actor can be blocked
         if (game && this.canBeBlocked && (this.velocityX !== 0 || this.velocityY !== 0)) {
-            const collision = game.checkActorCollisions(newX, newY, this);
+            const collision = game.checkActorCollisions(newX, newY, this, game);
             if (!collision.collides) {
                 // Move to new position if no collision
                 this.x = newX;
                 this.y = newY;
             } else {
                 // Try sliding along walls by testing X and Y movement separately
-                const collisionX = game.checkActorCollisions(newX, this.y, this);
+                const collisionX = game.checkActorCollisions(newX, this.y, this, game);
                 if (!collisionX.collides) {
                     this.x = newX; // Can move horizontally
                 } else {
                     this.velocityX = 0; // Stop horizontal movement
                 }
                 
-                const collisionY = game.checkActorCollisions(this.x, newY, this);
+                const collisionY = game.checkActorCollisions(this.x, newY, this, game);
                 if (!collisionY.collides) {
                     this.y = newY; // Can move vertically
                 } else {

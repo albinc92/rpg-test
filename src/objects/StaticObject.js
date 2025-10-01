@@ -148,18 +148,33 @@ class StaticObject extends GameObject {
     }
     
     /**
-     * Get collision bounds (custom or default)
+     * Get collision bounds (uses custom bounds if set, otherwise uses parent class logic)
+     * Custom bounds are useful for legacy objects but new objects should use
+     * collisionPercent, collisionWidthPercent, collisionHeightPercent, and offsets
      */
-    getCollisionBounds() {
+    getCollisionBounds(game) {
+        // If custom collision bounds are set (legacy objects), use them
         if (this.collisionBounds) {
+            // Custom bounds need to account for map scale
+            const mapScale = game?.currentMap?.scale || 1.0;
+            const scaledWidth = this.collisionBounds.width * mapScale;
+            const scaledHeight = this.collisionBounds.height * mapScale;
+            const scaledX = this.collisionBounds.x * mapScale;
+            const scaledY = this.collisionBounds.y * mapScale;
+            
             return {
-                left: this.x + this.collisionBounds.x,
-                right: this.x + this.collisionBounds.x + this.collisionBounds.width,
-                top: this.y + this.collisionBounds.y,
-                bottom: this.y + this.collisionBounds.y + this.collisionBounds.height
+                x: this.x + scaledX,
+                y: this.y + scaledY,
+                width: scaledWidth,
+                height: scaledHeight,
+                left: this.x + scaledX,
+                right: this.x + scaledX + scaledWidth,
+                top: this.y + scaledY,
+                bottom: this.y + scaledY + scaledHeight
             };
         }
-        return this.getBounds();
+        // Otherwise use the standard GameObject collision logic (recommended)
+        return super.getCollisionBounds(game);
     }
     
     /**

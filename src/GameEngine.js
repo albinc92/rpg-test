@@ -436,7 +436,7 @@ class GameEngine {
      * Check for portal collisions
      */
     checkPortalCollisions() {
-        const portal = this.interactiveObjectManager.checkPortalCollisions(this.player, this.currentMapId);
+        const portal = this.interactiveObjectManager.checkPortalCollisions(this.player, this.currentMapId, this);
         if (portal) {
             this.teleportToMap(portal.targetMap, portal.spawnPoint);
         }
@@ -600,12 +600,14 @@ class GameEngine {
     
     /**
      * Check actor collisions with other objects and map boundaries
+     * Now properly accounts for all sprite scaling (object × resolution × map)
      */
-    checkActorCollisions(newX, newY, movingActor) {
+    checkActorCollisions(newX, newY, movingActor, game) {
         // Check map boundaries first
         if (this.currentMap && movingActor.canBeBlocked) {
-            const actorWidth = movingActor.getWidth();
-            const actorHeight = movingActor.getHeight();
+            // Use actual rendered dimensions (includes all scaling)
+            const actorWidth = movingActor.getActualWidth(game || this);
+            const actorHeight = movingActor.getActualHeight(game || this);
             const halfWidth = actorWidth / 2;
             const halfHeight = actorHeight / 2;
             
@@ -631,8 +633,8 @@ class GameEngine {
             // Skip if moving actor can't be blocked
             if (!movingActor.canBeBlocked) continue;
             
-            // Check collision using GameObject collision system
-            if (movingActor.wouldCollideAt(newX, newY, obj)) {
+            // Check collision using GameObject collision system (now with proper scaling)
+            if (movingActor.wouldCollideAt(newX, newY, obj, game || this)) {
                 return { collides: true, object: obj };
             }
         }
