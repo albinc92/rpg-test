@@ -35,6 +35,7 @@ async function loadGameScripts() {
         await loadScript('/src/systems/GameStateManager.js');
         await loadScript('/src/systems/MapManager.js');
         await loadScript('/src/systems/NPCManager.js');
+        await loadScript('/src/systems/StaticObjectManager.js');
         await loadScript('/src/systems/InteractiveObjectManager.js');
         await loadScript('/src/systems/ItemManager.js');
         await loadScript('/src/systems/InventoryManager.js');

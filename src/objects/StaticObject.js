@@ -92,8 +92,8 @@ class StaticObject extends GameObject {
         if (!this.spriteLoaded || !this.sprite) return;
         
         const mapScale = game.currentMap?.scale || 1.0;
-        let scaledWidth = this.width * mapScale;
-        let scaledHeight = this.height * mapScale;
+        let scaledWidth = this.getWidth() * mapScale;
+        let scaledHeight = this.getHeight() * mapScale;
         
         // Apply pulse scaling
         if (this.animationType === 'pulse' && this.pulseScale) {
@@ -196,7 +196,7 @@ class StaticObject extends GameObject {
     getEnvironmentalEffects(player) {
         const effects = [];
         
-        if (this.providesShade && this.distanceTo(player) <= this.width) {
+        if (this.providesShade && this.distanceTo(player) <= this.getWidth()) {
             effects.push({ type: 'shade', intensity: 0.7 });
         }
         

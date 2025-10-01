@@ -36,6 +36,7 @@ class GameEngine {
         // Game systems
         this.mapManager = new MapManager();
         this.npcManager = new NPCManager();
+        this.staticObjectManager = new StaticObjectManager();
         this.interactiveObjectManager = new InteractiveObjectManager();
         this.itemManager = new ItemManager();
         this.inventoryManager = new InventoryManager(this.itemManager);
@@ -89,6 +90,7 @@ class GameEngine {
             // Load game data
             this.maps = this.mapManager.initializeAllMaps();
             this.npcs = this.npcManager.initializeAllNPCs();
+            this.staticObjectManager.initializeAllObjects();
             
             // Don't load map yet - wait until game starts
             
@@ -303,6 +305,9 @@ class GameEngine {
             height: this.currentMap.height
         });
         
+        // Update static objects (for animations)
+        this.staticObjectManager.updateObjects(this.currentMapId, deltaTime, this);
+        
         // Update interactive objects
         this.interactiveObjectManager.updateObjects(this.currentMapId, deltaTime, this);
         
@@ -321,11 +326,15 @@ class GameEngine {
         
         // Use RenderSystem for world rendering
         const currentMapNPCs = this.npcs[this.currentMapId] || [];
-        const currentMapObjects = this.interactiveObjectManager.getObjectsForMap(this.currentMapId);
+        const currentMapStaticObjects = this.staticObjectManager.getObjectsForMap(this.currentMapId);
+        const currentMapInteractiveObjects = this.interactiveObjectManager.getObjectsForMap(this.currentMapId);
+        
+        // Combine all objects for rendering
+        const allMapObjects = [...currentMapStaticObjects, ...currentMapInteractiveObjects];
         
         this.renderSystem.renderWorld(
             this.currentMap,
-            currentMapObjects,
+            allMapObjects,
             currentMapNPCs,
             this.player,
             this
@@ -619,7 +628,7 @@ class GameEngine {
     }
     
     /**
-     * Get all GameObjects on a specific map (NPCs, interactive objects, etc.)
+     * Get all GameObjects on a specific map (NPCs, interactive objects, static objects, etc.)
      */
     getAllGameObjectsOnMap(mapId) {
         const objects = [];
@@ -627,6 +636,10 @@ class GameEngine {
         // Add NPCs for this specific map
         const npcs = this.npcManager.getNPCsForMap(mapId);
         objects.push(...npcs);
+        
+        // Add static objects (trees, rocks, etc.)
+        const staticObjects = this.staticObjectManager.getObjectsForMap(mapId);
+        objects.push(...staticObjects);
         
         // Add interactive objects
         const interactiveObjects = this.interactiveObjectManager.getObjectsForMap(mapId);

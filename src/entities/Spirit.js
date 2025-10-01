@@ -91,8 +91,8 @@ class Spirit extends Actor {
         if (!this.spriteLoaded || !this.sprite) return;
         
         const mapScale = game.currentMap?.scale || 1.0;
-        const scaledWidth = this.width * mapScale;
-        const scaledHeight = this.height * mapScale;
+        const scaledWidth = this.getWidth() * mapScale;
+        const scaledHeight = this.getHeight() * mapScale;
         
         // Calculate floating altitude with animation
         let currentAltitude = this.altitude * mapScale;
