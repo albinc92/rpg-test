@@ -475,65 +475,7 @@ class GameEngine {
         );
     }
     
-    /**
-     * Render map background
-     */
-    renderMap(ctx) {
-        if (!this.currentMap || !this.currentMap.image) return;
-        
-        const scale = this.currentMap.scale || 1.0;
-        ctx.drawImage(
-            this.currentMap.image,
-            0, 0,
-            this.currentMap.width * scale,
-            this.currentMap.height * scale
-        );
-    }
-    
-    /**
-     * Render all game objects with depth sorting
-     */
-    renderGameObjects(ctx) {
-        const allObjects = [];
-        
-        // Add player
-        if (this.player) {
-            allObjects.push(this.player);
-        }
-        
-        // Add NPCs
-        const currentMapNPCs = this.npcs[this.currentMapId] || [];
-        allObjects.push(...currentMapNPCs);
-        
-        // Add interactive objects
-        const interactiveObjects = this.interactiveObjectManager.getObjectsForMap(this.currentMapId);
-        allObjects.push(...interactiveObjects);
-        
-        // Sort by Y position for depth
-        allObjects.sort((a, b) => (a.y + a.height/2) - (b.y + b.height/2));
-        
-        // Render all objects
-        allObjects.forEach(obj => {
-            if (obj.render) {
-                obj.render(ctx, this);
-            } else {
-                // Fallback for legacy objects
-                this.renderLegacyObject(ctx, obj);
-            }
-        });
-    }
-    
-    /**
-     * Render legacy objects that don't have render methods
-     */
-    renderLegacyObject(ctx, obj) {
-        if (!obj.sprite || !obj.sprite.complete) return;
-        
-        const screenX = obj.x - obj.width / 2;
-        const screenY = obj.y - obj.height / 2;
-        
-        ctx.drawImage(obj.sprite, screenX, screenY, obj.width, obj.height);
-    }
+    // Rendering methods (renderMap, renderGameObjects, renderLegacyObject) now handled by RenderSystem
     
     /**
      * Render UI elements
@@ -663,17 +605,10 @@ class GameEngine {
      * Load settings from localStorage
      */
     loadSettings() {
-        try {
-            const savedSettings = localStorage.getItem('rpg-game-settings');
-            if (savedSettings) {
-                const parsedSettings = JSON.parse(savedSettings);
-                // Merge saved settings with defaults
-                this.settings = { ...this.settings, ...parsedSettings };
-                console.log('Settings loaded from localStorage');
-            }
-        } catch (error) {
-            console.warn('Failed to load settings:', error);
-        }
+        // Load settings from SettingsManager
+        const loadedSettings = this.settingsManager.load();
+        // Merge with current settings
+        this.settings = { ...this.settings, ...loadedSettings };
     }
     
     /**
