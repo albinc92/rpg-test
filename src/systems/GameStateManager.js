@@ -278,23 +278,26 @@ class LoadingState extends GameState {
         ctx.textAlign = 'center';
         
         if (this.waitingForAudio) {
-            // Show "Click to Start" screen
-            ctx.font = '48px Arial';
-            ctx.fillText('Click to Start', canvasWidth / 2, canvasHeight / 2 - 20);
+            // Show "Click to Start" screen (responsive)
+            const titleSize = Math.min(48, canvasHeight * 0.08);
+            const subtitleSize = Math.min(24, canvasHeight * 0.04);
+            ctx.font = `${titleSize}px Arial`;
+            ctx.fillText('Click to Start', canvasWidth / 2, canvasHeight / 2 - canvasHeight * 0.03);
             
-            ctx.font = '24px Arial';
+            ctx.font = `${subtitleSize}px Arial`;
             ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.fillText('Click anywhere or press any key to start the game', canvasWidth / 2, canvasHeight / 2 + 30);
+            ctx.fillText('Click anywhere or press any key to start the game', canvasWidth / 2, canvasHeight / 2 + canvasHeight * 0.05);
         } else {
-            // Show normal loading screen
-            ctx.font = '32px Arial';
+            // Show normal loading screen (responsive)
+            const textSize = Math.min(32, canvasHeight * 0.055);
+            ctx.font = `${textSize}px Arial`;
             ctx.fillText(this.loadingText, canvasWidth / 2, canvasHeight / 2);
             
-            // Loading bar
-            const barWidth = 400;
-            const barHeight = 20;
+            // Loading bar (responsive)
+            const barWidth = Math.min(400, canvasWidth * 0.6);
+            const barHeight = Math.max(20, canvasHeight * 0.03);
             const barX = canvasWidth / 2 - barWidth / 2;
-            const barY = canvasHeight / 2 + 50;
+            const barY = canvasHeight / 2 + canvasHeight * 0.08;
             
             ctx.strokeStyle = '#fff';
             ctx.strokeRect(barX, barY, barWidth, barHeight);
@@ -481,19 +484,29 @@ class MainMenuState extends GameState {
             ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         }
         
+        // Responsive font sizes based on canvas size
+        const titleSize = Math.min(48, canvasHeight * 0.08);
+        const menuSize = Math.min(24, canvasHeight * 0.04);
+        const hintSize = Math.min(14, canvasHeight * 0.025);
+        
         // Draw title with text shadow for better visibility
         ctx.fillStyle = '#000';
-        ctx.font = 'bold 48px Arial';
+        ctx.font = `bold ${titleSize}px Arial`;
         ctx.textAlign = 'center';
         // Text shadow
-        ctx.fillText('RPG Game', canvasWidth / 2 + 2, 202);
+        const titleY = canvasHeight * 0.25;
+        ctx.fillText('RPG Game', canvasWidth / 2 + 2, titleY + 2);
         // Main text
         ctx.fillStyle = '#fff';
-        ctx.fillText('RPG Game', canvasWidth / 2, 200);
+        ctx.fillText('RPG Game', canvasWidth / 2, titleY);
         
-        ctx.font = 'bold 24px Arial';
+        // Menu options - responsive positioning
+        ctx.font = `bold ${menuSize}px Arial`;
+        const menuStartY = canvasHeight * 0.45;
+        const menuSpacing = canvasHeight * 0.08;
+        
         this.options.forEach((option, index) => {
-            const y = 350 + index * 50;
+            const y = menuStartY + index * menuSpacing;
             
             // Check if this is the Continue option and there are no saves
             const isContinueDisabled = (index === 1 && !this.hasSaveFiles);
@@ -514,8 +527,8 @@ class MainMenuState extends GameState {
         // Show subtle audio hint if audio isn't enabled yet
         if (this.game.audioManager && !this.game.audioManager.audioEnabled) {
             ctx.fillStyle = '#666';
-            ctx.font = '14px Arial';
-            ctx.fillText('Audio will start with your first interaction', canvasWidth / 2, canvasHeight - 30);
+            ctx.font = `${hintSize}px Arial`;
+            ctx.fillText('Audio will start with your first interaction', canvasWidth / 2, canvasHeight * 0.95);
         }
     }
 }
@@ -641,16 +654,23 @@ class PausedState extends GameState {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
+        // Responsive font sizes
+        const titleSize = Math.min(36, canvasHeight * 0.06);
+        const menuSize = Math.min(24, canvasHeight * 0.04);
+        
         // Draw pause menu
         ctx.fillStyle = '#fff';
-        ctx.font = '36px Arial';
+        ctx.font = `${titleSize}px Arial`;
         ctx.textAlign = 'center';
-        ctx.fillText('PAUSED', canvasWidth / 2, 200);
+        ctx.fillText('PAUSED', canvasWidth / 2, canvasHeight * 0.25);
         
-        ctx.font = '24px Arial';
+        ctx.font = `${menuSize}px Arial`;
+        const menuStartY = canvasHeight * 0.45;
+        const menuSpacing = canvasHeight * 0.08;
+        
         this.options.forEach((option, index) => {
             ctx.fillStyle = index === this.selectedOption ? '#ff0' : '#fff';
-            ctx.fillText(option, canvasWidth / 2, 300 + index * 50);
+            ctx.fillText(option, canvasWidth / 2, menuStartY + index * menuSpacing);
         });
     }
 }
@@ -791,16 +811,23 @@ class SaveLoadState extends GameState {
     }
     
     renderMainMenu(ctx, canvasWidth, canvasHeight) {
+        // Responsive font sizes
+        const titleSize = Math.min(36, canvasHeight * 0.06);
+        const menuSize = Math.min(24, canvasHeight * 0.04);
+        
         // Title
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 36px Arial';
+        ctx.font = `bold ${titleSize}px Arial`;
         ctx.textAlign = 'center';
-        ctx.fillText('Save / Load', canvasWidth / 2, 150);
+        ctx.fillText('Save / Load', canvasWidth / 2, canvasHeight * 0.25);
         
         // Options
-        ctx.font = '24px Arial';
+        ctx.font = `${menuSize}px Arial`;
+        const menuStartY = canvasHeight * 0.45;
+        const menuSpacing = canvasHeight * 0.08;
+        
         this.mainOptions.forEach((option, index) => {
-            const y = 250 + index * 50;
+            const y = menuStartY + index * menuSpacing;
             ctx.fillStyle = index === this.selectedOption ? '#ffff00' : '#fff';
             ctx.fillText(option, canvasWidth / 2, y);
         });
@@ -809,29 +836,35 @@ class SaveLoadState extends GameState {
     renderSaveList(ctx, canvasWidth, canvasHeight) {
         const title = this.mode === 'save_list' ? 'Save Game' : 'Load Game';
         
+        // Responsive font sizes
+        const titleSize = Math.min(32, canvasHeight * 0.055);
+        const instructionSize = Math.min(16, canvasHeight * 0.028);
+        const saveSize = Math.min(20, canvasHeight * 0.035);
+        const detailSize = Math.min(16, canvasHeight * 0.028);
+        
         // Title
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 32px Arial';
+        ctx.font = `bold ${titleSize}px Arial`;
         ctx.textAlign = 'center';
-        ctx.fillText(title, canvasWidth / 2, 100);
+        ctx.fillText(title, canvasWidth / 2, canvasHeight * 0.15);
         
         // Instructions
-        ctx.font = '16px Arial';
+        ctx.font = `${instructionSize}px Arial`;
         ctx.fillStyle = '#aaa';
         if (this.mode === 'save_list') {
-            ctx.fillText('Press Enter to create a new save', canvasWidth / 2, 140);
+            ctx.fillText('Press Enter to create a new save', canvasWidth / 2, canvasHeight * 0.22);
         } else {
-            ctx.fillText('Press Enter to load  |  Press Delete to remove save', canvasWidth / 2, 140);
+            ctx.fillText('Press Enter to load  |  Press Delete to remove save', canvasWidth / 2, canvasHeight * 0.22);
         }
         
         // Save list
         if (this.saves.length === 0) {
             ctx.fillStyle = '#888';
-            ctx.font = '20px Arial';
-            ctx.fillText('No save files', canvasWidth / 2, canvasHeight / 2);
+            ctx.font = `${saveSize}px Arial`;
+            ctx.fillText('No save files', canvasWidth / 2, canvasHeight * 0.5);
         } else {
-            const startY = 180;
-            const lineHeight = 80;
+            const startY = canvasHeight * 0.3;
+            const lineHeight = canvasHeight * 0.12;
             const visibleSaves = this.saves.slice(
                 this.scrollOffset, 
                 this.scrollOffset + this.maxVisibleSaves
@@ -842,49 +875,59 @@ class SaveLoadState extends GameState {
                 const y = startY + index * lineHeight;
                 const isSelected = actualIndex === this.selectedOption;
                 
+                // Responsive box dimensions
+                const boxWidth = canvasWidth * 0.8;
+                const boxHeight = lineHeight * 0.85;
+                const boxX = canvasWidth / 2 - boxWidth / 2;
+                const boxY = y - boxHeight * 0.5;
+                
                 // Background box for save slot
                 if (isSelected) {
                     ctx.fillStyle = 'rgba(255, 255, 0, 0.2)';
-                    ctx.fillRect(canvasWidth / 2 - 350, y - 30, 700, 70);
+                    ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
                     ctx.strokeStyle = '#ffff00';
                     ctx.lineWidth = 2;
-                    ctx.strokeRect(canvasWidth / 2 - 350, y - 30, 700, 70);
+                    ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
                 }
                 
                 // Save name
                 ctx.textAlign = 'left';
                 ctx.fillStyle = isSelected ? '#ffff00' : '#fff';
-                ctx.font = 'bold 20px Arial';
-                ctx.fillText(save.name, canvasWidth / 2 - 330, y);
+                ctx.font = `bold ${saveSize}px Arial`;
+                ctx.fillText(save.name, boxX + 20, y);
                 
                 // Save details
-                ctx.font = '16px Arial';
+                ctx.font = `${detailSize}px Arial`;
                 ctx.fillStyle = isSelected ? '#ffff88' : '#aaa';
                 const dateStr = this.game.saveGameManager.formatDate(save.timestamp);
                 const playtimeStr = this.game.saveGameManager.formatPlaytime(save.playtime);
-                ctx.fillText(`${dateStr}  |  ${playtimeStr}  |  ${save.mapName}`, canvasWidth / 2 - 330, y + 25);
+                ctx.fillText(`${dateStr}  |  ${playtimeStr}  |  ${save.mapName}`, boxX + 20, y + lineHeight * 0.35);
             });
             
-            // Scroll indicators
+            // Scroll indicators (responsive)
+            const scrollArrowSize = Math.min(20, canvasHeight * 0.035);
+            const scrollArrowOffset = canvasHeight * 0.03;
             if (this.scrollOffset > 0) {
                 ctx.fillStyle = '#fff';
-                ctx.font = '20px Arial';
+                ctx.font = `${scrollArrowSize}px Arial`;
                 ctx.textAlign = 'center';
-                ctx.fillText('▲', canvasWidth / 2, startY - 20);
+                ctx.fillText('▲', canvasWidth / 2, startY - scrollArrowOffset);
             }
             if (this.scrollOffset + this.maxVisibleSaves < this.saves.length) {
                 ctx.fillStyle = '#fff';
-                ctx.font = '20px Arial';
+                ctx.font = `${scrollArrowSize}px Arial`;
                 ctx.textAlign = 'center';
-                ctx.fillText('▼', canvasWidth / 2, startY + this.maxVisibleSaves * lineHeight + 10);
+                ctx.fillText('▼', canvasWidth / 2, startY + this.maxVisibleSaves * lineHeight + scrollArrowOffset);
             }
         }
         
-        // Back hint
+        // Back hint (responsive)
+        const hintSize = Math.min(14, canvasHeight * 0.025);
+        const hintY = canvasHeight * 0.95;
         ctx.fillStyle = '#666';
-        ctx.font = '14px Arial';
+        ctx.font = `${hintSize}px Arial`;
         ctx.textAlign = 'center';
-        ctx.fillText('Press ESC to go back', canvasWidth / 2, canvasHeight - 30);
+        ctx.fillText('Press ESC to go back', canvasWidth / 2, hintY);
     }
 }
 
@@ -1014,16 +1057,21 @@ class SettingsState extends GameState {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
-        // Draw title
+        // Draw title (responsive)
+        const titleSize = Math.min(36, canvasHeight * 0.06);
+        const titleY = canvasHeight * 0.2;
         ctx.fillStyle = '#fff';
-        ctx.font = '36px Arial';
+        ctx.font = `${titleSize}px Arial`;
         ctx.textAlign = 'center';
-        ctx.fillText('Settings', canvasWidth / 2, 150);
+        ctx.fillText('Settings', canvasWidth / 2, titleY);
         
-        // Draw settings options
-        ctx.font = '20px Arial';
-        const startY = 250;
-        const lineHeight = 60;
+        // Draw settings options (responsive)
+        const optionSize = Math.min(20, canvasHeight * 0.035);
+        ctx.font = `${optionSize}px Arial`;
+        const startY = canvasHeight * 0.35;
+        const lineHeight = canvasHeight * 0.11;
+        const marginX = canvasWidth * 0.1;
+        const boxHeight = canvasHeight * 0.075;
         
         this.options.forEach((option, index) => {
             const y = startY + (index * lineHeight);
@@ -1032,33 +1080,35 @@ class SettingsState extends GameState {
             // Highlight selected option
             if (isSelected) {
                 ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
-                ctx.fillRect(50, y - 25, canvasWidth - 100, 40);
+                ctx.fillRect(marginX, y - boxHeight / 2, canvasWidth - marginX * 2, boxHeight);
                 ctx.strokeStyle = '#FFD700';
                 ctx.lineWidth = 2;
-                ctx.strokeRect(50, y - 25, canvasWidth - 100, 40);
+                ctx.strokeRect(marginX, y - boxHeight / 2, canvasWidth - marginX * 2, boxHeight);
             }
             
             // Draw option name
             ctx.fillStyle = isSelected ? '#FFD700' : '#fff';
             ctx.textAlign = 'left';
-            ctx.fillText(option.name, 100, y);
+            ctx.fillText(option.name, marginX + canvasWidth * 0.05, y);
             
             // Draw option value
             ctx.textAlign = 'right';
             if (option.type === 'slider') {
                 const value = this.game.settings[option.key];
-                ctx.fillText(`< ${value}% >`, canvasWidth - 100, y);
+                ctx.fillText(`< ${value}% >`, canvasWidth - marginX - canvasWidth * 0.05, y);
             } else if (option.type === 'toggle') {
                 const value = this.game.settings[option.key];
-                ctx.fillText(`< ${value ? 'ON' : 'OFF'} >`, canvasWidth - 100, y);
+                ctx.fillText(`< ${value ? 'ON' : 'OFF'} >`, canvasWidth - marginX - canvasWidth * 0.05, y);
             }
         });
         
-        // Draw instructions
+        // Draw instructions (responsive)
+        const instructionSize = Math.min(16, canvasHeight * 0.028);
+        const instructionY = canvasHeight * 0.93;
         ctx.fillStyle = '#ccc';
-        ctx.font = '16px Arial';
+        ctx.font = `${instructionSize}px Arial`;
         ctx.textAlign = 'center';
-        ctx.fillText('Use Arrow Keys to Navigate • Left/Right to Adjust • Enter to Select • ESC to Go Back', canvasWidth / 2, canvasHeight - 50);
+        ctx.fillText('Use Arrow Keys to Navigate • Left/Right to Adjust • Enter to Select • ESC to Go Back', canvasWidth / 2, instructionY);
     }
 }
 
