@@ -15,6 +15,7 @@ class GameStateManager {
             'MAIN_MENU': new MainMenuState(this),
             'PLAYING': new PlayingState(this),
             'PAUSED': new PausedState(this),
+            'SAVE_LOAD': new SaveLoadState(this),
             'INVENTORY': new InventoryState(this),
             'DIALOGUE': new DialogueState(this),
             'SHOP': new ShopState(this),
@@ -330,6 +331,9 @@ class MainMenuState extends GameState {
         this.options = ['New Game', 'Continue', 'Settings', 'Exit'];
         this.musicStarted = false;
         
+        // Check if there are any save files
+        this.hasSaveFiles = this.game.saveGameManager.hasSaves();
+        
         // Check what state we're coming from
         const previousState = this.stateManager.previousState;
         const returningFromSettings = this.stateManager.stateStack.length > 0;
@@ -380,13 +384,27 @@ class MainMenuState extends GameState {
         // Only start music when ENTERING main menu, not on every input
         
         if (inputManager.isJustPressed('up')) {
-            this.selectedOption = Math.max(0, this.selectedOption - 1);
-            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            let newOption = Math.max(0, this.selectedOption - 1);
+            // Skip Continue if no saves
+            if (newOption === 1 && !this.hasSaveFiles) {
+                newOption = 0;
+            }
+            if (newOption !== this.selectedOption) {
+                this.selectedOption = newOption;
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+            }
         }
         
         if (inputManager.isJustPressed('down')) {
-            this.selectedOption = Math.min(this.options.length - 1, this.selectedOption + 1);
-            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            let newOption = Math.min(this.options.length - 1, this.selectedOption + 1);
+            // Skip Continue if no saves
+            if (newOption === 1 && !this.hasSaveFiles) {
+                newOption = 2;
+            }
+            if (newOption !== this.selectedOption) {
+                this.selectedOption = newOption;
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+            }
         }
         
         if (inputManager.isJustPressed('confirm')) {
@@ -397,10 +415,23 @@ class MainMenuState extends GameState {
     selectOption() {
         switch (this.selectedOption) {
             case 0: // New Game
+                // Start new game - reset playtime
+                this.game.playtime = 0;
                 this.stateManager.changeState('PLAYING');
                 break;
             case 1: // Continue
-                // Load game
+                if (this.hasSaveFiles) {
+                    // Load the latest save
+                    const latestSave = this.game.saveGameManager.getLatestSave();
+                    if (latestSave) {
+                        this.game.saveGameManager.loadGame(latestSave.id, this.game);
+                        // Load the map and start playing
+                        this.game.loadMap(this.game.currentMapId).then(() => {
+                            this.stateManager.changeState('PLAYING');
+                        });
+                    }
+                }
+                // If no saves, do nothing (button is grayed out)
                 break;
             case 2: // Settings
                 this.stateManager.pushState('SETTINGS');
@@ -463,12 +494,19 @@ class MainMenuState extends GameState {
         this.options.forEach((option, index) => {
             const y = 350 + index * 50;
             
+            // Check if this is the Continue option and there are no saves
+            const isContinueDisabled = (index === 1 && !this.hasSaveFiles);
+            
             // Text shadow for all options
             ctx.fillStyle = '#000';
             ctx.fillText(option, canvasWidth / 2 + 2, y + 2);
             
-            // Main text
-            ctx.fillStyle = index === this.selectedOption ? '#ffff00' : '#fff';
+            // Main text - gray out Continue if no saves
+            if (isContinueDisabled) {
+                ctx.fillStyle = '#666'; // Gray for disabled
+            } else {
+                ctx.fillStyle = index === this.selectedOption ? '#ffff00' : '#fff';
+            }
             ctx.fillText(option, canvasWidth / 2, y);
         });
         
@@ -550,7 +588,7 @@ class PausedState extends GameState {
         console.log('⏸️ PAUSE MENU ENTERED');
         console.log('Current BGM:', this.game.audioManager?.currentBGM?.src || 'none');
         this.selectedOption = 0;
-        this.options = ['Resume', 'Settings', 'Main Menu'];
+        this.options = ['Resume', 'Save/Load', 'Settings', 'Main Menu'];
     }
     
     handleInput(inputManager) {
@@ -577,10 +615,13 @@ class PausedState extends GameState {
             case 0: // Resume
                 this.stateManager.popState();
                 break;
-            case 1: // Settings
+            case 1: // Save/Load
+                this.stateManager.pushState('SAVE_LOAD');
+                break;
+            case 2: // Settings
                 this.stateManager.pushState('SETTINGS');
                 break;
-            case 2: // Main Menu
+            case 3: // Main Menu
                 this.stateManager.changeState('MAIN_MENU');
                 break;
         }
@@ -606,6 +647,239 @@ class PausedState extends GameState {
             ctx.fillStyle = index === this.selectedOption ? '#ff0' : '#fff';
             ctx.fillText(option, canvasWidth / 2, 300 + index * 50);
         });
+    }
+}
+
+/**
+ * Save/Load State - Manage save files
+ */
+class SaveLoadState extends GameState {
+    enter() {
+        console.log('💾 SAVE/LOAD MENU ENTERED');
+        this.mode = 'main'; // 'main', 'save_list', 'load_list'
+        this.selectedOption = 0;
+        this.mainOptions = ['Save Game', 'Load Game', 'Back'];
+        this.saves = [];
+        this.scrollOffset = 0;
+        this.maxVisibleSaves = 6;
+    }
+    
+    handleInput(inputManager) {
+        if (inputManager.isJustPressed('cancel')) {
+            if (this.mode === 'main') {
+                this.stateManager.popState();
+            } else {
+                this.mode = 'main';
+                this.selectedOption = 0;
+            }
+            return;
+        }
+        
+        if (inputManager.isJustPressed('up')) {
+            this.selectedOption = Math.max(0, this.selectedOption - 1);
+            this.updateScrollOffset();
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        }
+        
+        if (inputManager.isJustPressed('down')) {
+            const maxOption = this.mode === 'main' 
+                ? this.mainOptions.length - 1 
+                : this.saves.length - 1;
+            this.selectedOption = Math.min(maxOption, this.selectedOption + 1);
+            this.updateScrollOffset();
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        }
+        
+        if (inputManager.isJustPressed('confirm')) {
+            this.selectOption();
+        }
+        
+        if (inputManager.isJustPressed('delete') && this.mode !== 'main') {
+            // Delete key on save/load lists
+            this.deleteSave();
+        }
+    }
+    
+    updateScrollOffset() {
+        if (this.mode !== 'main' && this.saves.length > this.maxVisibleSaves) {
+            // Keep selected item in view
+            if (this.selectedOption < this.scrollOffset) {
+                this.scrollOffset = this.selectedOption;
+            } else if (this.selectedOption >= this.scrollOffset + this.maxVisibleSaves) {
+                this.scrollOffset = this.selectedOption - this.maxVisibleSaves + 1;
+            }
+        }
+    }
+    
+    selectOption() {
+        if (this.mode === 'main') {
+            switch (this.selectedOption) {
+                case 0: // Save Game
+                    this.mode = 'save_list';
+                    this.saves = this.game.saveGameManager.getAllSaves();
+                    this.selectedOption = 0;
+                    this.scrollOffset = 0;
+                    break;
+                case 1: // Load Game
+                    this.mode = 'load_list';
+                    this.saves = this.game.saveGameManager.getAllSaves();
+                    this.selectedOption = 0;
+                    this.scrollOffset = 0;
+                    break;
+                case 2: // Back
+                    this.stateManager.popState();
+                    break;
+            }
+        } else if (this.mode === 'save_list') {
+            // Save to a new slot or overwrite
+            const saveId = this.game.saveGameManager.saveGame(this.game);
+            if (saveId) {
+                console.log('✅ Game saved!');
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+                // Refresh save list
+                this.saves = this.game.saveGameManager.getAllSaves();
+            }
+        } else if (this.mode === 'load_list') {
+            // Load selected save
+            if (this.saves[this.selectedOption]) {
+                const save = this.saves[this.selectedOption];
+                if (this.game.saveGameManager.loadGame(save.id, this.game)) {
+                    console.log('✅ Game loaded!');
+                    // Load the map and return to gameplay
+                    this.game.loadMap(this.game.currentMapId).then(() => {
+                        // Pop back to gameplay
+                        this.stateManager.popState(); // Exit save/load menu
+                        this.stateManager.popState(); // Exit pause menu
+                    });
+                }
+            }
+        }
+    }
+    
+    deleteSave() {
+        if (this.saves[this.selectedOption]) {
+            const save = this.saves[this.selectedOption];
+            if (this.game.saveGameManager.deleteSave(save.id)) {
+                console.log('✅ Save deleted!');
+                this.saves = this.game.saveGameManager.getAllSaves();
+                if (this.selectedOption >= this.saves.length) {
+                    this.selectedOption = Math.max(0, this.saves.length - 1);
+                }
+                this.updateScrollOffset();
+            }
+        }
+    }
+    
+    render(ctx) {
+        const canvasWidth = this.game.CANVAS_WIDTH;
+        const canvasHeight = this.game.CANVAS_HEIGHT;
+        
+        // Draw translucent overlay
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        if (this.mode === 'main') {
+            this.renderMainMenu(ctx, canvasWidth, canvasHeight);
+        } else {
+            this.renderSaveList(ctx, canvasWidth, canvasHeight);
+        }
+    }
+    
+    renderMainMenu(ctx, canvasWidth, canvasHeight) {
+        // Title
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 36px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Save / Load', canvasWidth / 2, 150);
+        
+        // Options
+        ctx.font = '24px Arial';
+        this.mainOptions.forEach((option, index) => {
+            const y = 250 + index * 50;
+            ctx.fillStyle = index === this.selectedOption ? '#ffff00' : '#fff';
+            ctx.fillText(option, canvasWidth / 2, y);
+        });
+    }
+    
+    renderSaveList(ctx, canvasWidth, canvasHeight) {
+        const title = this.mode === 'save_list' ? 'Save Game' : 'Load Game';
+        
+        // Title
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 32px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(title, canvasWidth / 2, 100);
+        
+        // Instructions
+        ctx.font = '16px Arial';
+        ctx.fillStyle = '#aaa';
+        if (this.mode === 'save_list') {
+            ctx.fillText('Press Enter to create a new save', canvasWidth / 2, 140);
+        } else {
+            ctx.fillText('Press Enter to load  |  Press Delete to remove save', canvasWidth / 2, 140);
+        }
+        
+        // Save list
+        if (this.saves.length === 0) {
+            ctx.fillStyle = '#888';
+            ctx.font = '20px Arial';
+            ctx.fillText('No save files', canvasWidth / 2, canvasHeight / 2);
+        } else {
+            const startY = 180;
+            const lineHeight = 80;
+            const visibleSaves = this.saves.slice(
+                this.scrollOffset, 
+                this.scrollOffset + this.maxVisibleSaves
+            );
+            
+            visibleSaves.forEach((save, index) => {
+                const actualIndex = this.scrollOffset + index;
+                const y = startY + index * lineHeight;
+                const isSelected = actualIndex === this.selectedOption;
+                
+                // Background box for save slot
+                if (isSelected) {
+                    ctx.fillStyle = 'rgba(255, 255, 0, 0.2)';
+                    ctx.fillRect(canvasWidth / 2 - 350, y - 30, 700, 70);
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(canvasWidth / 2 - 350, y - 30, 700, 70);
+                }
+                
+                // Save name
+                ctx.textAlign = 'left';
+                ctx.fillStyle = isSelected ? '#ffff00' : '#fff';
+                ctx.font = 'bold 20px Arial';
+                ctx.fillText(save.name, canvasWidth / 2 - 330, y);
+                
+                // Save details
+                ctx.font = '16px Arial';
+                ctx.fillStyle = isSelected ? '#ffff88' : '#aaa';
+                const dateStr = this.game.saveGameManager.formatDate(save.timestamp);
+                const playtimeStr = this.game.saveGameManager.formatPlaytime(save.playtime);
+                ctx.fillText(`${dateStr}  |  ${playtimeStr}  |  ${save.mapName}`, canvasWidth / 2 - 330, y + 25);
+            });
+            
+            // Scroll indicators
+            if (this.scrollOffset > 0) {
+                ctx.fillStyle = '#fff';
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('▲', canvasWidth / 2, startY - 20);
+            }
+            if (this.scrollOffset + this.maxVisibleSaves < this.saves.length) {
+                ctx.fillStyle = '#fff';
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('▼', canvasWidth / 2, startY + this.maxVisibleSaves * lineHeight + 10);
+            }
+        }
+        
+        // Back hint
+        ctx.fillStyle = '#666';
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Press ESC to go back', canvasWidth / 2, canvasHeight - 30);
     }
 }
 

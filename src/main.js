@@ -45,6 +45,7 @@ async function loadGameScripts() {
         await loadScript('/src/systems/InteractionSystem.js');
         await loadScript('/src/systems/SettingsManager.js');
         await loadScript('/src/systems/PerformanceMonitor.js');
+        await loadScript('/src/systems/SaveGameManager.js');
         
         // Load game engine
         await loadScript('/src/GameEngine.js');

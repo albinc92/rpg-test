@@ -34,12 +34,16 @@ class GameEngine {
         this.interactionSystem = new InteractionSystem();
         this.settingsManager = new SettingsManager();
         this.performanceMonitor = new PerformanceMonitor();
+        this.saveGameManager = new SaveGameManager();
         
         // Game state
         this.currentMapId = '0-0';
         this.currentMap = null;
         this.maps = {};
         this.npcs = {};
+        
+        // Playtime tracking (in seconds)
+        this.playtime = 0;
         
         // Player - use proper Player class instance
         this.player = null;
@@ -259,6 +263,9 @@ class GameEngine {
      */
     updateGameplay(deltaTime) {
         if (!this.player || !this.currentMap) return;
+        
+        // Track playtime
+        this.playtime += deltaTime;
         
         // Handle input for gameplay
         this.handleGameplayInput(this.inputManager);
