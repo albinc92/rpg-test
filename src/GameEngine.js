@@ -62,7 +62,8 @@ class GameEngine {
             effectsVolume: 100,
             isMuted: false,
             showFPS: true,
-            showDebug: false
+            showDebug: false,
+            showDebugInfo: true
         };
         
         // Debug controls
@@ -171,6 +172,13 @@ class GameEngine {
                 console.log(`Game ${this.isPaused ? 'PAUSED' : 'UNPAUSED'}`);
             }
             
+            // F1 - Toggle debug info display
+            if (e.code === 'F1') {
+                this.settings.showDebugInfo = !this.settings.showDebugInfo;
+                console.log(`Debug info ${this.settings.showDebugInfo ? 'ENABLED' : 'DISABLED'}`);
+                e.preventDefault(); // Prevent browser's help menu
+            }
+            
             // F5 - Clear audio cache and debug
             if (e.code === 'F5') {
                 this.audioManager.clearAudioCache();
@@ -236,12 +244,8 @@ class GameEngine {
         // Render current state
         this.stateManager.render(this.ctx);
         
-        // Render debug info
-        if (this.settings.showFPS) {
-            this.renderFPS();
-        }
-        
-        if (this.settings.showDebug) {
+        // Render debug info if enabled
+        if (this.settings.showDebugInfo) {
             this.renderDebugInfo();
         }
     }
@@ -536,14 +540,8 @@ class GameEngine {
      */
     renderUI(ctx) {
         // This would render HUD elements, health bars, etc.
-        // For now, just render basic info
-        if (this.player) {
-            ctx.fillStyle = '#fff';
-            ctx.font = '16px Arial';
-            ctx.textAlign = 'left';
-            ctx.fillText(`Gold: ${this.player.gold}`, 10, 30);
-            ctx.fillText(`Map: ${this.currentMapId}`, 10, 50);
-        }
+        // For now, keep it clean - no permanent UI overlays
+        // Debug info is handled separately and can be toggled with F1
     }
     
     /**
@@ -595,16 +593,45 @@ class GameEngine {
     /**
      * Render FPS display
      */
-    renderFPS() {
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        this.ctx.fillRect(10, this.CANVAS_HEIGHT - 70, 200, 60);
+    renderDebugInfo() {
+        // Bottom left debug panel with improved styling
+        const panelWidth = 260;
+        const panelHeight = 110;
+        const padding = 12;
+        const lineHeight = 16;
         
-        this.ctx.fillStyle = '#0f0';
-        this.ctx.font = '14px monospace';
+        // Semi-transparent background with border
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        this.ctx.fillRect(10, this.CANVAS_HEIGHT - panelHeight - 10, panelWidth, panelHeight);
+        
+        // Border
+        this.ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(10, this.CANVAS_HEIGHT - panelHeight - 10, panelWidth, panelHeight);
+        
+        // Text styling
+        this.ctx.fillStyle = '#00ff00';
+        this.ctx.font = '14px Courier New, monospace';
         this.ctx.textAlign = 'left';
-        this.ctx.fillText(`FPS: ${this.fpsCounter.fps}`, 15, this.CANVAS_HEIGHT - 50);
-        this.ctx.fillText(`Min: ${this.fpsCounter.minFPS} Max: ${this.fpsCounter.maxFPS}`, 15, this.CANVAS_HEIGHT - 35);
-        this.ctx.fillText(`State: ${this.stateManager.getCurrentState()}`, 15, this.CANVAS_HEIGHT - 20);
+        
+        let y = this.CANVAS_HEIGHT - panelHeight + padding;
+        
+        // FPS info
+        this.ctx.fillText(`FPS: ${this.fpsCounter.fps}`, 20, y);
+        y += lineHeight;
+        this.ctx.fillText(`Min: ${this.fpsCounter.minFPS}  Max: ${this.fpsCounter.maxFPS}`, 20, y);
+        y += lineHeight;
+        
+        // Game state info
+        this.ctx.fillText(`State: ${this.stateManager.getCurrentState()}`, 20, y);
+        y += lineHeight;
+        this.ctx.fillText(`Map: ${this.currentMapId}`, 20, y);
+        y += lineHeight + 4;
+        
+        // F1 hint in dimmer color
+        this.ctx.fillStyle = '#666666';
+        this.ctx.font = '12px Courier New, monospace';
+        this.ctx.fillText('Press F1 to toggle debug info', 20, y);
     }
     
     /**
@@ -689,30 +716,7 @@ class GameEngine {
         return objects;
     }
 
-    /**
-     * Render debug information
-     */
-    renderDebugInfo() {
-        if (!this.player) return;
-        
-        const debugInfo = this.inputManager.getDebugInfo();
-        
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        this.ctx.fillRect(this.CANVAS_WIDTH - 310, 10, 300, 150);
-        
-        this.ctx.fillStyle = '#0f0';
-        this.ctx.font = '12px monospace';
-        this.ctx.textAlign = 'left';
-        
-        let y = 30;
-        this.ctx.fillText(`Player: (${this.player.x.toFixed(1)}, ${this.player.y.toFixed(1)})`, this.CANVAS_WIDTH - 300, y);
-        y += 15;
-        this.ctx.fillText(`Camera: (${this.camera.x.toFixed(1)}, ${this.camera.y.toFixed(1)})`, this.CANVAS_WIDTH - 300, y);
-        y += 15;
-        this.ctx.fillText(`Movement: (${debugInfo.movementInput.x.toFixed(2)}, ${debugInfo.movementInput.y.toFixed(2)})`, this.CANVAS_WIDTH - 300, y);
-        y += 15;
-        this.ctx.fillText(`Keys: ${debugInfo.pressedKeys.join(', ')}`, this.CANVAS_WIDTH - 300, y);
-    }
+
     
     /**
      * Load settings from localStorage

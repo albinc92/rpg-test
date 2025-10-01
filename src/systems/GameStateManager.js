@@ -308,6 +308,23 @@ class LoadingState extends GameState {
  * Main Menu State
  */
 class MainMenuState extends GameState {
+    constructor(stateManager) {
+        super(stateManager);
+        this.backgroundImage = null;
+        this.loadBackgroundImage();
+    }
+    
+    loadBackgroundImage() {
+        this.backgroundImage = new Image();
+        this.backgroundImage.onload = () => {
+            console.log('🖼️ Main menu background loaded successfully');
+        };
+        this.backgroundImage.onerror = () => {
+            console.warn('⚠️ Failed to load main menu background');
+        };
+        this.backgroundImage.src = '/bg/main.png';
+    }
+    
     enter(data = {}) {
         this.selectedOption = 0;
         this.options = ['New Game', 'Continue', 'Settings', 'Exit'];
@@ -399,18 +416,60 @@ class MainMenuState extends GameState {
         const canvasWidth = this.game.CANVAS_WIDTH;
         const canvasHeight = this.game.CANVAS_HEIGHT;
         
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        // Draw background image if loaded, otherwise fallback to black
+        if (this.backgroundImage && this.backgroundImage.complete) {
+            // Scale background to fill the canvas while maintaining aspect ratio
+            const imgAspect = this.backgroundImage.width / this.backgroundImage.height;
+            const canvasAspect = canvasWidth / canvasHeight;
+            
+            let drawWidth, drawHeight, offsetX, offsetY;
+            
+            if (imgAspect > canvasAspect) {
+                // Image is wider - fit to height
+                drawHeight = canvasHeight;
+                drawWidth = drawHeight * imgAspect;
+                offsetX = (canvasWidth - drawWidth) / 2;
+                offsetY = 0;
+            } else {
+                // Image is taller - fit to width
+                drawWidth = canvasWidth;
+                drawHeight = drawWidth / imgAspect;
+                offsetX = 0;
+                offsetY = (canvasHeight - drawHeight) / 2;
+            }
+            
+            ctx.drawImage(this.backgroundImage, offsetX, offsetY, drawWidth, drawHeight);
+            
+            // Add a semi-transparent overlay for better text readability
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        } else {
+            // Fallback background
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        }
         
-        ctx.fillStyle = '#fff';
-        ctx.font = '48px Arial';
+        // Draw title with text shadow for better visibility
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 48px Arial';
         ctx.textAlign = 'center';
+        // Text shadow
+        ctx.fillText('RPG Game', canvasWidth / 2 + 2, 202);
+        // Main text
+        ctx.fillStyle = '#fff';
         ctx.fillText('RPG Game', canvasWidth / 2, 200);
         
-        ctx.font = '24px Arial';
+        ctx.font = 'bold 24px Arial';
         this.options.forEach((option, index) => {
-            ctx.fillStyle = index === this.selectedOption ? '#ff0' : '#fff';
-            ctx.fillText(option, canvasWidth / 2, 350 + index * 50);
+            const y = 350 + index * 50;
+            
+            // Text shadow for all options
+            ctx.fillStyle = '#000';
+            ctx.fillText(option, canvasWidth / 2 + 2, y + 2);
+            
+            // Main text
+            ctx.fillStyle = index === this.selectedOption ? '#ffff00' : '#fff';
+            ctx.fillText(option, canvasWidth / 2, y);
         });
         
         // Show subtle audio hint if audio isn't enabled yet
