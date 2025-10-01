@@ -48,9 +48,7 @@ class GameEngine {
         
         // Game systems
         this.mapManager = new MapManager();
-        this.npcManager = new NPCManager();
-        this.staticObjectManager = new StaticObjectManager();
-        this.interactiveObjectManager = new InteractiveObjectManager();
+        this.objectManager = new ObjectManager(); // NEW: Unified object manager
         this.itemManager = new ItemManager();
         this.inventoryManager = new InventoryManager(this.itemManager);
         
@@ -66,7 +64,6 @@ class GameEngine {
         this.currentMapId = '0-0';
         this.currentMap = null;
         this.maps = {};
-        this.npcs = {};
         
         // Playtime tracking (in seconds)
         this.playtime = 0;
@@ -102,8 +99,7 @@ class GameEngine {
         try {
             // Load game data
             this.maps = this.mapManager.initializeAllMaps();
-            this.npcs = this.npcManager.initializeAllNPCs();
-            this.staticObjectManager.initializeAllObjects();
+            // Object manager uses lazy loading - objects loaded when map loads
             
             // Don't load map yet - wait until game starts
             
@@ -312,17 +308,8 @@ class GameEngine {
         // Update player
         this.player.update(deltaTime, this);
         
-        // Update NPCs
-        this.npcManager.updateRoamingNPCs(this.currentMapId, deltaTime, {
-            width: this.currentMap.width,
-            height: this.currentMap.height
-        });
-        
-        // Update static objects (for animations)
-        this.staticObjectManager.updateObjects(this.currentMapId, deltaTime, this);
-        
-        // Update interactive objects
-        this.interactiveObjectManager.updateObjects(this.currentMapId, deltaTime, this);
+        // Update all objects on current map (NPCs, trees, chests, etc.)
+        this.objectManager.updateObjects(this.currentMapId, deltaTime, this);
         
         // Update camera
         this.updateCamera();
@@ -338,17 +325,14 @@ class GameEngine {
         if (!this.currentMap || !this.player) return;
         
         // Use RenderSystem for world rendering
-        const currentMapNPCs = this.npcs[this.currentMapId] || [];
-        const currentMapStaticObjects = this.staticObjectManager.getObjectsForMap(this.currentMapId);
-        const currentMapInteractiveObjects = this.interactiveObjectManager.getObjectsForMap(this.currentMapId);
-        
-        // Combine all objects for rendering
-        const allMapObjects = [...currentMapStaticObjects, ...currentMapInteractiveObjects];
+        const allObjects = this.objectManager.getObjectsForMap(this.currentMapId);
+        const npcs = this.objectManager.getNPCsForMap(this.currentMapId);
+        const nonNPCObjects = allObjects.filter(obj => !(obj instanceof NPC || obj instanceof Spirit));
         
         this.renderSystem.renderWorld(
             this.currentMap,
-            allMapObjects,
-            currentMapNPCs,
+            nonNPCObjects,
+            npcs,
             this.player,
             this
         );
@@ -389,9 +373,9 @@ class GameEngine {
      */
     handleInteraction() {
         // Check for interactive objects first
-        const interactiveObj = this.interactiveObjectManager.checkNearbyInteractions(this.player, this.currentMapId);
+        const interactiveObj = this.objectManager.checkNearbyInteractions(this.player, this.currentMapId);
         if (interactiveObj) {
-            const result = this.interactiveObjectManager.handleInteraction(interactiveObj, this.player, this);
+            const result = this.objectManager.handleInteraction(interactiveObj, this.player, this);
             this.handleInteractionResult(result);
             return;
         }
@@ -427,7 +411,8 @@ class GameEngine {
         if (npc.type === 'merchant') {
             this.stateManager.pushState('SHOP', { npc: npc });
         } else {
-            this.npcManager.startDialogue(npc, () => this.audioManager.playEffect('speech-bubble.mp3'));
+            // Play speech bubble sound and show dialogue
+            this.audioManager.playEffect('speech-bubble.mp3');
             this.stateManager.pushState('DIALOGUE', { npc: npc });
         }
     }
@@ -436,7 +421,7 @@ class GameEngine {
      * Check for portal collisions
      */
     checkPortalCollisions() {
-        const portal = this.interactiveObjectManager.checkPortalCollisions(this.player, this.currentMapId, this);
+        const portal = this.objectManager.checkPortalCollisions(this.player, this.currentMapId, this);
         if (portal) {
             this.teleportToMap(portal.targetMap, portal.spawnPoint);
         }
@@ -476,8 +461,8 @@ class GameEngine {
         this.currentMapId = mapId;
         this.currentMap = mapData;
         
-        // Load interactive objects for this map
-        this.interactiveObjectManager.loadObjectsForMap(mapId);
+        // Load all objects for this map (NPCs, trees, chests, portals, etc.)
+        this.objectManager.loadObjectsForMap(mapId);
         
         // Handle BGM - extract just the filename from the full path
         let bgmFilename = null;
@@ -548,7 +533,7 @@ class GameEngine {
      * Find closest interactable NPC
      */
     findClosestInteractableNPC() {
-        const currentMapNPCs = this.npcs[this.currentMapId] || [];
+        const currentMapNPCs = this.objectManager.getNPCsForMap(this.currentMapId);
         // Delegate to InteractionSystem
         return this.interactionSystem.findClosestNPC(this.player, currentMapNPCs);
     }
@@ -646,21 +631,8 @@ class GameEngine {
      * Get all GameObjects on a specific map (NPCs, interactive objects, static objects, etc.)
      */
     getAllGameObjectsOnMap(mapId) {
-        const objects = [];
-        
-        // Add NPCs for this specific map
-        const npcs = this.npcManager.getNPCsForMap(mapId);
-        objects.push(...npcs);
-        
-        // Add static objects (trees, rocks, etc.)
-        const staticObjects = this.staticObjectManager.getObjectsForMap(mapId);
-        objects.push(...staticObjects);
-        
-        // Add interactive objects
-        const interactiveObjects = this.interactiveObjectManager.getObjectsForMap(mapId);
-        objects.push(...interactiveObjects);
-        
-        return objects;
+        // Simply return all objects from unified manager
+        return this.objectManager.getObjectsForMap(mapId);
     }
 
 
@@ -732,7 +704,6 @@ class GameEngine {
         this.player = null;
         this.currentMap = null;
         this.maps = {};
-        this.npcs = {};
         
         console.log('✅ GameEngine cleanup complete');
     }

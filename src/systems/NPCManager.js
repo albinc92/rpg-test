@@ -26,8 +26,6 @@ class NPCManager {
         // Initialize each type of NPC
         this.initializeStaticNPCs();
         this.initializeMerchantNPCs();
-        this.initializeGuardNPCs();
-        this.initializeSpiritNPCs();
         this.initializeRoamingNPCs();
         
         return this.npcs;
@@ -58,48 +56,13 @@ class NPCManager {
         const traderBob = new NPC({
             x: 300,
             y: 500,
-            spriteSrc: 'assets/npc/navigation-0.png',
+            spriteSrc: 'assets/npc/merchant-0.png',
             type: 'merchant',
             name: 'Trader Bob',
             dialogue: "I have the finest goods in all the land! Care to take a look?",
             scale: 0.08
         });
         this.npcs['0-0'].push(traderBob);
-    }
-    
-    /**
-     * Initialize guard NPCs
-     */
-    initializeGuardNPCs() {
-        // Town Guard on map 0-1
-        const townGuard = new NPC({
-            x: 500,
-            y: 400,
-            spriteSrc: 'assets/npc/sage-0.png',
-            type: 'guard',
-            name: 'Town Guard',
-            dialogue: "Stay safe, traveler. There are dangerous creatures beyond these walls.",
-            scale: 0.08
-        });
-        this.npcs['0-1'].push(townGuard);
-    }
-    
-    /**
-     * Initialize spirit NPCs (static floating spirits)
-     */
-    initializeSpiritNPCs() {
-        // Lost Spirit on map 0-0
-        const lostSpirit = new Spirit({
-            x: 800,
-            y: 200,
-            spriteSrc: 'assets/npc/navigation-0.png',
-            name: 'Lost Spirit',
-            altitude: 30,
-            floatingSpeed: 2,
-            floatingRange: 20,
-            scale: 0.06
-        });
-        this.npcs['0-0'].push(lostSpirit);
     }
     
     /**
