@@ -88,6 +88,14 @@ class PerformanceMonitor {
         ctx.fillText(`Map: ${currentMapId}`, 20, y);
         y += lineHeight;
         
+        // Player position
+        if (game.player) {
+            const playerX = Math.round(game.player.x);
+            const playerY = Math.round(game.player.y);
+            ctx.fillText(`Player: (${playerX}, ${playerY})`, 20, y);
+            y += lineHeight;
+        }
+        
         // Collision boxes indicator
         ctx.fillStyle = '#ff0000';
         ctx.fillText('■ Collision boxes visible', 20, y);
