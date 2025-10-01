@@ -29,14 +29,14 @@ class ObjectManager {
                 // Static objects (trees, rocks, decorations)
                 static: [
                     // Trees scattered around edges
-                    { id: 'tree_01', x: 200, y: 150, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 0.3, type: 'tree' },
-                    { id: 'tree_02', x: 1750, y: 200, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 0.35, type: 'tree' },
-                    { id: 'tree_03', x: 300, y: 900, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 0.28, type: 'tree' },
-                    { id: 'tree_04', x: 1650, y: 950, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 0.32, type: 'tree' },
-                    { id: 'tree_05', x: 100, y: 500, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 0.25, type: 'tree' },
-                    { id: 'tree_06', x: 1850, y: 600, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 0.3, type: 'tree' },
-                    { id: 'tree_07', x: 950, y: 100, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 0.27, type: 'tree' },
-                    { id: 'tree_08', x: 1000, y: 1000, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 0.29, type: 'tree' },
+                    { id: 'tree_01', x: 200, y: 150, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1, type: 'tree' },
+                    { id: 'tree_02', x: 1750, y: 200, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1, type: 'tree' },
+                    { id: 'tree_03', x: 300, y: 900, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1, type: 'tree' },
+                    { id: 'tree_04', x: 1650, y: 950, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1, type: 'tree' },
+                    { id: 'tree_05', x: 100, y: 500, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1, type: 'tree' },
+                    { id: 'tree_06', x: 1850, y: 600, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1, type: 'tree' },
+                    { id: 'tree_07', x: 950, y: 100, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1, type: 'tree' },
+                    { id: 'tree_08', x: 1000, y: 1000, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1, type: 'tree' },
                 ],
                 
                 // NPCs (characters, merchants, spirits)
