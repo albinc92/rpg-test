@@ -8,8 +8,6 @@ class Actor extends GameObject {
             hasCollision: true,
             blocksMovement: true,
             canBeBlocked: true,
-            collisionPercent: 0.4, // Actors typically use lower body for collision (40%)
-            collisionOffsetY: 10, // Collision box towards bottom of sprite (feet area)
             ...options
         });
         

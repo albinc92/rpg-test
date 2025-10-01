@@ -33,8 +33,8 @@ class GameObject {
         // Collision properties
         this.hasCollision = options.hasCollision !== false; // Default true
         
-        // Collision size (how much of the rendered sprite is used for collision)
-        this.collisionPercent = options.collisionPercent || 0.8; // General percent for both width and height (0.0 to 1.0)
+        // Collision size - 1:1 with sprite by default
+        this.collisionPercent = options.collisionPercent !== undefined ? options.collisionPercent : 1.0; // 1:1 with sprite size
         this.collisionWidthPercent = options.collisionWidthPercent; // Optional: override width percent specifically
         this.collisionHeightPercent = options.collisionHeightPercent; // Optional: override height percent specifically
         
@@ -199,22 +199,23 @@ class GameObject {
     }
     
     /**
-     * Get collision box (reduced bounds based on collisionPercent and offsets)
-     * Now properly matches sprite scaling so collision boxes are pixel-perfect
+     * Get collision box - EXACTLY matches sprite rendering, then applies collision modifications
      * 
-     * Collision box calculation:
-     * 1. Start with actual rendered size (sprite × object scale × resolution scale × map scale)
-     * 2. Apply collisionPercent (default behavior, e.g., 0.8 = 80% of rendered size)
-     * 3. Apply collisionWidthPercent/heightPercent if overridden (custom width/height tweaks)
-     * 4. Apply collisionOffsetX/Y (repositioning the box)
+     * Steps:
+     * 1. Calculate EXACT rendered sprite size (same as render() method)
+     * 2. Apply collision percent to shrink/expand the box
+     * 3. Apply offsets to reposition the box
      */
     getCollisionBounds(game) {
-        // Get actual rendered dimensions (what player sees on screen)
-        const actualWidth = this.getActualWidth(game);
-        const actualHeight = this.getActualHeight(game);
+        // STEP 1: Calculate EXACT rendered size (COPY FROM RENDER METHOD)
+        const finalScale = this.getFinalScale(game);
+        const mapScale = game?.currentMap?.scale || 1.0;
+        const baseWidth = this.spriteWidth || this.fallbackWidth;
+        const baseHeight = this.spriteHeight || this.fallbackHeight;
+        const renderedWidth = baseWidth * finalScale * mapScale;
+        const renderedHeight = baseHeight * finalScale * mapScale;
         
-        // Calculate collision dimensions
-        // Use specific width/height percents if set, otherwise use general collisionPercent
+        // STEP 2: Apply collision percents (shrink/expand from rendered size)
         const widthPercent = this.collisionWidthPercent !== undefined 
             ? this.collisionWidthPercent 
             : this.collisionPercent;
@@ -222,22 +223,19 @@ class GameObject {
             ? this.collisionHeightPercent 
             : this.collisionPercent;
             
-        const collisionWidth = actualWidth * widthPercent;
-        const collisionHeight = actualHeight * heightPercent;
+        const collisionWidth = renderedWidth * widthPercent;
+        const collisionHeight = renderedHeight * heightPercent;
         
-        // Apply offsets (defaults to 0 if not specified)
-        const offsetX = this.collisionOffsetX || 0;
-        const offsetY = this.collisionOffsetY || 0;
-        
+        // Collision box centered on sprite position (no offsets)
         return {
-            x: this.x - collisionWidth / 2 + offsetX,
-            y: this.y - collisionHeight / 2 + offsetY,
+            x: this.x - collisionWidth / 2,
+            y: this.y - collisionHeight / 2,
             width: collisionWidth,
             height: collisionHeight,
-            left: this.x - collisionWidth / 2 + offsetX,
-            right: this.x + collisionWidth / 2 + offsetX,
-            top: this.y - collisionHeight / 2 + offsetY,
-            bottom: this.y + collisionHeight / 2 + offsetY
+            left: this.x - collisionWidth / 2,
+            right: this.x + collisionWidth / 2,
+            top: this.y - collisionHeight / 2,
+            bottom: this.y + collisionHeight / 2
         };
     }
     
