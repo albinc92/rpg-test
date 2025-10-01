@@ -105,8 +105,8 @@ class Actor extends GameObject {
     /**
      * Apply movement input
      */
-    applyMovement(inputX, inputY, deltaTime) {
-        const accelerationPerSecond = this.acceleration * deltaTime;
+    applyMovement(inputX, inputY, deltaTime, speedMultiplier = 1.0) {
+        const accelerationPerSecond = this.acceleration * deltaTime * speedMultiplier;
         
         // Normalize diagonal input
         if (inputX !== 0 && inputY !== 0) {

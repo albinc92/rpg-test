@@ -5,8 +5,8 @@ class Player extends Actor {
     constructor(options = {}) {
         super({
             scale: 1.0,
-            maxSpeed: 300,
-            acceleration: 800,
+            maxSpeed: 800,
+            acceleration: 2500,
             friction: 0.8,
             health: 100,
             spriteSrc: 'assets/npc/main-0.png',
@@ -34,13 +34,11 @@ class Player extends Actor {
      * Update player behavior
      */
     updateBehavior(deltaTime, game) {
-        // Player movement is handled by input, not AI
-        this.applyMovement(this.inputX, this.inputY, deltaTime);
+        // Apply speed multiplier to acceleration based on running state
+        const speedMultiplier = this.isRunning ? 1.8 : 1.0;
         
-        // Adjust speed based on running state
-        const speedMultiplier = this.isRunning ? 1.5 : 1.0;
-        this.velocityX *= speedMultiplier;
-        this.velocityY *= speedMultiplier;
+        // Player movement is handled by input, not AI
+        this.applyMovement(this.inputX, this.inputY, deltaTime, speedMultiplier);
         
         // Handle footstep audio
         this.updateFootsteps(deltaTime, game);
