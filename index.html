@@ -35,40 +35,7 @@
     </div>
     <canvas id="gameCanvas"></canvas>
     
-    <!-- Load core classes first -->
-    <script src="src/core/GameObject.js"></script>
-    <script src="src/core/Actor.js"></script>
-    
-    <!-- Load entity classes -->
-    <script src="src/entities/Player.js"></script>
-    <script src="src/entities/NPC.js"></script>
-    <script src="src/entities/Spirit.js"></script>
-    
-    <!-- Load object classes -->
-    <script src="src/objects/StaticObject.js"></script>
-    <script src="src/objects/InteractiveObject.js"></script>
-    <script src="src/objects/Chest.js"></script>
-    <script src="src/objects/Portal.js"></script>
-    
-    <!-- Load manager systems -->
-    <script src="src/systems/AudioManager.js"></script>
-    <script src="src/systems/InputManager.js"></script>
-    <script src="src/systems/GameStateManager.js"></script>
-    <script src="src/systems/MapManager.js"></script>
-    <script src="src/systems/NPCManager.js"></script>
-    <script src="src/systems/InteractiveObjectManager.js"></script>
-    <script src="src/systems/ItemManager.js"></script>
-    <script src="src/systems/InventoryManager.js"></script>
-    
-    <!-- Load game engine -->
-    <script src="src/GameEngine.js"></script>
-    
-    <!-- Initialize game -->
-    <script>
-        // Initialize the game engine when page loads
-        window.addEventListener('load', () => {
-            window.game = new GameEngine();
-        });
-    </script>
+    <!-- Load main entry point with Vite -->
+    <script type="module" src="/src/main.js"></script>
 </body>
 </html>
