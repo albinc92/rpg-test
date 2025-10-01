@@ -120,7 +120,7 @@ class GameEngine {
             x: 400,
             y: 300,
             spriteSrc: 'assets/npc/main-0.png',
-            scale: 0.07,
+            scale: 0.12,
             gold: 100
         });
     }

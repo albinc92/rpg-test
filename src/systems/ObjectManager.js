@@ -50,7 +50,7 @@ class ObjectManager {
                         type: 'sage',
                         name: 'Elder Sage',
                         dialogue: "Welcome, young adventurer! The forest is peaceful, but adventure awaits beyond.",
-                        scale: 0.08
+                        scale: 0.15
                     },
                 ],
                 
@@ -66,18 +66,7 @@ class ObjectManager {
                     { id: 'tree_09', x: 400, y: 500, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1.1, type: 'tree' },
                 ],
                 
-                npcs: [
-                    {
-                        id: 'town_guard',
-                        x: 500,
-                        y: 400,
-                        spriteSrc: 'assets/npc/sage-0.png',
-                        type: 'guard',
-                        name: 'Town Guard',
-                        dialogue: "Stay safe, traveler. There are dangerous creatures beyond these walls.",
-                        scale: 0.08
-                    },
-                ],
+                npcs: [],
                 
                 interactive: [
                     {
