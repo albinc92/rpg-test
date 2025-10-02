@@ -378,8 +378,13 @@ class MainMenuState extends GameState {
     }
     
     exit() {
-        // DON'T STOP BGM - let the AudioManager handle crossfading when new BGM is requested
-        console.log('🚪 MAIN MENU EXITED - letting AudioManager handle crossfade');
+        // Stop main menu BGM to ensure it doesn't continue playing
+        console.log('🚪 MAIN MENU EXITED - stopping main menu BGM');
+        if (this.game.audioManager) {
+            // Clear any pending crossfades and stop the current BGM
+            this.game.audioManager.clearAllCrossfades();
+            this.game.audioManager.stopBGM();
+        }
     }
     
     handleInput(inputManager) {

@@ -308,8 +308,9 @@ class AudioManager {
             this.bgmAudio.pause();
             this.bgmAudio.currentTime = 0;
         }
-        // Important: DO NOT reset currentBGM to null here
-        // This allows the system to remember what was playing for resume scenarios
+        // Reset currentBGM to allow new BGM to start
+        this.currentBGM = null;
+        console.log('[AudioManager] BGM stopped and tracking cleared');
     }
 
     pauseBGM() {
