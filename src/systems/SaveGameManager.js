@@ -172,15 +172,34 @@ class SaveGameManager {
      */
     deleteSave(saveId) {
         try {
+            console.log('[SaveGameManager] Deleting save with ID:', saveId);
             const slotKey = this.saveKeyPrefix + saveId;
+            
+            // Check if save exists before deleting
+            const existsBefore = localStorage.getItem(slotKey) !== null;
+            console.log('[SaveGameManager] Save exists before delete:', existsBefore);
+            
+            // Remove save data
             localStorage.removeItem(slotKey);
             
+            // Verify removal
+            const existsAfter = localStorage.getItem(slotKey) !== null;
+            console.log('[SaveGameManager] Save exists after delete:', existsAfter);
+            
             // Remove from metadata
-            const metadata = this.getAllSaves();
-            const updatedMetadata = metadata.filter(save => save.id !== saveId);
+            const metadataBefore = this.getAllSaves();
+            console.log('[SaveGameManager] Metadata count before:', metadataBefore.length);
+            
+            const updatedMetadata = metadataBefore.filter(save => save.id !== saveId);
+            console.log('[SaveGameManager] Metadata count after filter:', updatedMetadata.length);
+            
             localStorage.setItem(this.metadataKey, JSON.stringify(updatedMetadata));
             
-            console.log('✅ Save deleted:', saveId);
+            // Verify metadata update
+            const metadataAfter = this.getAllSaves();
+            console.log('[SaveGameManager] Metadata count after save:', metadataAfter.length);
+            
+            console.log('✅ Save deleted successfully:', saveId);
             return true;
         } catch (error) {
             console.error('❌ Failed to delete save:', error);

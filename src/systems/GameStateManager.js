@@ -717,21 +717,44 @@ class SaveLoadState extends GameState {
     }
     
     handleInput(inputManager) {
+        // Handle confirmation dialogs first (block all other input)
+        if (this.mode === 'delete_confirm' || this.mode === 'overwrite_confirm') {
+            if (inputManager.isJustPressed('cancel')) {
+                // Cancel confirmation
+                this.mode = this.previousMode;
+                this.selectedOption = this.previousSelection;
+                if (this.mode === 'delete_confirm') {
+                    this.saveToDelete = null;
+                } else {
+                    this.saveToOverwrite = null;
+                }
+                return;
+            }
+            
+            if (inputManager.isJustPressed('up')) {
+                this.selectedOption = Math.max(0, this.selectedOption - 1);
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+                return;
+            }
+            
+            if (inputManager.isJustPressed('down')) {
+                const maxOption = this.getMaxOption();
+                this.selectedOption = Math.min(maxOption, this.selectedOption + 1);
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+                return;
+            }
+            
+            if (inputManager.isJustPressed('confirm')) {
+                this.selectOption();
+                return;
+            }
+            
+            // Block all other input when in confirmation mode
+            return;
+        }
+        
+        // Normal menu input handling
         if (inputManager.isJustPressed('cancel')) {
-            if (this.mode === 'delete_confirm') {
-                // Cancel delete confirmation
-                this.mode = this.previousMode;
-                this.selectedOption = this.previousSelection;
-                this.saveToDelete = null;
-                return;
-            }
-            if (this.mode === 'overwrite_confirm') {
-                // Cancel overwrite confirmation
-                this.mode = this.previousMode;
-                this.selectedOption = this.previousSelection;
-                this.saveToOverwrite = null;
-                return;
-            }
             if (this.mode === 'main') {
                 this.stateManager.popState();
             } else if (this.fromMainMenu) {
@@ -855,11 +878,14 @@ class SaveLoadState extends GameState {
                 });
             }
         } else if (this.mode === 'delete_confirm') {
+            console.log('Delete confirmation - selected option:', this.selectedOption, '(0=Yes, 1=No)');
             if (this.selectedOption === 0) {
                 // Yes - delete the save
+                console.log('User confirmed deletion');
                 this.confirmDelete();
             } else {
                 // No - cancel
+                console.log('User cancelled deletion');
                 this.mode = this.previousMode;
                 this.selectedOption = this.previousSelection;
                 this.saveToDelete = null;
@@ -878,26 +904,53 @@ class SaveLoadState extends GameState {
     }
     
     showDeleteConfirmation(save) {
+        console.log('🗑️ Showing delete confirmation for:', save.name, 'ID:', save.id);
         this.saveToDelete = save;
         this.previousMode = this.mode;
         this.previousSelection = this.selectedOption;
         this.mode = 'delete_confirm';
-        this.selectedOption = 1; // Default to "No"
+        this.selectedOption = 1; // Default to "No" (0=Yes, 1=No)
+        console.log('Selected option (0=Yes, 1=No):', this.selectedOption);
         this.game.audioManager?.playEffect('menu-navigation.mp3');
     }
     
     confirmDelete() {
-        if (this.saveToDelete && this.game.saveGameManager.deleteSave(this.saveToDelete.id)) {
-            console.log('✅ Save deleted!');
-            this.game.audioManager?.playEffect('menu-navigation.mp3');
-            this.saves = this.game.saveGameManager.getAllSaves();
-            this.mode = this.previousMode;
-            this.selectedOption = Math.max(0, Math.min(this.previousSelection, this.saves.length - 1));
-            if (this.mode === 'save_list' && this.selectedOption > 0) {
-                this.selectedOption--; // Adjust for empty slot
+        console.log('🗑️ Attempting to delete save:', this.saveToDelete);
+        if (this.saveToDelete) {
+            const deleteResult = this.game.saveGameManager.deleteSave(this.saveToDelete.id);
+            console.log('Delete result:', deleteResult);
+            
+            if (deleteResult) {
+                console.log('✅ Save deleted successfully!');
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+                
+                // Refresh save list
+                this.saves = this.game.saveGameManager.getAllSaves();
+                console.log('Updated save list length:', this.saves.length);
+                
+                // Return to previous mode
+                this.mode = this.previousMode;
+                
+                // Adjust selection to stay in valid range
+                if (this.mode === 'save_list') {
+                    // For save list, account for empty slot at top
+                    const maxSelection = this.saves.length; // +1 for empty slot
+                    this.selectedOption = Math.min(this.previousSelection, maxSelection);
+                    if (this.selectedOption === 0 && this.saves.length > 0) {
+                        this.selectedOption = 1; // Select first real save after empty slot
+                    }
+                } else {
+                    // For load list, no empty slot
+                    this.selectedOption = Math.max(0, Math.min(this.previousSelection, this.saves.length - 1));
+                }
+                
+                this.saveToDelete = null;
+                this.updateScrollOffset();
+            } else {
+                console.error('❌ Failed to delete save');
             }
-            this.saveToDelete = null;
-            this.updateScrollOffset();
+        } else {
+            console.error('❌ No save to delete');
         }
     }
     
@@ -937,12 +990,17 @@ class SaveLoadState extends GameState {
         
         if (this.mode === 'main') {
             this.renderMainMenu(ctx, canvasWidth, canvasHeight);
-        } else if (this.mode === 'delete_confirm') {
-            this.renderDeleteConfirmation(ctx, canvasWidth, canvasHeight);
-        } else if (this.mode === 'overwrite_confirm') {
-            this.renderOverwriteConfirmation(ctx, canvasWidth, canvasHeight);
+        } else if (this.mode === 'delete_confirm' || this.mode === 'overwrite_confirm') {
+            // Render the save list behind the confirmation dialog WITHOUT selection highlights
+            this.renderSaveList(ctx, canvasWidth, canvasHeight, false);
+            // Then render the confirmation on top
+            if (this.mode === 'delete_confirm') {
+                this.renderDeleteConfirmation(ctx, canvasWidth, canvasHeight);
+            } else {
+                this.renderOverwriteConfirmation(ctx, canvasWidth, canvasHeight);
+            }
         } else {
-            this.renderSaveList(ctx, canvasWidth, canvasHeight);
+            this.renderSaveList(ctx, canvasWidth, canvasHeight, true);
         }
     }
     
@@ -969,7 +1027,7 @@ class SaveLoadState extends GameState {
         });
     }
     
-    renderSaveList(ctx, canvasWidth, canvasHeight) {
+    renderSaveList(ctx, canvasWidth, canvasHeight, showSelection = true) {
         const title = this.mode === 'save_list' ? 'Save Game' : 'Load Game';
         
         // Responsive font sizes
@@ -1005,7 +1063,7 @@ class SaveLoadState extends GameState {
         
         // For save mode, show empty slot at top
         if (this.mode === 'save_list') {
-            const isSelected = this.selectedOption === 0;
+            const isSelected = showSelection && this.selectedOption === 0;
             const boxWidth = canvasWidth * 0.8;
             const boxHeight = lineHeight * 0.85;
             const boxX = canvasWidth / 2 - boxWidth / 2;
@@ -1050,7 +1108,7 @@ class SaveLoadState extends GameState {
                 const actualIndex = this.scrollOffset + index;
                 const displayIndex = this.mode === 'save_list' ? actualIndex + 1 : actualIndex;
                 const y = saveListStartY + index * lineHeight;
-                const isSelected = displayIndex === this.selectedOption;
+                const isSelected = showSelection && displayIndex === this.selectedOption;
                 
                 // Responsive box dimensions
                 const boxWidth = canvasWidth * 0.8;
@@ -1110,124 +1168,138 @@ class SaveLoadState extends GameState {
     
     renderDeleteConfirmation(ctx, canvasWidth, canvasHeight) {
         // Responsive font sizes
-        const titleSize = Math.min(28, canvasHeight * 0.05);
+        const titleSize = Math.min(32, canvasHeight * 0.055);
         const messageSize = Math.min(20, canvasHeight * 0.035);
         const optionSize = Math.min(24, canvasHeight * 0.042);
         
-        // Draw a darker overlay
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        // Draw a darker overlay (completely blocks background)
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
-        // Draw confirmation dialog box
-        const dialogWidth = canvasWidth * 0.6;
-        const dialogHeight = canvasHeight * 0.4;
-        const dialogX = canvasWidth / 2 - dialogWidth / 2;
-        const dialogY = canvasHeight / 2 - dialogHeight / 2;
-        
-        ctx.fillStyle = 'rgba(40, 40, 40, 0.95)';
-        ctx.fillRect(dialogX, dialogY, dialogWidth, dialogHeight);
-        ctx.strokeStyle = '#ff3333';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(dialogX, dialogY, dialogWidth, dialogHeight);
-        
-        // Title
+        // Title at top
         ctx.fillStyle = '#ff3333';
         ctx.font = `bold ${titleSize}px Arial`;
         ctx.textAlign = 'center';
-        ctx.fillText('Delete Save?', canvasWidth / 2, dialogY + dialogHeight * 0.25);
+        ctx.fillText('Delete Save?', canvasWidth / 2, canvasHeight * 0.25);
         
         // Save name
         ctx.fillStyle = '#fff';
         ctx.font = `${messageSize}px Arial`;
         if (this.saveToDelete) {
-            ctx.fillText(`"${this.saveToDelete.name}"`, canvasWidth / 2, dialogY + dialogHeight * 0.45);
+            ctx.fillText(`"${this.saveToDelete.name}"`, canvasWidth / 2, canvasHeight * 0.35);
         }
         
         // Warning message
         ctx.fillStyle = '#aaa';
-        ctx.font = `${messageSize * 0.8}px Arial`;
-        ctx.fillText('This action cannot be undone!', canvasWidth / 2, dialogY + dialogHeight * 0.6);
+        ctx.font = `${messageSize * 0.85}px Arial`;
+        ctx.fillText('This action cannot be undone!', canvasWidth / 2, canvasHeight * 0.43);
         
-        // Controls hint
-        ctx.fillStyle = '#888';
-        ctx.font = `${messageSize * 0.7}px Arial`;
-        const hintText = this.game.inputManager.isMobile ? 'A: Confirm | B: Cancel' : 'Enter: Confirm | ESC: Cancel';
-        ctx.fillText(hintText, canvasWidth / 2, dialogY + dialogHeight * 0.7);
-        
-        // Options (Yes / No)
-        ctx.font = `bold ${optionSize}px Arial`;
-        const optionY = dialogY + dialogHeight * 0.85;
-        const optionSpacing = dialogWidth * 0.3;
+        // Options (vertical like other menus)
+        const menuStartY = canvasHeight * 0.55;
+        const menuSpacing = canvasHeight * 0.08;
         
         this.confirmOptions.forEach((option, index) => {
-            const x = canvasWidth / 2 - optionSpacing / 2 + index * optionSpacing;
-            ctx.fillStyle = index === this.selectedOption ? '#ffff00' : '#fff';
-            if (index === 0) {
-                ctx.fillStyle = index === this.selectedOption ? '#ff6666' : '#ff3333';
+            const y = menuStartY + index * menuSpacing;
+            
+            // Yellow highlight box for selected option
+            if (index === this.selectedOption) {
+                const boxWidth = canvasWidth * 0.3;
+                const boxHeight = menuSpacing * 0.8;
+                const boxX = canvasWidth / 2 - boxWidth / 2;
+                const boxY = y - menuSpacing * 0.5;
+                
+                ctx.fillStyle = 'rgba(255, 255, 0, 0.2)';
+                ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+                ctx.strokeStyle = '#ffff00';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
             }
-            ctx.fillText(option, x, optionY);
+            
+            // Option text - red "Yes" when selected, white "No"
+            ctx.font = `bold ${optionSize}px Arial`;
+            if (index === 0) {
+                // "Yes" option - red/bright red when selected
+                ctx.fillStyle = index === this.selectedOption ? '#ff6666' : '#ff3333';
+            } else {
+                // "No" option - yellow/white
+                ctx.fillStyle = index === this.selectedOption ? '#ffff00' : '#fff';
+            }
+            ctx.fillText(option, canvasWidth / 2, y);
         });
+        
+        // Controls hint at bottom
+        ctx.fillStyle = '#666';
+        ctx.font = `${messageSize * 0.7}px Arial`;
+        const hintText = this.game.inputManager.isMobile ? 'A: Select | B: Cancel' : 'Enter: Select | ESC: Cancel';
+        ctx.fillText(hintText, canvasWidth / 2, canvasHeight * 0.85);
     }
     
     renderOverwriteConfirmation(ctx, canvasWidth, canvasHeight) {
         // Responsive font sizes
-        const titleSize = Math.min(28, canvasHeight * 0.05);
+        const titleSize = Math.min(32, canvasHeight * 0.055);
         const messageSize = Math.min(20, canvasHeight * 0.035);
         const optionSize = Math.min(24, canvasHeight * 0.042);
         
-        // Draw a darker overlay
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        // Draw a darker overlay (completely blocks background)
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
-        // Draw confirmation dialog box
-        const dialogWidth = canvasWidth * 0.6;
-        const dialogHeight = canvasHeight * 0.4;
-        const dialogX = canvasWidth / 2 - dialogWidth / 2;
-        const dialogY = canvasHeight / 2 - dialogHeight / 2;
-        
-        ctx.fillStyle = 'rgba(40, 40, 40, 0.95)';
-        ctx.fillRect(dialogX, dialogY, dialogWidth, dialogHeight);
-        ctx.strokeStyle = '#FFA500';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(dialogX, dialogY, dialogWidth, dialogHeight);
-        
-        // Title
+        // Title at top
         ctx.fillStyle = '#FFA500';
         ctx.font = `bold ${titleSize}px Arial`;
         ctx.textAlign = 'center';
-        ctx.fillText('Overwrite Save?', canvasWidth / 2, dialogY + dialogHeight * 0.25);
+        ctx.fillText('Overwrite Save?', canvasWidth / 2, canvasHeight * 0.25);
         
         // Save name
         ctx.fillStyle = '#fff';
         ctx.font = `${messageSize}px Arial`;
         if (this.saveToOverwrite) {
-            ctx.fillText(`"${this.saveToOverwrite.name}"`, canvasWidth / 2, dialogY + dialogHeight * 0.45);
+            ctx.fillText(`"${this.saveToOverwrite.name}"`, canvasWidth / 2, canvasHeight * 0.35);
         }
         
         // Warning message
         ctx.fillStyle = '#aaa';
-        ctx.font = `${messageSize * 0.8}px Arial`;
-        ctx.fillText('This will replace the existing save!', canvasWidth / 2, dialogY + dialogHeight * 0.6);
+        ctx.font = `${messageSize * 0.85}px Arial`;
+        ctx.fillText('This will replace the existing save!', canvasWidth / 2, canvasHeight * 0.43);
         
-        // Controls hint
-        ctx.fillStyle = '#888';
-        ctx.font = `${messageSize * 0.7}px Arial`;
-        const hintText = this.game.inputManager.isMobile ? 'A: Confirm | B: Cancel' : 'Enter: Confirm | ESC: Cancel';
-        ctx.fillText(hintText, canvasWidth / 2, dialogY + dialogHeight * 0.7);
-        
-        // Options (Yes / No)
-        ctx.font = `bold ${optionSize}px Arial`;
-        const optionY = dialogY + dialogHeight * 0.85;
-        const optionSpacing = dialogWidth * 0.3;
+        // Options (vertical like other menus)
+        const menuStartY = canvasHeight * 0.55;
+        const menuSpacing = canvasHeight * 0.08;
         
         this.confirmOptions.forEach((option, index) => {
-            const x = canvasWidth / 2 - optionSpacing / 2 + index * optionSpacing;
-            ctx.fillStyle = index === this.selectedOption ? '#ffff00' : '#fff';
-            if (index === 0) {
-                ctx.fillStyle = index === this.selectedOption ? '#FFB84D' : '#FFA500';
+            const y = menuStartY + index * menuSpacing;
+            
+            // Yellow highlight box for selected option
+            if (index === this.selectedOption) {
+                const boxWidth = canvasWidth * 0.3;
+                const boxHeight = menuSpacing * 0.8;
+                const boxX = canvasWidth / 2 - boxWidth / 2;
+                const boxY = y - menuSpacing * 0.5;
+                
+                ctx.fillStyle = 'rgba(255, 255, 0, 0.2)';
+                ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+                ctx.strokeStyle = '#ffff00';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
             }
-            ctx.fillText(option, x, optionY);
+            
+            // Option text - orange "Yes" when selected, white "No"
+            ctx.font = `bold ${optionSize}px Arial`;
+            if (index === 0) {
+                // "Yes" option - orange/bright orange when selected
+                ctx.fillStyle = index === this.selectedOption ? '#FFB84D' : '#FFA500';
+            } else {
+                // "No" option - yellow/white
+                ctx.fillStyle = index === this.selectedOption ? '#ffff00' : '#fff';
+            }
+            ctx.fillText(option, canvasWidth / 2, y);
         });
+        
+        // Controls hint at bottom
+        ctx.fillStyle = '#666';
+        ctx.font = `${messageSize * 0.7}px Arial`;
+        const hintText = this.game.inputManager.isMobile ? 'A: Select | B: Cancel' : 'Enter: Select | ESC: Cancel';
+        ctx.fillText(hintText, canvasWidth / 2, canvasHeight * 0.85);
     }
 }
 
