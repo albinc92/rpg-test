@@ -119,8 +119,8 @@ class GameEngine {
      */
     initializePlayer() {
         this.player = new Player({
-            x: 400,
-            y: 300,
+            x: 1100,
+            y: 650,
             spriteSrc: 'assets/npc/main-0.png',
             scale: 0.12,
             gold: 100
@@ -432,10 +432,12 @@ class GameEngine {
     /**
      * Teleport to a different map
      */
-    async teleportToMap(mapId, spawnPoint = 'default') {
+    async teleportToMap(mapId, x, y) {
         try {
             await this.loadMap(mapId);
-            this.positionPlayerOnMap(mapId, spawnPoint);
+            if (x !== undefined && y !== undefined && this.player) {
+                this.player.setPosition(x, y);
+            }
             this.updateCamera();
         } catch (error) {
             console.error('Failed to teleport to map:', error);
@@ -485,18 +487,7 @@ class GameEngine {
         this.audioManager.playAmbience(ambienceFilename); // AudioManager handles duplicate detection        console.log(`Loaded map: ${mapId}`);
     }
     
-    /**
-     * Position player on map
-     */
-    positionPlayerOnMap(mapId, spawnPoint = 'default') {
-        const mapData = this.mapManager.getMapData(mapId);
-        if (!mapData) return;
-        
-        const spawn = mapData.spawnPoints[spawnPoint] || mapData.spawnPoints.default;
-        if (spawn && this.player) {
-            this.player.setPosition(spawn.x, spawn.y);
-        }
-    }
+
     
     /**
      * Update camera system

@@ -70,11 +70,11 @@ class ObjectManager {
                 
                 // NPCs (characters, merchants, spirits)
                 npcs: [
-                    // Sage NPC near player spawn (spawn is at 400, 300)
+                    // Sage NPC near player spawn (spawn is at 1100, 650)
                     { 
                         id: 'elder_sage',
-                        x: 500, 
-                        y: 350, 
+                        x: 1000, 
+                        y: 600, 
                         spriteSrc: 'assets/npc/sage-0.png',
                         type: 'sage',
                         name: 'Elder Sage',

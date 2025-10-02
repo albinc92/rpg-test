@@ -550,10 +550,9 @@ class PlayingState extends GameState {
             console.log('💾 Loaded game - player position already restored, map already loaded');
             // Everything is already loaded by SaveGameManager, don't do anything
         } else if (!isResumingFromPause) {
-            console.log('🆕 Fresh entry to gameplay - loading map and positioning player');
-            // Load the initial map and start BGM
+            console.log('🆕 Fresh entry to gameplay - loading map');
+            // Load the initial map and start BGM (player position already set in initializePlayer)
             await this.game.loadMap(this.game.currentMapId);
-            this.game.positionPlayerOnMap(this.game.currentMapId);
         } else {
             console.log('🔄 Resuming gameplay - preserving player position');
             // Just ensure the map is loaded but don't reset player position
