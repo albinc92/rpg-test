@@ -217,6 +217,12 @@ class LoadingState extends GameState {
         this.loadSaveId = data.loadSaveId || null;
         this.isLoadedGame = data.isLoadedGame || false;
         this.fromPauseMenu = data.fromPauseMenu || false;
+        
+        // Hide touch controls during loading
+        if (this.game.touchControlsUI) {
+            this.game.touchControlsUI.hide();
+        }
+        
         this.startLoading();
     }
     
@@ -375,6 +381,12 @@ class MainMenuState extends GameState {
     enter(data = {}) {
         this.selectedOption = 0;
         this.musicStarted = false;
+        
+        // Show touch controls if on mobile
+        if (this.game.touchControlsUI) {
+            this.game.touchControlsUI.show();
+            this.game.touchControlsUI.updateButtonLabels('menu');
+        }
         
         // Check if there are any save files
         this.hasSaveFiles = this.game.saveGameManager.hasSaves();
@@ -621,9 +633,9 @@ class PlayingState extends GameState {
         // Called when pushing a state on top (like pause menu)
         console.log('🔄 Gameplay paused');
         
-        // Hide touch controls during pause
+        // Keep touch controls visible but update labels for menu context
         if (this.game.touchControlsUI) {
-            this.game.touchControlsUI.hide();
+            this.game.touchControlsUI.updateButtonLabels('menu');
         }
     }
     
@@ -669,6 +681,11 @@ class PausedState extends GameState {
         console.log('Current BGM:', this.game.audioManager?.currentBGM?.src || 'none');
         this.selectedOption = 0;
         this.options = ['Resume', 'Save/Load', 'Settings', 'Main Menu'];
+        
+        // Touch controls are already visible, just ensure menu labels
+        if (this.game.touchControlsUI && this.game.touchControlsUI.isVisible()) {
+            this.game.touchControlsUI.updateButtonLabels('menu');
+        }
     }
     
     handleInput(inputManager) {
@@ -753,6 +770,12 @@ class SaveLoadState extends GameState {
         this.saveToDelete = null;
         this.saveToOverwrite = null;
         this.confirmOptions = ['Yes', 'No'];
+        
+        // Show touch controls if on mobile
+        if (this.game.touchControlsUI) {
+            this.game.touchControlsUI.show();
+            this.game.touchControlsUI.updateButtonLabels('menu');
+        }
         
         // If entering directly in load mode (from main menu), load saves
         if (this.mode === 'load_list') {
@@ -1362,6 +1385,12 @@ class SettingsState extends GameState {
             { name: 'Back', type: 'action' }
         ];
         // Settings menu does NOT handle BGM - it just adjusts volumes
+        
+        // Show touch controls if on mobile
+        if (this.game.touchControlsUI) {
+            this.game.touchControlsUI.show();
+            this.game.touchControlsUI.updateButtonLabels('menu');
+        }
     }
     
     handleInput(inputManager) {
