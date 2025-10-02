@@ -272,16 +272,31 @@ class EditorManager {
     updateMousePosition() {
         const rect = this.game.canvas.getBoundingClientRect();
         const canvas = this.game.canvas;
+        const ctx = this.game.ctx;
         
         // Get mouse position from input manager (screen coordinates)
         const mouseScreenX = this.game.inputManager.mouse.x;
         const mouseScreenY = this.game.inputManager.mouse.y;
         
-        // Convert screen to canvas coordinates (accounting for canvas scaling)
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        const mouseCanvasX = (mouseScreenX - rect.left) * scaleX;
-        const mouseCanvasY = (mouseScreenY - rect.top) * scaleY;
+        // Calculate position relative to canvas element
+        const relativeX = mouseScreenX - rect.left;
+        const relativeY = mouseScreenY - rect.top;
+        
+        // Get the current context transform to see if there's additional scaling
+        const transform = ctx.getTransform();
+        const contextScaleX = transform.a; // X scale from context
+        const contextScaleY = transform.d; // Y scale from context
+        
+        // Account for both canvas size difference AND context scale
+        const canvasToDisplayX = canvas.width / rect.width;
+        const canvasToDisplayY = canvas.height / rect.height;
+        
+        // The actual scale we need is: canvas-to-display / context-scale
+        const finalScaleX = canvasToDisplayX / contextScaleX;
+        const finalScaleY = canvasToDisplayY / contextScaleY;
+        
+        const mouseCanvasX = relativeX * finalScaleX;
+        const mouseCanvasY = relativeY * finalScaleY;
         
         // Convert canvas to world coordinates (add camera offset)
         const camera = this.game.camera;
