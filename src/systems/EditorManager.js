@@ -30,6 +30,7 @@ class EditorManager {
         this.gridEnabled = true;
         this.gridSize = 32;
         this.snapToGrid = false;
+        this.showCollisionBoxes = false;
         
         // UI components
         this.ui = null;
@@ -104,17 +105,27 @@ class EditorManager {
             else if (e.key === 'g' || e.key === 'G') {
                 this.gridEnabled = !this.gridEnabled;
                 console.log('[EditorManager] Grid:', this.gridEnabled ? 'ON' : 'OFF');
+                if (this.ui) this.ui.updateViewMenu();
+            }
+            
+            // Toggle collision boxes
+            else if (e.key === 'c' || e.key === 'C') {
+                this.showCollisionBoxes = !this.showCollisionBoxes;
+                console.log('[EditorManager] Collision Boxes:', this.showCollisionBoxes ? 'ON' : 'OFF');
+                if (this.ui) this.ui.updateViewMenu();
             }
             
             // Toggle snap to grid
             else if (e.key === 'Shift') {
                 this.snapToGrid = true;
+                if (this.ui) this.ui.updateViewMenu();
             }
         });
         
         window.addEventListener('keyup', (e) => {
             if (e.key === 'Shift') {
                 this.snapToGrid = false;
+                if (this.ui) this.ui.updateViewMenu();
             }
         });
     }
@@ -365,19 +376,49 @@ class EditorManager {
      * Render UI overlays (coordinates, etc.)
      */
     renderOverlays(ctx) {
-        ctx.save();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(10, 10, 280, 120);
+        const canvas = this.game.canvas;
+        const padding = 10;
+        const lineHeight = 20;
+        const boxPadding = 10;
         
+        // Build info lines
+        const lines = [
+            `Grid: ${this.gridEnabled ? 'ON' : 'OFF'} (G)`,
+            `Snap: ${this.snapToGrid ? 'ON' : 'OFF'} (Shift)`,
+            `Collision: ${this.showCollisionBoxes ? 'ON' : 'OFF'} (C)`
+        ];
+        
+        if (this.selectedObject) {
+            lines.push(`Selected: Drag to move, D to delete`);
+        }
+        
+        // Calculate box dimensions
+        ctx.font = '14px monospace';
+        const maxWidth = Math.max(...lines.map(line => ctx.measureText(line).width));
+        const boxWidth = maxWidth + (boxPadding * 2);
+        const boxHeight = (lines.length * lineHeight) + (boxPadding * 2);
+        
+        // Position in bottom-right corner
+        const x = canvas.width - boxWidth - padding;
+        const y = canvas.height - boxHeight - padding;
+        
+        ctx.save();
+        
+        // Draw background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(x, y, boxWidth, boxHeight);
+        
+        // Draw border
+        ctx.strokeStyle = 'rgba(74, 158, 255, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, boxWidth, boxHeight);
+        
+        // Draw text
         ctx.fillStyle = '#ffffff';
         ctx.font = '14px monospace';
-        ctx.fillText(`Tool: ${this.selectedTool}`, 20, 30);
-        ctx.fillText(`Mouse: (${Math.round(this.mouseWorldX)}, ${Math.round(this.mouseWorldY)})`, 20, 50);
-        ctx.fillText(`Grid: ${this.gridEnabled ? 'ON' : 'OFF'} (G)`, 20, 70);
-        ctx.fillText(`Snap: ${this.snapToGrid ? 'ON' : 'OFF'} (Shift)`, 20, 90);
-        if (this.selectedObject) {
-            ctx.fillText(`Selected: Drag to move, D to delete`, 20, 110);
-        }
+        lines.forEach((line, index) => {
+            ctx.fillText(line, x + boxPadding, y + boxPadding + (index + 1) * lineHeight - 5);
+        });
         
         ctx.restore();
     }

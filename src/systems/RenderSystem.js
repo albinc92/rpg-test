@@ -113,8 +113,10 @@ class RenderSystem {
             obj.render(this.ctx, game);
         });
         
-        // Render debug collision boxes if debug mode is enabled
-        if (game.settings && game.settings.showDebugInfo) {
+        // Render debug collision boxes if debug mode OR editor collision mode is enabled
+        const showCollision = (game.settings && game.settings.showDebugInfo) || 
+                             (game.editorManager && game.editorManager.isActive && game.editorManager.showCollisionBoxes);
+        if (showCollision) {
             this.renderDebugCollisionBoxes(renderables, game);
         }
         

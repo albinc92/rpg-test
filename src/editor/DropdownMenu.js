@@ -124,10 +124,31 @@ class DropdownMenu {
             position: relative;
         `;
 
+        // Store reference to item for updates
+        menuItem._item = item;
+
+        // Create label container with checkmark
+        const labelContainer = document.createElement('span');
+        labelContainer.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+        
+        // Add checkmark if item is checkable and checked
+        const checkmark = document.createElement('span');
+        checkmark.textContent = '✓';
+        checkmark.style.cssText = `
+            display: ${item.checked ? 'inline' : 'none'};
+            color: #4a9eff;
+            font-weight: bold;
+            width: 12px;
+        `;
+        checkmark.className = 'menu-checkmark';
+        labelContainer.appendChild(checkmark);
+        
         // Create label with icon
         const labelSpan = document.createElement('span');
         labelSpan.textContent = item.label;
-        menuItem.appendChild(labelSpan);
+        labelContainer.appendChild(labelSpan);
+        
+        menuItem.appendChild(labelContainer);
 
         // Add keyboard shortcut if present
         if (item.shortcut) {
@@ -331,6 +352,21 @@ class DropdownMenu {
             } else {
                 const menuItem = this.createMenuItem(item);
                 this.menu.appendChild(menuItem);
+            }
+        });
+    }
+
+    /**
+     * Update checkmarks for menu items
+     */
+    updateCheckmarks() {
+        const menuItems = this.menu.querySelectorAll('div[style*="padding: 10px"]');
+        menuItems.forEach(menuItem => {
+            if (menuItem._item && menuItem._item.checked !== undefined) {
+                const checkmark = menuItem.querySelector('.menu-checkmark');
+                if (checkmark) {
+                    checkmark.style.display = menuItem._item.checked ? 'inline' : 'none';
+                }
             }
         });
     }

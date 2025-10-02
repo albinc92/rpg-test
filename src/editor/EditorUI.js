@@ -119,21 +119,36 @@ class EditorUI {
      * Create View dropdown menu
      */
     createViewMenu(toolbar) {
-        const viewMenu = new DropdownMenu('View', [
+        // Create menu items with checked state
+        const viewMenuItems = [
             {
-                label: '📏 Toggle Grid',
+                label: '📏 Grid',
                 shortcut: 'G',
+                checked: this.editor.gridEnabled,
                 action: () => {
                     this.editor.gridEnabled = !this.editor.gridEnabled;
                     console.log('[Editor] Grid:', this.editor.gridEnabled ? 'ON' : 'OFF');
+                    this.updateViewMenu();
                 }
             },
             {
-                label: '🎯 Toggle Snap',
+                label: '🎯 Snap to Grid',
                 shortcut: 'Shift',
+                checked: this.editor.snapToGrid,
                 action: () => {
                     this.editor.snapToGrid = !this.editor.snapToGrid;
                     console.log('[Editor] Snap:', this.editor.snapToGrid ? 'ON' : 'OFF');
+                    this.updateViewMenu();
+                }
+            },
+            {
+                label: '📦 Collision Boxes',
+                shortcut: 'C',
+                checked: this.editor.showCollisionBoxes,
+                action: () => {
+                    this.editor.showCollisionBoxes = !this.editor.showCollisionBoxes;
+                    console.log('[Editor] Collision Boxes:', this.editor.showCollisionBoxes ? 'ON' : 'OFF');
+                    this.updateViewMenu();
                 }
             },
             { separator: true },
@@ -152,10 +167,28 @@ class EditorUI {
                 shortcut: '0',
                 disabled: true
             }
-        ]);
+        ];
+        
+        const viewMenu = new DropdownMenu('View', viewMenuItems);
+        this.viewMenu = viewMenu; // Store reference for updates
         
         this.dropdowns.push(viewMenu);
         toolbar.appendChild(viewMenu.getElement());
+    }
+
+    /**
+     * Update View menu checkmarks
+     */
+    updateViewMenu() {
+        if (!this.viewMenu) return;
+        
+        // Update checked states in menu items
+        this.viewMenu.items[0].checked = this.editor.gridEnabled;
+        this.viewMenu.items[1].checked = this.editor.snapToGrid;
+        this.viewMenu.items[2].checked = this.editor.showCollisionBoxes;
+        
+        // Update visual checkmarks
+        this.viewMenu.updateCheckmarks();
     }
 
     /**
