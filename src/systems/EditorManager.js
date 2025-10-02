@@ -9,10 +9,17 @@ class EditorManager {
         this.isPaused = false;
         
         // Editor state
-        this.selectedTool = 'select'; // 'select', 'place', 'delete', 'move'
+        this.selectedTool = 'select'; // 'select', 'place' (move/delete integrated into select)
         this.selectedObject = null; // Currently selected object on map
         this.selectedPrefab = null; // Object type to place
         this.clipboard = null;
+        
+        // Drag state for moving objects
+        this.isDragging = false;
+        this.dragStartX = 0;
+        this.dragStartY = 0;
+        this.dragOffsetX = 0;
+        this.dragOffsetY = 0;
         
         // Placement preview
         this.previewObject = null;
@@ -60,14 +67,11 @@ class EditorManager {
                 this.setTool('select');
             } else if (e.key === 'b' || e.key === 'B') {
                 this.setTool('place');
-            } else if (e.key === 'd' || e.key === 'D') {
-                this.setTool('delete');
-            } else if (e.key === 'm' || e.key === 'M') {
-                this.setTool('move');
             }
             
-            // Delete selected object
-            else if (e.key === 'Delete' && this.selectedObject) {
+            // Delete selected object with 'D' or Delete key
+            else if ((e.key === 'd' || e.key === 'D' || e.key === 'Delete') && this.selectedObject) {
+                e.preventDefault();
                 this.deleteObject(this.selectedObject);
             }
             
@@ -140,13 +144,14 @@ class EditorManager {
         // Create UI if not exists
         if (!this.ui) {
             this.ui = new EditorUI(this);
-            this.objectPalette = new ObjectPalette(this);
             this.propertyPanel = new PropertyPanel(this);
         }
         
         // Show UI
         this.ui.show();
-        this.objectPalette.show();
+        
+        // Setup mouse event listeners for drag
+        this.setupMouseListeners();
         
         // Change cursor
         this.game.canvas.style.cursor = 'crosshair';
@@ -164,13 +169,16 @@ class EditorManager {
         // Hide UI
         if (this.ui) {
             this.ui.hide();
-            this.objectPalette.hide();
             this.propertyPanel.hide();
         }
         
-        // Clear selection
+        // Clear selection and drag state
         this.selectedObject = null;
         this.previewObject = null;
+        this.isDragging = false;
+        
+        // Remove mouse listeners
+        this.removeMouseListeners();
         
         // Restore cursor
         this.game.canvas.style.cursor = 'none';
@@ -182,6 +190,11 @@ class EditorManager {
     setTool(tool) {
         this.selectedTool = tool;
         console.log('[EditorManager] Tool:', tool);
+        
+        // Clear prefab if switching to select
+        if (tool === 'select') {
+            this.selectedPrefab = null;
+        }
         
         // Update UI
         if (this.ui) {
@@ -349,18 +362,124 @@ class EditorManager {
     renderOverlays(ctx) {
         ctx.save();
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(10, 10, 250, 100);
+        ctx.fillRect(10, 10, 280, 120);
         
         ctx.fillStyle = '#ffffff';
         ctx.font = '14px monospace';
         ctx.fillText(`Tool: ${this.selectedTool}`, 20, 30);
         ctx.fillText(`Mouse: (${Math.round(this.mouseWorldX)}, ${Math.round(this.mouseWorldY)})`, 20, 50);
         ctx.fillText(`Grid: ${this.gridEnabled ? 'ON' : 'OFF'} (G)`, 20, 70);
-        ctx.fillText(`Snap: ${this.snapToGrid ? 'ON' : 'OFF'} (Hold Shift)`, 20, 90);
+        ctx.fillText(`Snap: ${this.snapToGrid ? 'ON' : 'OFF'} (Shift)`, 20, 90);
+        if (this.selectedObject) {
+            ctx.fillText(`Selected: Drag to move, D to delete`, 20, 110);
+        }
         
         ctx.restore();
     }
 
+    /**
+     * Setup mouse event listeners for dragging
+     */
+    setupMouseListeners() {
+        this.mouseDownHandler = (e) => this.onMouseDown(e);
+        this.mouseMoveHandler = (e) => this.onMouseMove(e);
+        this.mouseUpHandler = (e) => this.onMouseUp(e);
+        
+        this.game.canvas.addEventListener('mousedown', this.mouseDownHandler);
+        this.game.canvas.addEventListener('mousemove', this.mouseMoveHandler);
+        this.game.canvas.addEventListener('mouseup', this.mouseUpHandler);
+    }
+    
+    /**
+     * Remove mouse event listeners
+     */
+    removeMouseListeners() {
+        if (this.mouseDownHandler) {
+            this.game.canvas.removeEventListener('mousedown', this.mouseDownHandler);
+            this.game.canvas.removeEventListener('mousemove', this.mouseMoveHandler);
+            this.game.canvas.removeEventListener('mouseup', this.mouseUpHandler);
+        }
+    }
+    
+    /**
+     * Handle mouse down
+     */
+    onMouseDown(e) {
+        if (!this.isActive) return;
+        
+        const rect = this.game.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        this.handleClick(x, y, e.button);
+    }
+    
+    /**
+     * Handle mouse move (for dragging)
+     */
+    onMouseMove(e) {
+        if (!this.isActive) return;
+        
+        if (this.selectedTool === 'select' && this.selectedObject && e.buttons === 1) {
+            // Start dragging if not already
+            if (!this.isDragging) {
+                const dragThreshold = 5; // Pixels before starting drag
+                const dx = Math.abs(this.mouseWorldX - this.dragStartX);
+                const dy = Math.abs(this.mouseWorldY - this.dragStartY);
+                
+                if (dx > dragThreshold || dy > dragThreshold) {
+                    this.isDragging = true;
+                    this.game.canvas.style.cursor = 'move';
+                }
+            }
+            
+            // Update object position while dragging
+            if (this.isDragging) {
+                // Store old position for history
+                if (!this.dragOriginalX) {
+                    this.dragOriginalX = this.selectedObject.x;
+                    this.dragOriginalY = this.selectedObject.y;
+                }
+                
+                this.selectedObject.x = this.mouseWorldX - this.dragOffsetX;
+                this.selectedObject.y = this.mouseWorldY - this.dragOffsetY;
+                
+                // Update property panel if visible
+                if (this.propertyPanel) {
+                    this.propertyPanel.updatePosition(this.selectedObject);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Handle mouse up (end drag)
+     */
+    onMouseUp(e) {
+        if (!this.isActive) return;
+        
+        if (this.isDragging) {
+            // Add move action to history
+            this.addHistory({
+                type: 'move',
+                object: this.selectedObject,
+                oldX: this.dragOriginalX,
+                oldY: this.dragOriginalY,
+                newX: this.selectedObject.x,
+                newY: this.selectedObject.y,
+                mapId: this.game.currentMapId
+            });
+            
+            console.log('[EditorManager] Moved object to:', this.selectedObject.x, this.selectedObject.y);
+            
+            // Reset drag state
+            this.isDragging = false;
+            this.dragOriginalX = undefined;
+            this.dragOriginalY = undefined;
+            this.game.canvas.style.cursor = 'crosshair';
+        }
+    }
+    
     /**
      * Handle mouse click in editor
      */
@@ -372,10 +491,6 @@ class EditorManager {
                 return this.handleSelectClick(x, y);
             case 'place':
                 return this.handlePlaceClick(x, y);
-            case 'delete':
-                return this.handleDeleteClick(x, y);
-            case 'move':
-                return this.handleMoveClick(x, y);
         }
         
         return true; // Consume click
@@ -398,6 +513,13 @@ class EditorManager {
             if (worldX >= bounds.x && worldX <= bounds.x + bounds.width &&
                 worldY >= bounds.y && worldY <= bounds.y + bounds.height) {
                 this.selectObject(obj);
+                
+                // Start drag preparation
+                this.dragStartX = worldX;
+                this.dragStartY = worldY;
+                this.dragOffsetX = worldX - obj.x;
+                this.dragOffsetY = worldY - obj.y;
+                
                 return true;
             }
         }
@@ -432,37 +554,7 @@ class EditorManager {
         return true;
     }
 
-    /**
-     * Handle delete tool click
-     */
-    handleDeleteClick(x, y) {
-        const worldX = x + this.game.camera.x;
-        const worldY = y + this.game.camera.y;
-        
-        // Find and delete object at click position
-        const objects = this.game.objectManager.getObjectsForMap(this.game.currentMapId);
-        
-        for (let i = objects.length - 1; i >= 0; i--) {
-            const obj = objects[i];
-            const bounds = obj.getCollisionBounds(this.game);
-            
-            if (worldX >= bounds.x && worldX <= bounds.x + bounds.width &&
-                worldY >= bounds.y && worldY <= bounds.y + bounds.height) {
-                this.deleteObject(obj);
-                return true;
-            }
-        }
-        
-        return true;
-    }
 
-    /**
-     * Handle move tool click
-     */
-    handleMoveClick(x, y) {
-        // TODO: Implement drag-to-move functionality
-        return true;
-    }
 
     /**
      * Select an object
@@ -498,6 +590,10 @@ class EditorManager {
                 object: obj,
                 mapId: this.game.currentMapId
             });
+            
+            // Auto-return to select mode after placing
+            this.setTool('select');
+            this.selectObject(obj); // Auto-select the newly placed object
         } else {
             console.error('[EditorManager] Failed to create object from data:', objectData);
         }
@@ -584,6 +680,9 @@ class EditorManager {
             this.game.objectManager.removeObject(action.mapId, action.object.id);
         } else if (action.type === 'delete') {
             this.game.objectManager.addObject(action.mapId, action.object);
+        } else if (action.type === 'move') {
+            action.object.x = action.oldX;
+            action.object.y = action.oldY;
         }
         
         console.log('[EditorManager] Undo:', action.type);
@@ -606,6 +705,9 @@ class EditorManager {
             this.game.objectManager.addObject(action.mapId, action.object);
         } else if (action.type === 'delete') {
             this.game.objectManager.removeObject(action.mapId, action.object.id);
+        } else if (action.type === 'move') {
+            action.object.x = action.newX;
+            action.object.y = action.newY;
         }
         
         console.log('[EditorManager] Redo:', action.type);

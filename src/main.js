@@ -58,6 +58,7 @@ async function loadGameScripts() {
         await loadScript('/src/systems/SaveGameManager.js');
         
         // Load editor components
+        await loadScript('/src/editor/DropdownMenu.js'); // NEW: Dropdown menu component
         await loadScript('/src/editor/EditorUI.js');
         await loadScript('/src/editor/ObjectPalette.js');
         await loadScript('/src/editor/PropertyPanel.js');

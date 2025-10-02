@@ -76,6 +76,12 @@ class PropertyPanel {
             obj.scale = value;
         }, 0.1, 0.01);
 
+        if (obj.rotation !== undefined) {
+            this.addNumberInput('Rotation', obj.rotation, (value) => {
+                obj.rotation = value;
+            }, 1, 0);
+        }
+
         // Conditional properties
         if (obj.name !== undefined) {
             this.addTextInput('Name', obj.name, (value) => {
@@ -110,6 +116,32 @@ class PropertyPanel {
         if (obj.spawnPoint !== undefined) {
             this.addTextInput('Spawn Point', obj.spawnPoint, (value) => {
                 obj.spawnPoint = value;
+            });
+        }
+
+        // Animation properties
+        if (obj.animation !== undefined) {
+            this.addCollapsibleSection('Animation', () => {
+                const section = document.createElement('div');
+                
+                section.appendChild(this.createSelect('Type', obj.animation.type || 'none', 
+                    ['none', 'sway', 'pulse', 'rotate'], (value) => {
+                        obj.animation.type = value;
+                    }));
+                
+                if (obj.animation.speed !== undefined) {
+                    section.appendChild(this.createNumberInput('Speed', obj.animation.speed, (value) => {
+                        obj.animation.speed = value;
+                    }, 0.1, 0));
+                }
+                
+                if (obj.animation.intensity !== undefined) {
+                    section.appendChild(this.createNumberInput('Intensity', obj.animation.intensity, (value) => {
+                        obj.animation.intensity = value;
+                    }, 0.1, 0));
+                }
+                
+                return section;
             });
         }
 
@@ -338,6 +370,46 @@ class PropertyPanel {
         container.appendChild(labelEl);
         container.appendChild(select);
         this.propertiesContainer.appendChild(container);
+    }
+
+    /**
+     * Create select dropdown (reusable)
+     */
+    createSelect(label, value, options, onChange) {
+        const container = document.createElement('div');
+        container.style.marginBottom = '10px';
+
+        const labelEl = document.createElement('label');
+        labelEl.textContent = label;
+        labelEl.style.cssText = `
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+        `;
+
+        const select = document.createElement('select');
+        select.style.cssText = `
+            width: 100%;
+            padding: 5px;
+            background: #222;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 4px;
+        `;
+
+        options.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt;
+            option.textContent = opt;
+            option.selected = opt === value;
+            select.appendChild(option);
+        });
+
+        select.onchange = () => onChange(select.value);
+
+        container.appendChild(labelEl);
+        container.appendChild(select);
+        return container;
     }
 
     /**
