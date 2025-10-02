@@ -119,8 +119,8 @@ class GameEngine {
      */
     initializePlayer() {
         this.player = new Player({
-            x: 1100,
-            y: 650,
+            x: 768,
+            y: 512,
             spriteSrc: 'assets/npc/main-0.png',
             scale: 0.12,
             gold: 100

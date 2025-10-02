@@ -38,7 +38,13 @@ class GameObject {
         this.collisionWidthPercent = options.collisionWidthPercent; // Optional: override width percent specifically
         this.collisionHeightPercent = options.collisionHeightPercent; // Optional: override height percent specifically
         
-        // Collision position offsets (relative to object center, in pixels at base scale)
+        // Collision box expansion/contraction (in pixels, applied after percent scaling)
+        this.collisionExpandTop = options.collisionExpandTop || 0;    // Expand upward (negative = shrink)
+        this.collisionExpandBottom = options.collisionExpandBottom || 0; // Expand downward (negative = shrink)
+        this.collisionExpandLeft = options.collisionExpandLeft || 0;   // Expand left (negative = shrink)
+        this.collisionExpandRight = options.collisionExpandRight || 0;  // Expand right (negative = shrink)
+        
+        // Collision position offsets (moves entire collision box, in pixels)
         this.collisionOffsetX = options.collisionOffsetX || 0; // Horizontal offset for collision box
         this.collisionOffsetY = options.collisionOffsetY || 0; // Vertical offset for collision box
         
@@ -204,7 +210,8 @@ class GameObject {
      * Steps:
      * 1. Calculate EXACT rendered sprite size (same as render() method)
      * 2. Apply collision percent to shrink/expand the box
-     * 3. Apply offsets to reposition the box
+     * 3. Apply expansion values (in pixels, all 4 directions)
+     * 4. Apply offset to reposition the entire box
      */
     getCollisionBounds(game) {
         // STEP 1: Calculate EXACT rendered size (COPY FROM RENDER METHOD)
@@ -223,19 +230,41 @@ class GameObject {
             ? this.collisionHeightPercent 
             : this.collisionPercent;
             
-        const collisionWidth = renderedWidth * widthPercent;
-        const collisionHeight = renderedHeight * heightPercent;
+        let collisionWidth = renderedWidth * widthPercent;
+        let collisionHeight = renderedHeight * heightPercent;
         
-        // Collision box centered on sprite position (no offsets)
+        // STEP 3: Apply expansion values in all 4 directions (in pixels)
+        // Expansion increases the size while also shifting the box position
+        const expandLeft = this.collisionExpandLeft || 0;
+        const expandRight = this.collisionExpandRight || 0;
+        const expandTop = this.collisionExpandTop || 0;
+        const expandBottom = this.collisionExpandBottom || 0;
+        
+        collisionWidth += expandLeft + expandRight;
+        collisionHeight += expandTop + expandBottom;
+        
+        // Calculate base position (centered on sprite)
+        let collisionX = this.x - collisionWidth / 2;
+        let collisionY = this.y - collisionHeight / 2;
+        
+        // Adjust for asymmetric expansion (if one side expanded more than the other)
+        collisionX -= (expandRight - expandLeft) / 2;
+        collisionY -= (expandBottom - expandTop) / 2;
+        
+        // STEP 4: Apply offsets (moves entire collision box)
+        collisionX += (this.collisionOffsetX || 0);
+        collisionY += (this.collisionOffsetY || 0);
+        
+        // Return collision bounds
         return {
-            x: this.x - collisionWidth / 2,
-            y: this.y - collisionHeight / 2,
+            x: collisionX,
+            y: collisionY,
             width: collisionWidth,
             height: collisionHeight,
-            left: this.x - collisionWidth / 2,
-            right: this.x + collisionWidth / 2,
-            top: this.y - collisionHeight / 2,
-            bottom: this.y + collisionHeight / 2
+            left: collisionX,
+            right: collisionX + collisionWidth,
+            top: collisionY,
+            bottom: collisionY + collisionHeight
         };
     }
     

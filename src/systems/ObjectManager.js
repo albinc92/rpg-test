@@ -73,8 +73,8 @@ class ObjectManager {
                     // Sage NPC near player spawn (spawn is at 1100, 650)
                     { 
                         id: 'elder_sage',
-                        x: 1000, 
-                        y: 600, 
+                        x: 1075, 
+                        y: 416, 
                         spriteSrc: 'assets/npc/sage-0.png',
                         type: 'sage',
                         name: 'Elder Sage',
