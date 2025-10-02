@@ -13,6 +13,7 @@ class EditorManager {
         this.selectedObject = null; // Currently selected object on map
         this.selectedPrefab = null; // Object type to place
         this.clipboard = null;
+        this.previewSprite = null; // Cached sprite for placement preview
         
         // Drag state for moving objects
         this.isDragging = false;
@@ -210,6 +211,12 @@ class EditorManager {
         // Clear prefab if switching to select
         if (tool === 'select') {
             this.selectedPrefab = null;
+            this.previewSprite = null;
+        }
+        
+        // Load preview sprite when entering place mode
+        if (tool === 'place' && this.selectedPrefab && this.selectedPrefab.spriteSrc) {
+            this.loadPreviewSprite(this.selectedPrefab.spriteSrc);
         }
         
         // Update UI
@@ -224,6 +231,21 @@ class EditorManager {
                 this.propertyPanel.hide();
             }
         }
+    }
+    
+    /**
+     * Load sprite for placement preview
+     */
+    loadPreviewSprite(src) {
+        this.previewSprite = new Image();
+        this.previewSprite.onload = () => {
+            console.log('[EditorManager] Preview sprite loaded:', src);
+        };
+        this.previewSprite.onerror = () => {
+            console.error('[EditorManager] Failed to load preview sprite:', src);
+            this.previewSprite = null;
+        };
+        this.previewSprite.src = src;
     }
 
     /**
@@ -246,18 +268,22 @@ class EditorManager {
      */
     updateMousePosition() {
         const rect = this.game.canvas.getBoundingClientRect();
+        const canvas = this.game.canvas;
         
         // Get mouse position from input manager (screen coordinates)
         const mouseScreenX = this.game.inputManager.mouse.x;
         const mouseScreenY = this.game.inputManager.mouse.y;
         
-        // Convert to canvas coordinates
-        const mouseCanvasX = mouseScreenX - rect.left;
-        const mouseCanvasY = mouseScreenY - rect.top;
+        // Convert screen to canvas coordinates (accounting for canvas scaling)
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const mouseCanvasX = (mouseScreenX - rect.left) * scaleX;
+        const mouseCanvasY = (mouseScreenY - rect.top) * scaleY;
         
         // Convert canvas to world coordinates (add camera offset)
-        this.mouseWorldX = mouseCanvasX + this.game.renderSystem.camera.x;
-        this.mouseWorldY = mouseCanvasY + this.game.renderSystem.camera.y;
+        const camera = this.game.camera;
+        this.mouseWorldX = mouseCanvasX + camera.x;
+        this.mouseWorldY = mouseCanvasY + camera.y;
         
         // Apply grid snap if enabled
         if (this.snapToGrid) {
@@ -361,14 +387,102 @@ class EditorManager {
      * Render placement preview
      */
     renderPlacementPreview(ctx) {
-        // TODO: Render semi-transparent preview of object to be placed
+        if (!this.selectedPrefab) return;
+        
         const camera = this.game.camera;
-        const x = this.mouseWorldX - camera.x;
-        const y = this.mouseWorldY - camera.y;
+        const worldX = this.mouseWorldX;
+        const worldY = this.mouseWorldY;
+        const screenX = worldX - camera.x;
+        const screenY = worldY - camera.y;
         
         ctx.save();
-        ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
-        ctx.fillRect(x - 16, y - 16, 32, 32);
+        
+        // Get sprite and dimensions
+        let sprite = this.previewSprite;
+        let spriteWidth = 64;
+        let spriteHeight = 64;
+        let scale = this.selectedPrefab.scale || 1;
+        
+        // Use loaded preview sprite if available
+        if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+            spriteWidth = sprite.width;
+            spriteHeight = sprite.height;
+        }
+        
+        // Calculate final dimensions with scaling (same as GameObject)
+        const resolutionScale = this.game.resolutionScale || 1;
+        const finalScale = scale * resolutionScale;
+        const scaledWidth = spriteWidth * finalScale;
+        const scaledHeight = spriteHeight * finalScale;
+        
+        // Calculate position (GameObjects are rendered from center)
+        const drawX = screenX - scaledWidth / 2;
+        const drawY = screenY - scaledHeight / 2;
+        
+        // Draw semi-transparent sprite
+        if (sprite) {
+            ctx.globalAlpha = 0.5;
+            ctx.drawImage(
+                sprite,
+                drawX,
+                drawY,
+                scaledWidth,
+                scaledHeight
+            );
+            ctx.globalAlpha = 1.0;
+        } else {
+            // Fallback: draw placeholder box
+            ctx.fillStyle = 'rgba(74, 158, 255, 0.5)';
+            ctx.strokeStyle = 'rgba(74, 158, 255, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.fillRect(drawX, drawY, scaledWidth, scaledHeight);
+            ctx.strokeRect(drawX, drawY, scaledWidth, scaledHeight);
+        }
+        
+        // Draw collision box if enabled
+        if (this.showCollisionBoxes) {
+            // Calculate collision bounds based on prefab settings
+            const expandTop = this.selectedPrefab.collisionExpandTopPercent || 0;
+            const expandBottom = this.selectedPrefab.collisionExpandBottomPercent || 0;
+            const expandLeft = this.selectedPrefab.collisionExpandLeftPercent || 0;
+            const expandRight = this.selectedPrefab.collisionExpandRightPercent || 0;
+            
+            const collisionWidth = scaledWidth * (1 + expandLeft + expandRight);
+            const collisionHeight = scaledHeight * (1 + expandTop + expandBottom);
+            const collisionX = screenX - collisionWidth / 2 - (scaledWidth * expandLeft / 2) + (scaledWidth * expandRight / 2);
+            const collisionY = screenY - collisionHeight / 2 - (scaledHeight * expandTop / 2) + (scaledHeight * expandBottom / 2);
+            
+            // Draw collision box
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(collisionX, collisionY, collisionWidth, collisionHeight);
+            ctx.setLineDash([]);
+            
+            // Draw collision center point
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // Draw crosshair at placement point
+        ctx.strokeStyle = 'rgba(74, 158, 255, 0.8)';
+        ctx.lineWidth = 1;
+        const crosshairSize = 10;
+        
+        // Horizontal line
+        ctx.beginPath();
+        ctx.moveTo(screenX - crosshairSize, screenY);
+        ctx.lineTo(screenX + crosshairSize, screenY);
+        ctx.stroke();
+        
+        // Vertical line
+        ctx.beginPath();
+        ctx.moveTo(screenX, screenY - crosshairSize);
+        ctx.lineTo(screenX, screenY + crosshairSize);
+        ctx.stroke();
+        
         ctx.restore();
     }
 
@@ -588,11 +702,19 @@ class EditorManager {
             return true;
         }
         
-        // Create object at mouse position
+        // Convert scaled world position back to unscaled position for storage
+        const resolutionScale = this.game.resolutionScale || 1.0;
+        const mapScale = this.game.mapManager.maps[this.game.currentMapId]?.scale || 1.0;
+        const unscaledX = this.mouseWorldX / (mapScale * resolutionScale);
+        const unscaledY = this.mouseWorldY / (mapScale * resolutionScale);
+        
+        console.log('[EditorManager] Unscaled position:', unscaledX, unscaledY);
+        
+        // Create object at mouse position (using unscaled coordinates)
         const objectData = {
             ...this.selectedPrefab,
-            x: this.mouseWorldX,
-            y: this.mouseWorldY
+            x: unscaledX,
+            y: unscaledY
         };
         
         console.log('[EditorManager] Creating object with data:', objectData);
@@ -625,10 +747,14 @@ class EditorManager {
      */
     placeObject(objectData) {
         console.log('[EditorManager] Attempting to place object:', objectData);
+        console.log('[EditorManager] World position:', this.mouseWorldX, this.mouseWorldY);
+        console.log('[EditorManager] Camera position:', this.game.camera.x, this.game.camera.y);
         const obj = this.game.objectManager.createObjectFromData(objectData);
         if (obj) {
+            console.log('[EditorManager] Object created with position:', obj.x, obj.y);
             this.game.objectManager.addObject(this.game.currentMapId, obj);
             console.log('[EditorManager] Successfully placed:', obj.constructor.name, 'at', obj.x, obj.y);
+            console.log('[EditorManager] Object in map objects array:', this.game.objectManager.objects[this.game.currentMapId].includes(obj));
             
             // Add to history
             this.addHistory({
