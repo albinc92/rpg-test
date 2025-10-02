@@ -6,9 +6,10 @@
       "x": 200,
       "y": 150,
       "scale": 0.95,
-      "collisionExpandTopPercent": -0.90,
+      "collisionExpandTopPercent": -0.9,
       "collisionExpandRightPercent": -0.25,
-      "collisionExpandLeftPercent": -0.25
+      "collisionExpandLeftPercent": -0.25,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -16,9 +17,10 @@
       "x": 1750,
       "y": 200,
       "scale": 1.1,
-      "collisionExpandTopPercent": -0.90,
+      "collisionExpandTopPercent": -0.9,
       "collisionExpandRightPercent": -0.25,
-      "collisionExpandLeftPercent": -0.25
+      "collisionExpandLeftPercent": -0.25,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -26,9 +28,10 @@
       "x": 300,
       "y": 900,
       "scale": 1.05,
-      "collisionExpandTopPercent": -0.90,
+      "collisionExpandTopPercent": -0.9,
       "collisionExpandRightPercent": -0.25,
-      "collisionExpandLeftPercent": -0.25
+      "collisionExpandLeftPercent": -0.25,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -36,9 +39,10 @@
       "x": 1650,
       "y": 950,
       "scale": 1.0,
-      "collisionExpandTopPercent": -0.90,
+      "collisionExpandTopPercent": -0.9,
       "collisionExpandRightPercent": -0.25,
-      "collisionExpandLeftPercent": -0.25
+      "collisionExpandLeftPercent": -0.25,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -46,9 +50,10 @@
       "x": 100,
       "y": 500,
       "scale": 0.9,
-      "collisionExpandTopPercent": -0.90,
+      "collisionExpandTopPercent": -0.9,
       "collisionExpandRightPercent": -0.25,
-      "collisionExpandLeftPercent": -0.25
+      "collisionExpandLeftPercent": -0.25,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -56,9 +61,10 @@
       "x": 1850,
       "y": 600,
       "scale": 1.08,
-      "collisionExpandTopPercent": -0.90,
+      "collisionExpandTopPercent": -0.9,
       "collisionExpandRightPercent": -0.25,
-      "collisionExpandLeftPercent": -0.25
+      "collisionExpandLeftPercent": -0.25,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -66,9 +72,10 @@
       "x": 950,
       "y": 100,
       "scale": 0.98,
-      "collisionExpandTopPercent": -0.90,
+      "collisionExpandTopPercent": -0.9,
       "collisionExpandRightPercent": -0.25,
-      "collisionExpandLeftPercent": -0.25
+      "collisionExpandLeftPercent": -0.25,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -76,9 +83,50 @@
       "x": 1000,
       "y": 1000,
       "scale": 1.03,
-      "collisionExpandTopPercent": -0.90,
+      "collisionExpandTopPercent": -0.9,
       "collisionExpandRightPercent": -0.25,
-      "collisionExpandLeftPercent": -0.25
+      "collisionExpandLeftPercent": -0.25,
+      "castsShadow": false
+    },
+    {
+      "category": "StaticObject",
+      "spriteSrc": "assets/objects/rocks/rock-01.png",
+      "x": 450,
+      "y": 350,
+      "scale": 0.3,
+      "castsShadow": false
+    },
+    {
+      "category": "StaticObject",
+      "spriteSrc": "assets/objects/rocks/rock-01.png",
+      "x": 1450,
+      "y": 680,
+      "scale": 0.25,
+      "castsShadow": false
+    },
+    {
+      "category": "StaticObject",
+      "spriteSrc": "assets/objects/rocks/rock-01.png",
+      "x": 850,
+      "y": 550,
+      "scale": 0.28,
+      "castsShadow": false
+    },
+    {
+      "category": "StaticObject",
+      "spriteSrc": "assets/objects/rocks/rock-01.png",
+      "x": 1200,
+      "y": 250,
+      "scale": 0.32,
+      "castsShadow": false
+    },
+    {
+      "category": "StaticObject",
+      "spriteSrc": "assets/objects/rocks/rock-01.png",
+      "x": 600,
+      "y": 700,
+      "scale": 0.27,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -86,9 +134,10 @@
       "x": 350,
       "y": 280,
       "scale": 0.5,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -96,9 +145,10 @@
       "x": 520,
       "y": 220,
       "scale": 0.42,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -106,9 +156,10 @@
       "x": 680,
       "y": 180,
       "scale": 0.48,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -116,9 +167,10 @@
       "x": 1450,
       "y": 240,
       "scale": 0.44,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -126,9 +178,10 @@
       "x": 1580,
       "y": 320,
       "scale": 0.46,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -136,9 +189,10 @@
       "x": 1320,
       "y": 180,
       "scale": 0.41,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -146,9 +200,10 @@
       "x": 280,
       "y": 420,
       "scale": 0.43,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -156,9 +211,10 @@
       "x": 180,
       "y": 650,
       "scale": 0.47,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -166,9 +222,10 @@
       "x": 320,
       "y": 780,
       "scale": 0.42,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -176,9 +233,10 @@
       "x": 1520,
       "y": 820,
       "scale": 0.44,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -186,9 +244,10 @@
       "x": 1680,
       "y": 720,
       "scale": 0.43,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -196,9 +255,10 @@
       "x": 1580,
       "y": 580,
       "scale": 0.49,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -206,9 +266,10 @@
       "x": 450,
       "y": 850,
       "scale": 0.42,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -216,9 +277,10 @@
       "x": 620,
       "y": 920,
       "scale": 0.46,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -226,9 +288,10 @@
       "x": 820,
       "y": 880,
       "scale": 0.44,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -236,9 +299,10 @@
       "x": 1120,
       "y": 850,
       "scale": 0.43,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -246,9 +310,10 @@
       "x": 1380,
       "y": 900,
       "scale": 0.48,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -256,9 +321,10 @@
       "x": 1240,
       "y": 780,
       "scale": 0.41,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -266,9 +332,10 @@
       "x": 280,
       "y": 320,
       "scale": 0.44,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -276,9 +343,10 @@
       "x": 1650,
       "y": 450,
       "scale": 0.42,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -286,9 +354,10 @@
       "x": 750,
       "y": 250,
       "scale": 0.47,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -296,9 +365,10 @@
       "x": 540,
       "y": 780,
       "scale": 0.43,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -306,9 +376,10 @@
       "x": 1280,
       "y": 320,
       "scale": 0.49,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "StaticObject",
@@ -316,9 +387,10 @@
       "x": 920,
       "y": 820,
       "scale": 0.5,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "Actor",
@@ -331,7 +403,7 @@
       "name": "Elder Sage",
       "dialogue": "Welcome, young adventurer! The forest is peaceful, but adventure awaits beyond.",
       "scale": 0.15,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05
     }
@@ -343,9 +415,10 @@
       "x": 400,
       "y": 500,
       "scale": 1.1,
-      "collisionExpandTopPercent": -0.70,
+      "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
-      "collisionExpandLeftPercent": -0.05
+      "collisionExpandLeftPercent": -0.05,
+      "castsShadow": false
     },
     {
       "category": "InteractiveObject",
@@ -355,10 +428,22 @@
       "y": 700,
       "gold": 150,
       "loot": [
-        { "id": "mana_potion", "quantity": 2 },
-        { "id": "leather_armor", "quantity": 1 },
-        { "id": "magic_scroll", "quantity": 1 },
-        { "id": "iron_ore", "quantity": 8 }
+        {
+          "id": "mana_potion",
+          "quantity": 2
+        },
+        {
+          "id": "leather_armor",
+          "quantity": 1
+        },
+        {
+          "id": "magic_scroll",
+          "quantity": 1
+        },
+        {
+          "id": "iron_ore",
+          "quantity": 8
+        }
       ],
       "chestType": "silver"
     },
@@ -370,9 +455,18 @@
       "y": 300,
       "gold": 200,
       "loot": [
-        { "id": "iron_sword", "quantity": 1 },
-        { "id": "leather_armor", "quantity": 1 },
-        { "id": "iron_ore", "quantity": 15 }
+        {
+          "id": "iron_sword",
+          "quantity": 1
+        },
+        {
+          "id": "leather_armor",
+          "quantity": 1
+        },
+        {
+          "id": "iron_ore",
+          "quantity": 15
+        }
       ],
       "chestType": "golden"
     },
