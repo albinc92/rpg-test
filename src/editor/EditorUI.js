@@ -270,8 +270,14 @@ class EditorUI {
             {
                 label: '🎒 Items',
                 items: [
-                    { label: '📝 Edit Items', disabled: true },
-                    { label: '➕ New Item', disabled: true }
+                    { 
+                        label: '📝 Item Browser', 
+                        action: () => this.showItemBrowser() 
+                    },
+                    { 
+                        label: '➕ New Item', 
+                        action: () => this.showItemEditor(null) 
+                    }
                 ]
             },
             {
@@ -606,6 +612,501 @@ class EditorUI {
         container.appendChild(labelEl);
         container.appendChild(select);
         return container;
+    }
+
+    /**
+     * Show Item Browser Modal
+     */
+    showItemBrowser() {
+        const items = this.editor.game.itemManager.items;
+        
+        if (!items || Object.keys(items).length === 0) {
+            alert('No items found!');
+            return;
+        }
+
+        // Create modal backdrop
+        const backdrop = document.createElement('div');
+        backdrop.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: #1a1a1a;
+            border: 2px solid #4a9eff;
+            border-radius: 12px;
+            padding: 24px;
+            width: 700px;
+            max-height: 80vh;
+            overflow-y: auto;
+            color: white;
+            font-family: Arial, sans-serif;
+        `;
+
+        // Title
+        const title = document.createElement('h2');
+        title.textContent = '🎒 Item Browser';
+        title.style.cssText = 'margin-top: 0; color: #4a9eff;';
+        modal.appendChild(title);
+
+        // Filter/Search
+        const searchContainer = document.createElement('div');
+        searchContainer.style.cssText = 'margin-bottom: 16px;';
+        
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.placeholder = '🔍 Search items...';
+        searchInput.style.cssText = `
+            width: 100%;
+            padding: 10px;
+            background: #2a2a2a;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 6px;
+            font-size: 14px;
+        `;
+        searchContainer.appendChild(searchInput);
+        modal.appendChild(searchContainer);
+
+        // Item grid
+        const itemGrid = document.createElement('div');
+        itemGrid.style.cssText = `
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        `;
+
+        // Render items
+        const renderItems = (filter = '') => {
+            itemGrid.innerHTML = '';
+            
+            Object.values(items).forEach(item => {
+                if (filter && !item.name.toLowerCase().includes(filter.toLowerCase()) && 
+                    !item.type.toLowerCase().includes(filter.toLowerCase())) {
+                    return;
+                }
+
+                const itemCard = document.createElement('div');
+                itemCard.style.cssText = `
+                    background: #2a2a2a;
+                    border: 2px solid #444;
+                    border-radius: 8px;
+                    padding: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    text-align: center;
+                `;
+                itemCard.onmouseover = () => {
+                    itemCard.style.borderColor = '#4a9eff';
+                    itemCard.style.transform = 'translateY(-2px)';
+                };
+                itemCard.onmouseout = () => {
+                    itemCard.style.borderColor = '#444';
+                    itemCard.style.transform = 'translateY(0)';
+                };
+                itemCard.onclick = () => {
+                    backdrop.remove();
+                    this.showItemEditor(item.id);
+                };
+
+                // Icon
+                const icon = document.createElement('img');
+                icon.src = item.icon;
+                icon.style.cssText = `
+                    width: 48px;
+                    height: 48px;
+                    image-rendering: pixelated;
+                    margin-bottom: 8px;
+                `;
+                itemCard.appendChild(icon);
+
+                // Name
+                const name = document.createElement('div');
+                name.textContent = item.name;
+                name.style.cssText = `
+                    font-size: 12px;
+                    font-weight: bold;
+                    margin-bottom: 4px;
+                    color: ${this.getRarityColor(item.rarity)};
+                `;
+                itemCard.appendChild(name);
+
+                // Type
+                const type = document.createElement('div');
+                type.textContent = item.type;
+                type.style.cssText = `
+                    font-size: 10px;
+                    color: #888;
+                    text-transform: capitalize;
+                `;
+                itemCard.appendChild(type);
+
+                itemGrid.appendChild(itemCard);
+            });
+
+            if (itemGrid.children.length === 0) {
+                const noResults = document.createElement('div');
+                noResults.textContent = 'No items found';
+                noResults.style.cssText = `
+                    grid-column: 1 / -1;
+                    text-align: center;
+                    color: #888;
+                    padding: 20px;
+                `;
+                itemGrid.appendChild(noResults);
+            }
+        };
+
+        searchInput.oninput = () => renderItems(searchInput.value);
+        renderItems();
+
+        modal.appendChild(itemGrid);
+
+        // Buttons
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = 'display: flex; gap: 12px; justify-content: flex-end;';
+
+        const newBtn = document.createElement('button');
+        newBtn.textContent = '➕ New Item';
+        newBtn.type = 'button';
+        newBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        `;
+        newBtn.onclick = () => {
+            backdrop.remove();
+            this.showItemEditor(null);
+        };
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Close';
+        closeBtn.type = 'button';
+        closeBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #555;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        `;
+        closeBtn.onclick = () => backdrop.remove();
+
+        buttonContainer.appendChild(newBtn);
+        buttonContainer.appendChild(closeBtn);
+        modal.appendChild(buttonContainer);
+
+        backdrop.appendChild(modal);
+        document.body.appendChild(backdrop);
+
+        // Close on backdrop click
+        backdrop.onclick = (e) => {
+            if (e.target === backdrop) backdrop.remove();
+        };
+    }
+
+    /**
+     * Show Item Editor Modal
+     */
+    showItemEditor(itemId) {
+        const isNew = !itemId;
+        const items = this.editor.game.itemManager.items;
+        let itemData = isNew ? {
+            id: '',
+            name: 'New Item',
+            description: '',
+            icon: 'assets/icon/Items/Health_Potion-0.png',
+            stackable: true,
+            maxStack: 99,
+            value: 10,
+            type: 'consumable',
+            rarity: 'common',
+            stats: {},
+            effects: {}
+        } : { ...items[itemId] };
+
+        // Create modal backdrop
+        const backdrop = document.createElement('div');
+        backdrop.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: #1a1a1a;
+            border: 2px solid #4a9eff;
+            border-radius: 12px;
+            padding: 24px;
+            width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            color: white;
+            font-family: Arial, sans-serif;
+        `;
+
+        // Title
+        const title = document.createElement('h2');
+        title.textContent = isNew ? '➕ Create New Item' : `📝 Edit Item: ${itemData.name}`;
+        title.style.cssText = 'margin-top: 0; color: #4a9eff;';
+        modal.appendChild(title);
+
+        // Two-column layout
+        const columns = document.createElement('div');
+        columns.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 20px;';
+
+        // Left column - Basic info
+        const leftCol = document.createElement('div');
+        leftCol.style.cssText = 'display: flex; flex-direction: column; gap: 12px;';
+
+        if (isNew) {
+            leftCol.appendChild(this.createConfigField('Item ID', itemData.id, 'text', (value) => {
+                itemData.id = value;
+            }));
+        }
+
+        leftCol.appendChild(this.createConfigField('Name', itemData.name, 'text', (value) => {
+            itemData.name = value;
+        }));
+
+        leftCol.appendChild(this.createConfigField('Value', itemData.value, 'number', (value) => {
+            itemData.value = parseInt(value);
+        }, { min: 0 }));
+
+        leftCol.appendChild(this.createConfigSelect('Type', itemData.type, 
+            ['consumable', 'weapon', 'armor', 'material', 'key', 'treasure', 'currency'], 
+            (value) => itemData.type = value));
+
+        leftCol.appendChild(this.createConfigSelect('Rarity', itemData.rarity, 
+            ['common', 'uncommon', 'rare', 'epic', 'legendary'], 
+            (value) => itemData.rarity = value));
+
+        const stackableContainer = document.createElement('div');
+        stackableContainer.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+        const stackableCheck = document.createElement('input');
+        stackableCheck.type = 'checkbox';
+        stackableCheck.checked = itemData.stackable;
+        stackableCheck.onchange = () => itemData.stackable = stackableCheck.checked;
+        const stackableLabel = document.createElement('label');
+        stackableLabel.textContent = 'Stackable';
+        stackableLabel.style.color = '#aaa';
+        stackableContainer.appendChild(stackableCheck);
+        stackableContainer.appendChild(stackableLabel);
+        leftCol.appendChild(stackableContainer);
+
+        if (itemData.stackable) {
+            leftCol.appendChild(this.createConfigField('Max Stack', itemData.maxStack, 'number', (value) => {
+                itemData.maxStack = parseInt(value);
+            }, { min: 1 }));
+        }
+
+        columns.appendChild(leftCol);
+
+        // Right column - Advanced
+        const rightCol = document.createElement('div');
+        rightCol.style.cssText = 'display: flex; flex-direction: column; gap: 12px;';
+
+        // Icon preview
+        const iconPreview = document.createElement('div');
+        iconPreview.style.cssText = 'text-align: center; margin-bottom: 8px;';
+        const iconImg = document.createElement('img');
+        iconImg.src = itemData.icon;
+        iconImg.style.cssText = 'width: 64px; height: 64px; image-rendering: pixelated; border: 2px solid #4a9eff; border-radius: 4px;';
+        iconPreview.appendChild(iconImg);
+        rightCol.appendChild(iconPreview);
+
+        rightCol.appendChild(this.createConfigField('Icon Path', itemData.icon, 'text', (value) => {
+            itemData.icon = value;
+            iconImg.src = value;
+        }));
+
+        const descTextarea = document.createElement('textarea');
+        descTextarea.value = itemData.description;
+        descTextarea.placeholder = 'Item description...';
+        descTextarea.rows = 3;
+        descTextarea.style.cssText = `
+            padding: 8px;
+            background: #2a2a2a;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 4px;
+            font-size: 14px;
+            resize: vertical;
+            font-family: Arial, sans-serif;
+        `;
+        descTextarea.oninput = () => itemData.description = descTextarea.value;
+        const descLabel = document.createElement('label');
+        descLabel.textContent = 'Description';
+        descLabel.style.cssText = 'font-size: 13px; font-weight: bold; color: #aaa; margin-bottom: 4px;';
+        const descContainer = document.createElement('div');
+        descContainer.appendChild(descLabel);
+        descContainer.appendChild(descTextarea);
+        rightCol.appendChild(descContainer);
+
+        columns.appendChild(rightCol);
+        modal.appendChild(columns);
+
+        // Stats section (collapsible)
+        if (['weapon', 'armor'].includes(itemData.type)) {
+            const statsSection = document.createElement('details');
+            statsSection.style.cssText = 'margin-top: 16px; padding: 12px; background: #2a2a2a; border-radius: 6px;';
+            const statsSummary = document.createElement('summary');
+            statsSummary.textContent = '⚔️ Stats';
+            statsSummary.style.cssText = 'cursor: pointer; font-weight: bold; color: #4a9eff;';
+            statsSection.appendChild(statsSummary);
+
+            const statsGrid = document.createElement('div');
+            statsGrid.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;';
+
+            itemData.stats = itemData.stats || {};
+            ['attack', 'defense', 'magic', 'speed'].forEach(stat => {
+                statsGrid.appendChild(this.createConfigField(
+                    stat.charAt(0).toUpperCase() + stat.slice(1), 
+                    itemData.stats[stat] || 0, 
+                    'number', 
+                    (value) => itemData.stats[stat] = parseInt(value),
+                    { min: 0 }
+                ));
+            });
+
+            statsSection.appendChild(statsGrid);
+            modal.appendChild(statsSection);
+        }
+
+        // Buttons
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = 'display: flex; gap: 12px; margin-top: 24px; justify-content: space-between;';
+
+        const leftButtons = document.createElement('div');
+        leftButtons.style.cssText = 'display: flex; gap: 12px;';
+
+        if (!isNew) {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = '🗑️ Delete';
+            deleteBtn.type = 'button';
+            deleteBtn.style.cssText = `
+                padding: 10px 20px;
+                background: #c0392b;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 14px;
+            `;
+            deleteBtn.onclick = () => {
+                if (confirm(`Delete item "${itemData.name}"?`)) {
+                    delete items[itemId];
+                    this.showNotification(`🗑️ Item "${itemData.name}" deleted!`);
+                    backdrop.remove();
+                }
+            };
+            leftButtons.appendChild(deleteBtn);
+        }
+
+        const rightButtons = document.createElement('div');
+        rightButtons.style.cssText = 'display: flex; gap: 12px;';
+
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = isNew ? '➕ Create' : '💾 Save';
+        saveBtn.type = 'button';
+        saveBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #4a9eff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        `;
+        saveBtn.onclick = () => {
+            if (isNew) {
+                if (!itemData.id) {
+                    alert('Please enter an Item ID!');
+                    return;
+                }
+                if (items[itemData.id]) {
+                    alert('Item ID already exists!');
+                    return;
+                }
+            }
+            
+            items[itemData.id] = itemData;
+            this.showNotification(isNew ? 
+                `✅ Item "${itemData.name}" created!` : 
+                `✅ Item "${itemData.name}" saved!`);
+            backdrop.remove();
+        };
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.type = 'button';
+        cancelBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #555;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        `;
+        cancelBtn.onclick = () => backdrop.remove();
+
+        rightButtons.appendChild(cancelBtn);
+        rightButtons.appendChild(saveBtn);
+
+        buttonContainer.appendChild(leftButtons);
+        buttonContainer.appendChild(rightButtons);
+        modal.appendChild(buttonContainer);
+
+        backdrop.appendChild(modal);
+        document.body.appendChild(backdrop);
+
+        // Close on backdrop click
+        backdrop.onclick = (e) => {
+            if (e.target === backdrop) backdrop.remove();
+        };
+    }
+
+    /**
+     * Get rarity color
+     */
+    getRarityColor(rarity) {
+        const colors = {
+            common: '#ffffff',
+            uncommon: '#1eff00',
+            rare: '#0070dd',
+            epic: '#a335ee',
+            legendary: '#ff8000'
+        };
+        return colors[rarity] || '#ffffff';
     }
 }
 
