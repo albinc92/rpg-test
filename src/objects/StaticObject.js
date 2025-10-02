@@ -162,4 +162,27 @@ class StaticObject extends GameObject {
         
         return effects;
     }
+    
+    /**
+     * Get static object state for saving
+     */
+    getState() {
+        return {
+            id: this.id,
+            x: this.x,
+            y: this.y,
+            direction: this.direction,
+            type: this.type
+        };
+    }
+    
+    /**
+     * Load static object state
+     */
+    loadState(state) {
+        this.x = state.x || this.x;
+        this.y = state.y || this.y;
+        this.direction = state.direction || this.direction;
+        this.type = state.type || this.type;
+    }
 }

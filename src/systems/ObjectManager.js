@@ -26,52 +26,52 @@ class ObjectManager {
     getMapDefinitions() {
         return {
             '0-0': {
-                // Static objects (trees, rocks, decorations)
-                static: [
+                // Objects (trees, bushes, rocks, decorations)
+                objects: [
                     // Trees scattered around edges with size variation
-                    { id: 'tree_01', x: 200, y: 150, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 0.95, type: 'tree' },
-                    { id: 'tree_02', x: 1750, y: 200, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1.1, type: 'tree' },
-                    { id: 'tree_03', x: 300, y: 900, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1.05, type: 'tree' },
-                    { id: 'tree_04', x: 1650, y: 950, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1.0, type: 'tree' },
-                    { id: 'tree_05', x: 100, y: 500, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 0.9, type: 'tree' },
-                    { id: 'tree_06', x: 1850, y: 600, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1.08, type: 'tree' },
-                    { id: 'tree_07', x: 950, y: 100, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 0.98, type: 'tree' },
-                    { id: 'tree_08', x: 1000, y: 1000, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1.03, type: 'tree' },
+                    new Tree01({ x: 200, y: 150, scale: 0.95 }),
+                    new Tree01({ x: 1750, y: 200, scale: 1.1 }),
+                    new Tree01({ x: 300, y: 900, scale: 1.05 }),
+                    new Tree01({ x: 1650, y: 950 }),
+                    new Tree01({ x: 100, y: 500, scale: 0.9 }),
+                    new Tree01({ x: 1850, y: 600, scale: 1.08 }),
+                    new Tree01({ x: 950, y: 100, scale: 0.98 }),
+                    new Tree01({ x: 1000, y: 1000, scale: 1.03 }),
                     
                     // Bushes scattered in outskirts (between trees and center)
-                    { id: 'bush_01', x: 350, y: 280, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.45, type: 'bush' },
-                    { id: 'bush_02', x: 520, y: 220, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.42, type: 'bush' },
-                    { id: 'bush_03', x: 680, y: 180, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.48, type: 'bush' },
-                    { id: 'bush_04', x: 1450, y: 240, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.44, type: 'bush' },
-                    { id: 'bush_05', x: 1580, y: 320, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.46, type: 'bush' },
-                    { id: 'bush_06', x: 1320, y: 180, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.41, type: 'bush' },
+                    new Bush01({ x: 350, y: 280 }),
+                    new Bush01({ x: 520, y: 220, scale: 0.42 }),
+                    new Bush01({ x: 680, y: 180, scale: 0.48 }),
+                    new Bush01({ x: 1450, y: 240, scale: 0.44 }),
+                    new Bush01({ x: 1580, y: 320, scale: 0.46 }),
+                    new Bush01({ x: 1320, y: 180, scale: 0.41 }),
                     
-                    { id: 'bush_07', x: 280, y: 420, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.43, type: 'bush' },
-                    { id: 'bush_08', x: 180, y: 650, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.47, type: 'bush' },
-                    { id: 'bush_09', x: 320, y: 780, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.42, type: 'bush' },
-                    { id: 'bush_10', x: 1520, y: 820, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.44, type: 'bush' },
-                    { id: 'bush_11', x: 1680, y: 720, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.43, type: 'bush' },
-                    { id: 'bush_12', x: 1580, y: 580, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.49, type: 'bush' },
+                    new Bush01({ x: 280, y: 420, scale: 0.43 }),
+                    new Bush01({ x: 180, y: 650, scale: 0.47 }),
+                    new Bush01({ x: 320, y: 780, scale: 0.42 }),
+                    new Bush01({ x: 1520, y: 820, scale: 0.44 }),
+                    new Bush01({ x: 1680, y: 720, scale: 0.43 }),
+                    new Bush01({ x: 1580, y: 580, scale: 0.49 }),
                     
-                    { id: 'bush_13', x: 450, y: 850, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.42, type: 'bush' },
-                    { id: 'bush_14', x: 620, y: 920, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.46, type: 'bush' },
-                    { id: 'bush_15', x: 820, y: 880, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.44, type: 'bush' },
-                    { id: 'bush_16', x: 1120, y: 850, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.43, type: 'bush' },
-                    { id: 'bush_17', x: 1380, y: 900, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.48, type: 'bush' },
-                    { id: 'bush_18', x: 1240, y: 780, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.41, type: 'bush' },
+                    new Bush01({ x: 450, y: 850, scale: 0.42 }),
+                    new Bush01({ x: 620, y: 920, scale: 0.46 }),
+                    new Bush01({ x: 820, y: 880, scale: 0.44 }),
+                    new Bush01({ x: 1120, y: 850, scale: 0.43 }),
+                    new Bush01({ x: 1380, y: 900, scale: 0.48 }),
+                    new Bush01({ x: 1240, y: 780, scale: 0.41 }),
                     
-                    { id: 'bush_19', x: 280, y: 320, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.44, type: 'bush' },
-                    { id: 'bush_20', x: 1650, y: 450, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.42, type: 'bush' },
-                    { id: 'bush_21', x: 750, y: 250, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.47, type: 'bush' },
-                    { id: 'bush_22', x: 540, y: 780, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.43, type: 'bush' },
-                    { id: 'bush_23', x: 1280, y: 320, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.49, type: 'bush' },
-                    { id: 'bush_24', x: 920, y: 820, spriteSrc: 'assets/objects/bushes/bush-01.png', scale: 0.45, type: 'bush' },
+                    new Bush01({ x: 280, y: 320, scale: 0.44 }),
+                    new Bush01({ x: 1650, y: 450, scale: 0.42 }),
+                    new Bush01({ x: 750, y: 250, scale: 0.47 }),
+                    new Bush01({ x: 540, y: 780, scale: 0.43 }),
+                    new Bush01({ x: 1280, y: 320, scale: 0.49 }),
+                    new Bush01({ x: 920, y: 820 }),
                 ],
                 
                 // NPCs (characters, merchants, spirits)
                 npcs: [
                     // Sage NPC near player spawn (spawn is at 1100, 650)
-                    { 
+                    new NPC({ 
                         id: 'elder_sage',
                         x: 1075, 
                         y: 416, 
@@ -81,55 +81,41 @@ class ObjectManager {
                         dialogue: "Welcome, young adventurer! The forest is peaceful, but adventure awaits beyond.",
                         scale: 0.15,
                         collisionExpandTop: -45,
-                    },
-                ],
-                
-                // Interactive objects (chests, signs, doors)
-                interactive: [],
-                
-                // Portals
-                portals: []
+                    }),
+                ]
             },
             
             '0-1': {
-                static: [
-                    { id: 'tree_09', x: 400, y: 500, spriteSrc: 'assets/objects/trees/tree-01.png', scale: 1.1, type: 'tree' },
-                ],
-                
-                npcs: [],
-                
-                interactive: [
-                    {
+                objects: [
+                    new Tree01({ x: 400, y: 500, scale: 1.1 }),
+                    
+                    new Chest({
                         id: 'treasure_chest_2',
                         x: 300,
                         y: 700,
                         gold: 150,
-                        items: [
+                        loot: [
                             { id: 'mana_potion', quantity: 2 },
                             { id: 'leather_armor', quantity: 1 },
                             { id: 'magic_scroll', quantity: 1 },
                             { id: 'iron_ore', quantity: 8 }
                         ],
-                        chestType: 'silver',
-                        type: 'chest'
-                    },
-                    {
+                        chestType: 'silver'
+                    }),
+                    new Chest({
                         id: 'treasure_chest_4',
                         x: 800,
                         y: 300,
                         gold: 200,
-                        items: [
+                        loot: [
                             { id: 'iron_sword', quantity: 1 },
                             { id: 'leather_armor', quantity: 1 },
                             { id: 'iron_ore', quantity: 15 }
                         ],
-                        chestType: 'golden',
-                        type: 'chest'
-                    }
-                ],
-                
-                portals: [
-                    {
+                        chestType: 'golden'
+                    }),
+                    
+                    new Portal({
                         id: 'portal_to_0-0',
                         x: 475,
                         y: 960,
@@ -138,8 +124,8 @@ class ObjectManager {
                         spriteSrc: 'assets/npc/navigation-0.png',
                         portalType: 'magic',
                         name: 'Forest Clearing Portal'
-                    },
-                    {
+                    }),
+                    new Portal({
                         id: 'portal_to_shop',
                         x: 695,
                         y: 515,
@@ -148,16 +134,15 @@ class ObjectManager {
                         spriteSrc: 'assets/npc/door-0.png',
                         portalType: 'door',
                         name: 'Village Shop Door'
-                    }
-                ]
+                    })
+                ],
+                
+                npcs: []
             },
             
             '0-1-shop': {
-                static: [],
-                npcs: [],
-                interactive: [],
-                portals: [
-                    {
+                objects: [
+                    new Portal({
                         id: 'portal_from_shop',
                         x: 400,
                         y: 200,
@@ -166,8 +151,10 @@ class ObjectManager {
                         spriteSrc: 'assets/npc/door-0.png',
                         portalType: 'door',
                         name: 'Exit Door'
-                    }
-                ]
+                    })
+                ],
+                
+                npcs: []
             }
         };
     }
@@ -195,31 +182,21 @@ class ObjectManager {
         // Initialize array for this map
         this.objects[mapId] = [];
 
-        // Create static objects (trees, rocks, decorations)
-        if (mapDef.static) {
-            mapDef.static.forEach(def => {
-                this.createStaticObject(mapId, def);
+        // Add all objects (already instantiated)
+        if (mapDef.objects) {
+            mapDef.objects.forEach(obj => {
+                obj.mapId = mapId; // Ensure mapId is set
+                this.addObject(mapId, obj);
+                console.log(`[ObjectManager] Loaded ${obj.constructor.name}: ${obj.id}`);
             });
         }
 
-        // Create NPCs (characters, merchants, spirits)
+        // Add NPCs (already instantiated)
         if (mapDef.npcs) {
-            mapDef.npcs.forEach(def => {
-                this.createNPC(mapId, def);
-            });
-        }
-
-        // Create interactive objects (chests, signs, doors)
-        if (mapDef.interactive) {
-            mapDef.interactive.forEach(def => {
-                this.createInteractiveObject(mapId, def);
-            });
-        }
-
-        // Create portals
-        if (mapDef.portals) {
-            mapDef.portals.forEach(def => {
-                this.createPortal(mapId, def);
+            mapDef.npcs.forEach(obj => {
+                obj.mapId = mapId; // Ensure mapId is set
+                this.addObject(mapId, obj);
+                console.log(`[ObjectManager] Loaded ${obj.constructor.name}: ${obj.id}`);
             });
         }
 
@@ -248,140 +225,6 @@ class ObjectManager {
         this.initializedMaps.delete(mapId);
         
         console.log(`[ObjectManager] ✅ Unloaded map ${mapId}`);
-    }
-
-    /**
-     * Create a static object (tree, rock, decoration)
-     */
-    createStaticObject(mapId, def) {
-        const obj = new StaticObject({
-            id: def.id,
-            mapId: mapId,
-            x: def.x,
-            y: def.y,
-            spriteSrc: def.spriteSrc,
-            scale: def.scale || 0.3,
-            type: def.type || 'decoration',
-            name: def.name || 'Static Object',
-            hasCollision: def.hasCollision !== false,
-            blocksMovement: def.blocksMovement !== false,
-            castsShadow: def.castsShadow !== false,
-            animationType: def.animationType || 'sway',
-            animationSpeed: def.animationSpeed || 0.001,
-            animationIntensity: def.animationIntensity || 1,
-            ...def
-        });
-
-        this.addObject(mapId, obj);
-        console.log(`[ObjectManager] Created static object: ${def.id} (${def.type})`);
-        return obj;
-    }
-
-    /**
-     * Create an NPC (character, merchant, spirit)
-     */
-    createNPC(mapId, def) {
-        let obj;
-        
-        // Create appropriate NPC type
-        if (def.type === 'spirit') {
-            obj = new Spirit({
-                id: def.id,
-                mapId: mapId,
-                x: def.x,
-                y: def.y,
-                spriteSrc: def.spriteSrc,
-                name: def.name || 'Spirit',
-                scale: def.scale || 0.06,
-                altitude: def.altitude || 25,
-                floatingSpeed: def.floatingSpeed || 1.5,
-                floatingRange: def.floatingRange || 15,
-                roamingSpeed: def.roamingSpeed,
-                roamingRange: def.roamingRange,
-                roamingBounds: def.roamingBounds,
-                ...def
-            });
-        } else {
-            // Regular NPC (sage, merchant, guard, etc.)
-            obj = new NPC({
-                id: def.id,
-                mapId: mapId,
-                x: def.x,
-                y: def.y,
-                spriteSrc: def.spriteSrc,
-                type: def.type || 'npc',
-                name: def.name || 'NPC',
-                dialogue: def.dialogue || "...",
-                scale: def.scale || 0.08,
-                ...def
-            });
-        }
-
-        this.addObject(mapId, obj);
-        console.log(`[ObjectManager] Created NPC: ${def.id} (${def.name})`);
-        return obj;
-    }
-
-    /**
-     * Create an interactive object (chest, sign, door)
-     */
-    createInteractiveObject(mapId, def) {
-        let obj;
-
-        if (def.type === 'chest') {
-            obj = new Chest({
-                id: def.id,
-                mapId: mapId,
-                x: def.x,
-                y: def.y,
-                spriteSrc: def.spriteSrc || 'assets/npc/chest-0.png',
-                loot: def.items || [],
-                gold: def.gold || 0,
-                chestType: def.chestType || 'wooden',
-                name: def.name || 'Treasure Chest',
-                scale: def.scale || 0.1,
-                ...def
-            });
-        } else {
-            // Generic interactive object
-            obj = new InteractiveObject({
-                id: def.id,
-                mapId: mapId,
-                x: def.x,
-                y: def.y,
-                spriteSrc: def.spriteSrc,
-                name: def.name || 'Interactive Object',
-                scale: def.scale || 0.1,
-                ...def
-            });
-        }
-
-        this.addObject(mapId, obj);
-        console.log(`[ObjectManager] Created interactive object: ${def.id} (${def.type})`);
-        return obj;
-    }
-
-    /**
-     * Create a portal
-     */
-    createPortal(mapId, def) {
-        const obj = new Portal({
-            id: def.id,
-            mapId: mapId,
-            x: def.x,
-            y: def.y,
-            targetMap: def.targetMap,
-            spawnPoint: def.spawnPoint || 'default',
-            spriteSrc: def.spriteSrc,
-            portalType: def.portalType || 'magic',
-            name: def.name || 'Portal',
-            scale: def.scale || 0.1,
-            ...def
-        });
-
-        this.addObject(mapId, obj);
-        console.log(`[ObjectManager] Created portal: ${def.id} → ${def.targetMap}`);
-        return obj;
     }
 
     /**

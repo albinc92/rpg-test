@@ -25,6 +25,14 @@ async function loadGameScripts() {
         
         // Load object classes
         await loadScript('/src/objects/StaticObject.js');
+        await loadScript('/src/objects/Tree.js');
+        await loadScript('/src/objects/Bush.js');
+        await loadScript('/src/objects/Rock.js');
+        
+        // Load sprite-specific subclasses
+        await loadScript('/src/objects/sprites/Tree01.js');
+        await loadScript('/src/objects/sprites/Bush01.js');
+        
         await loadScript('/src/objects/InteractiveObject.js');
         await loadScript('/src/objects/Chest.js');
         await loadScript('/src/objects/Portal.js');

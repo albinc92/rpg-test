@@ -12,7 +12,13 @@ src/
 │   ├── NPC.js          # Non-player character class
 │   └── Spirit.js       # Ethereal/floating entity class
 ├── objects/            # Static environmental objects
-│   └── StaticObject.js # Trees, bushes, decorations, etc.
+│   ├── StaticObject.js # Base class for static objects
+│   ├── Tree.js         # Tree-specific behavior
+│   ├── Bush.js         # Bush-specific behavior
+│   ├── Rock.js         # Rock-specific behavior
+│   ├── InteractiveObject.js # Interactive objects
+│   ├── Chest.js        # Treasure chests
+│   └── Portal.js       # Map transitions
 └── systems/            # Game systems and managers
     ├── maps.js         # Map loading and management
     ├── npcs.js         # NPC management system
@@ -26,10 +32,15 @@ src/
 GameObject (base class for all game objects)
 ├── Actor (moveable entities with AI/behavior)
 │   ├── Player (player-controlled character)
-│   ├── NPC (dialogue, merchants, chests, portals)
+│   ├── NPC (dialogue, merchants)
 │   └── Spirit (floating ethereal entities)
-└── StaticObject (environmental objects)
-    └── Trees, bushes, decorations, obstacles
+├── StaticObject (environmental objects - base class)
+│   ├── Tree (trees with swaying, shade, weather response)
+│   ├── Bush (bushes with hiding, berries, searching)
+│   └── Rock (rocks with mining, climbing, pushing)
+└── InteractiveObject (interactive objects)
+    ├── Chest (treasure chests)
+    └── Portal (map transitions)
 ```
 
 ## Core Features
@@ -68,11 +79,32 @@ GameObject (base class for all game objects)
 
 ### Object Classes
 
-**StaticObject:**
-- Environmental objects (trees, bushes, etc.)
+**StaticObject (Base):**
+- Base class for all environmental objects
 - Animation types (sway, pulse, rotate)
 - Collision and interaction support
 - Environmental effects (shade, sound)
+
+**Tree (extends StaticObject):**
+- Tree-specific behaviors and properties
+- Swaying animation responsive to weather
+- Provides shade based on foliage density
+- Different tree types and heights
+- Can host wildlife
+
+**Bush (extends StaticObject):**
+- Bush-specific behaviors and properties
+- Player hiding and stealth bonuses
+- Berry collection and regeneration
+- Item searching functionality
+- Different densities and types
+
+**Rock (extends StaticObject):**
+- Rock-specific behaviors and properties
+- Mining for resources (ore, gems)
+- Climbable and pushable variants
+- Provides cover in combat
+- Different materials and sizes
 
 ## Usage
 
