@@ -8,22 +8,25 @@ class MapManager {
     }
     
     /**
-     * Initialize all map data
+     * Initialize all map data (image path and settings only)
+     * Width/height are set automatically when the image loads
      */
     initializeAllMaps() {
         this.maps = {
             '0-0': {
+                imageSrc: 'assets/maps/0-0.png',
                 image: null,
-                width: 1920,
-                height: 1080,
+                width: 0,  // Set when image loads
+                height: 0, // Set when image loads
                 scale: 1.0,
                 music: 'assets/audio/bgm/01.mp3',
                 ambience: 'assets/audio/ambience/forest-0.mp3'
             },
             '0-1': {
+                imageSrc: 'assets/maps/0-1.png',
                 image: null,
-                width: 1920,
-                height: 1080,
+                width: 0,  // Set when image loads
+                height: 0, // Set when image loads
                 scale: 1.0,
                 music: 'assets/audio/bgm/01.mp3',
                 ambience: 'assets/audio/ambience/forest-0.mp3'
@@ -41,7 +44,7 @@ class MapManager {
     }
     
     /**
-     * Load a map image
+     * Load a map image and automatically set width/height from it
      */
     async loadMap(mapId) {
         return new Promise((resolve, reject) => {
@@ -63,14 +66,17 @@ class MapManager {
             image.onload = () => {
                 this.loadedImages[mapId] = image;
                 mapData.image = image;
-                console.log(`Loaded map image: ${mapId}`);
+                // Set width/height from the actual image (1:1 relationship)
+                mapData.width = image.width;
+                mapData.height = image.height;
+                console.log(`Loaded map image: ${mapId} (${image.width}x${image.height})`);
                 resolve();
             };
             image.onerror = () => {
-                reject(new Error(`Failed to load map image: ${mapId}`));
+                reject(new Error(`Failed to load map image: ${mapData.imageSrc}`));
             };
             
-            image.src = `assets/maps/${mapId}.png`;
+            image.src = mapData.imageSrc;
         });
     }
     
