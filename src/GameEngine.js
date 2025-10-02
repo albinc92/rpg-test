@@ -63,6 +63,13 @@ class GameEngine {
         this.performanceMonitor = new PerformanceMonitor();
         this.saveGameManager = new SaveGameManager();
         
+        // Touch controls for mobile
+        this.touchControlsUI = null;
+        if (this.inputManager.isMobile) {
+            this.touchControlsUI = new TouchControlsUI(this.inputManager);
+            console.log('📱 Touch controls UI initialized');
+        }
+        
         // Editor system
         this.editorManager = new EditorManager(this);
         

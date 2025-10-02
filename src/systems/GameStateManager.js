@@ -331,7 +331,7 @@ class MainMenuState extends GameState {
     
     enter(data = {}) {
         this.selectedOption = 0;
-        this.options = ['New Game', 'Continue', 'Settings', 'Exit'];
+        this.options = ['New Game', 'Load Game', 'Settings', 'Exit'];
         this.musicStarted = false;
         
         // Check if there are any save files
@@ -393,7 +393,7 @@ class MainMenuState extends GameState {
         
         if (inputManager.isJustPressed('up')) {
             let newOption = Math.max(0, this.selectedOption - 1);
-            // Skip Continue if no saves
+            // Skip Load Game if no saves
             if (newOption === 1 && !this.hasSaveFiles) {
                 newOption = 0;
             }
@@ -405,7 +405,7 @@ class MainMenuState extends GameState {
         
         if (inputManager.isJustPressed('down')) {
             let newOption = Math.min(this.options.length - 1, this.selectedOption + 1);
-            // Skip Continue if no saves
+            // Skip Load Game if no saves
             if (newOption === 1 && !this.hasSaveFiles) {
                 newOption = 2;
             }
@@ -427,18 +427,10 @@ class MainMenuState extends GameState {
                 this.game.playtime = 0;
                 this.stateManager.changeState('PLAYING', { isNewGame: true });
                 break;
-            case 1: // Continue
+            case 1: // Load Game
                 if (this.hasSaveFiles) {
-                    // Load the latest save
-                    const latestSave = this.game.saveGameManager.getLatestSave();
-                    if (latestSave) {
-                        // Load game (this now loads the map and restores everything)
-                        const success = await this.game.saveGameManager.loadGame(latestSave.id, this.game);
-                        if (success) {
-                            // Pass flag to indicate we're loading from save (don't reset player position)
-                            this.stateManager.changeState('PLAYING', { isLoadedGame: true });
-                        }
-                    }
+                    // Open save/load menu in load mode from main menu
+                    this.stateManager.pushState('SAVE_LOAD', { mode: 'load_list', fromMainMenu: true });
                 }
                 // If no saves, do nothing (button is grayed out)
                 break;
@@ -513,15 +505,15 @@ class MainMenuState extends GameState {
         this.options.forEach((option, index) => {
             const y = menuStartY + index * menuSpacing;
             
-            // Check if this is the Continue option and there are no saves
-            const isContinueDisabled = (index === 1 && !this.hasSaveFiles);
+            // Check if this is the Load Game option and there are no saves
+            const isLoadGameDisabled = (index === 1 && !this.hasSaveFiles);
             
             // Text shadow for all options
             ctx.fillStyle = '#000';
             ctx.fillText(option, canvasWidth / 2 + 2, y + 2);
             
-            // Main text - gray out Continue if no saves
-            if (isContinueDisabled) {
+            // Main text - gray out Load Game if no saves
+            if (isLoadGameDisabled) {
                 ctx.fillStyle = '#666'; // Gray for disabled
             } else {
                 ctx.fillStyle = index === this.selectedOption ? '#ffff00' : '#fff';
@@ -547,6 +539,12 @@ class PlayingState extends GameState {
         console.log('Entering gameplay state');
         console.log('Data received:', data);
         
+        // Show touch controls if on mobile
+        if (this.game.touchControlsUI) {
+            this.game.touchControlsUI.show();
+            this.game.touchControlsUI.updateButtonLabels('gameplay');
+        }
+        
         // Check if we're resuming from a pause/overlay state or loading from save
         const isResumingFromPause = data.isResumingFromPause === true;
         const isLoadedGame = data.isLoadedGame === true;
@@ -568,17 +566,33 @@ class PlayingState extends GameState {
     exit() {
         // Clean up when leaving gameplay
         console.log('Exiting gameplay state');
+        
+        // Hide touch controls when leaving gameplay
+        if (this.game.touchControlsUI) {
+            this.game.touchControlsUI.hide();
+        }
     }
     
     pause() {
         // Called when pushing a state on top (like pause menu)
         console.log('🔄 Gameplay paused');
+        
+        // Hide touch controls during pause
+        if (this.game.touchControlsUI) {
+            this.game.touchControlsUI.hide();
+        }
     }
     
     resume() {
         // Called when returning from a pushed state (like pause menu)
         console.log('🔄 Gameplay resumed - player position preserved');
         // Don't do anything - player position should be preserved
+        
+        // Show touch controls when resuming
+        if (this.game.touchControlsUI) {
+            this.game.touchControlsUI.show();
+            this.game.touchControlsUI.updateButtonLabels('gameplay');
+        }
     }
     
     update(deltaTime) {
@@ -683,21 +697,40 @@ class PausedState extends GameState {
  * Save/Load State - Manage save files
  */
 class SaveLoadState extends GameState {
-    enter() {
+    enter(data = {}) {
         console.log('💾 SAVE/LOAD MENU ENTERED');
-        this.mode = 'main'; // 'main', 'save_list', 'load_list'
+        this.mode = data.mode || 'main'; // 'main', 'save_list', 'load_list', 'delete_confirm'
+        this.fromMainMenu = data.fromMainMenu || false;
         this.selectedOption = 0;
         this.mainOptions = ['Save Game', 'Load Game', 'Back'];
         this.saves = [];
         this.scrollOffset = 0;
-        this.maxVisibleSaves = 6;
+        this.maxVisibleSaves = 5; // Reduced to make room for empty slot
+        this.saveToDelete = null;
+        this.confirmOptions = ['Yes', 'No'];
+        
+        // If entering directly in load mode (from main menu), load saves
+        if (this.mode === 'load_list') {
+            this.saves = this.game.saveGameManager.getAllSaves();
+        }
     }
     
     handleInput(inputManager) {
         if (inputManager.isJustPressed('cancel')) {
+            if (this.mode === 'delete_confirm') {
+                // Cancel delete confirmation
+                this.mode = this.previousMode;
+                this.selectedOption = this.previousSelection;
+                this.saveToDelete = null;
+                return;
+            }
             if (this.mode === 'main') {
                 this.stateManager.popState();
+            } else if (this.fromMainMenu) {
+                // If we came from main menu, go back to main menu
+                this.stateManager.popState();
             } else {
+                // Otherwise go back to save/load main menu
                 this.mode = 'main';
                 this.selectedOption = 0;
             }
@@ -705,15 +738,14 @@ class SaveLoadState extends GameState {
         }
         
         if (inputManager.isJustPressed('up')) {
+            const maxOption = this.getMaxOption();
             this.selectedOption = Math.max(0, this.selectedOption - 1);
             this.updateScrollOffset();
             this.game.audioManager?.playEffect('menu-navigation.mp3');
         }
         
         if (inputManager.isJustPressed('down')) {
-            const maxOption = this.mode === 'main' 
-                ? this.mainOptions.length - 1 
-                : this.saves.length - 1;
+            const maxOption = this.getMaxOption();
             this.selectedOption = Math.min(maxOption, this.selectedOption + 1);
             this.updateScrollOffset();
             this.game.audioManager?.playEffect('menu-navigation.mp3');
@@ -723,9 +755,28 @@ class SaveLoadState extends GameState {
             this.selectOption();
         }
         
-        if (inputManager.isJustPressed('delete') && this.mode !== 'main') {
-            // Delete key on save/load lists
-            this.deleteSave();
+        if (inputManager.isJustPressed('delete') && (this.mode === 'save_list' || this.mode === 'load_list')) {
+            // Delete key on save/load lists - but not on empty slot
+            if (this.mode === 'save_list' && this.selectedOption === 0) {
+                // Can't delete the empty slot
+                return;
+            }
+            const actualIndex = this.mode === 'save_list' ? this.selectedOption - 1 : this.selectedOption;
+            if (actualIndex >= 0 && actualIndex < this.saves.length) {
+                this.showDeleteConfirmation(this.saves[actualIndex]);
+            }
+        }
+    }
+    
+    getMaxOption() {
+        if (this.mode === 'main') {
+            return this.mainOptions.length - 1;
+        } else if (this.mode === 'delete_confirm') {
+            return this.confirmOptions.length - 1;
+        } else if (this.mode === 'save_list') {
+            return this.saves.length; // +1 for empty slot at top
+        } else {
+            return this.saves.length - 1;
         }
     }
     
@@ -760,13 +811,27 @@ class SaveLoadState extends GameState {
                     break;
             }
         } else if (this.mode === 'save_list') {
-            // Save to a new slot or overwrite
-            const saveId = this.game.saveGameManager.saveGame(this.game);
-            if (saveId) {
-                console.log('✅ Game saved!');
-                this.game.audioManager?.playEffect('menu-navigation.mp3');
-                // Refresh save list
-                this.saves = this.game.saveGameManager.getAllSaves();
+            if (this.selectedOption === 0) {
+                // Empty slot - create new save
+                const saveId = this.game.saveGameManager.saveGame(this.game);
+                if (saveId) {
+                    console.log('✅ New game saved!');
+                    this.game.audioManager?.playEffect('menu-navigation.mp3');
+                    // Refresh save list
+                    this.saves = this.game.saveGameManager.getAllSaves();
+                }
+            } else {
+                // Overwrite existing save
+                const save = this.saves[this.selectedOption - 1];
+                if (save) {
+                    const saveId = this.game.saveGameManager.saveGame(this.game, save.name, save.id);
+                    if (saveId) {
+                        console.log('✅ Game saved (overwritten)!');
+                        this.game.audioManager?.playEffect('menu-navigation.mp3');
+                        // Refresh save list
+                        this.saves = this.game.saveGameManager.getAllSaves();
+                    }
+                }
             }
         } else if (this.mode === 'load_list') {
             // Load selected save
@@ -776,28 +841,55 @@ class SaveLoadState extends GameState {
                 this.game.saveGameManager.loadGame(save.id, this.game).then((success) => {
                     if (success) {
                         console.log('✅ Game loaded!');
-                        // Pop back to gameplay (map and audio are already loaded)
-                        this.stateManager.popState(); // Exit save/load menu
-                        this.stateManager.popState(); // Exit pause menu
+                        if (this.fromMainMenu) {
+                            // Go to playing state
+                            this.stateManager.changeState('PLAYING', { isLoadedGame: true });
+                        } else {
+                            // Pop back to gameplay (map and audio are already loaded)
+                            this.stateManager.popState(); // Exit save/load menu
+                            this.stateManager.popState(); // Exit pause menu
+                        }
                     }
                 });
+            }
+        } else if (this.mode === 'delete_confirm') {
+            if (this.selectedOption === 0) {
+                // Yes - delete the save
+                this.confirmDelete();
+            } else {
+                // No - cancel
+                this.mode = this.previousMode;
+                this.selectedOption = this.previousSelection;
+                this.saveToDelete = null;
             }
         }
     }
     
-    deleteSave() {
-        if (this.saves[this.selectedOption]) {
-            const save = this.saves[this.selectedOption];
-            if (this.game.saveGameManager.deleteSave(save.id)) {
-                console.log('✅ Save deleted!');
-                this.saves = this.game.saveGameManager.getAllSaves();
-                if (this.selectedOption >= this.saves.length) {
-                    this.selectedOption = Math.max(0, this.saves.length - 1);
-                }
-                this.updateScrollOffset();
+    showDeleteConfirmation(save) {
+        this.saveToDelete = save;
+        this.previousMode = this.mode;
+        this.previousSelection = this.selectedOption;
+        this.mode = 'delete_confirm';
+        this.selectedOption = 1; // Default to "No"
+        this.game.audioManager?.playEffect('menu-navigation.mp3');
+    }
+    
+    confirmDelete() {
+        if (this.saveToDelete && this.game.saveGameManager.deleteSave(this.saveToDelete.id)) {
+            console.log('✅ Save deleted!');
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.saves = this.game.saveGameManager.getAllSaves();
+            this.mode = this.previousMode;
+            this.selectedOption = Math.max(0, Math.min(this.previousSelection, this.saves.length - 1));
+            if (this.mode === 'save_list' && this.selectedOption > 0) {
+                this.selectedOption--; // Adjust for empty slot
             }
+            this.saveToDelete = null;
+            this.updateScrollOffset();
         }
     }
+    
+
     
     render(ctx) {
         const canvasWidth = this.game.CANVAS_WIDTH;
@@ -809,6 +901,8 @@ class SaveLoadState extends GameState {
         
         if (this.mode === 'main') {
             this.renderMainMenu(ctx, canvasWidth, canvasHeight);
+        } else if (this.mode === 'delete_confirm') {
+            this.renderDeleteConfirmation(ctx, canvasWidth, canvasHeight);
         } else {
             this.renderSaveList(ctx, canvasWidth, canvasHeight);
         }
@@ -856,19 +950,59 @@ class SaveLoadState extends GameState {
         ctx.font = `${instructionSize}px Arial`;
         ctx.fillStyle = '#aaa';
         if (this.mode === 'save_list') {
-            ctx.fillText('Press Enter to create a new save', canvasWidth / 2, canvasHeight * 0.22);
+            const saveInstructions = this.game.inputManager.isMobile 
+                ? 'A: Select | B: Back'
+                : 'Enter: Select | ESC: Back';
+            ctx.fillText('Select empty slot for new save or overwrite existing', canvasWidth / 2, canvasHeight * 0.22);
+            ctx.fillText(saveInstructions, canvasWidth / 2, canvasHeight * 0.25);
         } else {
-            ctx.fillText('Press Enter to load  |  Press Delete to remove save', canvasWidth / 2, canvasHeight * 0.22);
+            const loadInstructions = this.game.inputManager.isMobile 
+                ? 'A: Load | X: Delete | B: Back'
+                : 'Enter: Load | Delete: Remove | ESC: Back';
+            ctx.fillText(loadInstructions, canvasWidth / 2, canvasHeight * 0.22);
+        }
+        
+        const startY = canvasHeight * 0.3;
+        const lineHeight = canvasHeight * 0.12;
+        
+        // For save mode, show empty slot at top
+        if (this.mode === 'save_list') {
+            const isSelected = this.selectedOption === 0;
+            const boxWidth = canvasWidth * 0.8;
+            const boxHeight = lineHeight * 0.85;
+            const boxX = canvasWidth / 2 - boxWidth / 2;
+            const boxY = startY - boxHeight * 0.5;
+            
+            // Background box for empty slot
+            if (isSelected) {
+                ctx.fillStyle = 'rgba(255, 255, 0, 0.2)';
+                ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+                ctx.strokeStyle = '#ffff00';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+            } else {
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]);
+                ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+                ctx.setLineDash([]);
+            }
+            
+            // Empty slot text
+            ctx.textAlign = 'left';
+            ctx.fillStyle = isSelected ? '#ffff00' : '#888';
+            ctx.font = `bold ${saveSize}px Arial`;
+            ctx.fillText('[ Empty Slot - New Save ]', boxX + 20, startY);
         }
         
         // Save list
-        if (this.saves.length === 0) {
+        if (this.saves.length === 0 && this.mode === 'load_list') {
             ctx.fillStyle = '#888';
             ctx.font = `${saveSize}px Arial`;
+            ctx.textAlign = 'center';
             ctx.fillText('No save files', canvasWidth / 2, canvasHeight * 0.5);
-        } else {
-            const startY = canvasHeight * 0.3;
-            const lineHeight = canvasHeight * 0.12;
+        } else if (this.saves.length > 0) {
+            const saveListStartY = this.mode === 'save_list' ? startY + lineHeight : startY;
             const visibleSaves = this.saves.slice(
                 this.scrollOffset, 
                 this.scrollOffset + this.maxVisibleSaves
@@ -876,8 +1010,9 @@ class SaveLoadState extends GameState {
             
             visibleSaves.forEach((save, index) => {
                 const actualIndex = this.scrollOffset + index;
-                const y = startY + index * lineHeight;
-                const isSelected = actualIndex === this.selectedOption;
+                const displayIndex = this.mode === 'save_list' ? actualIndex + 1 : actualIndex;
+                const y = saveListStartY + index * lineHeight;
+                const isSelected = displayIndex === this.selectedOption;
                 
                 // Responsive box dimensions
                 const boxWidth = canvasWidth * 0.8;
@@ -911,17 +1046,18 @@ class SaveLoadState extends GameState {
             // Scroll indicators (responsive)
             const scrollArrowSize = Math.min(20, canvasHeight * 0.035);
             const scrollArrowOffset = canvasHeight * 0.03;
+            const listStartY = this.mode === 'save_list' ? saveListStartY : startY;
             if (this.scrollOffset > 0) {
                 ctx.fillStyle = '#fff';
                 ctx.font = `${scrollArrowSize}px Arial`;
                 ctx.textAlign = 'center';
-                ctx.fillText('▲', canvasWidth / 2, startY - scrollArrowOffset);
+                ctx.fillText('▲', canvasWidth / 2, listStartY - scrollArrowOffset);
             }
             if (this.scrollOffset + this.maxVisibleSaves < this.saves.length) {
                 ctx.fillStyle = '#fff';
                 ctx.font = `${scrollArrowSize}px Arial`;
                 ctx.textAlign = 'center';
-                ctx.fillText('▼', canvasWidth / 2, startY + this.maxVisibleSaves * lineHeight + scrollArrowOffset);
+                ctx.fillText('▼', canvasWidth / 2, listStartY + this.maxVisibleSaves * lineHeight + scrollArrowOffset);
             }
         }
         
@@ -932,6 +1068,67 @@ class SaveLoadState extends GameState {
         ctx.font = `${hintSize}px Arial`;
         ctx.textAlign = 'center';
         ctx.fillText('Press ESC to go back', canvasWidth / 2, hintY);
+    }
+    
+    renderDeleteConfirmation(ctx, canvasWidth, canvasHeight) {
+        // Responsive font sizes
+        const titleSize = Math.min(28, canvasHeight * 0.05);
+        const messageSize = Math.min(20, canvasHeight * 0.035);
+        const optionSize = Math.min(24, canvasHeight * 0.042);
+        
+        // Draw a darker overlay
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        // Draw confirmation dialog box
+        const dialogWidth = canvasWidth * 0.6;
+        const dialogHeight = canvasHeight * 0.4;
+        const dialogX = canvasWidth / 2 - dialogWidth / 2;
+        const dialogY = canvasHeight / 2 - dialogHeight / 2;
+        
+        ctx.fillStyle = 'rgba(40, 40, 40, 0.95)';
+        ctx.fillRect(dialogX, dialogY, dialogWidth, dialogHeight);
+        ctx.strokeStyle = '#ff3333';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(dialogX, dialogY, dialogWidth, dialogHeight);
+        
+        // Title
+        ctx.fillStyle = '#ff3333';
+        ctx.font = `bold ${titleSize}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText('Delete Save?', canvasWidth / 2, dialogY + dialogHeight * 0.25);
+        
+        // Save name
+        ctx.fillStyle = '#fff';
+        ctx.font = `${messageSize}px Arial`;
+        if (this.saveToDelete) {
+            ctx.fillText(`"${this.saveToDelete.name}"`, canvasWidth / 2, dialogY + dialogHeight * 0.45);
+        }
+        
+        // Warning message
+        ctx.fillStyle = '#aaa';
+        ctx.font = `${messageSize * 0.8}px Arial`;
+        ctx.fillText('This action cannot be undone!', canvasWidth / 2, dialogY + dialogHeight * 0.6);
+        
+        // Controls hint
+        ctx.fillStyle = '#888';
+        ctx.font = `${messageSize * 0.7}px Arial`;
+        const hintText = this.game.inputManager.isMobile ? 'A: Confirm | B: Cancel' : 'Enter: Confirm | ESC: Cancel';
+        ctx.fillText(hintText, canvasWidth / 2, dialogY + dialogHeight * 0.7);
+        
+        // Options (Yes / No)
+        ctx.font = `bold ${optionSize}px Arial`;
+        const optionY = dialogY + dialogHeight * 0.85;
+        const optionSpacing = dialogWidth * 0.3;
+        
+        this.confirmOptions.forEach((option, index) => {
+            const x = canvasWidth / 2 - optionSpacing / 2 + index * optionSpacing;
+            ctx.fillStyle = index === this.selectedOption ? '#ffff00' : '#fff';
+            if (index === 0) {
+                ctx.fillStyle = index === this.selectedOption ? '#ff6666' : '#ff3333';
+            }
+            ctx.fillText(option, x, optionY);
+        });
     }
 }
 

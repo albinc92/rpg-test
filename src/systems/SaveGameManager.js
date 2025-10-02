@@ -44,11 +44,14 @@ class SaveGameManager {
     /**
      * Save current game state
      * Returns the save slot ID
+     * @param {Object} game - The game instance
+     * @param {string|null} saveName - Optional save name
+     * @param {number|null} overwriteId - Optional ID to overwrite existing save
      */
-    saveGame(game, saveName = null) {
+    saveGame(game, saveName = null, overwriteId = null) {
         try {
-            // Generate save ID
-            const saveId = Date.now();
+            // Use provided ID for overwrite, or generate new one
+            const saveId = overwriteId || Date.now();
             const slotKey = this.saveKeyPrefix + saveId;
 
             // Create save data
