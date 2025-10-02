@@ -211,16 +211,23 @@ class GameState {
  * Loading State
  */
 class LoadingState extends GameState {
-    enter() {
+    enter(data = {}) {
         this.loadingProgress = 0;
         this.loadingText = 'Loading...';
+        this.loadSaveId = data.loadSaveId || null;
+        this.isLoadedGame = data.isLoadedGame || false;
+        this.fromPauseMenu = data.fromPauseMenu || false;
         this.startLoading();
     }
     
     async startLoading() {
-        // Simulate loading process
-        // In a real game, this would load assets, maps, etc.
+        // Check if we're loading a saved game
+        if (this.loadSaveId) {
+            await this.loadSavedGame();
+            return;
+        }
         
+        // Normal game initialization (first time load)
         this.loadingText = 'Loading audio...';
         await this.waitForAudio();
         this.loadingProgress = 0.4;
@@ -237,6 +244,42 @@ class LoadingState extends GameState {
         setTimeout(() => {
             this.stateManager.changeState('MAIN_MENU');
         }, 500);
+    }
+    
+    async loadSavedGame() {
+        this.loadingText = 'Loading save data...';
+        this.loadingProgress = 0.2;
+        
+        await new Promise(resolve => setTimeout(resolve, 100)); // Brief pause
+        
+        this.loadingText = 'Loading map...';
+        this.loadingProgress = 0.4;
+        
+        // Load the saved game
+        const success = await this.game.saveGameManager.loadGame(this.loadSaveId, this.game);
+        
+        if (success) {
+            this.loadingText = 'Restoring game state...';
+            this.loadingProgress = 0.8;
+            
+            await new Promise(resolve => setTimeout(resolve, 200)); // Let objects spawn
+            
+            this.loadingText = 'Ready!';
+            this.loadingProgress = 1.0;
+            
+            // Transition to playing state
+            setTimeout(() => {
+                this.stateManager.changeState('PLAYING', { 
+                    isLoadedGame: this.isLoadedGame 
+                });
+            }, 300);
+        } else {
+            // Failed to load - go back to main menu
+            this.loadingText = 'Failed to load save';
+            setTimeout(() => {
+                this.stateManager.changeState('MAIN_MENU');
+            }, 1000);
+        }
     }
 
     // Wait for audio to be ready (either immediately or after user interaction)
@@ -426,8 +469,11 @@ class MainMenuState extends GameState {
                 // Load the most recent save
                 const mostRecentSave = this.game.saveGameManager.getLatestSave();
                 if (mostRecentSave) {
-                    await this.game.saveGameManager.loadGame(mostRecentSave.id, this.game);
-                    this.stateManager.changeState('PLAYING', { isLoadedGame: true });
+                    // Show loading screen while loading save
+                    this.stateManager.changeState('LOADING', { 
+                        loadSaveId: mostRecentSave.id,
+                        isLoadedGame: true 
+                    });
                 }
                 break;
             case 'New Game':
@@ -860,20 +906,21 @@ class SaveLoadState extends GameState {
             // Load selected save
             if (this.saves[this.selectedOption]) {
                 const save = this.saves[this.selectedOption];
-                // Load game (this now loads the map and restores everything including audio)
-                this.game.saveGameManager.loadGame(save.id, this.game).then((success) => {
-                    if (success) {
-                        console.log('✅ Game loaded!');
-                        if (this.fromMainMenu) {
-                            // Go to playing state
-                            this.stateManager.changeState('PLAYING', { isLoadedGame: true });
-                        } else {
-                            // Pop back to gameplay (map and audio are already loaded)
-                            this.stateManager.popState(); // Exit save/load menu
-                            this.stateManager.popState(); // Exit pause menu
-                        }
-                    }
-                });
+                // Show loading screen while loading save
+                if (this.fromMainMenu) {
+                    // From main menu - change to loading state
+                    this.stateManager.changeState('LOADING', { 
+                        loadSaveId: save.id,
+                        isLoadedGame: true 
+                    });
+                } else {
+                    // From pause menu - change to loading state (it will handle returning to game)
+                    this.stateManager.changeState('LOADING', { 
+                        loadSaveId: save.id,
+                        isLoadedGame: true,
+                        fromPauseMenu: true
+                    });
+                }
             }
         } else if (this.mode === 'delete_confirm') {
             console.log('Delete confirmation - selected option:', this.selectedOption, '(0=Yes, 1=No)');
