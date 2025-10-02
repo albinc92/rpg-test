@@ -5,224 +5,320 @@
       "spriteSrc": "assets/objects/trees/tree-01.png",
       "x": 200,
       "y": 150,
-      "scale": 0.95
+      "scale": 0.95,
+      "collisionExpandTopPercent": -0.90,
+      "collisionExpandRightPercent": -0.25,
+      "collisionExpandLeftPercent": -0.25
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/trees/tree-01.png",
       "x": 1750,
       "y": 200,
-      "scale": 1.1
+      "scale": 1.1,
+      "collisionExpandTopPercent": -0.90,
+      "collisionExpandRightPercent": -0.25,
+      "collisionExpandLeftPercent": -0.25
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/trees/tree-01.png",
       "x": 300,
       "y": 900,
-      "scale": 1.05
+      "scale": 1.05,
+      "collisionExpandTopPercent": -0.90,
+      "collisionExpandRightPercent": -0.25,
+      "collisionExpandLeftPercent": -0.25
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/trees/tree-01.png",
       "x": 1650,
       "y": 950,
-      "scale": 1.0
+      "scale": 1.0,
+      "collisionExpandTopPercent": -0.90,
+      "collisionExpandRightPercent": -0.25,
+      "collisionExpandLeftPercent": -0.25
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/trees/tree-01.png",
       "x": 100,
       "y": 500,
-      "scale": 0.9
+      "scale": 0.9,
+      "collisionExpandTopPercent": -0.90,
+      "collisionExpandRightPercent": -0.25,
+      "collisionExpandLeftPercent": -0.25
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/trees/tree-01.png",
       "x": 1850,
       "y": 600,
-      "scale": 1.08
+      "scale": 1.08,
+      "collisionExpandTopPercent": -0.90,
+      "collisionExpandRightPercent": -0.25,
+      "collisionExpandLeftPercent": -0.25
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/trees/tree-01.png",
       "x": 950,
       "y": 100,
-      "scale": 0.98
+      "scale": 0.98,
+      "collisionExpandTopPercent": -0.90,
+      "collisionExpandRightPercent": -0.25,
+      "collisionExpandLeftPercent": -0.25
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/trees/tree-01.png",
       "x": 1000,
       "y": 1000,
-      "scale": 1.03
+      "scale": 1.03,
+      "collisionExpandTopPercent": -0.90,
+      "collisionExpandRightPercent": -0.25,
+      "collisionExpandLeftPercent": -0.25
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 350,
       "y": 280,
-      "scale": 0.5
+      "scale": 0.5,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 520,
       "y": 220,
-      "scale": 0.42
+      "scale": 0.42,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 680,
       "y": 180,
-      "scale": 0.48
+      "scale": 0.48,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 1450,
       "y": 240,
-      "scale": 0.44
+      "scale": 0.44,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 1580,
       "y": 320,
-      "scale": 0.46
+      "scale": 0.46,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 1320,
       "y": 180,
-      "scale": 0.41
+      "scale": 0.41,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 280,
       "y": 420,
-      "scale": 0.43
+      "scale": 0.43,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 180,
       "y": 650,
-      "scale": 0.47
+      "scale": 0.47,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 320,
       "y": 780,
-      "scale": 0.42
+      "scale": 0.42,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 1520,
       "y": 820,
-      "scale": 0.44
+      "scale": 0.44,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 1680,
       "y": 720,
-      "scale": 0.43
+      "scale": 0.43,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 1580,
       "y": 580,
-      "scale": 0.49
+      "scale": 0.49,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 450,
       "y": 850,
-      "scale": 0.42
+      "scale": 0.42,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 620,
       "y": 920,
-      "scale": 0.46
+      "scale": 0.46,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 820,
       "y": 880,
-      "scale": 0.44
+      "scale": 0.44,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 1120,
       "y": 850,
-      "scale": 0.43
+      "scale": 0.43,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 1380,
       "y": 900,
-      "scale": 0.48
+      "scale": 0.48,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 1240,
       "y": 780,
-      "scale": 0.41
+      "scale": 0.41,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 280,
       "y": 320,
-      "scale": 0.44
+      "scale": 0.44,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 1650,
       "y": 450,
-      "scale": 0.42
+      "scale": 0.42,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 750,
       "y": 250,
-      "scale": 0.47
+      "scale": 0.47,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 540,
       "y": 780,
-      "scale": 0.43
+      "scale": 0.43,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 1280,
       "y": 320,
-      "scale": 0.49
+      "scale": 0.49,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "StaticObject",
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "x": 920,
       "y": 820,
-      "scale": 0.5
+      "scale": 0.5,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "Actor",
@@ -246,7 +342,10 @@
       "spriteSrc": "assets/objects/trees/tree-01.png",
       "x": 400,
       "y": 500,
-      "scale": 1.1
+      "scale": 1.1,
+      "collisionExpandTopPercent": -0.70,
+      "collisionExpandRightPercent": -0.05,
+      "collisionExpandLeftPercent": -0.05
     },
     {
       "category": "InteractiveObject",
