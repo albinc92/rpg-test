@@ -57,6 +57,12 @@ async function loadGameScripts() {
         await loadScript('/src/systems/PerformanceMonitor.js');
         await loadScript('/src/systems/SaveGameManager.js');
         
+        // Load editor components
+        await loadScript('/src/editor/EditorUI.js');
+        await loadScript('/src/editor/ObjectPalette.js');
+        await loadScript('/src/editor/PropertyPanel.js');
+        await loadScript('/src/systems/EditorManager.js');
+        
         // Load game engine
         await loadScript('/src/GameEngine.js');
         

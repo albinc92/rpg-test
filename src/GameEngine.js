@@ -65,6 +65,9 @@ class GameEngine {
         this.performanceMonitor = new PerformanceMonitor();
         this.saveGameManager = new SaveGameManager();
         
+        // Editor system
+        this.editorManager = new EditorManager(this);
+        
         // Game state
         this.currentMapId = '0-0';
         this.currentMap = null;
@@ -244,12 +247,28 @@ class GameEngine {
     }
 
     /**
+     * Handle mouse clicks for editor
+     */
+    handleMouseClick = (e) => {
+        if (this.editorManager && this.editorManager.isActive) {
+            const rect = this.canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            this.editorManager.handleClick(x, y, e.button);
+        }
+    }
+
+    /**
      * Start the main game loop
      */
     startGameLoop() {
         // Add pause control with P key and debug controls
         document.addEventListener('keydown', this.handleDebugKeys);
         this.eventListeners.push({ target: document, type: 'keydown', handler: this.handleDebugKeys });
+        
+        // Add mouse click handler for editor
+        this.canvas.addEventListener('mousedown', this.handleMouseClick);
+        this.eventListeners.push({ target: this.canvas, type: 'mousedown', handler: this.handleMouseClick });
         
         const gameLoop = (currentTime) => {
             const deltaTime = (currentTime - this.lastTime) / 1000;
@@ -302,6 +321,9 @@ class GameEngine {
         
         // Render current state
         this.stateManager.render(this.ctx);
+        
+        // Render editor overlay
+        this.editorManager.render(this.ctx);
         
         // Render debug info if enabled
         if (this.settings.showDebugInfo) {
@@ -362,6 +384,9 @@ class GameEngine {
      */
     handleGameplayInput(inputManager) {
         if (!this.player) return;
+        
+        // Skip if editor is active
+        if (this.editorManager.isActive) return;
         
         // Get movement input
         const movement = inputManager.getMovementInput();
