@@ -331,11 +331,17 @@ class MainMenuState extends GameState {
     
     enter(data = {}) {
         this.selectedOption = 0;
-        this.options = ['New Game', 'Load Game', 'Settings', 'Exit'];
         this.musicStarted = false;
         
         // Check if there are any save files
         this.hasSaveFiles = this.game.saveGameManager.hasSaves();
+        
+        // Build options dynamically - Continue first if saves exist
+        if (this.hasSaveFiles) {
+            this.options = ['Continue', 'New Game', 'Load Game', 'Settings', 'Exit'];
+        } else {
+            this.options = ['New Game', 'Load Game', 'Settings', 'Exit'];
+        }
         
         // Check what state we're coming from
         const previousState = this.stateManager.previousState;
@@ -392,11 +398,7 @@ class MainMenuState extends GameState {
         // Only start music when ENTERING main menu, not on every input
         
         if (inputManager.isJustPressed('up')) {
-            let newOption = Math.max(0, this.selectedOption - 1);
-            // Skip Load Game if no saves
-            if (newOption === 1 && !this.hasSaveFiles) {
-                newOption = 0;
-            }
+            const newOption = Math.max(0, this.selectedOption - 1);
             if (newOption !== this.selectedOption) {
                 this.selectedOption = newOption;
                 this.game.audioManager?.playEffect('menu-navigation.mp3');
@@ -404,11 +406,7 @@ class MainMenuState extends GameState {
         }
         
         if (inputManager.isJustPressed('down')) {
-            let newOption = Math.min(this.options.length - 1, this.selectedOption + 1);
-            // Skip Load Game if no saves
-            if (newOption === 1 && !this.hasSaveFiles) {
-                newOption = 2;
-            }
+            const newOption = Math.min(this.options.length - 1, this.selectedOption + 1);
             if (newOption !== this.selectedOption) {
                 this.selectedOption = newOption;
                 this.game.audioManager?.playEffect('menu-navigation.mp3');
@@ -421,23 +419,30 @@ class MainMenuState extends GameState {
     }
     
     async selectOption() {
-        switch (this.selectedOption) {
-            case 0: // New Game
+        const optionName = this.options[this.selectedOption];
+        
+        switch (optionName) {
+            case 'Continue':
+                // Load the most recent save
+                const mostRecentSave = this.game.saveGameManager.getLatestSave();
+                if (mostRecentSave) {
+                    await this.game.saveGameManager.loadGame(mostRecentSave.id, this.game);
+                    this.stateManager.changeState('PLAYING', { isLoadedGame: true });
+                }
+                break;
+            case 'New Game':
                 // Start new game - reset playtime
                 this.game.playtime = 0;
                 this.stateManager.changeState('PLAYING', { isNewGame: true });
                 break;
-            case 1: // Load Game
-                if (this.hasSaveFiles) {
-                    // Open save/load menu in load mode from main menu
-                    this.stateManager.pushState('SAVE_LOAD', { mode: 'load_list', fromMainMenu: true });
-                }
-                // If no saves, do nothing (button is grayed out)
+            case 'Load Game':
+                // Open save/load menu in load mode from main menu
+                this.stateManager.pushState('SAVE_LOAD', { mode: 'load_list', fromMainMenu: true });
                 break;
-            case 2: // Settings
+            case 'Settings':
                 this.stateManager.pushState('SETTINGS');
                 break;
-            case 3: // Exit
+            case 'Exit':
                 // Exit game
                 break;
         }
@@ -505,19 +510,12 @@ class MainMenuState extends GameState {
         this.options.forEach((option, index) => {
             const y = menuStartY + index * menuSpacing;
             
-            // Check if this is the Load Game option and there are no saves
-            const isLoadGameDisabled = (index === 1 && !this.hasSaveFiles);
-            
             // Text shadow for all options
             ctx.fillStyle = '#000';
             ctx.fillText(option, canvasWidth / 2 + 2, y + 2);
             
-            // Main text - gray out Load Game if no saves
-            if (isLoadGameDisabled) {
-                ctx.fillStyle = '#666'; // Gray for disabled
-            } else {
-                ctx.fillStyle = index === this.selectedOption ? '#ffff00' : '#fff';
-            }
+            // Main text - highlight selected option
+            ctx.fillStyle = index === this.selectedOption ? '#ffff00' : '#fff';
             ctx.fillText(option, canvasWidth / 2, y);
         });
         
