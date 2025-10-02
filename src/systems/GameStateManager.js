@@ -699,7 +699,7 @@ class PausedState extends GameState {
 class SaveLoadState extends GameState {
     enter(data = {}) {
         console.log('💾 SAVE/LOAD MENU ENTERED');
-        this.mode = data.mode || 'main'; // 'main', 'save_list', 'load_list', 'delete_confirm'
+        this.mode = data.mode || 'main'; // 'main', 'save_list', 'load_list', 'delete_confirm', 'overwrite_confirm'
         this.fromMainMenu = data.fromMainMenu || false;
         this.selectedOption = 0;
         this.mainOptions = ['Save Game', 'Load Game', 'Back'];
@@ -707,6 +707,7 @@ class SaveLoadState extends GameState {
         this.scrollOffset = 0;
         this.maxVisibleSaves = 5; // Reduced to make room for empty slot
         this.saveToDelete = null;
+        this.saveToOverwrite = null;
         this.confirmOptions = ['Yes', 'No'];
         
         // If entering directly in load mode (from main menu), load saves
@@ -722,6 +723,13 @@ class SaveLoadState extends GameState {
                 this.mode = this.previousMode;
                 this.selectedOption = this.previousSelection;
                 this.saveToDelete = null;
+                return;
+            }
+            if (this.mode === 'overwrite_confirm') {
+                // Cancel overwrite confirmation
+                this.mode = this.previousMode;
+                this.selectedOption = this.previousSelection;
+                this.saveToOverwrite = null;
                 return;
             }
             if (this.mode === 'main') {
@@ -771,7 +779,7 @@ class SaveLoadState extends GameState {
     getMaxOption() {
         if (this.mode === 'main') {
             return this.mainOptions.length - 1;
-        } else if (this.mode === 'delete_confirm') {
+        } else if (this.mode === 'delete_confirm' || this.mode === 'overwrite_confirm') {
             return this.confirmOptions.length - 1;
         } else if (this.mode === 'save_list') {
             return this.saves.length; // +1 for empty slot at top
@@ -821,16 +829,10 @@ class SaveLoadState extends GameState {
                     this.saves = this.game.saveGameManager.getAllSaves();
                 }
             } else {
-                // Overwrite existing save
+                // Ask for overwrite confirmation
                 const save = this.saves[this.selectedOption - 1];
                 if (save) {
-                    const saveId = this.game.saveGameManager.saveGame(this.game, save.name, save.id);
-                    if (saveId) {
-                        console.log('✅ Game saved (overwritten)!');
-                        this.game.audioManager?.playEffect('menu-navigation.mp3');
-                        // Refresh save list
-                        this.saves = this.game.saveGameManager.getAllSaves();
-                    }
+                    this.showOverwriteConfirmation(save);
                 }
             }
         } else if (this.mode === 'load_list') {
@@ -862,6 +864,16 @@ class SaveLoadState extends GameState {
                 this.selectedOption = this.previousSelection;
                 this.saveToDelete = null;
             }
+        } else if (this.mode === 'overwrite_confirm') {
+            if (this.selectedOption === 0) {
+                // Yes - overwrite the save
+                this.confirmOverwrite();
+            } else {
+                // No - cancel
+                this.mode = this.previousMode;
+                this.selectedOption = this.previousSelection;
+                this.saveToOverwrite = null;
+            }
         }
     }
     
@@ -889,6 +901,30 @@ class SaveLoadState extends GameState {
         }
     }
     
+    showOverwriteConfirmation(save) {
+        this.saveToOverwrite = save;
+        this.previousMode = this.mode;
+        this.previousSelection = this.selectedOption;
+        this.mode = 'overwrite_confirm';
+        this.selectedOption = 1; // Default to "No"
+        this.game.audioManager?.playEffect('menu-navigation.mp3');
+    }
+    
+    confirmOverwrite() {
+        if (this.saveToOverwrite) {
+            const saveId = this.game.saveGameManager.saveGame(this.game, this.saveToOverwrite.name, this.saveToOverwrite.id);
+            if (saveId) {
+                console.log('✅ Game saved (overwritten)!');
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+                // Refresh save list
+                this.saves = this.game.saveGameManager.getAllSaves();
+                this.mode = this.previousMode;
+                this.selectedOption = this.previousSelection;
+                this.saveToOverwrite = null;
+            }
+        }
+    }
+    
 
     
     render(ctx) {
@@ -903,6 +939,8 @@ class SaveLoadState extends GameState {
             this.renderMainMenu(ctx, canvasWidth, canvasHeight);
         } else if (this.mode === 'delete_confirm') {
             this.renderDeleteConfirmation(ctx, canvasWidth, canvasHeight);
+        } else if (this.mode === 'overwrite_confirm') {
+            this.renderOverwriteConfirmation(ctx, canvasWidth, canvasHeight);
         } else {
             this.renderSaveList(ctx, canvasWidth, canvasHeight);
         }
@@ -1126,6 +1164,67 @@ class SaveLoadState extends GameState {
             ctx.fillStyle = index === this.selectedOption ? '#ffff00' : '#fff';
             if (index === 0) {
                 ctx.fillStyle = index === this.selectedOption ? '#ff6666' : '#ff3333';
+            }
+            ctx.fillText(option, x, optionY);
+        });
+    }
+    
+    renderOverwriteConfirmation(ctx, canvasWidth, canvasHeight) {
+        // Responsive font sizes
+        const titleSize = Math.min(28, canvasHeight * 0.05);
+        const messageSize = Math.min(20, canvasHeight * 0.035);
+        const optionSize = Math.min(24, canvasHeight * 0.042);
+        
+        // Draw a darker overlay
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        // Draw confirmation dialog box
+        const dialogWidth = canvasWidth * 0.6;
+        const dialogHeight = canvasHeight * 0.4;
+        const dialogX = canvasWidth / 2 - dialogWidth / 2;
+        const dialogY = canvasHeight / 2 - dialogHeight / 2;
+        
+        ctx.fillStyle = 'rgba(40, 40, 40, 0.95)';
+        ctx.fillRect(dialogX, dialogY, dialogWidth, dialogHeight);
+        ctx.strokeStyle = '#FFA500';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(dialogX, dialogY, dialogWidth, dialogHeight);
+        
+        // Title
+        ctx.fillStyle = '#FFA500';
+        ctx.font = `bold ${titleSize}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText('Overwrite Save?', canvasWidth / 2, dialogY + dialogHeight * 0.25);
+        
+        // Save name
+        ctx.fillStyle = '#fff';
+        ctx.font = `${messageSize}px Arial`;
+        if (this.saveToOverwrite) {
+            ctx.fillText(`"${this.saveToOverwrite.name}"`, canvasWidth / 2, dialogY + dialogHeight * 0.45);
+        }
+        
+        // Warning message
+        ctx.fillStyle = '#aaa';
+        ctx.font = `${messageSize * 0.8}px Arial`;
+        ctx.fillText('This will replace the existing save!', canvasWidth / 2, dialogY + dialogHeight * 0.6);
+        
+        // Controls hint
+        ctx.fillStyle = '#888';
+        ctx.font = `${messageSize * 0.7}px Arial`;
+        const hintText = this.game.inputManager.isMobile ? 'A: Confirm | B: Cancel' : 'Enter: Confirm | ESC: Cancel';
+        ctx.fillText(hintText, canvasWidth / 2, dialogY + dialogHeight * 0.7);
+        
+        // Options (Yes / No)
+        ctx.font = `bold ${optionSize}px Arial`;
+        const optionY = dialogY + dialogHeight * 0.85;
+        const optionSpacing = dialogWidth * 0.3;
+        
+        this.confirmOptions.forEach((option, index) => {
+            const x = canvasWidth / 2 - optionSpacing / 2 + index * optionSpacing;
+            ctx.fillStyle = index === this.selectedOption ? '#ffff00' : '#fff';
+            if (index === 0) {
+                ctx.fillStyle = index === this.selectedOption ? '#FFB84D' : '#FFA500';
             }
             ctx.fillText(option, x, optionY);
         });

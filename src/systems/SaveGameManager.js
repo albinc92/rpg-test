@@ -92,7 +92,7 @@ class SaveGameManager {
                 name: saveName || this.generateSaveName(game),
                 timestamp: Date.now(),
                 mapId: game.currentMapId,
-                mapName: this.getMapName(game.currentMapId),
+                mapName: this.getMapName(game.currentMapId, game),
                 playtime: saveData.playtime,
                 playerLevel: game.player.level || 1, // If we add levels later
                 gold: saveData.inventory ? saveData.inventory.gold : 0
@@ -224,7 +224,7 @@ class SaveGameManager {
      * Generate a default save name
      */
     generateSaveName(game) {
-        const mapName = this.getMapName(game.currentMapId);
+        const mapName = this.getMapName(game.currentMapId, game);
         const date = new Date();
         const timeStr = date.toLocaleTimeString('en-US', { 
             hour: '2-digit', 
@@ -234,11 +234,15 @@ class SaveGameManager {
     }
 
     /**
-     * Get human-readable map name from MapManager
+     * Get human-readable map name
+     * Note: Can't access MapManager from here, so we'll pass game when needed
      */
-    getMapName(mapId) {
-        const mapData = this.game.mapManager.getMapData(mapId);
-        return mapData?.name || mapId;
+    getMapName(mapId, game = null) {
+        if (game && game.mapManager) {
+            const mapData = game.mapManager.getMapData(mapId);
+            return mapData?.name || mapId;
+        }
+        return mapId;
     }
 
     /**
