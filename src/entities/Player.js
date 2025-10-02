@@ -30,6 +30,7 @@ class Player extends Actor {
         // Track previous position for actual movement detection
         this.prevX = options.x || 0;
         this.prevY = options.y || 0;
+        this.wasMovingLastFrame = false; // Track if player was moving in previous frame
     }
     
     /**
@@ -54,28 +55,41 @@ class Player extends Actor {
         const deltaX = this.x - this.prevX;
         const deltaY = this.y - this.prevY;
         const actualMovement = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-        const isMoving = actualMovement > 0.1; // Minimum movement threshold
+        
+        // Calculate movement speed (pixels per second)
+        const movementSpeed = actualMovement / deltaTime;
+        const isMoving = movementSpeed > 20; // Minimum speed threshold (pixels/second)
         
         // Update previous position for next frame
         this.prevX = this.x;
         this.prevY = this.y;
         
         if (isMoving) {
-            // Update footstep timer
-            this.footstepTimer -= deltaTime;
-            
-            if (this.footstepTimer <= 0) {
-                // Play footstep sound
-                game.audioManager?.playEffect('footstep-0.mp3', 0.3);
+            // Only decrement timer if player was already moving last frame
+            // This prevents rapid-fire footsteps when transitioning to stopped
+            if (this.wasMovingLastFrame) {
+                this.footstepTimer -= deltaTime;
                 
-                // Set next footstep interval based on speed
-                const speedMultiplier = this.isRunning ? 0.7 : 1.0; // Faster footsteps when running
+                if (this.footstepTimer <= 0) {
+                    // Play footstep sound
+                    game.audioManager?.playEffect('footstep-0.mp3', 0.3);
+                    
+                    // Set next footstep interval based on speed
+                    const speedMultiplier = this.isRunning ? 0.7 : 1.0; // Faster footsteps when running
+                    this.footstepInterval = 0.5 * speedMultiplier;
+                    this.footstepTimer = this.footstepInterval;
+                }
+            } else {
+                // Just started moving, initialize timer without playing sound
+                const speedMultiplier = this.isRunning ? 0.7 : 1.0;
                 this.footstepInterval = 0.5 * speedMultiplier;
                 this.footstepTimer = this.footstepInterval;
             }
+            this.wasMovingLastFrame = true;
         } else {
             // Reset footstep timer when not moving
             this.footstepTimer = 0;
+            this.wasMovingLastFrame = false;
         }
     }
     
