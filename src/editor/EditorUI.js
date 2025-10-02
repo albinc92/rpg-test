@@ -51,7 +51,6 @@ class EditorUI {
         toolbar.appendChild(title);
 
         // Create dropdown menus
-        this.createActionsMenu(toolbar);
         this.createEditMenu(toolbar);
         this.createViewMenu(toolbar);
         this.createDataMenu(toolbar);
@@ -72,27 +71,6 @@ class EditorUI {
 
         this.container.appendChild(toolbar);
         document.body.appendChild(this.container);
-    }
-
-    /**
-     * Create Actions dropdown menu
-     */
-    createActionsMenu(toolbar) {
-        const actionsMenu = new DropdownMenu('Actions', [
-            {
-                label: '👆 Select',
-                shortcut: 'V',
-                action: () => this.editor.setTool('select')
-            },
-            {
-                label: '➕ Place',
-                shortcut: 'B',
-                action: () => this.editor.setTool('place')
-            }
-        ]);
-        
-        this.dropdowns.push(actionsMenu);
-        toolbar.appendChild(actionsMenu.getElement());
     }
 
     /**
@@ -307,7 +285,7 @@ class EditorUI {
         console.log(`[EditorUI] Selected ${name} for placement`);
         
         // Show notification
-        this.showNotification(`🎨 Placing: ${name} - Click to place, V to cancel`);
+        this.showNotification(`🎨 Placing: ${name} - Click to place, Esc to cancel`);
     }
     
     /**
@@ -391,18 +369,8 @@ class EditorUI {
      * Update tool button states
      */
     updateToolButtons() {
-        // Tool buttons are now in dropdown menus, so we just update the Actions dropdown
-        // to show which tool is active
-        const actionsDropdown = this.dropdowns[0]; // First dropdown is Actions
-        if (actionsDropdown && this.editor.selectedTool === 'place' && this.editor.selectedPrefab) {
-            // Update button to show placement mode
-            actionsDropdown.button.style.background = '#27ae60';
-        } else {
-            // Reset to normal
-            if (actionsDropdown && !actionsDropdown.isOpen) {
-                actionsDropdown.button.style.background = '#333';
-            }
-        }
+        // No Actions dropdown anymore - selection happens directly through Data menu
+        // This method kept for backward compatibility
     }
 
     /**

@@ -62,11 +62,12 @@ class EditorManager {
             // Only process other shortcuts when editor is active
             if (!this.isActive) return;
             
-            // Tool shortcuts
-            if (e.key === 'v' || e.key === 'V') {
+            // Escape cancels placement mode
+            if (e.key === 'Escape' && this.selectedTool === 'place') {
+                e.preventDefault();
+                this.selectedPrefab = null;
                 this.setTool('select');
-            } else if (e.key === 'b' || e.key === 'B') {
-                this.setTool('place');
+                console.log('[EditorManager] Placement cancelled');
             }
             
             // Delete selected object with 'D' or Delete key
@@ -140,6 +141,10 @@ class EditorManager {
         // Pause game
         this.isPaused = this.game.isPaused;
         this.game.isPaused = true;
+        
+        // Always start in select mode
+        this.selectedTool = 'select';
+        this.selectedPrefab = null;
         
         // Create UI if not exists
         if (!this.ui) {
