@@ -26,6 +26,8 @@ class EditorManager {
         this.previewObject = null;
         this.mouseWorldX = 0;
         this.mouseWorldY = 0;
+        this.rawMouseX = 0; // Raw screen mouse position
+        this.rawMouseY = 0;
         
         // Grid settings
         this.gridEnabled = true;
@@ -240,6 +242,7 @@ class EditorManager {
         this.previewSprite = new Image();
         this.previewSprite.onload = () => {
             console.log('[EditorManager] Preview sprite loaded:', src);
+            console.log('[EditorManager] Raw mouse at load:', this.rawMouseX, this.rawMouseY);
         };
         this.previewSprite.onerror = () => {
             console.error('[EditorManager] Failed to load preview sprite:', src);
@@ -389,11 +392,35 @@ class EditorManager {
     renderPlacementPreview(ctx) {
         if (!this.selectedPrefab) return;
         
-        const camera = this.game.camera;
-        const worldX = this.mouseWorldX;
-        const worldY = this.mouseWorldY;
-        const screenX = worldX - camera.x;
-        const screenY = worldY - camera.y;
+        // The canvas has complex scaling:
+        // 1. Canvas internal dimensions (e.g., 1546×1203)
+        // 2. CSS display dimensions (e.g., 799×621)
+        // 3. Context transform scale (devicePixelRatio on mobile)
+        
+        const rect = this.game.canvas.getBoundingClientRect();
+        const canvas = this.game.canvas;
+        
+        // Get mouse position in screen/CSS pixels, relative to canvas element
+        const mouseScreenX = this.rawMouseX;
+        const mouseScreenY = this.rawMouseY;
+        const relativeX = mouseScreenX - rect.left;
+        const relativeY = mouseScreenY - rect.top;
+        
+        // Get the current context transform to see if there's additional scaling
+        const transform = ctx.getTransform();
+        const contextScaleX = transform.a; // X scale from context
+        const contextScaleY = transform.d; // Y scale from context
+        
+        // Account for both canvas size difference AND context scale
+        const canvasToDisplayX = canvas.width / rect.width;
+        const canvasToDisplayY = canvas.height / rect.height;
+        
+        // The actual scale we need is: canvas-to-display / context-scale
+        const finalScaleX = canvasToDisplayX / contextScaleX;
+        const finalScaleY = canvasToDisplayY / contextScaleY;
+        
+        const screenX = relativeX * finalScaleX;
+        const screenY = relativeY * finalScaleY;
         
         ctx.save();
         
@@ -468,8 +495,8 @@ class EditorManager {
         
         // Draw crosshair at placement point
         ctx.strokeStyle = 'rgba(74, 158, 255, 0.8)';
-        ctx.lineWidth = 1;
-        const crosshairSize = 10;
+        ctx.lineWidth = 2;
+        const crosshairSize = 20;
         
         // Horizontal line
         ctx.beginPath();
@@ -482,6 +509,21 @@ class EditorManager {
         ctx.moveTo(screenX, screenY - crosshairSize);
         ctx.lineTo(screenX, screenY + crosshairSize);
         ctx.stroke();
+        
+        // Draw center dot to mark exact center
+        ctx.fillStyle = 'rgba(255, 0, 0, 1.0)';
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, 6, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw text showing coordinates
+        ctx.fillStyle = 'white';
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 3;
+        ctx.font = '14px monospace';
+        const coordText = `Mouse: (${Math.round(this.rawMouseX)}, ${Math.round(this.rawMouseY)})`;
+        ctx.strokeText(coordText, screenX + 15, screenY - 15);
+        ctx.fillText(coordText, screenX + 15, screenY - 15);
         
         ctx.restore();
     }
@@ -545,9 +587,16 @@ class EditorManager {
         this.mouseMoveHandler = (e) => this.onMouseMove(e);
         this.mouseUpHandler = (e) => this.onMouseUp(e);
         
+        // Track raw mouse position for preview rendering
+        this.rawMouseMoveHandler = (e) => {
+            this.rawMouseX = e.clientX;
+            this.rawMouseY = e.clientY;
+        };
+        
         this.game.canvas.addEventListener('mousedown', this.mouseDownHandler);
         this.game.canvas.addEventListener('mousemove', this.mouseMoveHandler);
         this.game.canvas.addEventListener('mouseup', this.mouseUpHandler);
+        window.addEventListener('mousemove', this.rawMouseMoveHandler);
     }
     
     /**
@@ -558,6 +607,9 @@ class EditorManager {
             this.game.canvas.removeEventListener('mousedown', this.mouseDownHandler);
             this.game.canvas.removeEventListener('mousemove', this.mouseMoveHandler);
             this.game.canvas.removeEventListener('mouseup', this.mouseUpHandler);
+        }
+        if (this.rawMouseMoveHandler) {
+            window.removeEventListener('mousemove', this.rawMouseMoveHandler);
         }
     }
     
