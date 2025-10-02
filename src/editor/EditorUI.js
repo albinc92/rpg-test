@@ -277,7 +277,10 @@ class EditorUI {
             {
                 label: '🗺️ Maps',
                 items: [
-                    { label: '📝 Current Map Properties', disabled: true },
+                    { 
+                        label: '⚙️ Current Map Config', 
+                        action: () => this.showMapConfig() 
+                    },
                     { label: '➕ New Map', disabled: true },
                     { separator: true },
                     { label: '📋 All Maps', disabled: true }
@@ -408,6 +411,201 @@ class EditorUI {
      */
     hide() {
         this.container.style.display = 'none';
+    }
+
+    /**
+     * Show Map Configuration Modal
+     */
+    showMapConfig() {
+        const currentMapId = this.editor.game.currentMapId;
+        const mapData = this.editor.game.mapManager.maps[currentMapId];
+        
+        if (!mapData) {
+            alert('No map data found!');
+            return;
+        }
+
+        // Create modal backdrop
+        const backdrop = document.createElement('div');
+        backdrop.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: #1a1a1a;
+            border: 2px solid #4a9eff;
+            border-radius: 12px;
+            padding: 24px;
+            width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            color: white;
+            font-family: Arial, sans-serif;
+        `;
+
+        // Title
+        const title = document.createElement('h2');
+        title.textContent = `🗺️ Map Configuration: ${mapData.name}`;
+        title.style.cssText = 'margin-top: 0; color: #4a9eff;';
+        modal.appendChild(title);
+
+        // Create form
+        const form = document.createElement('form');
+        form.style.cssText = 'display: flex; flex-direction: column; gap: 16px;';
+
+        // Map Name
+        form.appendChild(this.createConfigField('Map Name', mapData.name, 'text', (value) => {
+            mapData.name = value;
+        }));
+
+        // Map Scale
+        form.appendChild(this.createConfigField('Map Scale', mapData.scale || 1, 'number', (value) => {
+            mapData.scale = parseFloat(value);
+        }, { step: 0.1, min: 0.1 }));
+
+        // Background Image
+        form.appendChild(this.createConfigField('Background Image', mapData.imageSrc, 'text', (value) => {
+            mapData.imageSrc = value;
+        }));
+
+        // Background Music
+        const musicOptions = ['none', 'assets/audio/bgm/00.mp3', 'assets/audio/bgm/01.mp3', 'assets/audio/bgm/02.mp3'];
+        form.appendChild(this.createConfigSelect('Background Music', mapData.music || 'none', musicOptions, (value) => {
+            mapData.music = value === 'none' ? null : value;
+        }));
+
+        // Ambience
+        const ambienceOptions = ['none', 'assets/audio/ambience/forest-0.mp3'];
+        form.appendChild(this.createConfigSelect('Ambience', mapData.ambience || 'none', ambienceOptions, (value) => {
+            mapData.ambience = value === 'none' ? null : value;
+        }));
+
+        modal.appendChild(form);
+
+        // Buttons
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = 'display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end;';
+
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = '💾 Save Changes';
+        saveBtn.type = 'button';
+        saveBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #4a9eff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        `;
+        saveBtn.onclick = () => {
+            this.showNotification('✅ Map configuration saved!');
+            backdrop.remove();
+        };
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.type = 'button';
+        cancelBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #555;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        `;
+        cancelBtn.onclick = () => backdrop.remove();
+
+        buttonContainer.appendChild(cancelBtn);
+        buttonContainer.appendChild(saveBtn);
+        modal.appendChild(buttonContainer);
+
+        backdrop.appendChild(modal);
+        document.body.appendChild(backdrop);
+
+        // Close on backdrop click
+        backdrop.onclick = (e) => {
+            if (e.target === backdrop) backdrop.remove();
+        };
+    }
+
+    /**
+     * Create config form field
+     */
+    createConfigField(label, value, type, onChange, attrs = {}) {
+        const container = document.createElement('div');
+        container.style.cssText = 'display: flex; flex-direction: column; gap: 6px;';
+
+        const labelEl = document.createElement('label');
+        labelEl.textContent = label;
+        labelEl.style.cssText = 'font-size: 13px; font-weight: bold; color: #aaa;';
+
+        const input = document.createElement('input');
+        input.type = type;
+        input.value = value;
+        Object.assign(input, attrs);
+        input.style.cssText = `
+            padding: 8px;
+            background: #2a2a2a;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 4px;
+            font-size: 14px;
+        `;
+        input.oninput = () => onChange(input.value);
+
+        container.appendChild(labelEl);
+        container.appendChild(input);
+        return container;
+    }
+
+    /**
+     * Create config select dropdown
+     */
+    createConfigSelect(label, value, options, onChange) {
+        const container = document.createElement('div');
+        container.style.cssText = 'display: flex; flex-direction: column; gap: 6px;';
+
+        const labelEl = document.createElement('label');
+        labelEl.textContent = label;
+        labelEl.style.cssText = 'font-size: 13px; font-weight: bold; color: #aaa;';
+
+        const select = document.createElement('select');
+        select.style.cssText = `
+            padding: 8px;
+            background: #2a2a2a;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 4px;
+            font-size: 14px;
+        `;
+
+        options.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt;
+            option.textContent = opt.replace('assets/audio/', '').replace(/\.(mp3|ogg)/, '');
+            option.selected = opt === value;
+            select.appendChild(option);
+        });
+
+        select.onchange = () => onChange(select.value);
+
+        container.appendChild(labelEl);
+        container.appendChild(select);
+        return container;
     }
 }
 
