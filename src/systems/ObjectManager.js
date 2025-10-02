@@ -79,7 +79,8 @@ class ObjectManager {
                         type: 'sage',
                         name: 'Elder Sage',
                         dialogue: "Welcome, young adventurer! The forest is peaceful, but adventure awaits beyond.",
-                        scale: 0.15
+                        scale: 0.15,
+                        collisionExpandTop: -45,
                     },
                 ],
                 

@@ -9,6 +9,7 @@ class Player extends Actor {
             acceleration: 2500,
             friction: 0.8,
             spriteSrc: 'assets/npc/main-0.png',
+            collisionExpandTop: -45,
             ...options
         });
         

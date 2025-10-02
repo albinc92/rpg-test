@@ -248,8 +248,10 @@ class GameObject {
         let collisionY = this.y - collisionHeight / 2;
         
         // Adjust for asymmetric expansion (if one side expanded more than the other)
-        collisionX -= (expandRight - expandLeft) / 2;
-        collisionY -= (expandBottom - expandTop) / 2;
+        // Positive expandRight moves box right, positive expandLeft moves box left
+        collisionX += (expandRight - expandLeft) / 2;
+        // Positive expandBottom moves box down, positive expandTop moves box up
+        collisionY += (expandBottom - expandTop) / 2;
         
         // STEP 4: Apply offsets (moves entire collision box)
         collisionX += (this.collisionOffsetX || 0);
