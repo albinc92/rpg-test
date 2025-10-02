@@ -94,6 +94,7 @@
       "x": 450,
       "y": 350,
       "scale": 0.3,
+      "collisionExpandTopPercent": -0.60,
       "castsShadow": false
     },
     {
@@ -102,6 +103,7 @@
       "x": 1450,
       "y": 680,
       "scale": 0.25,
+      "collisionExpandTopPercent": -0.60,
       "castsShadow": false
     },
     {
@@ -110,6 +112,7 @@
       "x": 850,
       "y": 550,
       "scale": 0.28,
+      "collisionExpandTopPercent": -0.60,
       "castsShadow": false
     },
     {
@@ -118,6 +121,7 @@
       "x": 1200,
       "y": 250,
       "scale": 0.32,
+      "collisionExpandTopPercent": -0.60,
       "castsShadow": false
     },
     {
@@ -126,6 +130,7 @@
       "x": 600,
       "y": 700,
       "scale": 0.27,
+      "collisionExpandTopPercent": -0.60,
       "castsShadow": false
     },
     {
