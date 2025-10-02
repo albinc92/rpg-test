@@ -78,23 +78,33 @@ class RenderSystem {
         // Collect and sort all renderable objects by y position (for depth sorting)
         const renderables = [];
         
+        // Helper function to get render depth (bottom of sprite = feet position)
+        const getDepth = (obj, game) => {
+            const finalScale = obj.getFinalScale(game);
+            const mapScale = game?.currentMap?.scale || 1.0;
+            const baseHeight = obj.spriteHeight || obj.fallbackHeight || 0;
+            const renderedHeight = baseHeight * finalScale * mapScale;
+            // Return bottom of sprite (y is center, so add half height)
+            return obj.y + (renderedHeight / 2);
+        };
+        
         // Add NPCs
         npcs.forEach(npc => {
-            renderables.push({ obj: npc, y: npc.y + (npc.spriteHeight || 0) });
+            renderables.push({ obj: npc, depth: getDepth(npc, game) });
         });
         
         // Add player
         if (player) {
-            renderables.push({ obj: player, y: player.y + (player.spriteHeight || 0) });
+            renderables.push({ obj: player, depth: getDepth(player, game) });
         }
         
         // Add interactive objects
         objects.forEach(obj => {
-            renderables.push({ obj: obj, y: obj.y + (obj.spriteHeight || 0) });
+            renderables.push({ obj: obj, depth: getDepth(obj, game) });
         });
         
-        // Sort by y position for proper depth
-        renderables.sort((a, b) => a.y - b.y);
+        // Sort by depth position for proper rendering (lower depth = render first = behind)
+        renderables.sort((a, b) => a.depth - b.depth);
         
         // Render all objects in sorted order
         renderables.forEach(({ obj }) => {
