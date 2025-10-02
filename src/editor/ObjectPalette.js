@@ -17,7 +17,7 @@ class ObjectPalette {
         this.container.style.cssText = `
             position: fixed;
             left: 10px;
-            top: 70px;
+            top: 80px;
             width: 250px;
             max-height: 600px;
             background: rgba(0, 0, 0, 0.9);

@@ -1,6 +1,21 @@
 /**
  * PerformanceMonitor - Tracks FPS and debug info
- * Responsible for: FPS tracking, performance metrics, debug display
+ *        // Draw semi-transparent background panel (top-left position, below editor toolbar if active)
+        const topOffset = 80; // Position below editor toolbar
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(10, topOffset, panelWidth, panelHeight);
+        
+        // Border
+        ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(10, topOffset, panelWidth, panelHeight);
+        
+        // Text styling
+        ctx.fillStyle = '#00ff00';
+        ctx.font = '14px Courier New, monospace';
+        ctx.textAlign = 'left';
+        
+        let y = topOffset + padding;r: FPS tracking, performance metrics, debug display
  */
 class PerformanceMonitor {
     constructor() {

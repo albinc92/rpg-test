@@ -217,12 +217,18 @@ class EditorManager {
      */
     updateMousePosition() {
         const rect = this.game.canvas.getBoundingClientRect();
-        const mouseX = this.game.inputManager.mouseX;
-        const mouseY = this.game.inputManager.mouseY;
         
-        // Convert screen to world coordinates
-        this.mouseWorldX = mouseX + this.game.camera.x;
-        this.mouseWorldY = mouseY + this.game.camera.y;
+        // Get mouse position from input manager (screen coordinates)
+        const mouseScreenX = this.game.inputManager.mouse.x;
+        const mouseScreenY = this.game.inputManager.mouse.y;
+        
+        // Convert to canvas coordinates
+        const mouseCanvasX = mouseScreenX - rect.left;
+        const mouseCanvasY = mouseScreenY - rect.top;
+        
+        // Convert canvas to world coordinates (add camera offset)
+        this.mouseWorldX = mouseCanvasX + this.game.renderSystem.camera.x;
+        this.mouseWorldY = mouseCanvasY + this.game.renderSystem.camera.y;
         
         // Apply grid snap if enabled
         if (this.snapToGrid) {
@@ -405,6 +411,10 @@ class EditorManager {
      * Handle place tool click
      */
     handlePlaceClick(x, y) {
+        console.log('[EditorManager] handlePlaceClick called at screen:', x, y);
+        console.log('[EditorManager] Mouse world pos:', this.mouseWorldX, this.mouseWorldY);
+        console.log('[EditorManager] Selected prefab:', this.selectedPrefab);
+        
         if (!this.selectedPrefab) {
             console.log('[EditorManager] No prefab selected');
             return true;
@@ -417,6 +427,7 @@ class EditorManager {
             y: this.mouseWorldY
         };
         
+        console.log('[EditorManager] Creating object with data:', objectData);
         this.placeObject(objectData);
         return true;
     }
@@ -475,10 +486,11 @@ class EditorManager {
      * Place a new object
      */
     placeObject(objectData) {
+        console.log('[EditorManager] Attempting to place object:', objectData);
         const obj = this.game.objectManager.createObjectFromData(objectData);
         if (obj) {
             this.game.objectManager.addObject(this.game.currentMapId, obj);
-            console.log('[EditorManager] Placed:', obj.constructor.name);
+            console.log('[EditorManager] Successfully placed:', obj.constructor.name, 'at', obj.x, obj.y);
             
             // Add to history
             this.addHistory({
@@ -486,6 +498,8 @@ class EditorManager {
                 object: obj,
                 mapId: this.game.currentMapId
             });
+        } else {
+            console.error('[EditorManager] Failed to create object from data:', objectData);
         }
     }
 

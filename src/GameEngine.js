@@ -279,17 +279,24 @@ class GameEngine {
                 this.render();
                 this.updateFPS(deltaTime);
             } else {
-                // Still render when paused, just don't update
+                // Still render when paused, just don't update game logic
                 this.render();
                 
-                // Show pause indicator
-                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-                this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
-                this.ctx.fillStyle = '#fff';
-                this.ctx.font = '48px Arial';
-                this.ctx.textAlign = 'center';
-                this.ctx.fillText('PAUSED', this.CANVAS_WIDTH / 2, this.CANVAS_HEIGHT / 2);
-                this.ctx.fillText('Press P to continue', this.CANVAS_WIDTH / 2, this.CANVAS_HEIGHT / 2 + 60);
+                // Update editor even when paused (for mouse tracking and preview)
+                if (this.editorManager && this.editorManager.isActive) {
+                    this.editorManager.update(deltaTime);
+                }
+                
+                // Show pause indicator (but not when editor is active)
+                if (!this.editorManager || !this.editorManager.isActive) {
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    this.ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+                    this.ctx.fillStyle = '#fff';
+                    this.ctx.font = '48px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText('PAUSED', this.CANVAS_WIDTH / 2, this.CANVAS_HEIGHT / 2);
+                    this.ctx.fillText('Press P to continue', this.CANVAS_WIDTH / 2, this.CANVAS_HEIGHT / 2 + 60);
+                }
             }
             
             requestAnimationFrame(gameLoop);
