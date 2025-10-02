@@ -14,6 +14,7 @@ class MapManager {
     initializeAllMaps() {
         this.maps = {
             '0-0': {
+                name: 'Starting Village',
                 imageSrc: 'assets/maps/0-0.png',
                 image: null,
                 width: 0,  // Set when image loads
@@ -23,6 +24,7 @@ class MapManager {
                 ambience: 'assets/audio/ambience/forest-0.mp3'
             },
             '0-1': {
+                name: 'Village Square',
                 imageSrc: 'assets/maps/0-1.png',
                 image: null,
                 width: 0,  // Set when image loads

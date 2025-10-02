@@ -231,15 +231,11 @@ class SaveGameManager {
     }
 
     /**
-     * Get human-readable map name
+     * Get human-readable map name from MapManager
      */
     getMapName(mapId) {
-        const mapNames = {
-            '0-0': 'Starting Village',
-            '0-1': 'Village Square',
-            '0-1-shop': 'Village Shop'
-        };
-        return mapNames[mapId] || mapId;
+        const mapData = this.game.mapManager.getMapData(mapId);
+        return mapData?.name || mapId;
     }
 
     /**
