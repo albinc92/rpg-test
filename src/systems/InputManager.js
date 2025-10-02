@@ -17,6 +17,7 @@ class InputManager {
         this.isMobile = this.detectMobile();
         this.touchControls = {
             joystick: { active: false, x: 0, y: 0 },
+            prevJoystick: { active: false, x: 0, y: 0 },
             buttons: { A: false, B: false, X: false, Y: false },
             prevButtons: { A: false, B: false, X: false, Y: false }
         };
@@ -130,6 +131,7 @@ class InputManager {
         this.prevKeys = { ...this.keys };
         this.mouse.prevButtons = { ...this.mouse.buttons };
         this.touchControls.prevButtons = { ...this.touchControls.buttons };
+        this.touchControls.prevJoystick = { ...this.touchControls.joystick };
     }
     
     /**
@@ -164,7 +166,7 @@ class InputManager {
             return true;
         }
         
-        // Check touch controls
+        // Check touch controls buttons
         if (this.isMobile) {
             for (const [button, mappedAction] of Object.entries(this.buttonMapping)) {
                 if (mappedAction === action && 
@@ -172,6 +174,26 @@ class InputManager {
                     !this.touchControls.prevButtons[button]) {
                     return true;
                 }
+            }
+            
+            // Check joystick for directional actions
+            const deadzone = 0.5; // Require 50% deflection
+            const joyX = this.touchControls.joystick.x;
+            const joyY = this.touchControls.joystick.y;
+            const prevJoyX = this.touchControls.prevJoystick.x;
+            const prevJoyY = this.touchControls.prevJoystick.y;
+            
+            if (action === 'up' && joyY < -deadzone && prevJoyY >= -deadzone) {
+                return true;
+            }
+            if (action === 'down' && joyY > deadzone && prevJoyY <= deadzone) {
+                return true;
+            }
+            if (action === 'left' && joyX < -deadzone && prevJoyX >= -deadzone) {
+                return true;
+            }
+            if (action === 'right' && joyX > deadzone && prevJoyX <= deadzone) {
+                return true;
             }
         }
         

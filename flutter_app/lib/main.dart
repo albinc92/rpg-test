@@ -70,11 +70,13 @@ class _GameScreenState extends State<GameScreen> {
           onPageStarted: (String url) {
             setState(() {
               _isLoading = true;
+              _errorMessage = null;
             });
           },
           onPageFinished: (String url) {
             setState(() {
               _isLoading = false;
+              _errorMessage = null; // Clear any errors on successful load
             });
             
             // Optional: Notify the game that it's running in Flutter WebView
@@ -85,10 +87,15 @@ class _GameScreenState extends State<GameScreen> {
           },
           onWebResourceError: (WebResourceError error) {
             print('WebView error: ${error.description}');
-            setState(() {
-              _isLoading = false;
-              _errorMessage = 'Failed to load game:\n${error.description}\n\nMake sure:\n1. Dev server is running (npm run dev)\n2. Both devices on same WiFi (192.168.0.74)\n3. Firewall allows port 3000\n4. Try accessing http://192.168.0.74:3000 in phone browser';
-            });
+            // Only show error for main frame failures, not individual resources
+            if (error.errorType == WebResourceErrorType.hostLookup ||
+                error.errorType == WebResourceErrorType.connect ||
+                error.errorType == WebResourceErrorType.timeout) {
+              setState(() {
+                _isLoading = false;
+                _errorMessage = 'Failed to load game:\n${error.description}\n\nMake sure:\n1. Dev server is running (npm run dev)\n2. Both devices on same WiFi (192.168.0.74)\n3. Firewall allows port 3000\n4. Try accessing http://192.168.0.74:3000 in phone browser';
+              });
+            }
           },
         ),
       )
