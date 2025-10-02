@@ -14,20 +14,52 @@ dist/
 .env.test.local
 .env.production.local
 
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+*.log
 
 # Editor directories and files
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 .idea/
 .DS_Store
 *.swp
 *.swo
+*~
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
 # Temporary files
 .tmp/
 .cache/
+
+# Flutter/Android build artifacts (at root level)
+flutter_app/android/local.properties
+flutter_app/.flutter-plugins
+flutter_app/.flutter-plugins-dependencies
+flutter_app/.packages
+
+# Test coverage
+coverage/
+*.lcov

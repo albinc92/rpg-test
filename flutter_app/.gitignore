@@ -17,6 +17,7 @@ migrate_working_dir/
 *.ipr
 *.iws
 .idea/
+*.hprof
 
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line
@@ -27,11 +28,15 @@ migrate_working_dir/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
+.packages
 .pub-cache/
 .pub/
 /build/
 /coverage/
+*.g.dart
+*.freezed.dart
 
 # Symbolication related
 app.*.symbols
@@ -39,7 +44,30 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
+# Android related
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/.gradle
+/android/captures/
+/android/local.properties
+/android/gradlew
+/android/gradlew.bat
+/android/gradle-wrapper.jar
+/android/.cxx/
+
+# iOS related (if you add iOS later)
+**/ios/Flutter/flutter_assets/
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
+
+# Web related (if you add web later)
+/web/*.js
+!/web/index.html
+/web/*.part.js
+/web/*.js.deps
+/web/*.js.map
+
+# Exceptions to above rules
+!/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
