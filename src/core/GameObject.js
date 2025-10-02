@@ -93,6 +93,22 @@ class GameObject {
     }
     
     /**
+     * Get scaled X position for rendering (applies resolution scale to position)
+     */
+    getScaledX(game) {
+        const resolutionScale = game?.resolutionScale || 1.0;
+        return this.x * resolutionScale;
+    }
+    
+    /**
+     * Get scaled Y position for rendering (applies resolution scale to position)
+     */
+    getScaledY(game) {
+        const resolutionScale = game?.resolutionScale || 1.0;
+        return this.y * resolutionScale;
+    }
+    
+    /**
      * Get final render scale (object scale × resolution scale)
      * This combines per-object artistic scale with screen-size adaptation
      */
@@ -117,13 +133,14 @@ class GameObject {
         // Calculate final scale: object scale × resolution scale × map scale
         const finalScale = this.getFinalScale(game);
         const mapScale = game.currentMap?.scale || 1.0;
+        const resolutionScale = game?.resolutionScale || 1.0;
         const baseWidth = this.spriteWidth || this.fallbackWidth;
         const baseHeight = this.spriteHeight || this.fallbackHeight;
         const scaledWidth = baseWidth * finalScale * mapScale;
         const scaledHeight = baseHeight * finalScale * mapScale;
         
-        // Calculate altitude offset
-        const altitudeOffset = this.altitude * mapScale;
+        // Calculate altitude offset (scaled with resolution)
+        const altitudeOffset = this.altitude * mapScale * resolutionScale;
         
         // Draw shadow first (if object casts shadows)
         if (this.castsShadow) {
@@ -138,21 +155,25 @@ class GameObject {
      * Render object's shadow
      */
     renderShadow(ctx, game, width, height, altitudeOffset) {
-        game.drawShadow(this.x, this.y, width, height, altitudeOffset);
+        const scaledX = this.getScaledX(game);
+        const scaledY = this.getScaledY(game);
+        game.drawShadow(scaledX, scaledY, width, height, altitudeOffset);
     }
     
     /**
      * Render object's sprite with direction support
      */
     renderSprite(ctx, game, width, height, altitudeOffset) {
-        const screenX = this.x - width / 2;
-        const screenY = this.y - height / 2 - altitudeOffset;
+        const scaledX = this.getScaledX(game);
+        const scaledY = this.getScaledY(game);
+        const screenX = scaledX - width / 2;
+        const screenY = scaledY - height / 2 - altitudeOffset;
         
         ctx.save();
         
         if (this.direction === 'right') {
             // Flip sprite horizontally for right-facing (sprites naturally face left)
-            ctx.translate(this.x, this.y - altitudeOffset);
+            ctx.translate(scaledX, scaledY - altitudeOffset);
             ctx.scale(-1, 1);
             ctx.drawImage(this.sprite, -width / 2, -height / 2, width, height);
         } else {
@@ -192,15 +213,17 @@ class GameObject {
     getBounds(game) {
         const width = this.getActualWidth(game);
         const height = this.getActualHeight(game);
+        const scaledX = this.getScaledX(game);
+        const scaledY = this.getScaledY(game);
         return {
-            x: this.x - width / 2,
-            y: this.y - height / 2,
+            x: scaledX - width / 2,
+            y: scaledY - height / 2,
             width: width,
             height: height,
-            left: this.x - width / 2,
-            right: this.x + width / 2,
-            top: this.y - height / 2,
-            bottom: this.y + height / 2
+            left: scaledX - width / 2,
+            right: scaledX + width / 2,
+            top: scaledY - height / 2,
+            bottom: scaledY + height / 2
         };
     }
     
@@ -243,9 +266,13 @@ class GameObject {
         collisionWidth += expandLeft + expandRight;
         collisionHeight += expandTop + expandBottom;
         
+        // Get scaled position for collision
+        const scaledX = this.getScaledX(game);
+        const scaledY = this.getScaledY(game);
+        
         // Calculate base position (centered on sprite)
-        let collisionX = this.x - collisionWidth / 2;
-        let collisionY = this.y - collisionHeight / 2;
+        let collisionX = scaledX - collisionWidth / 2;
+        let collisionY = scaledY - collisionHeight / 2;
         
         // Adjust for asymmetric expansion (if one side expanded more than the other)
         // Positive expandRight moves box right, positive expandLeft moves box left

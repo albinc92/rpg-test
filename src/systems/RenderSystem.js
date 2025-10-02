@@ -70,8 +70,10 @@ class RenderSystem {
         // Render map background (with scale applied)
         if (map && map.image && map.image.complete) {
             const mapScale = map.scale || 1.0;
-            const scaledWidth = map.width * mapScale;
-            const scaledHeight = map.height * mapScale;
+            const resolutionScale = game?.resolutionScale || 1.0;
+            // Apply both map scale AND resolution scale to match object scaling
+            const scaledWidth = map.width * mapScale * resolutionScale;
+            const scaledHeight = map.height * mapScale * resolutionScale;
             this.ctx.drawImage(map.image, 0, 0, scaledWidth, scaledHeight);
         }
         
@@ -84,8 +86,9 @@ class RenderSystem {
             const mapScale = game?.currentMap?.scale || 1.0;
             const baseHeight = obj.spriteHeight || obj.fallbackHeight || 0;
             const renderedHeight = baseHeight * finalScale * mapScale;
-            // Return bottom of sprite (y is center, so add half height)
-            return obj.y + (renderedHeight / 2);
+            // Return bottom of sprite using scaled position (y is center, so add half height)
+            const scaledY = obj.getScaledY(game);
+            return scaledY + (renderedHeight / 2);
         };
         
         // Add NPCs

@@ -84,26 +84,30 @@ class StaticObject extends GameObject {
      * Render sprite with animation support
      */
     renderSprite(ctx, game, width, height, altitudeOffset) {
-        const screenX = this.x - width / 2;
-        const screenY = this.y - height / 2 - altitudeOffset;
+        const scaledX = this.getScaledX(game);
+        const scaledY = this.getScaledY(game);
+        const screenX = scaledX - width / 2;
+        const screenY = scaledY - height / 2 - altitudeOffset;
         
         ctx.save();
         
         // Apply rotation if needed
         if (this.animationType === 'rotate' && this.rotation) {
-            ctx.translate(this.x, this.y - altitudeOffset);
+            ctx.translate(scaledX, scaledY - altitudeOffset);
             ctx.rotate(this.rotation);
             ctx.drawImage(this.sprite, -width / 2, -height / 2, width, height);
         }
         // Apply swaying if needed
         else if (this.animationType === 'sway' && this.swayOffset) {
-            ctx.translate(this.x + this.swayOffset, this.y - altitudeOffset);
+            const resolutionScale = game?.resolutionScale || 1.0;
+            const scaledSwayOffset = this.swayOffset * resolutionScale;
+            ctx.translate(scaledX + scaledSwayOffset, scaledY - altitudeOffset);
             ctx.drawImage(this.sprite, -width / 2, -height / 2, width, height);
         }
         // Normal rendering
         else {
             if (this.direction === 'right') {
-                ctx.translate(this.x, this.y - altitudeOffset);
+                ctx.translate(scaledX, scaledY - altitudeOffset);
                 ctx.scale(-1, 1);
                 ctx.drawImage(this.sprite, -width / 2, -height / 2, width, height);
             } else {

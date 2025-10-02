@@ -38,8 +38,6 @@ class GameEngine {
         );
         
         console.log(`[GameEngine] Resolution scale: ${this.resolutionScale.toFixed(3)} (${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT} / ${this.BASE_WIDTH}x${this.BASE_HEIGHT})`);
-        console.log(`[GameEngine] BASE_WIDTH: ${this.BASE_WIDTH}, BASE_HEIGHT: ${this.BASE_HEIGHT}`);
-        console.log(`[GameEngine] CANVAS_WIDTH: ${this.CANVAS_WIDTH}, CANVAS_HEIGHT: ${this.CANVAS_HEIGHT}`);
         
         this.setupCanvas();
         
@@ -178,6 +176,13 @@ class GameEngine {
             this.handleResize = () => {
                 this.CANVAS_WIDTH = window.innerWidth;
                 this.CANVAS_HEIGHT = window.innerHeight;
+                
+                // Recalculate resolution scale when canvas size changes
+                this.resolutionScale = Math.min(
+                    this.CANVAS_WIDTH / this.BASE_WIDTH,
+                    this.CANVAS_HEIGHT / this.BASE_HEIGHT
+                );
+                console.log(`[GameEngine] Resolution scale updated: ${this.resolutionScale.toFixed(3)} (${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT})`);
                 
                 const dpr = window.devicePixelRatio || 1;
                 this.canvas.style.width = this.CANVAS_WIDTH + 'px';
@@ -541,15 +546,19 @@ class GameEngine {
     updateCamera() {
         if (!this.player || !this.currentMap) return;
         
-        // Calculate actual map dimensions (accounting for scale)
+        // Calculate actual map dimensions (accounting for both map scale and resolution scale)
         const mapScale = this.currentMap.scale || 1.0;
-        const actualMapWidth = this.currentMap.width * mapScale;
-        const actualMapHeight = this.currentMap.height * mapScale;
+        const actualMapWidth = this.currentMap.width * mapScale * this.resolutionScale;
+        const actualMapHeight = this.currentMap.height * mapScale * this.resolutionScale;
+        
+        // Get scaled player position for camera following
+        const scaledPlayerX = this.player.getScaledX(this);
+        const scaledPlayerY = this.player.getScaledY(this);
         
         // Delegate camera update to RenderSystem
         this.renderSystem.updateCamera(
-            this.player.x,
-            this.player.y,
+            scaledPlayerX,
+            scaledPlayerY,
             this.CANVAS_WIDTH,
             this.CANVAS_HEIGHT,
             actualMapWidth,
@@ -635,11 +644,16 @@ class GameEngine {
             const halfWidth = actorWidth / 2;
             const halfHeight = actorHeight / 2;
             
+            // Calculate actual map bounds (accounting for both map scale and resolution scale)
+            const mapScale = this.currentMap.scale || 1.0;
+            const actualMapWidth = this.currentMap.width * mapScale * this.resolutionScale;
+            const actualMapHeight = this.currentMap.height * mapScale * this.resolutionScale;
+            
             // Check if actor would be outside map bounds
             if (newX - halfWidth < 0 || 
-                newX + halfWidth > this.currentMap.width ||
+                newX + halfWidth > actualMapWidth ||
                 newY - halfHeight < 0 || 
-                newY + halfHeight > this.currentMap.height) {
+                newY + halfHeight > actualMapHeight) {
                 return { collides: true, object: 'map_boundary' };
             }
         }
