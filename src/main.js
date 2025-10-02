@@ -37,6 +37,9 @@ async function loadGameScripts() {
         await loadScript('/src/objects/Chest.js');
         await loadScript('/src/objects/Portal.js');
         
+        // Load data loader FIRST (before managers)
+        await loadScript('/src/systems/DataLoader.js');
+        
         // Load manager systems
         await loadScript('/src/systems/AudioManager.js');
         await loadScript('/src/systems/InputManager.js');

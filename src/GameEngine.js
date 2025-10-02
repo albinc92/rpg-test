@@ -43,15 +43,18 @@ class GameEngine {
         
         this.setupCanvas();
         
+        // Data loader (must be created first)
+        this.dataLoader = new DataLoader();
+        
         // Core systems
         this.audioManager = new AudioManager();
         this.inputManager = new InputManager();
         this.stateManager = new GameStateManager(this);
         
-        // Game systems
-        this.mapManager = new MapManager();
-        this.objectManager = new ObjectManager(); // NEW: Unified object manager
-        this.itemManager = new ItemManager();
+        // Game systems (now accept dataLoader)
+        this.mapManager = new MapManager(this.dataLoader);
+        this.objectManager = new ObjectManager(this.dataLoader); // NEW: Unified object manager
+        this.itemManager = new ItemManager(this.dataLoader);
         this.inventoryManager = new InventoryManager(this.itemManager);
         
         // NEW: Specialized subsystems for better architecture
@@ -99,18 +102,29 @@ class GameEngine {
      */
     async initialize() {
         try {
-            // Load game data
-            this.maps = this.mapManager.initializeAllMaps();
-            // Object manager uses lazy loading - objects loaded when map loads
+            console.log('[GameEngine] Loading game data...');
+            
+            // Load all game data from JSON files
+            await this.dataLoader.loadAll();
+            
+            // Initialize managers with loaded data
+            await this.mapManager.initialize();
+            await this.objectManager.initialize();
+            await this.itemManager.initialize();
+            
+            this.maps = this.mapManager.maps;
+            
+            console.log('[GameEngine] ✅ All game data loaded successfully');
             
             // Don't load map yet - wait until game starts
             
             // Start game loop
             this.startGameLoop();
             
-            console.log('Game engine initialized successfully');
+            console.log('[GameEngine] Game engine initialized successfully');
         } catch (error) {
-            console.error('Failed to initialize game engine:', error);
+            console.error('[GameEngine] Failed to initialize game engine:', error);
+            throw error;
         }
     }
     

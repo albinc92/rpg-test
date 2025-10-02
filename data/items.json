@@ -1,0 +1,131 @@
+{
+  "gold_coin": {
+    "id": "gold_coin",
+    "name": "Gold Coin",
+    "description": "A shiny gold coin",
+    "icon": "assets/icon/Currency/gold.png",
+    "stackable": true,
+    "maxStack": 999,
+    "value": 1,
+    "type": "currency",
+    "rarity": "common"
+  },
+  "health_potion": {
+    "id": "health_potion",
+    "name": "Health Potion",
+    "description": "Restores 50 health points",
+    "icon": "assets/icon/Items/Health_Potion-0.png",
+    "stackable": true,
+    "maxStack": 10,
+    "value": 25,
+    "type": "consumable",
+    "rarity": "common",
+    "effects": {
+      "heal": 50
+    }
+  },
+  "mana_potion": {
+    "id": "mana_potion",
+    "name": "Mana Potion",
+    "description": "Restores 30 mana points",
+    "icon": "assets/icon/Items/Mana_Potion-0.png",
+    "stackable": true,
+    "maxStack": 10,
+    "value": 30,
+    "type": "consumable",
+    "rarity": "common",
+    "effects": {
+      "mana": 30
+    }
+  },
+  "iron_sword": {
+    "id": "iron_sword",
+    "name": "Iron Sword",
+    "description": "A sturdy iron sword",
+    "icon": "assets/icon/Items/Iron_Sword.png",
+    "stackable": false,
+    "maxStack": 1,
+    "value": 150,
+    "type": "weapon",
+    "rarity": "common",
+    "stats": {
+      "attack": 15
+    }
+  },
+  "leather_armor": {
+    "id": "leather_armor",
+    "name": "Leather Armor",
+    "description": "Basic protective armor",
+    "icon": "assets/icon/Items/Leather_Armor-0.png",
+    "stackable": false,
+    "maxStack": 1,
+    "value": 120,
+    "type": "armor",
+    "rarity": "common",
+    "stats": {
+      "defense": 10
+    }
+  },
+  "magic_scroll": {
+    "id": "magic_scroll",
+    "name": "Magic Scroll",
+    "description": "Contains ancient magical knowledge",
+    "icon": "assets/icon/Items/Magic_Scroll-0.png",
+    "stackable": true,
+    "maxStack": 5,
+    "value": 80,
+    "type": "consumable",
+    "rarity": "uncommon",
+    "effects": {
+      "learnSpell": true
+    }
+  },
+  "iron_ore": {
+    "id": "iron_ore",
+    "name": "Iron Ore",
+    "description": "Raw iron ore for crafting",
+    "icon": "assets/icon/Items/Iron_Ore-0.png",
+    "stackable": true,
+    "maxStack": 99,
+    "value": 10,
+    "type": "material",
+    "rarity": "common"
+  },
+  "mysterious_key": {
+    "id": "mysterious_key",
+    "name": "Mysterious Key",
+    "description": "A key that unlocks something important",
+    "icon": "assets/icon/Items/Mysterious_Key-0.png",
+    "stackable": false,
+    "maxStack": 1,
+    "value": 0,
+    "type": "key",
+    "rarity": "rare"
+  },
+  "magic_sword": {
+    "id": "magic_sword",
+    "name": "Magic Sword",
+    "description": "A sword imbued with magical power",
+    "icon": "assets/icon/Items/Iron_Sword.png",
+    "stackable": false,
+    "maxStack": 1,
+    "value": 500,
+    "type": "weapon",
+    "rarity": "rare",
+    "stats": {
+      "attack": 25,
+      "magic": 10
+    }
+  },
+  "ancient_gem": {
+    "id": "ancient_gem",
+    "name": "Ancient Gem",
+    "description": "A mysterious gem from ancient times",
+    "icon": "assets/icon/Currency/gold.png",
+    "stackable": false,
+    "maxStack": 1,
+    "value": 1000,
+    "type": "treasure",
+    "rarity": "legendary"
+  }
+}

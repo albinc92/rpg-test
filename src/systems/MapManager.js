@@ -2,39 +2,57 @@
  * MapManager - Manages map data and loading
  */
 class MapManager {
-    constructor() {
+    constructor(dataLoader) {
+        this.dataLoader = dataLoader;
         this.maps = {};
         this.loadedImages = {};
     }
     
     /**
-     * Initialize all map data (image path and settings only)
-     * Width/height are set automatically when the image loads
+     * Initialize all map data from JSON
+     */
+    async initialize() {
+        const mapsData = await this.dataLoader.loadMaps();
+        
+        // Convert JSON data to internal format with image placeholders
+        for (const [mapId, mapData] of Object.entries(mapsData)) {
+            this.maps[mapId] = {
+                ...mapData,
+                image: null,
+                width: 0,  // Set when image loads
+                height: 0  // Set when image loads
+            };
+        }
+        
+        console.log('[MapManager] ✅ Initialized with', Object.keys(this.maps).length, 'maps');
+        return this.maps;
+    }
+    
+    /**
+     * Load maps from cached data (synchronous, must call initialize first)
+     */
+    loadFromCache() {
+        const mapsData = this.dataLoader.getMaps();
+        if (mapsData) {
+            for (const [mapId, mapData] of Object.entries(mapsData)) {
+                if (!this.maps[mapId]) {
+                    this.maps[mapId] = {
+                        ...mapData,
+                        image: null,
+                        width: 0,
+                        height: 0
+                    };
+                }
+            }
+            console.log('[MapManager] Loaded from cache:', Object.keys(this.maps).length, 'maps');
+        }
+    }
+    
+    /**
+     * Initialize all map data (deprecated - kept for backwards compatibility)
      */
     initializeAllMaps() {
-        this.maps = {
-            '0-0': {
-                name: 'Starting Village',
-                imageSrc: 'assets/maps/0-0.png',
-                image: null,
-                width: 0,  // Set when image loads
-                height: 0, // Set when image loads
-                scale: 1.0,
-                music: 'assets/audio/bgm/01.mp3',
-                ambience: 'assets/audio/ambience/forest-0.mp3'
-            },
-            '0-1': {
-                name: 'Village Square',
-                imageSrc: 'assets/maps/0-1.png',
-                image: null,
-                width: 0,  // Set when image loads
-                height: 0, // Set when image loads
-                scale: 1.0,
-                music: 'assets/audio/bgm/01.mp3',
-                ambience: 'assets/audio/ambience/forest-0.mp3'
-            }
-        };
-        
+        console.warn('[MapManager] initializeAllMaps() is deprecated, use initialize() instead');
         return this.maps;
     }
     

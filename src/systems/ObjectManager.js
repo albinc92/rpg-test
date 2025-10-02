@@ -5,7 +5,9 @@
  * Philosophy: All objects are GameObjects. Behavior differences are in the classes themselves.
  */
 class ObjectManager {
-    constructor() {
+    constructor(dataLoader) {
+        this.dataLoader = dataLoader;
+        
         // Map ID -> array of ALL objects on that map
         this.objects = {};
         
@@ -15,150 +17,95 @@ class ObjectManager {
         // Object registry by ID for quick lookups
         this.objectRegistry = new Map();
         
-        // Define object templates per map (lazy initialization)
-        this.mapDefinitions = this.getMapDefinitions();
+        // Object definitions loaded from JSON
+        this.objectDefinitions = {};
+        
+        // Category-based class registry (base classes)
+        this.categoryRegistry = {
+            'StaticObject': StaticObject,
+            'Actor': Actor,
+            'InteractiveObject': InteractiveObject
+        };
+        
+        // Subtype factories (for specialized behavior within categories)
+        this.subtypeFactories = {
+            'Actor': {
+                'npc': (data) => new NPC(data),
+                'spirit': (data) => new Spirit(data),
+                'merchant': (data) => new NPC({ ...data, npcType: 'merchant' })
+            },
+            'InteractiveObject': {
+                'chest': (data) => new Chest(data),
+                'portal': (data) => new Portal(data),
+                'sign': (data) => new InteractiveObject({ ...data, objectType: 'sign' })
+            }
+        };
     }
 
     /**
-     * Get all object definitions organized by map
-     * These are templates - actual objects are created on demand
+     * Initialize objects data from JSON
+     */
+    async initialize() {
+        this.objectDefinitions = await this.dataLoader.loadObjects();
+        console.log('[ObjectManager] ✅ Initialized with object data for', Object.keys(this.objectDefinitions).length, 'maps');
+    }
+
+    /**
+     * Load objects from cached data (synchronous)
+     */
+    loadFromCache() {
+        const objectsData = this.dataLoader.getObjects();
+        if (objectsData) {
+            this.objectDefinitions = objectsData;
+            console.log('[ObjectManager] Loaded from cache:', Object.keys(this.objectDefinitions).length, 'maps');
+        }
+    }
+
+    /**
+     * Create an object instance from data definition using category-based system
+     */
+    createObjectFromData(data) {
+        const { category, actorType, objectType, ...objectData } = data;
+        
+        if (!category) {
+            console.error(`[ObjectManager] Missing 'category' field in object data:`, data);
+            return null;
+        }
+
+        try {
+            // Check if there's a subtype factory for this category
+            const subtype = actorType || objectType;
+            
+            if (subtype && this.subtypeFactories[category]) {
+                const factory = this.subtypeFactories[category][subtype];
+                if (factory) {
+                    return factory(objectData);
+                } else {
+                    console.warn(`[ObjectManager] Unknown ${category} subtype: ${subtype}, using base class`);
+                }
+            }
+            
+            // Fall back to base category class
+            const BaseClass = this.categoryRegistry[category];
+            if (!BaseClass) {
+                console.error(`[ObjectManager] Unknown category: ${category}`);
+                return null;
+            }
+            
+            return new BaseClass(objectData);
+        } catch (error) {
+            console.error(`[ObjectManager] Error creating ${category} (${actorType || objectType || 'base'}):`, error);
+            return null;
+        }
+    }
+
+    /**
+     * Get all object definitions organized by map (deprecated)
+     * Kept for backwards compatibility
      */
     getMapDefinitions() {
-        return {
-            '0-0': {
-                // Objects (trees, bushes, rocks, decorations)
-                objects: [
-                    // Trees scattered around edges with size variation
-                    new Tree01({ x: 200, y: 150, scale: 0.95 }),
-                    new Tree01({ x: 1750, y: 200, scale: 1.1 }),
-                    new Tree01({ x: 300, y: 900, scale: 1.05 }),
-                    new Tree01({ x: 1650, y: 950 }),
-                    new Tree01({ x: 100, y: 500, scale: 0.9 }),
-                    new Tree01({ x: 1850, y: 600, scale: 1.08 }),
-                    new Tree01({ x: 950, y: 100, scale: 0.98 }),
-                    new Tree01({ x: 1000, y: 1000, scale: 1.03 }),
-                    
-                    // Bushes scattered in outskirts (between trees and center)
-                    new Bush01({ x: 350, y: 280 }),
-                    new Bush01({ x: 520, y: 220, scale: 0.42 }),
-                    new Bush01({ x: 680, y: 180, scale: 0.48 }),
-                    new Bush01({ x: 1450, y: 240, scale: 0.44 }),
-                    new Bush01({ x: 1580, y: 320, scale: 0.46 }),
-                    new Bush01({ x: 1320, y: 180, scale: 0.41 }),
-                    
-                    new Bush01({ x: 280, y: 420, scale: 0.43 }),
-                    new Bush01({ x: 180, y: 650, scale: 0.47 }),
-                    new Bush01({ x: 320, y: 780, scale: 0.42 }),
-                    new Bush01({ x: 1520, y: 820, scale: 0.44 }),
-                    new Bush01({ x: 1680, y: 720, scale: 0.43 }),
-                    new Bush01({ x: 1580, y: 580, scale: 0.49 }),
-                    
-                    new Bush01({ x: 450, y: 850, scale: 0.42 }),
-                    new Bush01({ x: 620, y: 920, scale: 0.46 }),
-                    new Bush01({ x: 820, y: 880, scale: 0.44 }),
-                    new Bush01({ x: 1120, y: 850, scale: 0.43 }),
-                    new Bush01({ x: 1380, y: 900, scale: 0.48 }),
-                    new Bush01({ x: 1240, y: 780, scale: 0.41 }),
-                    
-                    new Bush01({ x: 280, y: 320, scale: 0.44 }),
-                    new Bush01({ x: 1650, y: 450, scale: 0.42 }),
-                    new Bush01({ x: 750, y: 250, scale: 0.47 }),
-                    new Bush01({ x: 540, y: 780, scale: 0.43 }),
-                    new Bush01({ x: 1280, y: 320, scale: 0.49 }),
-                    new Bush01({ x: 920, y: 820 }),
-                ],
-                
-                // NPCs (characters, merchants, spirits)
-                npcs: [
-                    // Sage NPC near player spawn (spawn is at 1100, 650)
-                    new NPC({ 
-                        id: 'elder_sage',
-                        x: 1075, 
-                        y: 416, 
-                        spriteSrc: 'assets/npc/sage-0.png',
-                        type: 'sage',
-                        name: 'Elder Sage',
-                        dialogue: "Welcome, young adventurer! The forest is peaceful, but adventure awaits beyond.",
-                        scale: 0.15,
-                        collisionExpandTopPercent: -0.70,
-                        collisionExpandRightPercent: -0.05,
-                        collisionExpandLeftPercent: -0.05,
-                    }),
-                ]
-            },
-            
-            '0-1': {
-                objects: [
-                    new Tree01({ x: 400, y: 500, scale: 1.1 }),
-                    
-                    new Chest({
-                        id: 'treasure_chest_2',
-                        x: 300,
-                        y: 700,
-                        gold: 150,
-                        loot: [
-                            { id: 'mana_potion', quantity: 2 },
-                            { id: 'leather_armor', quantity: 1 },
-                            { id: 'magic_scroll', quantity: 1 },
-                            { id: 'iron_ore', quantity: 8 }
-                        ],
-                        chestType: 'silver'
-                    }),
-                    new Chest({
-                        id: 'treasure_chest_4',
-                        x: 800,
-                        y: 300,
-                        gold: 200,
-                        loot: [
-                            { id: 'iron_sword', quantity: 1 },
-                            { id: 'leather_armor', quantity: 1 },
-                            { id: 'iron_ore', quantity: 15 }
-                        ],
-                        chestType: 'golden'
-                    }),
-                    
-                    new Portal({
-                        id: 'portal_to_0-0',
-                        x: 475,
-                        y: 960,
-                        targetMap: '0-0',
-                        spawnPoint: 'fromPortal',
-                        spriteSrc: 'assets/npc/navigation-0.png',
-                        portalType: 'magic',
-                        name: 'Forest Clearing Portal'
-                    }),
-                    new Portal({
-                        id: 'portal_to_shop',
-                        x: 695,
-                        y: 515,
-                        targetMap: '0-1-shop',
-                        spawnPoint: 'fromDoor',
-                        spriteSrc: 'assets/npc/door-0.png',
-                        portalType: 'door',
-                        name: 'Village Shop Door'
-                    })
-                ],
-                
-                npcs: []
-            },
-            
-            '0-1-shop': {
-                objects: [
-                    new Portal({
-                        id: 'portal_from_shop',
-                        x: 400,
-                        y: 200,
-                        targetMap: '0-1',
-                        spawnPoint: 'fromDoor',
-                        spriteSrc: 'assets/npc/door-0.png',
-                        portalType: 'door',
-                        name: 'Exit Door'
-                    })
-                ],
-                
-                npcs: []
-            }
-        };
+        console.warn('[ObjectManager] getMapDefinitions() is deprecated - data now loaded from JSON');
+        return this.objectDefinitions;
     }
 
     /**
@@ -173,8 +120,8 @@ class ObjectManager {
 
         console.log(`[ObjectManager] Loading objects for map: ${mapId}`);
         
-        const mapDef = this.mapDefinitions[mapId];
-        if (!mapDef) {
+        const objectsData = this.objectDefinitions[mapId];
+        if (!objectsData || objectsData.length === 0) {
             console.log(`[ObjectManager] No objects defined for map: ${mapId}`);
             this.objects[mapId] = [];
             this.initializedMaps.add(mapId);
@@ -184,23 +131,15 @@ class ObjectManager {
         // Initialize array for this map
         this.objects[mapId] = [];
 
-        // Add all objects (already instantiated)
-        if (mapDef.objects) {
-            mapDef.objects.forEach(obj => {
+        // Create and add all objects from JSON data
+        objectsData.forEach(data => {
+            const obj = this.createObjectFromData(data);
+            if (obj) {
                 obj.mapId = mapId; // Ensure mapId is set
                 this.addObject(mapId, obj);
-                console.log(`[ObjectManager] Loaded ${obj.constructor.name}: ${obj.id}`);
-            });
-        }
-
-        // Add NPCs (already instantiated)
-        if (mapDef.npcs) {
-            mapDef.npcs.forEach(obj => {
-                obj.mapId = mapId; // Ensure mapId is set
-                this.addObject(mapId, obj);
-                console.log(`[ObjectManager] Loaded ${obj.constructor.name}: ${obj.id}`);
-            });
-        }
+                console.log(`[ObjectManager] Loaded ${obj.constructor.name}: ${obj.id || 'auto-generated'}`);
+            }
+        });
 
         this.initializedMaps.add(mapId);
         console.log(`[ObjectManager] ✅ Loaded ${this.objects[mapId].length} objects for map ${mapId}`);
