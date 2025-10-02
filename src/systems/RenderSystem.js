@@ -83,9 +83,8 @@ class RenderSystem {
         // Helper function to get render depth (bottom of sprite = feet position)
         const getDepth = (obj, game) => {
             const finalScale = obj.getFinalScale(game);
-            const mapScale = game?.currentMap?.scale || 1.0;
             const baseHeight = obj.spriteHeight || obj.fallbackHeight || 0;
-            const renderedHeight = baseHeight * finalScale * mapScale;
+            const renderedHeight = baseHeight * finalScale;
             // Return bottom of sprite using scaled position (y is center, so add half height)
             const scaledY = obj.getScaledY(game);
             return scaledY + (renderedHeight / 2);

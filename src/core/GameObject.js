@@ -93,19 +93,21 @@ class GameObject {
     }
     
     /**
-     * Get scaled X position for rendering (applies resolution scale to position)
+     * Get scaled X position for rendering (applies map scale and resolution scale to position)
      */
     getScaledX(game) {
         const resolutionScale = game?.resolutionScale || 1.0;
-        return this.x * resolutionScale;
+        const mapScale = game?.currentMap?.scale || 1.0;
+        return this.x * mapScale * resolutionScale;
     }
     
     /**
-     * Get scaled Y position for rendering (applies resolution scale to position)
+     * Get scaled Y position for rendering (applies map scale and resolution scale to position)
      */
     getScaledY(game) {
         const resolutionScale = game?.resolutionScale || 1.0;
-        return this.y * resolutionScale;
+        const mapScale = game?.currentMap?.scale || 1.0;
+        return this.y * mapScale * resolutionScale;
     }
     
     /**
@@ -130,17 +132,16 @@ class GameObject {
     render(ctx, game) {
         if (!this.spriteLoaded || !this.sprite) return;
         
-        // Calculate final scale: object scale × resolution scale × map scale
+        // Calculate final scale: object scale × resolution scale (NO mapScale for objects)
         const finalScale = this.getFinalScale(game);
-        const mapScale = game.currentMap?.scale || 1.0;
         const resolutionScale = game?.resolutionScale || 1.0;
         const baseWidth = this.spriteWidth || this.fallbackWidth;
         const baseHeight = this.spriteHeight || this.fallbackHeight;
-        const scaledWidth = baseWidth * finalScale * mapScale;
-        const scaledHeight = baseHeight * finalScale * mapScale;
+        const scaledWidth = baseWidth * finalScale;
+        const scaledHeight = baseHeight * finalScale;
         
-        // Calculate altitude offset (scaled with resolution)
-        const altitudeOffset = this.altitude * mapScale * resolutionScale;
+        // Calculate altitude offset (scaled with resolution only)
+        const altitudeOffset = this.altitude * resolutionScale;
         
         // Draw shadow first (if object casts shadows)
         if (this.castsShadow) {
@@ -185,25 +186,23 @@ class GameObject {
     }
     
     /**
-     * Get the actual rendered width (applies ALL scaling: object × resolution × map)
+     * Get the actual rendered width (applies scaling: object × resolution)
      * This is what the player actually SEES on screen
      */
     getActualWidth(game) {
         const finalScale = this.getFinalScale(game);
-        const mapScale = game?.currentMap?.scale || 1.0;
         const baseWidth = this.spriteWidth || this.fallbackWidth;
-        return baseWidth * finalScale * mapScale;
+        return baseWidth * finalScale;
     }
     
     /**
-     * Get the actual rendered height (applies ALL scaling: object × resolution × map)
+     * Get the actual rendered height (applies scaling: object × resolution)
      * This is what the player actually SEES on screen
      */
     getActualHeight(game) {
         const finalScale = this.getFinalScale(game);
-        const mapScale = game?.currentMap?.scale || 1.0;
         const baseHeight = this.spriteHeight || this.fallbackHeight;
-        return baseHeight * finalScale * mapScale;
+        return baseHeight * finalScale;
     }
     
     /**
@@ -239,11 +238,10 @@ class GameObject {
     getCollisionBounds(game) {
         // STEP 1: Calculate EXACT rendered size (COPY FROM RENDER METHOD)
         const finalScale = this.getFinalScale(game);
-        const mapScale = game?.currentMap?.scale || 1.0;
         const baseWidth = this.spriteWidth || this.fallbackWidth;
         const baseHeight = this.spriteHeight || this.fallbackHeight;
-        const renderedWidth = baseWidth * finalScale * mapScale;
-        const renderedHeight = baseHeight * finalScale * mapScale;
+        const renderedWidth = baseWidth * finalScale;
+        const renderedHeight = baseHeight * finalScale;
         
         // STEP 2: Apply collision percents (shrink/expand from rendered size)
         const widthPercent = this.collisionWidthPercent !== undefined 
