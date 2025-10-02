@@ -9,7 +9,9 @@ class Player extends Actor {
             acceleration: 2500,
             friction: 0.8,
             spriteSrc: 'assets/npc/main-0.png',
-            collisionExpandTop: -45,
+            collisionExpandTopPercent: -0.7,
+            collisionExpandRightPercent: -0.1,
+            collisionExpandLeftPercent: -0.1,
             ...options
         });
         
@@ -24,6 +26,10 @@ class Player extends Actor {
         // Footstep audio
         this.footstepTimer = 0;
         this.footstepInterval = 0.5; // Base interval between footsteps (seconds)
+        
+        // Track previous position for actual movement detection
+        this.prevX = options.x || 0;
+        this.prevY = options.y || 0;
     }
     
     /**
@@ -44,9 +50,15 @@ class Player extends Actor {
      * Update footstep audio based on movement
      */
     updateFootsteps(deltaTime, game) {
-        // Check if player is moving
-        const speed = Math.sqrt(this.velocityX * this.velocityX + this.velocityY * this.velocityY);
-        const isMoving = speed > 10; // Minimum speed threshold
+        // Check if player actually moved (compare with previous position)
+        const deltaX = this.x - this.prevX;
+        const deltaY = this.y - this.prevY;
+        const actualMovement = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        const isMoving = actualMovement > 0.1; // Minimum movement threshold
+        
+        // Update previous position for next frame
+        this.prevX = this.x;
+        this.prevY = this.y;
         
         if (isMoving) {
             // Update footstep timer

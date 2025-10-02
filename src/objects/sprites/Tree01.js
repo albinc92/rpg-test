@@ -6,7 +6,9 @@ class Tree01 extends Tree {
     constructor(options = {}) {
         super({
             spriteSrc: 'assets/objects/trees/tree-01.png',
-            collisionExpandTop: -45,
+            collisionExpandTopPercent: -0.5,
+            collisionExpandRightPercent: -0.1,
+            collisionExpandLeftPercent: -0.1,
             ...options
         });
     }
