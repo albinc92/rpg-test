@@ -155,9 +155,11 @@ class RenderSystem {
             );
             
             // Draw a small circle at the object's actual position (center point)
+            const scaledX = obj.getScaledX(game);
+            const scaledY = obj.getScaledY(game);
             this.ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
             this.ctx.beginPath();
-            this.ctx.arc(obj.x, obj.y, 3, 0, Math.PI * 2);
+            this.ctx.arc(scaledX, scaledY, 3, 0, Math.PI * 2);
             this.ctx.fill();
         });
         
