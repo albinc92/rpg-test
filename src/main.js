@@ -44,6 +44,7 @@ async function loadGameScripts() {
         await loadScript('/src/systems/AudioManager.js');
         await loadScript('/src/systems/InputManager.js');
         await loadScript('/src/systems/TouchControlsUI.js'); // NEW: Touch controls for mobile
+        await loadScript('/src/systems/MenuRenderer.js'); // NEW: Standardized menu rendering
         await loadScript('/src/systems/GameStateManager.js');
         await loadScript('/src/systems/MapManager.js');
         await loadScript('/src/systems/ObjectManager.js'); // NEW: Unified object manager

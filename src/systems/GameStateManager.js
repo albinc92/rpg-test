@@ -9,6 +9,9 @@ class GameStateManager {
         this.previousState = null;
         this.stateStack = []; // For nested states like pause menus
         
+        // Initialize menu renderer for consistent styling
+        this.menuRenderer = new MenuRenderer(game);
+        
         // Define game states
         this.states = {
             'LOADING': new LoadingState(this),
@@ -320,26 +323,28 @@ class LoadingState extends GameState {
         const canvasWidth = this.game.CANVAS_WIDTH;
         const canvasHeight = this.game.CANVAS_HEIGHT;
         
+        // Use MenuRenderer for consistent styling
+        const menuRenderer = this.stateManager.menuRenderer;
+        const sizes = menuRenderer.getFontSizes(canvasHeight);
+        
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
-        ctx.fillStyle = '#fff';
         ctx.textAlign = 'center';
         
         if (this.waitingForAudio) {
-            // Show "Click to Start" screen (responsive)
-            const titleSize = Math.min(48, canvasHeight * 0.08);
-            const subtitleSize = Math.min(24, canvasHeight * 0.04);
-            ctx.font = `${titleSize}px Arial`;
+            // Show "Click to Start" screen
+            ctx.fillStyle = '#fff';
+            ctx.font = `${sizes.title}px Arial`;
             ctx.fillText('Click to Start', canvasWidth / 2, canvasHeight / 2 - canvasHeight * 0.03);
             
-            ctx.font = `${subtitleSize}px Arial`;
+            ctx.font = `${sizes.menu}px Arial`;
             ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
             ctx.fillText('Click anywhere or press any key to start the game', canvasWidth / 2, canvasHeight / 2 + canvasHeight * 0.05);
         } else {
-            // Show normal loading screen (responsive)
-            const textSize = Math.min(32, canvasHeight * 0.055);
-            ctx.font = `${textSize}px Arial`;
+            // Show normal loading screen
+            ctx.fillStyle = '#fff';
+            ctx.font = `${sizes.subtitle}px Arial`;
             ctx.fillText(this.loadingText, canvasWidth / 2, canvasHeight / 2);
             
             // Loading bar (responsive)
@@ -395,7 +400,8 @@ class MainMenuState extends GameState {
         if (this.hasSaveFiles) {
             this.options = ['Continue', 'New Game', 'Load Game', 'Settings', 'Exit'];
         } else {
-            this.options = ['New Game', 'Load Game', 'Settings', 'Exit'];
+            // No saves - hide Load Game option
+            this.options = ['New Game', 'Settings', 'Exit'];
         }
         
         // Check what state we're coming from
@@ -544,44 +550,26 @@ class MainMenuState extends GameState {
             ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         }
         
-        // Responsive font sizes based on canvas size
-        const titleSize = Math.min(48, canvasHeight * 0.08);
-        const menuSize = Math.min(24, canvasHeight * 0.04);
-        const hintSize = Math.min(14, canvasHeight * 0.025);
+        // Use MenuRenderer for consistent styling
+        const menuRenderer = this.stateManager.menuRenderer;
         
-        // Draw title with text shadow for better visibility
-        ctx.fillStyle = '#000';
-        ctx.font = `bold ${titleSize}px Arial`;
-        ctx.textAlign = 'center';
-        // Text shadow
-        const titleY = canvasHeight * 0.25;
-        ctx.fillText('RPG Game', canvasWidth / 2 + 2, titleY + 2);
-        // Main text
-        ctx.fillStyle = '#fff';
-        ctx.fillText('RPG Game', canvasWidth / 2, titleY);
+        // Draw title
+        menuRenderer.drawTitle(ctx, 'RPG Game', canvasWidth, canvasHeight, 0.25);
         
-        // Menu options - responsive positioning
-        ctx.font = `bold ${menuSize}px Arial`;
-        const menuStartY = canvasHeight * 0.45;
-        const menuSpacing = canvasHeight * 0.08;
-        
-        this.options.forEach((option, index) => {
-            const y = menuStartY + index * menuSpacing;
-            
-            // Text shadow for all options
-            ctx.fillStyle = '#000';
-            ctx.fillText(option, canvasWidth / 2 + 2, y + 2);
-            
-            // Main text - highlight selected option
-            ctx.fillStyle = index === this.selectedOption ? '#ffff00' : '#fff';
-            ctx.fillText(option, canvasWidth / 2, y);
-        });
+        // Draw menu options
+        menuRenderer.drawMenuOptions(
+            ctx, 
+            this.options, 
+            this.selectedOption, 
+            canvasWidth, 
+            canvasHeight,
+            0.45,  // Start Y position
+            0.10   // Spacing
+        );
         
         // Show subtle audio hint if audio isn't enabled yet
         if (this.game.audioManager && !this.game.audioManager.audioEnabled) {
-            ctx.fillStyle = '#666';
-            ctx.font = `${hintSize}px Arial`;
-            ctx.fillText('Audio will start with your first interaction', canvasWidth / 2, canvasHeight * 0.95);
+            menuRenderer.drawHint(ctx, 'Audio will start with your first interaction', canvasWidth, canvasHeight);
         }
     }
 }
@@ -604,11 +592,12 @@ class PlayingState extends GameState {
         // Check if we're resuming from a pause/overlay state or loading from save
         const isResumingFromPause = data.isResumingFromPause === true;
         const isLoadedGame = data.isLoadedGame === true;
+        const isNewGame = data.isNewGame === true;
         
         if (isLoadedGame) {
             console.log('💾 Loaded game - player position already restored, map already loaded');
             // Everything is already loaded by SaveGameManager, don't do anything
-        } else if (!isResumingFromPause) {
+        } else if (isNewGame || !isResumingFromPause) {
             console.log('🆕 Fresh entry to gameplay - loading map');
             // Load the initial map and start BGM (player position already set in initializePlayer)
             await this.game.loadMap(this.game.currentMapId);
@@ -659,15 +648,79 @@ class PlayingState extends GameState {
     render(ctx) {
         // Render game world
         this.game.renderGameplay(ctx);
+        
+        // Render Menu button in top-right corner
+        this.renderMenuButton(ctx);
+    }
+    
+    renderMenuButton(ctx) {
+        const canvasWidth = this.game.CANVAS_WIDTH;
+        const canvasHeight = this.game.CANVAS_HEIGHT;
+        const menuRenderer = this.stateManager.menuRenderer;
+        const sizes = menuRenderer.getFontSizes(canvasHeight);
+        
+        // Button properties
+        const buttonText = 'Menu';
+        const padding = 15;
+        const margin = 10;
+        
+        // Measure text to create button
+        ctx.font = `bold ${sizes.instruction}px Arial`;
+        const textWidth = ctx.measureText(buttonText).width;
+        const buttonWidth = textWidth + padding * 2;
+        const buttonHeight = sizes.instruction + padding;
+        
+        // Position in top-right corner
+        const buttonX = canvasWidth - buttonWidth - margin;
+        const buttonY = margin;
+        
+        // Store button bounds for click detection
+        this.menuButtonBounds = {
+            x: buttonX,
+            y: buttonY,
+            width: buttonWidth,
+            height: buttonHeight
+        };
+        
+        // Semi-transparent background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+        
+        // Border
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(buttonX, buttonY, buttonWidth, buttonHeight);
+        
+        // Text shadow
+        ctx.fillStyle = '#000';
+        ctx.textAlign = 'center';
+        ctx.fillText(buttonText, buttonX + buttonWidth / 2 + 1, buttonY + buttonHeight / 2 + sizes.instruction / 3 + 1);
+        
+        // Text
+        ctx.fillStyle = '#fff';
+        ctx.fillText(buttonText, buttonX + buttonWidth / 2, buttonY + buttonHeight / 2 + sizes.instruction / 3);
     }
     
     handleInput(inputManager) {
         // Handle gameplay input
         this.game.handleGameplayInput(inputManager);
         
-        // Check for pause
+        // Check for pause via keyboard
         if (inputManager.isJustPressed('menu')) {
             this.stateManager.pushState('PAUSED');
+        }
+        
+        // Check for Menu button click/tap (with safety checks)
+        if (this.menuButtonBounds && inputManager.mouseState && inputManager.mouseState.justReleased) {
+            const mouseX = inputManager.mouseState.x;
+            const mouseY = inputManager.mouseState.y;
+            
+            if (mouseX >= this.menuButtonBounds.x && 
+                mouseX <= this.menuButtonBounds.x + this.menuButtonBounds.width &&
+                mouseY >= this.menuButtonBounds.y && 
+                mouseY <= this.menuButtonBounds.y + this.menuButtonBounds.height) {
+                this.stateManager.pushState('PAUSED');
+            }
         }
     }
 }
@@ -729,28 +782,25 @@ class PausedState extends GameState {
         const canvasWidth = this.game.CANVAS_WIDTH;
         const canvasHeight = this.game.CANVAS_HEIGHT;
         
-        // Draw translucent overlay
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        // Use MenuRenderer for consistent styling
+        const menuRenderer = this.stateManager.menuRenderer;
         
-        // Responsive font sizes
-        const titleSize = Math.min(36, canvasHeight * 0.06);
-        const menuSize = Math.min(24, canvasHeight * 0.04);
+        // Draw overlay
+        menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.7);
         
-        // Draw pause menu
-        ctx.fillStyle = '#fff';
-        ctx.font = `${titleSize}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.fillText('PAUSED', canvasWidth / 2, canvasHeight * 0.25);
+        // Draw title
+        menuRenderer.drawTitle(ctx, 'PAUSED', canvasWidth, canvasHeight, 0.25);
         
-        ctx.font = `${menuSize}px Arial`;
-        const menuStartY = canvasHeight * 0.45;
-        const menuSpacing = canvasHeight * 0.08;
-        
-        this.options.forEach((option, index) => {
-            ctx.fillStyle = index === this.selectedOption ? '#ff0' : '#fff';
-            ctx.fillText(option, canvasWidth / 2, menuStartY + index * menuSpacing);
-        });
+        // Draw menu options
+        menuRenderer.drawMenuOptions(
+            ctx, 
+            this.options, 
+            this.selectedOption, 
+            canvasWidth, 
+            canvasHeight,
+            0.45,  // Start Y position
+            0.10   // Spacing
+        );
     }
 }
 
@@ -1073,57 +1123,46 @@ class SaveLoadState extends GameState {
     }
     
     renderMainMenu(ctx, canvasWidth, canvasHeight) {
-        // Responsive font sizes
-        const titleSize = Math.min(36, canvasHeight * 0.06);
-        const menuSize = Math.min(24, canvasHeight * 0.04);
+        // Use MenuRenderer for consistent styling
+        const menuRenderer = this.stateManager.menuRenderer;
         
-        // Title
-        ctx.fillStyle = '#fff';
-        ctx.font = `bold ${titleSize}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.fillText('Save / Load', canvasWidth / 2, canvasHeight * 0.25);
+        // Draw title
+        menuRenderer.drawTitle(ctx, 'Save / Load', canvasWidth, canvasHeight, 0.25);
         
-        // Options
-        ctx.font = `${menuSize}px Arial`;
-        const menuStartY = canvasHeight * 0.45;
-        const menuSpacing = canvasHeight * 0.08;
-        
-        this.mainOptions.forEach((option, index) => {
-            const y = menuStartY + index * menuSpacing;
-            ctx.fillStyle = index === this.selectedOption ? '#ffff00' : '#fff';
-            ctx.fillText(option, canvasWidth / 2, y);
-        });
+        // Draw menu options
+        menuRenderer.drawMenuOptions(
+            ctx, 
+            this.mainOptions, 
+            this.selectedOption, 
+            canvasWidth, 
+            canvasHeight,
+            0.45,  // Start Y position
+            0.10   // Spacing
+        );
     }
     
     renderSaveList(ctx, canvasWidth, canvasHeight, showSelection = true) {
         const title = this.mode === 'save_list' ? 'Save Game' : 'Load Game';
         
-        // Responsive font sizes
-        const titleSize = Math.min(32, canvasHeight * 0.055);
-        const instructionSize = Math.min(16, canvasHeight * 0.028);
-        const saveSize = Math.min(20, canvasHeight * 0.035);
-        const detailSize = Math.min(16, canvasHeight * 0.028);
+        // Use MenuRenderer for consistent styling
+        const menuRenderer = this.stateManager.menuRenderer;
+        const sizes = menuRenderer.getFontSizes(canvasHeight);
         
         // Title
-        ctx.fillStyle = '#fff';
-        ctx.font = `bold ${titleSize}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.fillText(title, canvasWidth / 2, canvasHeight * 0.15);
+        menuRenderer.drawTitle(ctx, title, canvasWidth, canvasHeight, 0.15);
         
         // Instructions
-        ctx.font = `${instructionSize}px Arial`;
-        ctx.fillStyle = '#aaa';
         if (this.mode === 'save_list') {
+            menuRenderer.drawInstruction(ctx, 'Select empty slot for new save or overwrite existing', canvasWidth, canvasHeight, 0.22);
             const saveInstructions = this.game.inputManager.isMobile 
                 ? 'A: Select | B: Back'
                 : 'Enter: Select | ESC: Back';
-            ctx.fillText('Select empty slot for new save or overwrite existing', canvasWidth / 2, canvasHeight * 0.22);
-            ctx.fillText(saveInstructions, canvasWidth / 2, canvasHeight * 0.25);
+            menuRenderer.drawInstruction(ctx, saveInstructions, canvasWidth, canvasHeight, 0.25);
         } else {
             const loadInstructions = this.game.inputManager.isMobile 
                 ? 'A: Load | X: Delete | B: Back'
                 : 'Enter: Load | Delete: Remove | ESC: Back';
-            ctx.fillText(loadInstructions, canvasWidth / 2, canvasHeight * 0.22);
+            menuRenderer.drawInstruction(ctx, loadInstructions, canvasWidth, canvasHeight, 0.22);
         }
         
         const startY = canvasHeight * 0.3;
@@ -1137,13 +1176,13 @@ class SaveLoadState extends GameState {
             const boxX = canvasWidth / 2 - boxWidth / 2;
             const boxY = startY - boxHeight * 0.5;
             
-            // Background box for empty slot
+            // Empty slot border (dashed, no background fill)
             if (isSelected) {
-                ctx.fillStyle = 'rgba(255, 255, 0, 0.2)';
-                ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
                 ctx.strokeStyle = '#ffff00';
                 ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
                 ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+                ctx.setLineDash([]);
             } else {
                 ctx.strokeStyle = '#666';
                 ctx.lineWidth = 1;
@@ -1152,17 +1191,17 @@ class SaveLoadState extends GameState {
                 ctx.setLineDash([]);
             }
             
-            // Empty slot text
-            ctx.textAlign = 'left';
+            // Empty slot text (centered)
+            ctx.textAlign = 'center';
             ctx.fillStyle = isSelected ? '#ffff00' : '#888';
-            ctx.font = `bold ${saveSize}px Arial`;
-            ctx.fillText('[ Empty Slot - New Save ]', boxX + 20, startY);
+            ctx.font = `bold ${sizes.subtitle}px Arial`;
+            ctx.fillText('[ Empty Slot - New Save ]', canvasWidth / 2, startY);
         }
         
         // Save list
         if (this.saves.length === 0 && this.mode === 'load_list') {
             ctx.fillStyle = '#888';
-            ctx.font = `${saveSize}px Arial`;
+            ctx.font = `${sizes.subtitle}px Arial`;
             ctx.textAlign = 'center';
             ctx.fillText('No save files', canvasWidth / 2, canvasHeight * 0.5);
         } else if (this.saves.length > 0) {
@@ -1183,191 +1222,152 @@ class SaveLoadState extends GameState {
                 const boxHeight = lineHeight * 0.85;
                 const boxX = canvasWidth / 2 - boxWidth / 2;
                 const boxY = y - boxHeight * 0.5;
+                const centerX = canvasWidth / 2;
                 
-                // Background box for save slot
-                if (isSelected) {
-                    ctx.fillStyle = 'rgba(255, 255, 0, 0.2)';
-                    ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
-                    ctx.strokeStyle = '#ffff00';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
-                }
-                
-                // Save name
-                ctx.textAlign = 'left';
+                // Save name (centered, yellow text when selected)
+                ctx.textAlign = 'center';
                 ctx.fillStyle = isSelected ? '#ffff00' : '#fff';
-                ctx.font = `bold ${saveSize}px Arial`;
-                ctx.fillText(save.name, boxX + 20, y);
+                ctx.font = `bold ${sizes.subtitle}px Arial`;
+                ctx.fillText(save.name, centerX, y);
                 
-                // Save details
-                ctx.font = `${detailSize}px Arial`;
-                ctx.fillStyle = isSelected ? '#ffff88' : '#aaa';
+                // Save details (centered)
+                ctx.font = `${sizes.detail}px Arial`;
+                ctx.fillStyle = isSelected ? '#ffff00' : '#aaa';
                 const dateStr = this.game.saveGameManager.formatDate(save.timestamp);
                 const playtimeStr = this.game.saveGameManager.formatPlaytime(save.playtime);
-                ctx.fillText(`${dateStr}  |  ${playtimeStr}  |  ${save.mapName}`, boxX + 20, y + lineHeight * 0.35);
+                ctx.fillText(`${dateStr}  |  ${playtimeStr}  |  ${save.mapName}`, centerX, y + lineHeight * 0.35);
             });
             
-            // Scroll indicators (responsive)
-            const scrollArrowSize = Math.min(20, canvasHeight * 0.035);
-            const scrollArrowOffset = canvasHeight * 0.03;
+            // Scroll indicators
             const listStartY = this.mode === 'save_list' ? saveListStartY : startY;
-            if (this.scrollOffset > 0) {
-                ctx.fillStyle = '#fff';
-                ctx.font = `${scrollArrowSize}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.fillText('▲', canvasWidth / 2, listStartY - scrollArrowOffset);
-            }
-            if (this.scrollOffset + this.maxVisibleSaves < this.saves.length) {
-                ctx.fillStyle = '#fff';
-                ctx.font = `${scrollArrowSize}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.fillText('▼', canvasWidth / 2, listStartY + this.maxVisibleSaves * lineHeight + scrollArrowOffset);
-            }
+            const listHeight = this.maxVisibleSaves * lineHeight;
+            menuRenderer.drawScrollIndicators(
+                ctx, 
+                canvasWidth, 
+                canvasHeight, 
+                this.scrollOffset > 0,
+                this.scrollOffset + this.maxVisibleSaves < this.saves.length,
+                listStartY,
+                listHeight
+            );
         }
         
-        // Back hint (responsive)
-        const hintSize = Math.min(14, canvasHeight * 0.025);
-        const hintY = canvasHeight * 0.95;
-        ctx.fillStyle = '#666';
-        ctx.font = `${hintSize}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.fillText('Press ESC to go back', canvasWidth / 2, hintY);
+        // Back hint
+        menuRenderer.drawHint(ctx, 'Press ESC to go back', canvasWidth, canvasHeight);
     }
     
     renderDeleteConfirmation(ctx, canvasWidth, canvasHeight) {
-        // Responsive font sizes
-        const titleSize = Math.min(32, canvasHeight * 0.055);
-        const messageSize = Math.min(20, canvasHeight * 0.035);
-        const optionSize = Math.min(24, canvasHeight * 0.042);
+        // Use MenuRenderer for consistent styling
+        const menuRenderer = this.stateManager.menuRenderer;
+        const sizes = menuRenderer.getFontSizes(canvasHeight);
         
-        // Draw a darker overlay (completely blocks background)
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+        // Draw fully opaque overlay (no transparency)
+        ctx.fillStyle = 'rgba(0, 0, 0, 1.0)';
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
-        // Title at top
-        ctx.fillStyle = '#ff3333';
-        ctx.font = `bold ${titleSize}px Arial`;
+        // Title at top with text shadow
+        ctx.fillStyle = '#000';
+        ctx.font = `bold ${sizes.title}px Arial`;
         ctx.textAlign = 'center';
+        ctx.fillText('Delete Save?', canvasWidth / 2 + 2, canvasHeight * 0.25 + 2);
+        
+        ctx.fillStyle = '#ff3333';
         ctx.fillText('Delete Save?', canvasWidth / 2, canvasHeight * 0.25);
         
-        // Save name
-        ctx.fillStyle = '#fff';
-        ctx.font = `${messageSize}px Arial`;
+        // Save name with text shadow
+        ctx.fillStyle = '#000';
+        ctx.font = `bold ${sizes.subtitle}px Arial`;
         if (this.saveToDelete) {
-            ctx.fillText(`"${this.saveToDelete.name}"`, canvasWidth / 2, canvasHeight * 0.35);
+            ctx.fillText(`"${this.saveToDelete.name}"`, canvasWidth / 2 + 2, canvasHeight * 0.38 + 2);
+        }
+        
+        ctx.fillStyle = '#fff';
+        if (this.saveToDelete) {
+            ctx.fillText(`"${this.saveToDelete.name}"`, canvasWidth / 2, canvasHeight * 0.38);
         }
         
         // Warning message
-        ctx.fillStyle = '#aaa';
-        ctx.font = `${messageSize * 0.85}px Arial`;
-        ctx.fillText('This action cannot be undone!', canvasWidth / 2, canvasHeight * 0.43);
+        menuRenderer.drawInstruction(ctx, 'This action cannot be undone!', canvasWidth, canvasHeight, 0.48);
         
-        // Options (vertical like other menus)
-        const menuStartY = canvasHeight * 0.55;
-        const menuSpacing = canvasHeight * 0.08;
+        // Options (vertical like other menus) with text shadows
+        const menuStartY = canvasHeight * 0.58;
+        const menuSpacing = canvasHeight * 0.10;
         
         this.confirmOptions.forEach((option, index) => {
             const y = menuStartY + index * menuSpacing;
+            const isSelected = index === this.selectedOption;
             
-            // Yellow highlight box for selected option
-            if (index === this.selectedOption) {
-                const boxWidth = canvasWidth * 0.3;
-                const boxHeight = menuSpacing * 0.8;
-                const boxX = canvasWidth / 2 - boxWidth / 2;
-                const boxY = y - menuSpacing * 0.5;
-                
-                ctx.fillStyle = 'rgba(255, 255, 0, 0.2)';
-                ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
-                ctx.strokeStyle = '#ffff00';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
-            }
+            // Text shadow
+            ctx.fillStyle = '#000';
+            ctx.font = `bold ${sizes.menu}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText(option, canvasWidth / 2 + 2, y + 2);
             
-            // Option text - red "Yes" when selected, white "No"
-            ctx.font = `bold ${optionSize}px Arial`;
-            if (index === 0) {
-                // "Yes" option - red/bright red when selected
-                ctx.fillStyle = index === this.selectedOption ? '#ff6666' : '#ff3333';
-            } else {
-                // "No" option - yellow/white
-                ctx.fillStyle = index === this.selectedOption ? '#ffff00' : '#fff';
-            }
+            // Option text - all white, yellow when selected (like other menus)
+            ctx.fillStyle = isSelected ? '#ffff00' : '#fff';
             ctx.fillText(option, canvasWidth / 2, y);
         });
         
         // Controls hint at bottom
-        ctx.fillStyle = '#666';
-        ctx.font = `${messageSize * 0.7}px Arial`;
         const hintText = this.game.inputManager.isMobile ? 'A: Select | B: Cancel' : 'Enter: Select | ESC: Cancel';
-        ctx.fillText(hintText, canvasWidth / 2, canvasHeight * 0.85);
+        menuRenderer.drawHint(ctx, hintText, canvasWidth, canvasHeight, 0.85);
     }
     
     renderOverwriteConfirmation(ctx, canvasWidth, canvasHeight) {
-        // Responsive font sizes
-        const titleSize = Math.min(32, canvasHeight * 0.055);
-        const messageSize = Math.min(20, canvasHeight * 0.035);
-        const optionSize = Math.min(24, canvasHeight * 0.042);
+        // Use MenuRenderer for consistent styling
+        const menuRenderer = this.stateManager.menuRenderer;
+        const sizes = menuRenderer.getFontSizes(canvasHeight);
         
-        // Draw a darker overlay (completely blocks background)
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+        // Draw fully opaque overlay (no transparency)
+        ctx.fillStyle = 'rgba(0, 0, 0, 1.0)';
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
-        // Title at top
-        ctx.fillStyle = '#FFA500';
-        ctx.font = `bold ${titleSize}px Arial`;
+        // Title at top with text shadow
+        ctx.fillStyle = '#000';
+        ctx.font = `bold ${sizes.title}px Arial`;
         ctx.textAlign = 'center';
+        ctx.fillText('Overwrite Save?', canvasWidth / 2 + 2, canvasHeight * 0.25 + 2);
+        
+        ctx.fillStyle = '#FFA500';
         ctx.fillText('Overwrite Save?', canvasWidth / 2, canvasHeight * 0.25);
         
-        // Save name
-        ctx.fillStyle = '#fff';
-        ctx.font = `${messageSize}px Arial`;
+        // Save name with text shadow
+        ctx.fillStyle = '#000';
+        ctx.font = `bold ${sizes.subtitle}px Arial`;
         if (this.saveToOverwrite) {
-            ctx.fillText(`"${this.saveToOverwrite.name}"`, canvasWidth / 2, canvasHeight * 0.35);
+            ctx.fillText(`"${this.saveToOverwrite.name}"`, canvasWidth / 2 + 2, canvasHeight * 0.38 + 2);
+        }
+        
+        ctx.fillStyle = '#fff';
+        if (this.saveToOverwrite) {
+            ctx.fillText(`"${this.saveToOverwrite.name}"`, canvasWidth / 2, canvasHeight * 0.38);
         }
         
         // Warning message
-        ctx.fillStyle = '#aaa';
-        ctx.font = `${messageSize * 0.85}px Arial`;
-        ctx.fillText('This will replace the existing save!', canvasWidth / 2, canvasHeight * 0.43);
+        menuRenderer.drawInstruction(ctx, 'This will replace the existing save!', canvasWidth, canvasHeight, 0.48);
         
-        // Options (vertical like other menus)
-        const menuStartY = canvasHeight * 0.55;
-        const menuSpacing = canvasHeight * 0.08;
+        // Options (vertical like other menus) with text shadows
+        const menuStartY = canvasHeight * 0.58;
+        const menuSpacing = canvasHeight * 0.10;
         
         this.confirmOptions.forEach((option, index) => {
             const y = menuStartY + index * menuSpacing;
+            const isSelected = index === this.selectedOption;
             
-            // Yellow highlight box for selected option
-            if (index === this.selectedOption) {
-                const boxWidth = canvasWidth * 0.3;
-                const boxHeight = menuSpacing * 0.8;
-                const boxX = canvasWidth / 2 - boxWidth / 2;
-                const boxY = y - menuSpacing * 0.5;
-                
-                ctx.fillStyle = 'rgba(255, 255, 0, 0.2)';
-                ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
-                ctx.strokeStyle = '#ffff00';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
-            }
+            // Text shadow
+            ctx.fillStyle = '#000';
+            ctx.font = `bold ${sizes.menu}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText(option, canvasWidth / 2 + 2, y + 2);
             
-            // Option text - orange "Yes" when selected, white "No"
-            ctx.font = `bold ${optionSize}px Arial`;
-            if (index === 0) {
-                // "Yes" option - orange/bright orange when selected
-                ctx.fillStyle = index === this.selectedOption ? '#FFB84D' : '#FFA500';
-            } else {
-                // "No" option - yellow/white
-                ctx.fillStyle = index === this.selectedOption ? '#ffff00' : '#fff';
-            }
+            // Option text - all white, yellow when selected (like other menus)
+            ctx.fillStyle = isSelected ? '#ffff00' : '#fff';
             ctx.fillText(option, canvasWidth / 2, y);
         });
         
         // Controls hint at bottom
-        ctx.fillStyle = '#666';
-        ctx.font = `${messageSize * 0.7}px Arial`;
         const hintText = this.game.inputManager.isMobile ? 'A: Select | B: Cancel' : 'Enter: Select | ESC: Cancel';
-        ctx.fillText(hintText, canvasWidth / 2, canvasHeight * 0.85);
+        menuRenderer.drawHint(ctx, hintText, canvasWidth, canvasHeight, 0.85);
     }
 }
 
@@ -1499,62 +1499,46 @@ class SettingsState extends GameState {
         const canvasWidth = this.game.CANVAS_WIDTH;
         const canvasHeight = this.game.CANVAS_HEIGHT;
         
-        // Draw semi-transparent overlay
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        // Use MenuRenderer for consistent styling
+        const menuRenderer = this.stateManager.menuRenderer;
+        const sizes = menuRenderer.getFontSizes(canvasHeight);
         
-        // Draw title (responsive)
-        const titleSize = Math.min(36, canvasHeight * 0.06);
-        const titleY = canvasHeight * 0.2;
-        ctx.fillStyle = '#fff';
-        ctx.font = `${titleSize}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.fillText('Settings', canvasWidth / 2, titleY);
+        // Draw overlay
+        menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.8);
         
-        // Draw settings options (responsive)
-        const optionSize = Math.min(20, canvasHeight * 0.035);
-        ctx.font = `${optionSize}px Arial`;
-        const startY = canvasHeight * 0.35;
-        const lineHeight = canvasHeight * 0.11;
-        const marginX = canvasWidth * 0.1;
-        const boxHeight = canvasHeight * 0.075;
+        // Draw title
+        menuRenderer.drawTitle(ctx, 'Settings', canvasWidth, canvasHeight, 0.2);
         
-        this.options.forEach((option, index) => {
-            const y = startY + (index * lineHeight);
-            const isSelected = index === this.selectedOption;
-            
-            // Highlight selected option
-            if (isSelected) {
-                ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
-                ctx.fillRect(marginX, y - boxHeight / 2, canvasWidth - marginX * 2, boxHeight);
-                ctx.strokeStyle = '#FFD700';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(marginX, y - boxHeight / 2, canvasWidth - marginX * 2, boxHeight);
-            }
-            
-            // Draw option name
-            ctx.fillStyle = isSelected ? '#FFD700' : '#fff';
-            ctx.textAlign = 'left';
-            ctx.fillText(option.name, marginX + canvasWidth * 0.05, y);
-            
-            // Draw option value
-            ctx.textAlign = 'right';
+        // Prepare options with formatted values for MenuRenderer
+        const formattedOptions = this.options.map(option => {
+            let value = '';
             if (option.type === 'slider') {
-                const value = this.game.settings[option.key];
-                ctx.fillText(`< ${value}% >`, canvasWidth - marginX - canvasWidth * 0.05, y);
+                value = `< ${this.game.settings[option.key]}% >`;
             } else if (option.type === 'toggle') {
-                const value = this.game.settings[option.key];
-                ctx.fillText(`< ${value ? 'ON' : 'OFF'} >`, canvasWidth - marginX - canvasWidth * 0.05, y);
+                value = `< ${this.game.settings[option.key] ? 'ON' : 'OFF'} >`;
             }
+            return {
+                name: option.name,
+                value: value
+            };
         });
         
-        // Draw instructions (responsive)
-        const instructionSize = Math.min(16, canvasHeight * 0.028);
-        const instructionY = canvasHeight * 0.93;
-        ctx.fillStyle = '#ccc';
-        ctx.font = `${instructionSize}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.fillText('Use Arrow Keys to Navigate • Left/Right to Adjust • Enter to Select • ESC to Go Back', canvasWidth / 2, instructionY);
+        // Draw settings options using MenuRenderer (centered vertically to avoid touch controls)
+        menuRenderer.drawSettingsOptions(
+            ctx,
+            formattedOptions,
+            this.selectedOption,
+            canvasWidth,
+            canvasHeight,
+            0.32,  // Start Y (raised to avoid bottom touch controls)
+            0.11   // Line height (slightly tighter)
+        );
+        
+        // Draw instructions
+        const instructions = this.game.inputManager.isMobile 
+            ? 'Joystick: Navigate • A: Select • B: Back'
+            : 'Arrow Keys: Navigate • Left/Right: Adjust • Enter: Select • ESC: Back';
+        menuRenderer.drawInstruction(ctx, instructions, canvasWidth, canvasHeight, 0.93);
     }
 }
 

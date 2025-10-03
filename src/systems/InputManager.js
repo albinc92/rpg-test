@@ -330,6 +330,37 @@ class InputManager {
     }
     
     /**
+     * Simulate a key press (for touch arrow buttons)
+     */
+    simulateKeyPress(direction) {
+        // Map direction to key action
+        const actionMap = {
+            'up': 'up',
+            'down': 'down',
+            'left': 'left',
+            'right': 'right'
+        };
+        
+        const action = actionMap[direction];
+        if (!action) return;
+        
+        // Get the key codes for this action
+        const keyCodes = this.keyBindings[action];
+        if (!keyCodes || keyCodes.length === 0) return;
+        
+        // Simulate pressing the first bound key
+        const keyCode = keyCodes[0];
+        
+        // Set it as pressed
+        this.keys[keyCode] = true;
+        
+        // Release after a short delay (simulates a tap)
+        setTimeout(() => {
+            this.keys[keyCode] = false;
+        }, 100);
+    }
+    
+    /**
      * Get debug info for input state
      */
     getDebugInfo() {

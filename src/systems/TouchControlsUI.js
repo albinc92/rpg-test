@@ -66,11 +66,12 @@ class TouchControlsUI {
      * Create virtual joystick
      */
     createJoystick() {
-        const joystickContainer = document.createElement('div');
-        joystickContainer.style.cssText = `
+        this.joystickContainer = document.createElement('div');
+        this.joystickContainer.id = 'joystick-container';
+        this.joystickContainer.style.cssText = `
             position: absolute;
-            left: 60px;
-            bottom: 80px;
+            left: 40px;
+            bottom: 40px;
             width: 120px;
             height: 120px;
             pointer-events: auto;
@@ -103,20 +104,21 @@ class TouchControlsUI {
             transition: all 0.1s ease-out;
         `;
         
-        joystickContainer.appendChild(this.joystickOuter);
-        joystickContainer.appendChild(this.joystickInner);
-        this.container.appendChild(joystickContainer);
+        this.joystickContainer.appendChild(this.joystickOuter);
+        this.joystickContainer.appendChild(this.joystickInner);
+        this.container.appendChild(this.joystickContainer);
     }
     
     /**
      * Create action buttons (A, B, X, Y layout)
      */
     createButtons() {
-        const buttonContainer = document.createElement('div');
-        buttonContainer.style.cssText = `
+        this.buttonContainer = document.createElement('div');
+        this.buttonContainer.id = 'button-container';
+        this.buttonContainer.style.cssText = `
             position: absolute;
-            right: 60px;
-            bottom: 80px;
+            right: 40px;
+            bottom: 40px;
             width: 180px;
             height: 180px;
             pointer-events: auto;
@@ -132,10 +134,69 @@ class TouchControlsUI {
         for (const [button, config] of Object.entries(buttonLayout)) {
             const btn = this.createButton(button, config);
             this.buttons[button] = btn;
-            buttonContainer.appendChild(btn);
+            this.buttonContainer.appendChild(btn);
         }
         
-        this.container.appendChild(buttonContainer);
+        this.container.appendChild(this.buttonContainer);
+        
+        // Create arrow navigation (hidden by default)
+        this.createArrowNavigation();
+    }
+    
+    /**
+     * Create arrow navigation buttons for menu navigation
+     */
+    createArrowNavigation() {
+        this.arrowContainer = document.createElement('div');
+        this.arrowContainer.id = 'arrow-navigation';
+        this.arrowContainer.style.cssText = `
+            position: absolute;
+            left: 40px;
+            bottom: 40px;
+            width: 160px;
+            height: 160px;
+            pointer-events: auto;
+            display: none;
+        `;
+        
+        const arrowLayout = {
+            'up': { x: '50%', y: '10%', label: '▲', dir: 'up' },
+            'down': { x: '50%', y: '90%', label: '▼', dir: 'down' },
+            'left': { x: '10%', y: '50%', label: '◀', dir: 'left' },
+            'right': { x: '90%', y: '50%', label: '▶', dir: 'right' }
+        };
+        
+        this.arrowButtons = {};
+        for (const [dir, config] of Object.entries(arrowLayout)) {
+            const btn = document.createElement('div');
+            btn.className = 'arrow-button';
+            btn.dataset.direction = config.dir;
+            btn.style.cssText = `
+                position: absolute;
+                left: ${config.x};
+                top: ${config.y};
+                transform: translate(-50%, -50%);
+                width: 50px;
+                height: 50px;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.3);
+                border: 3px solid rgba(255, 255, 255, 0.6);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 24px;
+                color: white;
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+                user-select: none;
+                transition: all 0.1s ease-out;
+            `;
+            btn.textContent = config.label;
+            this.arrowButtons[dir] = btn;
+            this.arrowContainer.appendChild(btn);
+        }
+        
+        this.container.appendChild(this.arrowContainer);
     }
     
     /**
@@ -213,6 +274,13 @@ class TouchControlsUI {
                     this.buttonStates[buttonId].touchId = touch.identifier;
                     this.buttonStates[buttonId].pressed = true;
                     this.pressButton(buttonId);
+                }
+            }
+            // Check if touch is on an arrow button
+            else if (target && target.classList.contains('arrow-button')) {
+                const direction = target.dataset.direction;
+                if (direction) {
+                    this.pressArrow(direction);
                 }
             }
         }
@@ -324,6 +392,26 @@ class TouchControlsUI {
     }
     
     /**
+     * Press arrow button (simulates directional input)
+     */
+    pressArrow(direction) {
+        const button = this.arrowButtons[direction];
+        if (button) {
+            button.style.transform = 'translate(-50%, -50%) scale(0.9)';
+            button.style.background = 'rgba(255, 255, 255, 0.6)';
+            
+            // Trigger the corresponding input
+            this.inputManager.simulateKeyPress(direction);
+            
+            // Reset visual after a short delay
+            setTimeout(() => {
+                button.style.transform = 'translate(-50%, -50%) scale(1)';
+                button.style.background = 'rgba(255, 255, 255, 0.3)';
+            }, 150);
+        }
+    }
+    
+    /**
      * Show touch controls
      */
     show() {
@@ -369,6 +457,29 @@ class TouchControlsUI {
     }
     
     /**
+     * Switch between joystick and arrow navigation
+     */
+    setNavigationMode(mode) {
+        if (mode === 'menu') {
+            // Hide joystick, show arrows
+            if (this.joystickContainer) {
+                this.joystickContainer.style.display = 'none';
+            }
+            if (this.arrowContainer) {
+                this.arrowContainer.style.display = 'block';
+            }
+        } else {
+            // Show joystick, hide arrows
+            if (this.joystickContainer) {
+                this.joystickContainer.style.display = 'block';
+            }
+            if (this.arrowContainer) {
+                this.arrowContainer.style.display = 'none';
+            }
+        }
+    }
+    
+    /**
      * Update button labels based on current context (e.g., in menu vs gameplay)
      */
     updateButtonLabels(context) {
@@ -396,6 +507,9 @@ class TouchControlsUI {
                 // Could add sublabel element here if needed
             }
         }
+        
+        // Switch navigation mode based on context
+        this.setNavigationMode(context === 'menu' ? 'menu' : 'gameplay');
     }
     
     /**
