@@ -578,6 +578,14 @@ class MainMenuState extends GameState {
  * Playing State - Main gameplay
  */
 class PlayingState extends GameState {
+    constructor(stateManager) {
+        super(stateManager);
+        this.menuButtonBounds = null;
+        
+        // Bind event handler so we can add/remove it properly
+        this.handleCanvasClick = this.handleCanvasClick.bind(this);
+    }
+    
     async enter(data = {}) {
         // Initialize gameplay
         console.log('Entering gameplay state');
@@ -587,6 +595,12 @@ class PlayingState extends GameState {
         if (this.game.touchControlsUI) {
             this.game.touchControlsUI.show();
             this.game.touchControlsUI.updateButtonLabels('gameplay');
+        }
+        
+        // Add canvas click/touch listener for Menu button
+        if (this.game.canvas) {
+            this.game.canvas.addEventListener('click', this.handleCanvasClick);
+            this.game.canvas.addEventListener('touchend', this.handleCanvasClick);
         }
         
         // Check if we're resuming from a pause/overlay state or loading from save
@@ -608,9 +622,49 @@ class PlayingState extends GameState {
         }
     }
     
+    handleCanvasClick(event) {
+        if (!this.menuButtonBounds) return;
+        
+        // Get click/touch position
+        let clientX, clientY;
+        if (event.type === 'touchend') {
+            if (event.changedTouches.length === 0) return;
+            clientX = event.changedTouches[0].clientX;
+            clientY = event.changedTouches[0].clientY;
+        } else {
+            clientX = event.clientX;
+            clientY = event.clientY;
+        }
+        
+        // Get canvas bounding rect to convert screen coords to canvas coords
+        const canvas = this.game.canvas;
+        const rect = canvas.getBoundingClientRect();
+        
+        // Convert to canvas coordinates
+        const scaleX = this.game.CANVAS_WIDTH / rect.width;
+        const scaleY = this.game.CANVAS_HEIGHT / rect.height;
+        const canvasX = (clientX - rect.left) * scaleX;
+        const canvasY = (clientY - rect.top) * scaleY;
+        
+        // Check if click is within Menu button bounds
+        if (canvasX >= this.menuButtonBounds.x && 
+            canvasX <= this.menuButtonBounds.x + this.menuButtonBounds.width &&
+            canvasY >= this.menuButtonBounds.y && 
+            canvasY <= this.menuButtonBounds.y + this.menuButtonBounds.height) {
+            console.log('Menu button clicked!');
+            this.stateManager.pushState('PAUSED');
+        }
+    }
+    
     exit() {
         // Clean up when leaving gameplay
         console.log('Exiting gameplay state');
+        
+        // Remove canvas click/touch listener
+        if (this.game.canvas) {
+            this.game.canvas.removeEventListener('click', this.handleCanvasClick);
+            this.game.canvas.removeEventListener('touchend', this.handleCanvasClick);
+        }
         
         // Hide touch controls when leaving gameplay
         if (this.game.touchControlsUI) {
@@ -710,18 +764,7 @@ class PlayingState extends GameState {
             this.stateManager.pushState('PAUSED');
         }
         
-        // Check for Menu button click/tap (with safety checks)
-        if (this.menuButtonBounds && inputManager.mouseState && inputManager.mouseState.justReleased) {
-            const mouseX = inputManager.mouseState.x;
-            const mouseY = inputManager.mouseState.y;
-            
-            if (mouseX >= this.menuButtonBounds.x && 
-                mouseX <= this.menuButtonBounds.x + this.menuButtonBounds.width &&
-                mouseY >= this.menuButtonBounds.y && 
-                mouseY <= this.menuButtonBounds.y + this.menuButtonBounds.height) {
-                this.stateManager.pushState('PAUSED');
-            }
-        }
+        // Menu button clicks are now handled by canvas event listeners (see handleCanvasClick)
     }
 }
 
