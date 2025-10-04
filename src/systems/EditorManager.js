@@ -481,7 +481,9 @@ class EditorManager {
         ctx.save();
         
         // Apply the same transformation that RenderSystem uses for the world
-        const zoom = this.game.camera.zoom || 1.0;
+        const camera = this.game.camera;
+        const zoom = camera.zoom || 1.0;
+        
         if (zoom !== 1.0) {
             const canvasWidth = canvas.width / (window.devicePixelRatio || 1);
             const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
@@ -492,7 +494,13 @@ class EditorManager {
             ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
         }
         
-        // Now screenX/screenY are in canvas space, ready for rendering
+        // Apply camera translation (same as RenderSystem)
+        ctx.translate(-camera.x, -camera.y);
+        
+        // Now we need to convert screenX/screenY to world coordinates for rendering
+        // because we've applied the same transformation as the world
+        const worldX = this.mouseWorldX;
+        const worldY = this.mouseWorldY;
         
         // Get sprite and dimensions
         let sprite = this.previewSprite;
@@ -507,15 +515,14 @@ class EditorManager {
         }
         
         // Calculate final dimensions with scaling (same as GameObject)
-        // NOTE: Don't multiply by zoom here - the preview is rendered outside the zoom transformation
         const resolutionScale = this.game.resolutionScale || 1;
         const finalScale = scale * resolutionScale;
         const scaledWidth = spriteWidth * finalScale;
         const scaledHeight = spriteHeight * finalScale;
         
-        // Calculate position (GameObjects are rendered from center)
-        const drawX = screenX - scaledWidth / 2;
-        const drawY = screenY - scaledHeight / 2;
+        // Calculate position in world space (GameObjects are rendered from center)
+        const drawX = worldX - scaledWidth / 2;
+        const drawY = worldY - scaledHeight / 2;
         
         // Draw semi-transparent sprite
         if (sprite) {
@@ -548,9 +555,9 @@ class EditorManager {
             let collisionWidth = scaledWidth + expandLeft + expandRight;
             let collisionHeight = scaledHeight + expandTop + expandBottom;
             
-            // Calculate base position (centered on sprite)
-            let collisionX = screenX - collisionWidth / 2;
-            let collisionY = screenY - collisionHeight / 2;
+            // Calculate base position (centered on sprite) in world space
+            let collisionX = worldX - collisionWidth / 2;
+            let collisionY = worldY - collisionHeight / 2;
             
             // Adjust for asymmetric expansion
             collisionX += (expandRight - expandLeft) / 2;
@@ -569,7 +576,7 @@ class EditorManager {
             // Draw center point
             ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
             ctx.beginPath();
-            ctx.arc(screenX, screenY, 4, 0, Math.PI * 2);
+            ctx.arc(worldX, worldY, 4, 0, Math.PI * 2);
             ctx.fill();
         }
         
@@ -580,20 +587,20 @@ class EditorManager {
         
         // Horizontal line
         ctx.beginPath();
-        ctx.moveTo(screenX - crosshairSize, screenY);
-        ctx.lineTo(screenX + crosshairSize, screenY);
+        ctx.moveTo(worldX - crosshairSize, worldY);
+        ctx.lineTo(worldX + crosshairSize, worldY);
         ctx.stroke();
         
         // Vertical line
         ctx.beginPath();
-        ctx.moveTo(screenX, screenY - crosshairSize);
-        ctx.lineTo(screenX, screenY + crosshairSize);
+        ctx.moveTo(worldX, worldY - crosshairSize);
+        ctx.lineTo(worldX, worldY + crosshairSize);
         ctx.stroke();
         
         // Draw center dot to mark exact center
         ctx.fillStyle = 'rgba(255, 0, 0, 1.0)';
         ctx.beginPath();
-        ctx.arc(screenX, screenY, 6, 0, Math.PI * 2);
+        ctx.arc(worldX, worldY, 6, 0, Math.PI * 2);
         ctx.fill();
         
         // Draw text showing coordinates
