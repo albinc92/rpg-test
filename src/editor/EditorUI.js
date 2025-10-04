@@ -155,17 +155,26 @@ class EditorUI {
             {
                 label: '🔍 Zoom In',
                 shortcut: '+',
-                disabled: true
+                action: () => {
+                    this.editor.zoomIn();
+                    console.log('[Editor] Zoom In:', (this.editor.game.camera.zoom * 100).toFixed(0) + '%');
+                }
             },
             {
                 label: '🔍 Zoom Out',
                 shortcut: '-',
-                disabled: true
+                action: () => {
+                    this.editor.zoomOut();
+                    console.log('[Editor] Zoom Out:', (this.editor.game.camera.zoom * 100).toFixed(0) + '%');
+                }
             },
             {
                 label: '🔍 Reset Zoom',
                 shortcut: '0',
-                disabled: true
+                action: () => {
+                    this.editor.resetZoom();
+                    console.log('[Editor] Reset Zoom: 100%');
+                }
             }
         ];
         

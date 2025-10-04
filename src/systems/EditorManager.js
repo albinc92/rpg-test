@@ -123,6 +123,18 @@ class EditorManager {
                 this.snapToGrid = true;
                 if (this.ui) this.ui.updateViewMenu();
             }
+            
+            // Zoom controls
+            else if (e.key === '+' || e.key === '=') {
+                e.preventDefault();
+                this.zoomIn();
+            } else if (e.key === '-' || e.key === '_') {
+                e.preventDefault();
+                this.zoomOut();
+            } else if (e.key === '0') {
+                e.preventDefault();
+                this.resetZoom();
+            }
         });
         
         window.addEventListener('keyup', (e) => {
@@ -1003,6 +1015,32 @@ class EditorManager {
         console.log('[EditorManager] Map data:', json);
         
         alert('Map data saved to console. Check browser console (F12) to copy JSON.');
+    }
+
+    /**
+     * Zoom in camera
+     */
+    zoomIn() {
+        const camera = this.game.camera;
+        camera.zoom = Math.min(camera.maxZoom, camera.zoom + 0.25);
+        console.log(`[EditorManager] Zoom: ${(camera.zoom * 100).toFixed(0)}%`);
+    }
+
+    /**
+     * Zoom out camera
+     */
+    zoomOut() {
+        const camera = this.game.camera;
+        camera.zoom = Math.max(camera.minZoom, camera.zoom - 0.25);
+        console.log(`[EditorManager] Zoom: ${(camera.zoom * 100).toFixed(0)}%`);
+    }
+
+    /**
+     * Reset camera zoom to 100%
+     */
+    resetZoom() {
+        this.game.camera.zoom = 1.0;
+        console.log('[EditorManager] Zoom reset to 100%');
     }
 }
 

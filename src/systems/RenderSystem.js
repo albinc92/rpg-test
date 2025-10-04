@@ -13,7 +13,10 @@ class RenderSystem {
             y: 0,
             targetX: 0,
             targetY: 0,
-            smoothing: 0.1
+            smoothing: 0.1,
+            zoom: 1.0,  // Zoom level (1.0 = 100%, 0.5 = 50%, 2.0 = 200%)
+            minZoom: 0.25,
+            maxZoom: 3.0
         };
     }
     
@@ -65,6 +68,20 @@ class RenderSystem {
     renderWorld(map, objects, npcs, player, game) {
         // Set camera transform
         this.ctx.save();
+        
+        // Apply zoom (scale around canvas center for editor)
+        const zoom = this.camera.zoom || 1.0;
+        if (zoom !== 1.0) {
+            // Get canvas dimensions
+            const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
+            const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
+            
+            // Scale around center point
+            this.ctx.translate(canvasWidth / 2, canvasHeight / 2);
+            this.ctx.scale(zoom, zoom);
+            this.ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
+        }
+        
         this.ctx.translate(-this.camera.x, -this.camera.y);
         
         // Render map background (with scale applied)
