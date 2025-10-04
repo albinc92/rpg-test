@@ -52,6 +52,9 @@ class EditorUI {
         toolbar.appendChild(title);
 
         // Create dropdown menus
+        // Initialize global dropdown array for mutual exclusivity
+        window.editorDropdowns = [];
+        
         this.createEditMenu(toolbar);
         this.createViewMenu(toolbar);
         this.createToolsMenu(toolbar);
@@ -114,6 +117,7 @@ class EditorUI {
         ]);
         
         this.dropdowns.push(editMenu);
+        window.editorDropdowns.push(editMenu);
         toolbar.appendChild(editMenu.getElement());
     }
 
@@ -184,6 +188,7 @@ class EditorUI {
         this.viewMenu = viewMenu; // Store reference for updates
         
         this.dropdowns.push(viewMenu);
+        window.editorDropdowns.push(viewMenu);
         toolbar.appendChild(viewMenu.getElement());
     }
 
@@ -226,6 +231,7 @@ class EditorUI {
         ]);
         
         this.dropdowns.push(toolsMenu);
+        window.editorDropdowns.push(toolsMenu);
         toolbar.appendChild(toolsMenu.getElement());
     }
 
@@ -323,6 +329,7 @@ class EditorUI {
         ]);
         
         this.dropdowns.push(dataMenu);
+        window.editorDropdowns.push(dataMenu);
         toolbar.appendChild(dataMenu.getElement());
     }
     
@@ -1767,9 +1774,13 @@ class EditorUI {
             { value: 'very-soft', label: 'Very Soft' }
         ];
         
+        // Store brush style buttons for proper updates
+        const brushStyleButtons = [];
+        
         brushStyles.forEach(style => {
             const btn = document.createElement('button');
             btn.textContent = style.label;
+            btn.dataset.brushStyle = style.value; // Store value in data attribute
             btn.style.cssText = `
                 width: 100%;
                 padding: 8px;
@@ -1783,13 +1794,12 @@ class EditorUI {
             `;
             btn.onclick = () => {
                 this.editor.brushStyle = style.value;
-                // Update all button styles
-                panel.querySelectorAll('button').forEach(b => {
-                    if (brushStyles.find(s => s.label === b.textContent)) {
-                        b.style.background = this.editor.brushStyle === style.value ? '#4a9eff' : '#333';
-                    }
+                // Update only brush style buttons
+                brushStyleButtons.forEach(b => {
+                    b.style.background = b.dataset.brushStyle === style.value ? '#4a9eff' : '#333';
                 });
             };
+            brushStyleButtons.push(btn);
             panel.appendChild(btn);
         });
         

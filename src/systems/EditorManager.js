@@ -235,6 +235,12 @@ class EditorManager {
             this.propertyPanel.hide();
         }
         
+        // Close paint tool panel if open
+        const paintPanel = document.getElementById('paint-tool-panel');
+        if (paintPanel) {
+            paintPanel.remove();
+        }
+        
         // Clear selection and drag state
         this.selectedObject = null;
         this.previewObject = null;

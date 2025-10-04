@@ -311,6 +311,15 @@ class DropdownMenu {
      * Open dropdown
      */
     open() {
+        // Close all other dropdowns first (mutually exclusive)
+        if (window.editorDropdowns) {
+            window.editorDropdowns.forEach(dropdown => {
+                if (dropdown !== this) {
+                    dropdown.close();
+                }
+            });
+        }
+        
         this.isOpen = true;
         this.menu.style.display = 'block';
         this.button.style.background = '#4a9eff';
