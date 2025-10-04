@@ -9,11 +9,21 @@ class EditorManager {
         this.isPaused = false;
         
         // Editor state
-        this.selectedTool = 'select'; // 'select', 'place' (move/delete integrated into select)
+        this.selectedTool = 'select'; // 'select', 'place', 'paint'
         this.selectedObject = null; // Currently selected object on map
         this.selectedPrefab = null; // Object type to place
         this.clipboard = null;
         this.previewSprite = null; // Cached sprite for placement preview
+        
+        // Paint tool state
+        this.isPainting = false;
+        this.selectedTexture = null; // Current texture to paint with
+        this.brushSize = 64; // Brush radius in pixels
+        this.brushStyle = 'soft'; // 'soft', 'hard', 'very-soft'
+        this.brushOpacity = 0.8;
+        this.paintLayers = {}; // Store paint layers per map {mapId: canvas}
+        this.textures = []; // Available textures for painting
+        this.loadedTextures = {}; // Cache of loaded texture images
         
         // Drag state for moving objects
         this.isDragging = false;
@@ -142,6 +152,17 @@ class EditorManager {
                     e.preventDefault();
                     this.resetZoom();
                 }
+                
+                // Brush size controls for paint tool (only if not typing)
+                else if (e.key === '[') {
+                    e.preventDefault();
+                    this.brushSize = Math.max(16, this.brushSize - 8);
+                    console.log('[EditorManager] Brush size:', this.brushSize);
+                } else if (e.key === ']') {
+                    e.preventDefault();
+                    this.brushSize = Math.min(256, this.brushSize + 8);
+                    console.log('[EditorManager] Brush size:', this.brushSize);
+                }
             }
         });
         
@@ -242,6 +263,11 @@ class EditorManager {
         // Load preview sprite when entering place mode
         if (tool === 'place' && this.selectedPrefab && this.selectedPrefab.spriteSrc) {
             this.loadPreviewSprite(this.selectedPrefab.spriteSrc);
+        }
+        
+        // Initialize paint layer if entering paint mode
+        if (tool === 'paint') {
+            this.initializePaintLayer(this.game.currentMapId);
         }
         
         // Update UI
@@ -377,6 +403,11 @@ class EditorManager {
         // Render placement preview
         if (this.selectedTool === 'place' && this.selectedPrefab) {
             this.renderPlacementPreview(ctx);
+        }
+        
+        // Render brush preview for paint tool
+        if (this.selectedTool === 'paint') {
+            this.renderBrushPreview(ctx);
         }
         
         // Render UI overlays
@@ -710,14 +741,30 @@ class EditorManager {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         
+        // Handle paint tool
+        if (this.selectedTool === 'paint') {
+            this.startPainting(x, y);
+            return;
+        }
+        
         this.handleClick(x, y, e.button);
     }
     
     /**
-     * Handle mouse move (for dragging)
+     * Handle mouse move (for dragging and painting)
      */
     onMouseMove(e) {
         if (!this.isActive) return;
+        
+        // Handle paint tool dragging - paint continuously while dragging
+        if (this.selectedTool === 'paint' && e.buttons === 1) {
+            // Mouse position is updated in the game loop via updateMousePosition
+            // But we need to ensure it's current for smooth painting
+            if (this.isPainting) {
+                this.paintAt(this.mouseWorldX, this.mouseWorldY);
+            }
+            return;
+        }
         
         if (this.selectedTool === 'select' && this.selectedObject && e.buttons === 1) {
             // Start dragging if not already
@@ -752,10 +799,16 @@ class EditorManager {
     }
     
     /**
-     * Handle mouse up (end drag)
+     * Handle mouse up (end drag and painting)
      */
     onMouseUp(e) {
         if (!this.isActive) return;
+        
+        // Handle paint tool
+        if (this.selectedTool === 'paint') {
+            this.stopPainting();
+            return;
+        }
         
         if (this.isDragging) {
             // Add move action to history
@@ -1107,6 +1160,231 @@ class EditorManager {
     resetZoom() {
         this.game.camera.zoom = 1.0;
         console.log('[EditorManager] Zoom reset to 100%');
+    }
+
+    // ==================== PAINT TOOL METHODS ====================
+
+    /**
+     * Initialize paint layer for a map
+     */
+    initializePaintLayer(mapId) {
+        if (this.paintLayers[mapId]) return;
+        
+        const mapData = this.game.mapManager.maps[mapId];
+        if (!mapData) return;
+        
+        // Create canvas for paint layer
+        const canvas = document.createElement('canvas');
+        canvas.width = mapData.width || 2048;
+        canvas.height = mapData.height || 2048;
+        
+        this.paintLayers[mapId] = canvas;
+        console.log(`[EditorManager] Initialized paint layer for map ${mapId}`);
+    }
+
+    /**
+     * Load a texture for painting
+     */
+    loadTexture(texturePath, textureName) {
+        if (this.loadedTextures[texturePath]) {
+            this.selectedTexture = texturePath;
+            return;
+        }
+        
+        const img = new Image();
+        img.onload = () => {
+            this.loadedTextures[texturePath] = img;
+            this.selectedTexture = texturePath;
+            console.log(`[EditorManager] Loaded texture: ${textureName}`);
+        };
+        img.onerror = () => {
+            console.error(`[EditorManager] Failed to load texture: ${texturePath}`);
+        };
+        img.src = texturePath;
+        
+        // Add to textures list if not already there
+        if (!this.textures.find(t => t.path === texturePath)) {
+            this.textures.push({ path: texturePath, name: textureName });
+        }
+    }
+
+    /**
+     * Paint texture at position
+     */
+    paintAt(worldX, worldY) {
+        if (!this.selectedTexture || !this.loadedTextures[this.selectedTexture]) return;
+        
+        const mapId = this.game.currentMapId;
+        const canvas = this.paintLayers[mapId];
+        if (!canvas) return;
+        
+        const ctx = canvas.getContext('2d');
+        const texture = this.loadedTextures[this.selectedTexture];
+        
+        // Create brush pattern/stamp
+        const brushCanvas = document.createElement('canvas');
+        const brushSize = this.brushSize;
+        brushCanvas.width = brushSize * 2;
+        brushCanvas.height = brushSize * 2;
+        const brushCtx = brushCanvas.getContext('2d');
+        
+        // Create radial gradient for brush based on style
+        let gradient;
+        switch (this.brushStyle) {
+            case 'hard':
+                // Sharp edges
+                gradient = brushCtx.createRadialGradient(brushSize, brushSize, brushSize * 0.8, brushSize, brushSize, brushSize);
+                gradient.addColorStop(0, `rgba(255, 255, 255, ${this.brushOpacity})`);
+                gradient.addColorStop(0.99, `rgba(255, 255, 255, ${this.brushOpacity})`);
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                break;
+            
+            case 'very-soft':
+                // Very gradual fade
+                gradient = brushCtx.createRadialGradient(brushSize, brushSize, 0, brushSize, brushSize, brushSize);
+                gradient.addColorStop(0, `rgba(255, 255, 255, ${this.brushOpacity})`);
+                gradient.addColorStop(0.3, `rgba(255, 255, 255, ${this.brushOpacity * 0.8})`);
+                gradient.addColorStop(0.6, `rgba(255, 255, 255, ${this.brushOpacity * 0.4})`);
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                break;
+            
+            case 'soft':
+            default:
+                // Medium soft edges
+                gradient = brushCtx.createRadialGradient(brushSize, brushSize, 0, brushSize, brushSize, brushSize);
+                gradient.addColorStop(0, `rgba(255, 255, 255, ${this.brushOpacity})`);
+                gradient.addColorStop(0.7, `rgba(255, 255, 255, ${this.brushOpacity * 0.5})`);
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                break;
+        }
+        
+        // Fill brush with gradient mask
+        brushCtx.fillStyle = gradient;
+        brushCtx.fillRect(0, 0, brushSize * 2, brushSize * 2);
+        
+        // Create a temporary canvas for this brush stroke
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = brushSize * 2;
+        tempCanvas.height = brushSize * 2;
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        // Draw texture pattern on temp canvas
+        const pattern = tempCtx.createPattern(texture, 'repeat');
+        tempCtx.fillStyle = pattern;
+        tempCtx.fillRect(0, 0, brushSize * 2, brushSize * 2);
+        
+        // Apply brush mask using destination-in
+        tempCtx.globalCompositeOperation = 'destination-in';
+        tempCtx.drawImage(brushCanvas, 0, 0);
+        
+        // Draw the masked texture onto the paint layer
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-over'; // Accumulate paint
+        ctx.drawImage(tempCanvas, worldX - brushSize, worldY - brushSize);
+        ctx.restore();
+    }
+
+    /**
+     * Start painting
+     */
+    startPainting(x, y) {
+        if (this.selectedTool !== 'paint' || !this.selectedTexture) return;
+        
+        this.isPainting = true;
+        this.paintAt(this.mouseWorldX, this.mouseWorldY);
+    }
+
+    /**
+     * Continue painting (while dragging)
+     */
+    continuePainting(x, y) {
+        if (!this.isPainting) return;
+        this.paintAt(this.mouseWorldX, this.mouseWorldY);
+    }
+
+    /**
+     * Stop painting
+     */
+    stopPainting() {
+        if (!this.isPainting) return;
+        
+        this.isPainting = false;
+        
+        // Add to history for undo
+        this.addHistory({
+            type: 'paint',
+            mapId: this.game.currentMapId,
+            // TODO: Store canvas state for undo
+        });
+    }
+
+    /**
+     * Get paint layer for a map (called by RenderSystem)
+     */
+    getPaintLayer(mapId) {
+        return this.paintLayers[mapId];
+    }
+
+    /**
+     * Render brush preview
+     */
+    renderBrushPreview(ctx) {
+        if (this.selectedTool !== 'paint') return;
+        
+        const rect = this.game.canvas.getBoundingClientRect();
+        const canvas = this.game.canvas;
+        
+        // Get mouse position in screen/CSS pixels
+        const mouseScreenX = this.rawMouseX;
+        const mouseScreenY = this.rawMouseY;
+        const relativeX = mouseScreenX - rect.left;
+        const relativeY = mouseScreenY - rect.top;
+        
+        // Convert to canvas coordinates
+        const transform = ctx.getTransform();
+        const contextScaleX = transform.a;
+        const contextScaleY = transform.d;
+        
+        const canvasToDisplayX = canvas.width / rect.width;
+        const canvasToDisplayY = canvas.height / rect.height;
+        
+        const finalScaleX = canvasToDisplayX / contextScaleX;
+        const finalScaleY = canvasToDisplayY / contextScaleY;
+        
+        const screenX = relativeX * finalScaleX;
+        const screenY = relativeY * finalScaleY;
+        
+        ctx.save();
+        
+        // Apply zoom transformation
+        const zoom = this.game.camera.zoom || 1.0;
+        if (zoom !== 1.0) {
+            const canvasWidth = canvas.width / (window.devicePixelRatio || 1);
+            const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
+            
+            ctx.translate(canvasWidth / 2, canvasHeight / 2);
+            ctx.scale(zoom, zoom);
+            ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
+        }
+        
+        // Draw brush circle
+        // Brush size is in world space, so we don't multiply by zoom here
+        // (the zoom transformation is already applied to the context)
+        ctx.strokeStyle = this.selectedTexture ? 'rgba(74, 158, 255, 0.8)' : 'rgba(255, 0, 0, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, this.brushSize, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        // Draw center dot
+        ctx.fillStyle = this.selectedTexture ? 'rgba(74, 158, 255, 1)' : 'rgba(255, 0, 0, 1)';
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
     }
 }
 

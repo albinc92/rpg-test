@@ -54,6 +54,7 @@ class EditorUI {
         // Create dropdown menus
         this.createEditMenu(toolbar);
         this.createViewMenu(toolbar);
+        this.createToolsMenu(toolbar);
         this.createDataMenu(toolbar);
 
         // Spacer
@@ -199,6 +200,33 @@ class EditorUI {
         
         // Update visual checkmarks
         this.viewMenu.updateCheckmarks();
+    }
+
+    /**
+     * Create Tools dropdown menu
+     */
+    createToolsMenu(toolbar) {
+        const toolsMenu = new DropdownMenu('Tools', [
+            {
+                label: '🖌️ Paint Terrain',
+                action: () => {
+                    this.editor.setTool('paint');
+                    this.showPaintToolPanel();
+                }
+            },
+            {
+                label: '🎨 Manage Textures',
+                action: () => this.showTextureManager()
+            },
+            { separator: true },
+            {
+                label: '🔨 Select Tool',
+                action: () => this.editor.setTool('select')
+            }
+        ]);
+        
+        this.dropdowns.push(toolsMenu);
+        toolbar.appendChild(toolsMenu.getElement());
     }
 
     /**
@@ -1677,6 +1705,349 @@ class EditorUI {
             legendary: '#ff8000'
         };
         return colors[rarity] || '#ffffff';
+    }
+
+    /**
+     * Show Paint Tool Panel
+     */
+    showPaintToolPanel() {
+        // Remove existing panel if any
+        const existing = document.getElementById('paint-tool-panel');
+        if (existing) existing.remove();
+        
+        const panel = document.createElement('div');
+        panel.id = 'paint-tool-panel';
+        panel.style.cssText = `
+            position: fixed;
+            right: 20px;
+            top: 80px;
+            width: 280px;
+            background: rgba(0, 0, 0, 0.95);
+            border: 2px solid #4a9eff;
+            border-radius: 8px;
+            padding: 16px;
+            color: white;
+            font-family: Arial, sans-serif;
+            z-index: 1001;
+        `;
+        
+        // Title
+        const title = document.createElement('h3');
+        title.textContent = '🖌️ Paint Tool';
+        title.style.cssText = 'margin: 0 0 16px 0; color: #4a9eff;';
+        panel.appendChild(title);
+        
+        // Brush Size
+        const brushSizeLabel = document.createElement('div');
+        brushSizeLabel.textContent = `Brush Size: ${this.editor.brushSize}px`;
+        brushSizeLabel.style.cssText = 'margin-bottom: 8px; font-size: 13px;';
+        panel.appendChild(brushSizeLabel);
+        
+        const brushSizeSlider = document.createElement('input');
+        brushSizeSlider.type = 'range';
+        brushSizeSlider.min = '16';
+        brushSizeSlider.max = '256';
+        brushSizeSlider.value = this.editor.brushSize;
+        brushSizeSlider.style.cssText = 'width: 100%; margin-bottom: 16px;';
+        brushSizeSlider.oninput = () => {
+            this.editor.brushSize = parseInt(brushSizeSlider.value);
+            brushSizeLabel.textContent = `Brush Size: ${this.editor.brushSize}px`;
+        };
+        panel.appendChild(brushSizeSlider);
+        
+        // Brush Style
+        const brushStyleLabel = document.createElement('div');
+        brushStyleLabel.textContent = 'Brush Style:';
+        brushStyleLabel.style.cssText = 'margin-bottom: 8px; font-size: 13px; font-weight: bold;';
+        panel.appendChild(brushStyleLabel);
+        
+        const brushStyles = [
+            { value: 'hard', label: 'Hard Edge' },
+            { value: 'soft', label: 'Soft Edge' },
+            { value: 'very-soft', label: 'Very Soft' }
+        ];
+        
+        brushStyles.forEach(style => {
+            const btn = document.createElement('button');
+            btn.textContent = style.label;
+            btn.style.cssText = `
+                width: 100%;
+                padding: 8px;
+                margin-bottom: 4px;
+                background: ${this.editor.brushStyle === style.value ? '#4a9eff' : '#333'};
+                color: white;
+                border: 1px solid #555;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 12px;
+            `;
+            btn.onclick = () => {
+                this.editor.brushStyle = style.value;
+                // Update all button styles
+                panel.querySelectorAll('button').forEach(b => {
+                    if (brushStyles.find(s => s.label === b.textContent)) {
+                        b.style.background = this.editor.brushStyle === style.value ? '#4a9eff' : '#333';
+                    }
+                });
+            };
+            panel.appendChild(btn);
+        });
+        
+        // Opacity
+        const opacityLabel = document.createElement('div');
+        opacityLabel.textContent = `Opacity: ${Math.round(this.editor.brushOpacity * 100)}%`;
+        opacityLabel.style.cssText = 'margin: 16px 0 8px 0; font-size: 13px;';
+        panel.appendChild(opacityLabel);
+        
+        const opacitySlider = document.createElement('input');
+        opacitySlider.type = 'range';
+        opacitySlider.min = '0';
+        opacitySlider.max = '100';
+        opacitySlider.value = this.editor.brushOpacity * 100;
+        opacitySlider.style.cssText = 'width: 100%; margin-bottom: 16px;';
+        opacitySlider.oninput = () => {
+            this.editor.brushOpacity = parseInt(opacitySlider.value) / 100;
+            opacityLabel.textContent = `Opacity: ${Math.round(this.editor.brushOpacity * 100)}%`;
+        };
+        panel.appendChild(opacitySlider);
+        
+        // Current Texture
+        const textureLabel = document.createElement('div');
+        textureLabel.textContent = 'Current Texture:';
+        textureLabel.style.cssText = 'margin-bottom: 8px; font-size: 13px; font-weight: bold;';
+        panel.appendChild(textureLabel);
+        
+        const texturePreview = document.createElement('div');
+        texturePreview.style.cssText = `
+            width: 100%;
+            height: 80px;
+            background: repeating-conic-gradient(#333 0% 25%, #444 0% 50%) 50% / 20px 20px;
+            border: 2px solid #555;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            font-size: 12px;
+        `;
+        
+        if (this.editor.selectedTexture && this.editor.loadedTextures[this.editor.selectedTexture]) {
+            const img = document.createElement('img');
+            img.src = this.editor.selectedTexture;
+            img.style.cssText = 'max-width: 100%; max-height: 100%; image-rendering: pixelated;';
+            texturePreview.innerHTML = '';
+            texturePreview.appendChild(img);
+        } else {
+            texturePreview.textContent = 'No texture selected';
+        }
+        panel.appendChild(texturePreview);
+        
+        // Select Texture Button
+        const selectTextureBtn = document.createElement('button');
+        selectTextureBtn.textContent = '🎨 Select Texture';
+        selectTextureBtn.style.cssText = `
+            width: 100%;
+            padding: 10px;
+            background: #4a9eff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-bottom: 8px;
+        `;
+        selectTextureBtn.onclick = () => this.showTextureManager();
+        panel.appendChild(selectTextureBtn);
+        
+        // Close Panel Button
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '✖ Close Paint Tool';
+        closeBtn.style.cssText = `
+            width: 100%;
+            padding: 8px;
+            background: #c0392b;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+        `;
+        closeBtn.onclick = () => {
+            this.editor.setTool('select');
+            panel.remove();
+        };
+        panel.appendChild(closeBtn);
+        
+        document.body.appendChild(panel);
+    }
+
+    /**
+     * Show Texture Manager
+     */
+    showTextureManager() {
+        // Predefined textures from assets/texture folder
+        const availableTextures = [
+            { path: 'assets/texture/grass.png', name: 'Grass' },
+            // Add more textures here as they are added to the folder
+            // { path: 'assets/texture/dirt.png', name: 'Dirt' },
+            // { path: 'assets/texture/stone.png', name: 'Stone' },
+        ];
+        
+        // Create modal backdrop
+        const backdrop = document.createElement('div');
+        backdrop.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+        
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: #1a1a1a;
+            border: 2px solid #4a9eff;
+            border-radius: 12px;
+            padding: 24px;
+            width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            color: white;
+            font-family: Arial, sans-serif;
+        `;
+        
+        // Title
+        const title = document.createElement('h2');
+        title.textContent = '🎨 Select Texture';
+        title.style.cssText = 'margin-top: 0; color: #4a9eff;';
+        modal.appendChild(title);
+        
+        // Info text
+        const infoText = document.createElement('div');
+        infoText.textContent = 'Select a texture to paint with:';
+        infoText.style.cssText = 'margin-bottom: 16px; color: #aaa; font-size: 14px;';
+        modal.appendChild(infoText);
+        
+        // Texture Grid
+        const grid = document.createElement('div');
+        grid.style.cssText = `
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        `;
+        
+        // Populate grid with available textures
+        availableTextures.forEach(texture => {
+            const card = document.createElement('div');
+            card.style.cssText = `
+                background: #2a2a2a;
+                border: 2px solid ${this.editor.selectedTexture === texture.path ? '#4a9eff' : '#444'};
+                border-radius: 8px;
+                padding: 12px;
+                cursor: pointer;
+                text-align: center;
+                transition: all 0.2s;
+            `;
+            
+            card.onmouseover = () => {
+                if (this.editor.selectedTexture !== texture.path) {
+                    card.style.borderColor = '#666';
+                    card.style.transform = 'translateY(-2px)';
+                }
+            };
+            card.onmouseout = () => {
+                if (this.editor.selectedTexture !== texture.path) {
+                    card.style.borderColor = '#444';
+                }
+                card.style.transform = 'translateY(0)';
+            };
+            
+            card.onclick = () => {
+                this.editor.loadTexture(texture.path, texture.name);
+                this.showNotification(`✅ Selected: ${texture.name}`);
+                backdrop.remove();
+                // Update paint panel if open
+                const panel = document.getElementById('paint-tool-panel');
+                if (panel) {
+                    panel.remove();
+                    this.showPaintToolPanel();
+                }
+            };
+            
+            // Texture preview image
+            const img = document.createElement('img');
+            img.src = texture.path;
+            img.style.cssText = `
+                width: 100%;
+                height: 100px;
+                object-fit: cover;
+                image-rendering: pixelated;
+                border-radius: 4px;
+                margin-bottom: 8px;
+                background: repeating-conic-gradient(#333 0% 25%, #444 0% 50%) 50% / 20px 20px;
+            `;
+            img.onerror = () => {
+                img.style.background = '#c0392b';
+                img.alt = '❌ Failed to load';
+            };
+            card.appendChild(img);
+            
+            // Texture name
+            const name = document.createElement('div');
+            name.textContent = texture.name;
+            name.style.cssText = 'font-size: 13px; font-weight: bold; color: #fff;';
+            card.appendChild(name);
+            
+            // Selected indicator
+            if (this.editor.selectedTexture === texture.path) {
+                const selectedBadge = document.createElement('div');
+                selectedBadge.textContent = '✓ Selected';
+                selectedBadge.style.cssText = `
+                    margin-top: 8px;
+                    padding: 4px 8px;
+                    background: #4a9eff;
+                    color: white;
+                    border-radius: 4px;
+                    font-size: 11px;
+                    font-weight: bold;
+                `;
+                card.appendChild(selectedBadge);
+            }
+            
+            grid.appendChild(card);
+        });
+        
+        modal.appendChild(grid);
+        
+        // Close Button
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Close';
+        closeBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #555;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        `;
+        closeBtn.onclick = () => backdrop.remove();
+        modal.appendChild(closeBtn);
+        
+        backdrop.appendChild(modal);
+        document.body.appendChild(backdrop);
+        
+        // Close on backdrop click
+        backdrop.onclick = (e) => {
+            if (e.target === backdrop) backdrop.remove();
+        };
     }
 }
 

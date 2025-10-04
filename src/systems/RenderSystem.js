@@ -94,6 +94,17 @@ class RenderSystem {
             this.ctx.drawImage(map.image, 0, 0, scaledWidth, scaledHeight);
         }
         
+        // Render paint layer (if editor has painted textures on this map)
+        if (game?.editorManager) {
+            const paintLayer = game.editorManager.getPaintLayer(game.currentMapId);
+            if (paintLayer) {
+                this.ctx.save();
+                this.ctx.globalAlpha = 1.0;
+                this.ctx.drawImage(paintLayer, 0, 0);
+                this.ctx.restore();
+            }
+        }
+        
         // Collect and sort all renderable objects by y position (for depth sorting)
         const renderables = [];
         
