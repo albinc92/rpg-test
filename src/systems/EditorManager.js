@@ -1173,13 +1173,19 @@ class EditorManager {
         const mapData = this.game.mapManager.maps[mapId];
         if (!mapData) return;
         
-        // Create canvas for paint layer
+        // Calculate scaled dimensions to match how the map is rendered
+        const mapScale = mapData.scale || 1.0;
+        const resolutionScale = this.game.resolutionScale || 1.0;
+        const scaledWidth = mapData.width * mapScale * resolutionScale;
+        const scaledHeight = mapData.height * mapScale * resolutionScale;
+        
+        // Create canvas for paint layer with scaled dimensions
         const canvas = document.createElement('canvas');
-        canvas.width = mapData.width || 2048;
-        canvas.height = mapData.height || 2048;
+        canvas.width = scaledWidth;
+        canvas.height = scaledHeight;
         
         this.paintLayers[mapId] = canvas;
-        console.log(`[EditorManager] Initialized paint layer for map ${mapId}`);
+        console.log(`[EditorManager] Initialized paint layer for map ${mapId}: ${scaledWidth}x${scaledHeight} (original: ${mapData.width}x${mapData.height}, mapScale: ${mapScale}, resScale: ${resolutionScale})`);
     }
 
     /**
