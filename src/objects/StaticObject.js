@@ -9,7 +9,8 @@ class StaticObject extends GameObject {
         // Static object properties
         this.id = options.id || `static_${Date.now()}`;
         this.name = options.name || 'Static Object';
-        this.type = options.type || 'decoration'; // 'decoration', 'obstacle', 'interactive'
+        this.objectCategory = options.objectCategory || 'decoration'; // 'tree', 'bush', 'rock', 'clutter', 'decoration', 'structure', 'flora'
+        this.type = options.type || 'decoration'; // 'decoration', 'obstacle', 'interactive' (for legacy compatibility)
         
         // Interactive properties
         this.canInteract = options.canInteract || false;
@@ -20,6 +21,9 @@ class StaticObject extends GameObject {
         this.animationType = options.animationType || 'none'; // 'none', 'sway', 'pulse', 'rotate'
         this.animationSpeed = options.animationSpeed || 0.001;
         this.animationIntensity = options.animationIntensity || 1.0;
+        
+        // Behavior flags
+        this.swaysInWind = options.swaysInWind || false; // Trees, grass
         
         // Environmental properties
         this.providesShade = options.providesShade || false;

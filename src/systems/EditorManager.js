@@ -124,16 +124,24 @@ class EditorManager {
                 if (this.ui) this.ui.updateViewMenu();
             }
             
-            // Zoom controls
-            else if (e.key === '+' || e.key === '=') {
-                e.preventDefault();
-                this.zoomIn();
-            } else if (e.key === '-' || e.key === '_') {
-                e.preventDefault();
-                this.zoomOut();
-            } else if (e.key === '0') {
-                e.preventDefault();
-                this.resetZoom();
+            // Check if user is typing in a text field
+            const isTyping = document.activeElement && 
+                            (document.activeElement.tagName === 'INPUT' || 
+                             document.activeElement.tagName === 'TEXTAREA' ||
+                             document.activeElement.isContentEditable);
+            
+            // Zoom controls (only if not typing)
+            if (!isTyping) {
+                if (e.key === '+' || e.key === '=') {
+                    e.preventDefault();
+                    this.zoomIn();
+                } else if (e.key === '-' || e.key === '_') {
+                    e.preventDefault();
+                    this.zoomOut();
+                } else if (e.key === '0') {
+                    e.preventDefault();
+                    this.resetZoom();
+                }
             }
         });
         

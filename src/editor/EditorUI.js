@@ -206,40 +206,15 @@ class EditorUI {
     createDataMenu(toolbar) {
         const dataMenu = new DropdownMenu('Data', [
             {
-                label: '🌲 Objects',
+                label: '🌲 Static Objects',
                 items: [
                     { 
-                        label: '🌳 Tree', 
-                        action: () => this.selectObjectToPlace({
-                            category: 'StaticObject', 
-                            spriteSrc: 'assets/objects/trees/tree-01.png',
-                            scale: 1.0,
-                            collisionExpandTopPercent: -0.90,
-                            collisionExpandRightPercent: -0.25,
-                            collisionExpandLeftPercent: -0.25,
-                            castsShadow: false
-                        }, 'Tree')
+                        label: '📚 Browse Templates', 
+                        action: () => this.showStaticObjectBrowser()
                     },
                     { 
-                        label: '🌿 Bush', 
-                        action: () => this.selectObjectToPlace({
-                            category: 'StaticObject', 
-                            spriteSrc: 'assets/objects/bushes/bush-01.png',
-                            scale: 0.5,
-                            collisionExpandTopPercent: -0.70,
-                            collisionExpandRightPercent: -0.05,
-                            collisionExpandLeftPercent: -0.05,
-                            castsShadow: false
-                        }, 'Bush')
-                    },
-                    { 
-                        label: '🪨 Rock', 
-                        action: () => this.selectObjectToPlace({
-                            category: 'StaticObject', 
-                            spriteSrc: 'assets/objects/rocks/rock-01.png',
-                            scale: 0.3,
-                            castsShadow: false
-                        }, 'Rock')
+                        label: '➕ Create New', 
+                        action: () => this.showStaticObjectCreator()
                     },
                     { separator: true },
                     { 
@@ -1095,6 +1070,525 @@ class EditorUI {
         buttonContainer.appendChild(leftButtons);
         buttonContainer.appendChild(rightButtons);
         modal.appendChild(buttonContainer);
+
+        backdrop.appendChild(modal);
+        document.body.appendChild(backdrop);
+
+        // Close on backdrop click
+        backdrop.onclick = (e) => {
+            if (e.target === backdrop) backdrop.remove();
+        };
+    }
+
+    /**
+     * Show Static Object Creator Modal
+     */
+    showStaticObjectCreator() {
+        // Create modal backdrop
+        const backdrop = document.createElement('div');
+        backdrop.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: #1a1a1a;
+            border: 2px solid #4a9eff;
+            border-radius: 12px;
+            padding: 24px;
+            width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            color: white;
+            font-family: Arial, sans-serif;
+        `;
+
+        // Title
+        const title = document.createElement('h2');
+        title.textContent = '🎨 Create New Static Object';
+        title.style.cssText = 'margin-top: 0; color: #4a9eff;';
+        modal.appendChild(title);
+
+        // Object data
+        const objectData = {
+            name: '',
+            objectCategory: 'decoration',
+            category: 'StaticObject',
+            spriteSrc: 'assets/objects/trees/tree-01.png',
+            scale: 1.0,
+            collisionExpandTopPercent: 0,
+            collisionExpandBottomPercent: 0,
+            collisionExpandLeftPercent: 0,
+            collisionExpandRightPercent: 0,
+            castsShadow: true,
+            swaysInWind: false
+        };
+
+        // Form container
+        const form = document.createElement('div');
+        form.style.cssText = 'display: flex; flex-direction: column; gap: 16px;';
+
+        // Template Name
+        form.appendChild(this.createConfigField('Template Name', objectData.name, 'text', (value) => {
+            objectData.name = value;
+        }));
+
+        // Category Dropdown
+        const categoryContainer = document.createElement('div');
+        categoryContainer.style.cssText = 'display: flex; flex-direction: column; gap: 6px;';
+        
+        const categoryLabel = document.createElement('label');
+        categoryLabel.textContent = 'Object Category';
+        categoryLabel.style.cssText = 'font-size: 13px; font-weight: bold; color: #aaa;';
+        categoryContainer.appendChild(categoryLabel);
+        
+        const categorySelect = document.createElement('select');
+        categorySelect.style.cssText = `
+            padding: 10px;
+            background: #2a2a2a;
+            border: 1px solid #4a9eff;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+        `;
+        
+        const categories = ['tree', 'bush', 'rock', 'clutter', 'decoration', 'structure', 'flora', 'furniture', 'other'];
+        categories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat;
+            option.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+            if (cat === objectData.objectCategory) option.selected = true;
+            categorySelect.appendChild(option);
+        });
+        
+        categorySelect.onchange = () => objectData.objectCategory = categorySelect.value;
+        categoryContainer.appendChild(categorySelect);
+        form.appendChild(categoryContainer);
+
+        // Sprite Path
+        const spriteField = this.createConfigField('Sprite Path', objectData.spriteSrc, 'text', (value) => {
+            objectData.spriteSrc = value;
+            spritePreviewImg.src = value;
+        });
+        form.appendChild(spriteField);
+
+        // Sprite Preview
+        const spritePreviewContainer = document.createElement('div');
+        spritePreviewContainer.style.cssText = 'text-align: center; padding: 16px; background: #2a2a2a; border-radius: 8px;';
+        const spritePreviewLabel = document.createElement('div');
+        spritePreviewLabel.textContent = 'Sprite Preview';
+        spritePreviewLabel.style.cssText = 'font-size: 13px; font-weight: bold; color: #aaa; margin-bottom: 12px;';
+        spritePreviewContainer.appendChild(spritePreviewLabel);
+        
+        const spritePreviewImg = document.createElement('img');
+        spritePreviewImg.src = objectData.spriteSrc;
+        spritePreviewImg.style.cssText = `
+            max-width: 200px;
+            max-height: 200px;
+            image-rendering: pixelated;
+            border: 2px solid #4a9eff;
+            border-radius: 4px;
+            background: repeating-conic-gradient(#333 0% 25%, #444 0% 50%) 50% / 20px 20px;
+        `;
+        spritePreviewImg.onerror = () => {
+            spritePreviewImg.style.border = '2px solid #c0392b';
+        };
+        spritePreviewContainer.appendChild(spritePreviewImg);
+        form.appendChild(spritePreviewContainer);
+
+        // Scale
+        form.appendChild(this.createConfigField('Scale', objectData.scale, 'number', (value) => {
+            objectData.scale = parseFloat(value);
+        }, { step: 0.1, min: 0.1, max: 5.0 }));
+
+        // Collision Section
+        const collisionSection = document.createElement('div');
+        collisionSection.style.cssText = 'padding: 16px; background: #2a2a2a; border-radius: 8px;';
+        
+        const collisionTitle = document.createElement('div');
+        collisionTitle.textContent = '📦 Collision Box Adjustments';
+        collisionTitle.style.cssText = 'font-size: 14px; font-weight: bold; color: #4a9eff; margin-bottom: 12px;';
+        collisionSection.appendChild(collisionTitle);
+
+        const collisionHint = document.createElement('div');
+        collisionHint.textContent = 'Negative values shrink the collision box (e.g., -0.90 = 90% smaller)';
+        collisionHint.style.cssText = 'font-size: 11px; color: #888; margin-bottom: 12px;';
+        collisionSection.appendChild(collisionHint);
+
+        const collisionGrid = document.createElement('div');
+        collisionGrid.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 12px;';
+
+        // Collision offsets
+        collisionGrid.appendChild(this.createConfigField('Top Offset %', objectData.collisionExpandTopPercent, 'number', (value) => {
+            objectData.collisionExpandTopPercent = parseFloat(value);
+        }, { step: 0.05, min: -1.0, max: 1.0 }));
+
+        collisionGrid.appendChild(this.createConfigField('Bottom Offset %', objectData.collisionExpandBottomPercent, 'number', (value) => {
+            objectData.collisionExpandBottomPercent = parseFloat(value);
+        }, { step: 0.05, min: -1.0, max: 1.0 }));
+
+        collisionGrid.appendChild(this.createConfigField('Left Offset %', objectData.collisionExpandLeftPercent, 'number', (value) => {
+            objectData.collisionExpandLeftPercent = parseFloat(value);
+        }, { step: 0.05, min: -1.0, max: 1.0 }));
+
+        collisionGrid.appendChild(this.createConfigField('Right Offset %', objectData.collisionExpandRightPercent, 'number', (value) => {
+            objectData.collisionExpandRightPercent = parseFloat(value);
+        }, { step: 0.05, min: -1.0, max: 1.0 }));
+
+        collisionSection.appendChild(collisionGrid);
+        form.appendChild(collisionSection);
+
+        // Sways in Wind Checkbox
+        const swayContainer = document.createElement('div');
+        swayContainer.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 12px; background: #2a2a2a; border-radius: 8px;';
+        
+        const swayCheck = document.createElement('input');
+        swayCheck.type = 'checkbox';
+        swayCheck.checked = objectData.swaysInWind;
+        swayCheck.id = 'swaysInWind';
+        swayCheck.style.cssText = 'width: 20px; height: 20px; cursor: pointer;';
+        swayCheck.onchange = () => objectData.swaysInWind = swayCheck.checked;
+        
+        const swayLabel = document.createElement('label');
+        swayLabel.htmlFor = 'swaysInWind';
+        swayLabel.textContent = '🍃 Sways in Wind (trees, grass)';
+        swayLabel.style.cssText = 'font-size: 14px; font-weight: bold; color: #fff; cursor: pointer;';
+        
+        swayContainer.appendChild(swayCheck);
+        swayContainer.appendChild(swayLabel);
+        form.appendChild(swayContainer);
+
+        // Cast Shadow Checkbox
+        const shadowContainer = document.createElement('div');
+        shadowContainer.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 12px; background: #2a2a2a; border-radius: 8px;';
+        
+        const shadowCheck = document.createElement('input');
+        shadowCheck.type = 'checkbox';
+        shadowCheck.checked = objectData.castsShadow;
+        shadowCheck.id = 'castsShadow';
+        shadowCheck.style.cssText = 'width: 20px; height: 20px; cursor: pointer;';
+        shadowCheck.onchange = () => objectData.castsShadow = shadowCheck.checked;
+        
+        const shadowLabel = document.createElement('label');
+        shadowLabel.htmlFor = 'castsShadow';
+        shadowLabel.textContent = '🌑 Casts Shadow';
+        shadowLabel.style.cssText = 'font-size: 14px; font-weight: bold; color: #fff; cursor: pointer;';
+        
+        shadowContainer.appendChild(shadowCheck);
+        shadowContainer.appendChild(shadowLabel);
+        form.appendChild(shadowContainer);
+
+        modal.appendChild(form);
+
+        // Buttons
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = 'display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end;';
+
+        const saveTemplateBtn = document.createElement('button');
+        saveTemplateBtn.textContent = '💾 Save as Template';
+        saveTemplateBtn.type = 'button';
+        saveTemplateBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #8e44ad;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        `;
+        saveTemplateBtn.onclick = () => {
+            // Validate
+            if (!objectData.spriteSrc || objectData.spriteSrc.trim() === '') {
+                alert('Please enter a sprite path!');
+                return;
+            }
+            if (!objectData.name || objectData.name.trim() === '') {
+                alert('Please enter a template name!');
+                return;
+            }
+
+            // Save to registry
+            this.game.staticObjectRegistry.addTemplate(objectData.name, {
+                spriteSrc: objectData.spriteSrc,
+                scale: objectData.scale,
+                objectCategory: objectData.objectCategory,
+                collisionExpandTopPercent: objectData.collisionExpandTopPercent,
+                collisionExpandBottomPercent: objectData.collisionExpandBottomPercent,
+                collisionExpandLeftPercent: objectData.collisionExpandLeftPercent,
+                collisionExpandRightPercent: objectData.collisionExpandRightPercent,
+                castsShadow: objectData.castsShadow,
+                swaysInWind: objectData.swaysInWind
+            });
+
+            alert(`Template "${objectData.name}" saved successfully!`);
+        };
+
+        const createBtn = document.createElement('button');
+        createBtn.textContent = '➕ Create & Place';
+        createBtn.type = 'button';
+        createBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        `;
+        createBtn.onclick = () => {
+            // Validate sprite path
+            if (!objectData.spriteSrc || objectData.spriteSrc.trim() === '') {
+                alert('Please enter a sprite path!');
+                return;
+            }
+
+            // Select this object for placement
+            this.selectObjectToPlace(objectData, objectData.name || 'Custom Static Object');
+            backdrop.remove();
+        };
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.type = 'button';
+        cancelBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #555;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        `;
+        cancelBtn.onclick = () => backdrop.remove();
+
+        buttonContainer.appendChild(cancelBtn);
+        buttonContainer.appendChild(saveTemplateBtn);
+        buttonContainer.appendChild(createBtn);
+        modal.appendChild(buttonContainer);
+
+        backdrop.appendChild(modal);
+        document.body.appendChild(backdrop);
+
+        // Close on backdrop click
+        backdrop.onclick = (e) => {
+            if (e.target === backdrop) backdrop.remove();
+        };
+    }
+
+    showStaticObjectBrowser() {
+        // Create modal backdrop
+        const backdrop = document.createElement('div');
+        backdrop.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: #1a1a1a;
+            border: 2px solid #4a9eff;
+            border-radius: 12px;
+            padding: 24px;
+            width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            color: white;
+            font-family: Arial, sans-serif;
+        `;
+
+        // Title
+        const title = document.createElement('h2');
+        title.textContent = '📚 Browse Static Object Templates';
+        title.style.cssText = 'margin-top: 0; color: #4a9eff;';
+        modal.appendChild(title);
+
+        // Category filter
+        const filterContainer = document.createElement('div');
+        filterContainer.style.cssText = 'display: flex; gap: 12px; margin-bottom: 20px; align-items: center;';
+        
+        const filterLabel = document.createElement('label');
+        filterLabel.textContent = 'Filter by Category:';
+        filterLabel.style.cssText = 'font-size: 14px; font-weight: bold; color: #aaa;';
+        filterContainer.appendChild(filterLabel);
+        
+        const categorySelect = document.createElement('select');
+        categorySelect.style.cssText = `
+            padding: 8px;
+            background: #2a2a2a;
+            border: 1px solid #4a9eff;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            flex: 1;
+        `;
+        
+        const allOption = document.createElement('option');
+        allOption.value = 'all';
+        allOption.textContent = 'All Categories';
+        categorySelect.appendChild(allOption);
+        
+        const categories = ['tree', 'bush', 'rock', 'clutter', 'decoration', 'structure', 'flora', 'furniture', 'other'];
+        categories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat;
+            option.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+            categorySelect.appendChild(option);
+        });
+        
+        filterContainer.appendChild(categorySelect);
+        modal.appendChild(filterContainer);
+
+        // Templates grid container
+        const gridContainer = document.createElement('div');
+        gridContainer.style.cssText = `
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        `;
+
+        // Function to render templates
+        const renderTemplates = (category) => {
+            gridContainer.innerHTML = '';
+            
+            const allTemplates = this.game.staticObjectRegistry.getAllTemplates();
+            const filteredTemplates = category === 'all' 
+                ? allTemplates 
+                : allTemplates.filter(t => t.template.objectCategory === category);
+
+            if (filteredTemplates.length === 0) {
+                const emptyMsg = document.createElement('div');
+                emptyMsg.textContent = 'No templates found in this category.';
+                emptyMsg.style.cssText = 'grid-column: 1 / -1; text-align: center; padding: 40px; color: #888;';
+                gridContainer.appendChild(emptyMsg);
+                return;
+            }
+
+            filteredTemplates.forEach(({name, template}) => {
+                const card = document.createElement('div');
+                card.style.cssText = `
+                    background: #2a2a2a;
+                    border: 2px solid #444;
+                    border-radius: 8px;
+                    padding: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                `;
+                
+                card.onmouseenter = () => {
+                    card.style.borderColor = '#4a9eff';
+                    card.style.transform = 'scale(1.05)';
+                };
+                card.onmouseleave = () => {
+                    card.style.borderColor = '#444';
+                    card.style.transform = 'scale(1)';
+                };
+
+                // Sprite preview
+                const previewImg = document.createElement('img');
+                previewImg.src = template.spriteSrc;
+                previewImg.style.cssText = `
+                    width: 100%;
+                    height: 120px;
+                    object-fit: contain;
+                    image-rendering: pixelated;
+                    background: repeating-conic-gradient(#333 0% 25%, #444 0% 50%) 50% / 20px 20px;
+                    border-radius: 4px;
+                    margin-bottom: 8px;
+                `;
+
+                // Name
+                const nameLabel = document.createElement('div');
+                nameLabel.textContent = name;
+                nameLabel.style.cssText = 'font-weight: bold; color: #fff; margin-bottom: 4px; font-size: 14px;';
+
+                // Category badge
+                const categoryBadge = document.createElement('div');
+                categoryBadge.textContent = template.objectCategory;
+                categoryBadge.style.cssText = `
+                    display: inline-block;
+                    padding: 4px 8px;
+                    background: #4a9eff;
+                    color: white;
+                    border-radius: 4px;
+                    font-size: 11px;
+                    font-weight: bold;
+                `;
+
+                card.appendChild(previewImg);
+                card.appendChild(nameLabel);
+                card.appendChild(categoryBadge);
+
+                // Click to select
+                card.onclick = () => {
+                    this.selectObjectToPlace({
+                        category: 'StaticObject',
+                        spriteSrc: template.spriteSrc,
+                        scale: template.scale,
+                        objectCategory: template.objectCategory,
+                        collisionExpandTopPercent: template.collisionExpandTopPercent,
+                        collisionExpandBottomPercent: template.collisionExpandBottomPercent,
+                        collisionExpandLeftPercent: template.collisionExpandLeftPercent,
+                        collisionExpandRightPercent: template.collisionExpandRightPercent,
+                        castsShadow: template.castsShadow,
+                        swaysInWind: template.swaysInWind
+                    }, name);
+                    backdrop.remove();
+                };
+
+                gridContainer.appendChild(card);
+            });
+        };
+
+        // Initial render
+        renderTemplates('all');
+
+        // Category filter change
+        categorySelect.onchange = () => renderTemplates(categorySelect.value);
+
+        modal.appendChild(gridContainer);
+
+        // Close button
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Close';
+        closeBtn.type = 'button';
+        closeBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #555;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 20px;
+            display: block;
+            margin-left: auto;
+        `;
+        closeBtn.onclick = () => backdrop.remove();
+        modal.appendChild(closeBtn);
 
         backdrop.appendChild(modal);
         document.body.appendChild(backdrop);

@@ -86,11 +86,19 @@ class InputManager {
     setupEventListeners() {
         // Keyboard events
         document.addEventListener('keydown', (e) => {
-            this.keys[e.code] = true;
+            // Don't capture input if user is typing in a text field
+            const isTyping = document.activeElement && 
+                            (document.activeElement.tagName === 'INPUT' || 
+                             document.activeElement.tagName === 'TEXTAREA' ||
+                             document.activeElement.isContentEditable);
             
-            // Prevent default behavior for game keys
-            if (this.isGameKey(e.code)) {
-                e.preventDefault();
+            if (!isTyping) {
+                this.keys[e.code] = true;
+                
+                // Prevent default behavior for game keys
+                if (this.isGameKey(e.code)) {
+                    e.preventDefault();
+                }
             }
         });
         

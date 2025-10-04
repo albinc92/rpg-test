@@ -44,6 +44,9 @@ class GameEngine {
         // Data loader (must be created first)
         this.dataLoader = new DataLoader();
         
+        // Static object registry for template management
+        this.staticObjectRegistry = new StaticObjectRegistry();
+        
         // Core systems
         this.audioManager = new AudioManager();
         this.inputManager = new InputManager();
