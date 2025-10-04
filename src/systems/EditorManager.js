@@ -902,9 +902,9 @@ class EditorManager {
                 mapId: this.game.currentMapId
             });
             
-            // Auto-return to select mode after placing
-            this.setTool('select');
-            this.selectObject(obj); // Auto-select the newly placed object
+            // Stay in placement mode to allow placing multiple objects
+            // User can press Escape to exit placement mode
+            console.log('[EditorManager] Staying in placement mode - press Escape to exit');
         } else {
             console.error('[EditorManager] Failed to create object from data:', objectData);
         }
@@ -946,14 +946,20 @@ class EditorManager {
     pasteObject() {
         if (!this.clipboard) return;
         
-        const objectData = {
+        // Enter placement mode with the clipboard data as the prefab
+        this.selectedPrefab = {
             ...this.clipboard,
-            x: this.mouseWorldX,
-            y: this.mouseWorldY,
             id: undefined // Generate new ID
         };
         
-        this.placeObject(objectData);
+        // Load preview sprite
+        if (this.selectedPrefab.spriteSrc) {
+            this.loadPreviewSprite(this.selectedPrefab.spriteSrc);
+        }
+        
+        // Switch to place tool
+        this.setTool('place');
+        console.log('[EditorManager] Paste mode active - click to place, press Escape to exit');
     }
 
     /**
