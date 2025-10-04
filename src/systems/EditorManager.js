@@ -603,14 +603,14 @@ class EditorManager {
         ctx.arc(worldX, worldY, 6, 0, Math.PI * 2);
         ctx.fill();
         
-        // Draw text showing coordinates
+        // Draw text showing coordinates (in world space)
         ctx.fillStyle = 'white';
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 3;
         ctx.font = '14px monospace';
-        const coordText = `Mouse: (${Math.round(this.rawMouseX)}, ${Math.round(this.rawMouseY)})`;
-        ctx.strokeText(coordText, screenX + 15, screenY - 15);
-        ctx.fillText(coordText, screenX + 15, screenY - 15);
+        const coordText = `World: (${Math.round(worldX)}, ${Math.round(worldY)})`;
+        ctx.strokeText(coordText, worldX + 15, worldY - 15);
+        ctx.fillText(coordText, worldX + 15, worldY - 15);
         
         ctx.restore();
     }
