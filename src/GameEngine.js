@@ -263,14 +263,13 @@ class GameEngine {
 
     /**
      * Handle mouse clicks for editor
+     * Note: This is now handled by EditorManager's own event listeners
+     * to avoid duplicate event handling
      */
     handleMouseClick = (e) => {
-        if (this.editorManager && this.editorManager.isActive) {
-            const rect = this.canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            this.editorManager.handleClick(x, y, e.button);
-        }
+        // EditorManager now handles its own mouse events
+        // This handler is kept for backwards compatibility but does nothing
+        // when editor is active
     }
 
     /**
