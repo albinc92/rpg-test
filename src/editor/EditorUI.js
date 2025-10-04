@@ -241,7 +241,7 @@ class EditorUI {
     createDataMenu(toolbar) {
         const dataMenu = new DropdownMenu('Data', [
             {
-                label: '🌲 Static Objects',
+                label: '� Game Object',
                 items: [
                     { 
                         label: '📚 Browse Templates', 
@@ -958,25 +958,82 @@ class EditorUI {
         const rightCol = document.createElement('div');
         rightCol.style.cssText = 'display: flex; flex-direction: column; gap: 12px;';
 
-        // Icon preview
-        const iconPreview = document.createElement('div');
-        iconPreview.style.cssText = 'text-align: center; margin-bottom: 8px;';
+        // Icon selector with preview and button
+        const iconContainer = document.createElement('div');
+        iconContainer.style.cssText = 'margin-bottom: 16px;';
+
+        const iconLabel = document.createElement('label');
+        iconLabel.textContent = 'Icon';
+        iconLabel.style.cssText = 'display: block; font-size: 13px; font-weight: bold; color: #aaa; margin-bottom: 8px;';
+        iconContainer.appendChild(iconLabel);
+
+        const iconPreviewContainer = document.createElement('div');
+        iconPreviewContainer.style.cssText = 'display: flex; align-items: center; gap: 10px; margin-bottom: 8px;';
+
         const iconImg = document.createElement('img');
         iconImg.src = itemData.icon;
-        iconImg.style.cssText = 'width: 64px; height: 64px; image-rendering: pixelated; border: 2px solid #4a9eff; border-radius: 4px;';
-        iconPreview.appendChild(iconImg);
-        rightCol.appendChild(iconPreview);
+        iconImg.style.cssText = 'width: 64px; height: 64px; image-rendering: pixelated; background: #1a1a1a; border: 2px solid #555; border-radius: 4px;';
+        iconPreviewContainer.appendChild(iconImg);
 
-        rightCol.appendChild(this.createConfigField('Icon Path', itemData.icon, 'text', (value) => {
-            itemData.icon = value;
-            iconImg.src = value;
-        }));
+        const selectIconBtn = document.createElement('button');
+        selectIconBtn.textContent = '📁 Choose Icon...';
+        selectIconBtn.type = 'button';
+        selectIconBtn.style.cssText = `
+            flex: 1;
+            padding: 8px;
+            background: #4a9eff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        `;
+        selectIconBtn.onclick = () => {
+            this.openItemIconPicker((selectedPath) => {
+                itemData.icon = selectedPath;
+                iconImg.src = selectedPath;
+                iconPathInput.value = selectedPath;
+            });
+        };
+        selectIconBtn.onmouseover = () => selectIconBtn.style.background = '#5aafff';
+        selectIconBtn.onmouseout = () => selectIconBtn.style.background = '#4a9eff';
+        iconPreviewContainer.appendChild(selectIconBtn);
+
+        iconContainer.appendChild(iconPreviewContainer);
+
+        // Icon path display (read-only)
+        const iconPathInput = document.createElement('input');
+        iconPathInput.type = 'text';
+        iconPathInput.value = itemData.icon;
+        iconPathInput.readOnly = true;
+        iconPathInput.style.cssText = `
+            width: 100%;
+            padding: 5px;
+            background: #222;
+            color: #888;
+            border: 1px solid #555;
+            border-radius: 4px;
+            font-size: 11px;
+        `;
+        iconContainer.appendChild(iconPathInput);
+
+        rightCol.appendChild(iconContainer);
+
+        // Description field with proper layout
+        const descContainer = document.createElement('div');
+        descContainer.style.cssText = 'margin-bottom: 16px;';
+
+        const descLabel = document.createElement('label');
+        descLabel.textContent = 'Description';
+        descLabel.style.cssText = 'display: block; font-size: 13px; font-weight: bold; color: #aaa; margin-bottom: 8px;';
+        descContainer.appendChild(descLabel);
 
         const descTextarea = document.createElement('textarea');
         descTextarea.value = itemData.description;
         descTextarea.placeholder = 'Item description...';
         descTextarea.rows = 3;
         descTextarea.style.cssText = `
+            width: 100%;
             padding: 8px;
             background: #2a2a2a;
             color: white;
@@ -985,14 +1042,11 @@ class EditorUI {
             font-size: 14px;
             resize: vertical;
             font-family: Arial, sans-serif;
+            box-sizing: border-box;
         `;
         descTextarea.oninput = () => itemData.description = descTextarea.value;
-        const descLabel = document.createElement('label');
-        descLabel.textContent = 'Description';
-        descLabel.style.cssText = 'font-size: 13px; font-weight: bold; color: #aaa; margin-bottom: 4px;';
-        const descContainer = document.createElement('div');
-        descContainer.appendChild(descLabel);
         descContainer.appendChild(descTextarea);
+
         rightCol.appendChild(descContainer);
 
         columns.appendChild(rightCol);
@@ -2057,6 +2111,170 @@ class EditorUI {
         // Close on backdrop click
         backdrop.onclick = (e) => {
             if (e.target === backdrop) backdrop.remove();
+        };
+    }
+
+    /**
+     * Open item icon picker modal
+     */
+    openItemIconPicker(onSelect) {
+        // Create modal overlay
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // Create modal container
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: #1a1a1a;
+            border: 2px solid #444;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 700px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        `;
+
+        // Header
+        const header = document.createElement('div');
+        header.style.cssText = `
+            padding: 15px 20px;
+            background: #2a2a2a;
+            border-bottom: 2px solid #444;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        `;
+
+        const title = document.createElement('h3');
+        title.textContent = 'Select Item Icon';
+        title.style.cssText = `
+            margin: 0;
+            color: white;
+            font-size: 18px;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '✕';
+        closeBtn.style.cssText = `
+            background: #d32f2f;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+        `;
+        closeBtn.onclick = () => overlay.remove();
+
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        // Icon grid container
+        const gridContainer = document.createElement('div');
+        gridContainer.style.cssText = `
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        `;
+
+        const grid = document.createElement('div');
+        grid.style.cssText = `
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 15px;
+        `;
+
+        // Available item icon paths
+        const availableIcons = [
+            'assets/icon/Items/Health_Potion-0.png',
+            'assets/icon/Items/Mana_Potion-0.png',
+            'assets/icon/Items/Iron_Sword.png',
+            'assets/icon/Items/Leather_Armor-0.png',
+            'assets/icon/Items/Magic_Scroll-0.png',
+            'assets/icon/Items/Iron_Ore-0.png',
+            'assets/icon/Items/Mysterious_Key-0.png',
+        ];
+
+        // Create icon cards
+        availableIcons.forEach(iconPath => {
+            const card = document.createElement('div');
+            card.style.cssText = `
+                background: #2a2a2a;
+                border: 2px solid #444;
+                border-radius: 8px;
+                padding: 12px;
+                cursor: pointer;
+                transition: all 0.2s;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 8px;
+            `;
+
+            const img = document.createElement('img');
+            img.src = iconPath;
+            img.style.cssText = `
+                width: 64px;
+                height: 64px;
+                image-rendering: pixelated;
+                background: #1a1a1a;
+                border-radius: 4px;
+            `;
+
+            const name = document.createElement('div');
+            name.textContent = iconPath.split('/').pop().replace('.png', '').replace(/_/g, ' ');
+            name.style.cssText = `
+                color: white;
+                font-size: 11px;
+                text-align: center;
+                word-break: break-word;
+            `;
+
+            card.appendChild(img);
+            card.appendChild(name);
+
+            card.onmouseover = () => {
+                card.style.borderColor = '#4a9eff';
+                card.style.background = '#333';
+            };
+            card.onmouseout = () => {
+                card.style.borderColor = '#444';
+                card.style.background = '#2a2a2a';
+            };
+            card.onclick = () => {
+                onSelect(iconPath);
+                overlay.remove();
+            };
+
+            grid.appendChild(card);
+        });
+
+        gridContainer.appendChild(grid);
+        modal.appendChild(header);
+        modal.appendChild(gridContainer);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Close on overlay click
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+            }
         };
     }
 }

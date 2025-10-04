@@ -82,6 +82,11 @@ class PropertyPanel {
             }, 1, 0);
         }
 
+        // Sprite selector for objects that have sprites
+        if (obj.spriteSrc !== undefined) {
+            this.addSpriteSelector(obj);
+        }
+
         // Conditional properties
         if (obj.name !== undefined) {
             this.addTextInput('Name', obj.name, (value) => {
@@ -448,6 +453,264 @@ class PropertyPanel {
 
         this.propertiesContainer.appendChild(header);
         this.propertiesContainer.appendChild(content);
+    }
+
+    /**
+     * Add sprite selector
+     */
+    addSpriteSelector(obj) {
+        const container = document.createElement('div');
+        container.style.marginBottom = '15px';
+
+        const label = document.createElement('label');
+        label.textContent = 'Sprite';
+        label.style.cssText = `
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            font-weight: bold;
+        `;
+
+        // Preview and select button container
+        const previewContainer = document.createElement('div');
+        previewContainer.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        `;
+
+        // Preview image
+        const preview = document.createElement('img');
+        preview.style.cssText = `
+            width: 64px;
+            height: 64px;
+            object-fit: contain;
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 4px;
+        `;
+        if (obj.spriteSrc) {
+            preview.src = obj.spriteSrc;
+        }
+
+        // Select sprite button
+        const selectBtn = document.createElement('button');
+        selectBtn.textContent = '📁 Choose Sprite...';
+        selectBtn.style.cssText = `
+            flex: 1;
+            padding: 8px;
+            background: #4a9eff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        `;
+        selectBtn.onclick = () => {
+            this.openSpritePicker(obj, (selectedPath) => {
+                obj.spriteSrc = selectedPath;
+                obj.loadSprite(selectedPath);
+                preview.src = selectedPath;
+                pathInput.value = selectedPath;
+            });
+        };
+        selectBtn.onmouseover = () => selectBtn.style.background = '#5aafff';
+        selectBtn.onmouseout = () => selectBtn.style.background = '#4a9eff';
+
+        previewContainer.appendChild(preview);
+        previewContainer.appendChild(selectBtn);
+
+        // Current sprite path display
+        const pathInput = document.createElement('input');
+        pathInput.type = 'text';
+        pathInput.value = obj.spriteSrc || '';
+        pathInput.placeholder = 'assets/npc/...';
+        pathInput.style.cssText = `
+            width: 100%;
+            padding: 5px;
+            background: #222;
+            color: #888;
+            border: 1px solid #555;
+            border-radius: 4px;
+            font-size: 11px;
+        `;
+        pathInput.readOnly = true;
+
+        container.appendChild(label);
+        container.appendChild(previewContainer);
+        container.appendChild(pathInput);
+        this.propertiesContainer.appendChild(container);
+    }
+
+    /**
+     * Open sprite picker modal
+     */
+    openSpritePicker(obj, onSelect) {
+        // Create modal overlay
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // Create modal container
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: #1a1a1a;
+            border: 2px solid #444;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        `;
+
+        // Header
+        const header = document.createElement('div');
+        header.style.cssText = `
+            padding: 15px 20px;
+            background: #2a2a2a;
+            border-bottom: 2px solid #444;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        `;
+
+        const title = document.createElement('h3');
+        title.textContent = 'Select Sprite';
+        title.style.cssText = `
+            margin: 0;
+            color: white;
+            font-size: 18px;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '✕';
+        closeBtn.style.cssText = `
+            background: #d32f2f;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+        `;
+        closeBtn.onclick = () => overlay.remove();
+
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        // Sprite grid container
+        const gridContainer = document.createElement('div');
+        gridContainer.style.cssText = `
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        `;
+
+        const grid = document.createElement('div');
+        grid.style.cssText = `
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 15px;
+        `;
+
+        // Available sprite paths
+        const availableSprites = [
+            'assets/npc/merchant-0.png',
+            'assets/npc/sage-0.png',
+            'assets/npc/main-0.png',
+            'assets/npc/chest-0.png',
+            'assets/npc/chest-0-open.png',
+            'assets/npc/door-0.png',
+            'assets/npc/navigation-0.png',
+            'assets/npc/sign-0.png',
+            'assets/npc/Spirits/Sylphie00.png',
+        ];
+
+        // Create sprite cards
+        availableSprites.forEach(spritePath => {
+            const card = document.createElement('div');
+            card.style.cssText = `
+                background: #2a2a2a;
+                border: 2px solid ${obj.spriteSrc === spritePath ? '#4a9eff' : '#444'};
+                border-radius: 8px;
+                padding: 10px;
+                cursor: pointer;
+                transition: all 0.2s;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 8px;
+            `;
+
+            const img = document.createElement('img');
+            img.src = spritePath;
+            img.style.cssText = `
+                width: 64px;
+                height: 64px;
+                object-fit: contain;
+                background: #1a1a1a;
+                border-radius: 4px;
+            `;
+
+            const name = document.createElement('div');
+            name.textContent = spritePath.split('/').pop().replace('.png', '');
+            name.style.cssText = `
+                color: white;
+                font-size: 11px;
+                text-align: center;
+                word-break: break-word;
+            `;
+
+            card.appendChild(img);
+            card.appendChild(name);
+
+            card.onmouseover = () => {
+                if (obj.spriteSrc !== spritePath) {
+                    card.style.borderColor = '#666';
+                    card.style.background = '#333';
+                }
+            };
+            card.onmouseout = () => {
+                if (obj.spriteSrc !== spritePath) {
+                    card.style.borderColor = '#444';
+                    card.style.background = '#2a2a2a';
+                }
+            };
+            card.onclick = () => {
+                onSelect(spritePath);
+                overlay.remove();
+            };
+
+            grid.appendChild(card);
+        });
+
+        gridContainer.appendChild(grid);
+        modal.appendChild(header);
+        modal.appendChild(gridContainer);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Close on overlay click
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+            }
+        };
     }
 }
 
