@@ -623,6 +623,8 @@ class PlayingState extends GameState {
     }
     
     handleCanvasClick(event) {
+        // Only handle menu button clicks on mobile
+        if (!this.game.inputManager.isMobile) return;
         if (!this.menuButtonBounds) return;
         
         // Get click/touch position
@@ -703,8 +705,10 @@ class PlayingState extends GameState {
         // Render game world
         this.game.renderGameplay(ctx);
         
-        // Render Menu button in top-right corner
-        this.renderMenuButton(ctx);
+        // Render Menu button in top-right corner (mobile only)
+        if (this.game.inputManager.isMobile) {
+            this.renderMenuButton(ctx);
+        }
     }
     
     renderMenuButton(ctx) {
