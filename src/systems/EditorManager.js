@@ -33,7 +33,7 @@ class EditorManager {
         this.gridEnabled = true;
         this.gridSize = 32;
         this.snapToGrid = false;
-        this.showCollisionBoxes = false;
+        this.showCollisionBoxes = true;
         
         // UI components
         this.ui = null;
