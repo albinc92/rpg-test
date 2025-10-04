@@ -24,6 +24,7 @@ class EditorManager {
         this.paintLayers = {}; // Store paint layers per map {mapId: canvas}
         this.textures = []; // Available textures for painting
         this.loadedTextures = {}; // Cache of loaded texture images
+        this.paintStartState = null; // Store canvas state before stroke for undo
         
         // Drag state for moving objects
         this.isDragging = false;
@@ -1049,7 +1050,6 @@ class EditorManager {
         }
         
         const action = this.history[this.historyIndex];
-        this.historyIndex--;
         
         // Reverse the action
         if (action.type === 'place') {
@@ -1059,8 +1059,23 @@ class EditorManager {
         } else if (action.type === 'move') {
             action.object.x = action.oldX;
             action.object.y = action.oldY;
+        } else if (action.type === 'paint') {
+            // Store current state for redo before restoring
+            const canvas = this.paintLayers[action.mapId];
+            if (canvas && action.imageData) {
+                const ctx = canvas.getContext('2d');
+                
+                // Save current state for redo
+                if (!action.redoImageData) {
+                    action.redoImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                }
+                
+                // Restore previous state
+                ctx.putImageData(action.imageData, 0, 0);
+            }
         }
         
+        this.historyIndex--;
         console.log('[EditorManager] Undo:', action.type);
     }
 
@@ -1084,6 +1099,13 @@ class EditorManager {
         } else if (action.type === 'move') {
             action.object.x = action.newX;
             action.object.y = action.newY;
+        } else if (action.type === 'paint') {
+            // Restore the "after" state
+            const canvas = this.paintLayers[action.mapId];
+            if (canvas && action.redoImageData) {
+                const ctx = canvas.getContext('2d');
+                ctx.putImageData(action.redoImageData, 0, 0);
+            }
         }
         
         console.log('[EditorManager] Redo:', action.type);
@@ -1302,6 +1324,14 @@ class EditorManager {
     startPainting(x, y) {
         if (this.selectedTool !== 'paint' || !this.selectedTexture) return;
         
+        // Capture paint layer state before painting starts (for undo)
+        const mapId = this.game.currentMapId;
+        const canvas = this.paintLayers[mapId];
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            this.paintStartState = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        }
+        
         this.isPainting = true;
         this.paintAt(this.mouseWorldX, this.mouseWorldY);
     }
@@ -1322,12 +1352,15 @@ class EditorManager {
         
         this.isPainting = false;
         
-        // Add to history for undo
-        this.addHistory({
-            type: 'paint',
-            mapId: this.game.currentMapId,
-            // TODO: Store canvas state for undo
-        });
+        // Add to history for undo (store the state from before the stroke)
+        if (this.paintStartState) {
+            this.addHistory({
+                type: 'paint',
+                mapId: this.game.currentMapId,
+                imageData: this.paintStartState
+            });
+            this.paintStartState = null;
+        }
     }
 
     /**
