@@ -4,6 +4,7 @@
 class EditorUI {
     constructor(editor) {
         this.editor = editor;
+        this.game = editor.game; // Reference to game instance
         this.container = null;
         this.dropdowns = [];
         this.createUI();
@@ -210,7 +211,11 @@ class EditorUI {
                 items: [
                     { 
                         label: '📚 Browse Templates', 
-                        action: () => this.showStaticObjectBrowser()
+                        action: () => this.showStaticObjectBrowser(),
+                        get disabled() {
+                            const count = window.game?.staticObjectRegistry?.templates?.size || 0;
+                            return count === 0;
+                        }
                     },
                     { 
                         label: '➕ Create New', 
@@ -1183,28 +1188,97 @@ class EditorUI {
         });
         form.appendChild(spriteField);
 
-        // Sprite Preview
+        // Sprite Preview with Collision Box
         const spritePreviewContainer = document.createElement('div');
         spritePreviewContainer.style.cssText = 'text-align: center; padding: 16px; background: #2a2a2a; border-radius: 8px;';
         const spritePreviewLabel = document.createElement('div');
-        spritePreviewLabel.textContent = 'Sprite Preview';
+        spritePreviewLabel.textContent = 'Sprite Preview (with Collision Box)';
         spritePreviewLabel.style.cssText = 'font-size: 13px; font-weight: bold; color: #aaa; margin-bottom: 12px;';
         spritePreviewContainer.appendChild(spritePreviewLabel);
+        
+        // Canvas wrapper for layered rendering
+        const canvasWrapper = document.createElement('div');
+        canvasWrapper.style.cssText = `
+            position: relative;
+            display: inline-block;
+            background: repeating-conic-gradient(#333 0% 25%, #444 0% 50%) 50% / 20px 20px;
+            border: 2px solid #4a9eff;
+            border-radius: 4px;
+        `;
         
         const spritePreviewImg = document.createElement('img');
         spritePreviewImg.src = objectData.spriteSrc;
         spritePreviewImg.style.cssText = `
+            display: block;
             max-width: 200px;
             max-height: 200px;
             image-rendering: pixelated;
-            border: 2px solid #4a9eff;
-            border-radius: 4px;
-            background: repeating-conic-gradient(#333 0% 25%, #444 0% 50%) 50% / 20px 20px;
         `;
-        spritePreviewImg.onerror = () => {
-            spritePreviewImg.style.border = '2px solid #c0392b';
+        
+        const collisionCanvas = document.createElement('canvas');
+        collisionCanvas.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        `;
+        
+        // Function to redraw collision box (matches editor visualization)
+        const updateCollisionPreview = () => {
+            if (!spritePreviewImg.complete || !spritePreviewImg.naturalWidth) return;
+            
+            const width = spritePreviewImg.width;
+            const height = spritePreviewImg.height;
+            
+            collisionCanvas.width = width;
+            collisionCanvas.height = height;
+            
+            const ctx = collisionCanvas.getContext('2d');
+            ctx.clearRect(0, 0, width, height);
+            
+            // Calculate collision box based on offsets (matching GameObject.getCollisionBounds)
+            const renderedWidth = width;
+            const renderedHeight = height;
+            
+            // Apply expansion values in all 4 directions
+            const expandLeft = renderedWidth * (objectData.collisionExpandLeftPercent || 0);
+            const expandRight = renderedWidth * (objectData.collisionExpandRightPercent || 0);
+            const expandTop = renderedHeight * (objectData.collisionExpandTopPercent || 0);
+            const expandBottom = renderedHeight * (objectData.collisionExpandBottomPercent || 0);
+            
+            let collisionWidth = renderedWidth + expandLeft + expandRight;
+            let collisionHeight = renderedHeight + expandTop + expandBottom;
+            
+            // Calculate base position (centered on sprite)
+            let collisionX = (width - collisionWidth) / 2;
+            let collisionY = (height - collisionHeight) / 2;
+            
+            // Adjust for asymmetric expansion
+            collisionX += (expandRight - expandLeft) / 2;
+            collisionY += (expandBottom - expandTop) / 2;
+            
+            // Draw collision box with red outline (matching editor style)
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([]); // Solid line, not dashed
+            ctx.strokeRect(collisionX, collisionY, collisionWidth, collisionHeight);
+            
+            // Draw semi-transparent red fill
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+            ctx.fillRect(collisionX, collisionY, collisionWidth, collisionHeight);
         };
-        spritePreviewContainer.appendChild(spritePreviewImg);
+        
+        spritePreviewImg.onload = () => {
+            updateCollisionPreview();
+        };
+        
+        spritePreviewImg.onerror = () => {
+            canvasWrapper.style.borderColor = '#c0392b';
+        };
+        
+        canvasWrapper.appendChild(spritePreviewImg);
+        canvasWrapper.appendChild(collisionCanvas);
+        spritePreviewContainer.appendChild(canvasWrapper);
         form.appendChild(spritePreviewContainer);
 
         // Scale
@@ -1229,21 +1303,25 @@ class EditorUI {
         const collisionGrid = document.createElement('div');
         collisionGrid.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 12px;';
 
-        // Collision offsets
+        // Collision offsets (with live preview update)
         collisionGrid.appendChild(this.createConfigField('Top Offset %', objectData.collisionExpandTopPercent, 'number', (value) => {
             objectData.collisionExpandTopPercent = parseFloat(value);
+            updateCollisionPreview();
         }, { step: 0.05, min: -1.0, max: 1.0 }));
 
         collisionGrid.appendChild(this.createConfigField('Bottom Offset %', objectData.collisionExpandBottomPercent, 'number', (value) => {
             objectData.collisionExpandBottomPercent = parseFloat(value);
+            updateCollisionPreview();
         }, { step: 0.05, min: -1.0, max: 1.0 }));
 
         collisionGrid.appendChild(this.createConfigField('Left Offset %', objectData.collisionExpandLeftPercent, 'number', (value) => {
             objectData.collisionExpandLeftPercent = parseFloat(value);
+            updateCollisionPreview();
         }, { step: 0.05, min: -1.0, max: 1.0 }));
 
         collisionGrid.appendChild(this.createConfigField('Right Offset %', objectData.collisionExpandRightPercent, 'number', (value) => {
             objectData.collisionExpandRightPercent = parseFloat(value);
+            updateCollisionPreview();
         }, { step: 0.05, min: -1.0, max: 1.0 }));
 
         collisionSection.appendChild(collisionGrid);
@@ -1309,6 +1387,10 @@ class EditorUI {
             font-size: 14px;
         `;
         saveTemplateBtn.onclick = () => {
+            console.log('[EditorUI] Save template clicked');
+            console.log('[EditorUI] Game object:', this.game);
+            console.log('[EditorUI] Registry:', this.game?.staticObjectRegistry);
+            
             // Validate
             if (!objectData.spriteSrc || objectData.spriteSrc.trim() === '') {
                 alert('Please enter a sprite path!');
@@ -1320,44 +1402,29 @@ class EditorUI {
             }
 
             // Save to registry
-            this.game.staticObjectRegistry.addTemplate(objectData.name, {
-                spriteSrc: objectData.spriteSrc,
-                scale: objectData.scale,
-                objectCategory: objectData.objectCategory,
-                collisionExpandTopPercent: objectData.collisionExpandTopPercent,
-                collisionExpandBottomPercent: objectData.collisionExpandBottomPercent,
-                collisionExpandLeftPercent: objectData.collisionExpandLeftPercent,
-                collisionExpandRightPercent: objectData.collisionExpandRightPercent,
-                castsShadow: objectData.castsShadow,
-                swaysInWind: objectData.swaysInWind
-            });
+            try {
+                const success = this.game.staticObjectRegistry.addTemplate(objectData.name, {
+                    spriteSrc: objectData.spriteSrc,
+                    scale: objectData.scale,
+                    objectCategory: objectData.objectCategory,
+                    collisionExpandTopPercent: objectData.collisionExpandTopPercent,
+                    collisionExpandBottomPercent: objectData.collisionExpandBottomPercent,
+                    collisionExpandLeftPercent: objectData.collisionExpandLeftPercent,
+                    collisionExpandRightPercent: objectData.collisionExpandRightPercent,
+                    castsShadow: objectData.castsShadow,
+                    swaysInWind: objectData.swaysInWind
+                });
 
-            alert(`Template "${objectData.name}" saved successfully!`);
-        };
-
-        const createBtn = document.createElement('button');
-        createBtn.textContent = '➕ Create & Place';
-        createBtn.type = 'button';
-        createBtn.style.cssText = `
-            padding: 10px 20px;
-            background: #27ae60;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 14px;
-        `;
-        createBtn.onclick = () => {
-            // Validate sprite path
-            if (!objectData.spriteSrc || objectData.spriteSrc.trim() === '') {
-                alert('Please enter a sprite path!');
-                return;
+                if (success) {
+                    alert(`Template "${objectData.name}" saved successfully!`);
+                    backdrop.remove();
+                } else {
+                    alert('Failed to save template. Check console for errors.');
+                }
+            } catch (error) {
+                console.error('[EditorUI] Error saving template:', error);
+                alert('Error saving template: ' + error.message);
             }
-
-            // Select this object for placement
-            this.selectObjectToPlace(objectData, objectData.name || 'Custom Static Object');
-            backdrop.remove();
         };
 
         const cancelBtn = document.createElement('button');
@@ -1376,7 +1443,6 @@ class EditorUI {
 
         buttonContainer.appendChild(cancelBtn);
         buttonContainer.appendChild(saveTemplateBtn);
-        buttonContainer.appendChild(createBtn);
         modal.appendChild(buttonContainer);
 
         backdrop.appendChild(modal);

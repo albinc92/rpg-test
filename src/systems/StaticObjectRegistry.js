@@ -26,46 +26,40 @@ class StaticObjectRegistry {
      */
     loadBuiltInTemplates() {
         // Trees
-        this.addTemplate({
-            id: 'tree-01',
-            name: 'Oak Tree',
+        this.addTemplate('Oak Tree', {
             objectCategory: 'tree',
             spriteSrc: 'assets/objects/trees/tree-01.png',
             scale: 1.0,
             collisionExpandTopPercent: -0.90,
+            collisionExpandBottomPercent: 0,
             collisionExpandRightPercent: -0.25,
             collisionExpandLeftPercent: -0.25,
             castsShadow: false,
-            swaysInWind: true,
-            animationType: 'sway',
-            animationSpeed: 0.001,
-            animationIntensity: 5.0
+            swaysInWind: true
         });
 
         // Bushes
-        this.addTemplate({
-            id: 'bush-01',
-            name: 'Green Bush',
+        this.addTemplate('Green Bush', {
             objectCategory: 'bush',
             spriteSrc: 'assets/objects/bushes/bush-01.png',
             scale: 0.5,
             collisionExpandTopPercent: -0.70,
+            collisionExpandBottomPercent: 0,
             collisionExpandRightPercent: -0.05,
             collisionExpandLeftPercent: -0.05,
             castsShadow: false,
-            swaysInWind: true,
-            animationType: 'sway',
-            animationSpeed: 0.002,
-            animationIntensity: 3.0
+            swaysInWind: true
         });
 
         // Rocks
-        this.addTemplate({
-            id: 'rock-01',
-            name: 'Boulder',
+        this.addTemplate('Boulder', {
             objectCategory: 'rock',
             spriteSrc: 'assets/objects/rocks/rock-01.png',
             scale: 0.3,
+            collisionExpandTopPercent: 0,
+            collisionExpandBottomPercent: 0,
+            collisionExpandRightPercent: 0,
+            collisionExpandLeftPercent: 0,
             castsShadow: false,
             swaysInWind: false
         });
@@ -76,29 +70,34 @@ class StaticObjectRegistry {
     /**
      * Add a template to the registry
      */
-    addTemplate(template) {
-        if (!template.id) {
-            console.error('[StaticObjectRegistry] Template must have an ID');
+    addTemplate(name, template) {
+        console.log(`[StaticObjectRegistry] addTemplate called with name="${name}"`, template);
+        
+        if (!name || name.trim() === '') {
+            console.error('[StaticObjectRegistry] Template must have a name');
             return false;
         }
 
-        this.templates.set(template.id, template);
-        console.log(`[StaticObjectRegistry] Added template: ${template.name} (${template.id})`);
+        this.templates.set(name, template);
+        console.log(`[StaticObjectRegistry] ✅ Added template: ${name} (total: ${this.templates.size})`);
         return true;
     }
 
     /**
-     * Get a template by ID
+     * Get a template by name
      */
-    getTemplate(id) {
-        return this.templates.get(id);
+    getTemplate(name) {
+        return this.templates.get(name);
     }
 
     /**
-     * Get all templates
+     * Get all templates as array of {name, template} objects
      */
     getAllTemplates() {
-        return Array.from(this.templates.values());
+        return Array.from(this.templates.entries()).map(([name, template]) => ({
+            name,
+            template
+        }));
     }
 
     /**

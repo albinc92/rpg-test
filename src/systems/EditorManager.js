@@ -202,6 +202,9 @@ class EditorManager {
     deactivate() {
         console.log('[EditorManager] Editor deactivated');
         
+        // Reset zoom to normal gameplay
+        this.game.camera.zoom = 1.0;
+        
         // Restore game pause state
         this.game.isPaused = this.isPaused;
         
@@ -294,9 +297,9 @@ class EditorManager {
         const canvas = this.game.canvas;
         const ctx = this.game.ctx;
         
-        // Get mouse position from input manager (screen coordinates)
-        const mouseScreenX = this.game.inputManager.mouse.x;
-        const mouseScreenY = this.game.inputManager.mouse.y;
+        // Get mouse position (use rawMouse to match preview rendering)
+        const mouseScreenX = this.rawMouseX;
+        const mouseScreenY = this.rawMouseY;
         
         // Calculate position relative to canvas element
         const relativeX = mouseScreenX - rect.left;
@@ -319,9 +322,27 @@ class EditorManager {
         const mouseCanvasY = relativeY * finalScaleY;
         
         // Convert canvas to world coordinates (add camera offset)
+        // The mouse canvas position needs to account for zoom to get the correct world position
         const camera = this.game.camera;
-        this.mouseWorldX = mouseCanvasX + camera.x;
-        this.mouseWorldY = mouseCanvasY + camera.y;
+        const zoom = camera.zoom || 1.0;
+        
+        // To get world position, we need to reverse the zoom transformation
+        let worldCanvasX = mouseCanvasX;
+        let worldCanvasY = mouseCanvasY;
+        
+        if (zoom !== 1.0) {
+            const canvasWidth = canvas.width / (window.devicePixelRatio || 1);
+            const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
+            const centerX = canvasWidth / 2;
+            const centerY = canvasHeight / 2;
+            
+            // Reverse the zoom transformation: (point - center) / zoom + center
+            worldCanvasX = (mouseCanvasX - centerX) / zoom + centerX;
+            worldCanvasY = (mouseCanvasY - centerY) / zoom + centerY;
+        }
+        
+        this.mouseWorldX = worldCanvasX + camera.x;
+        this.mouseWorldY = worldCanvasY + camera.y;
         
         // Apply grid snap if enabled
         if (this.snapToGrid) {
@@ -459,19 +480,34 @@ class EditorManager {
         
         ctx.save();
         
+        // Apply the same transformation that RenderSystem uses for the world
+        const zoom = this.game.camera.zoom || 1.0;
+        if (zoom !== 1.0) {
+            const canvasWidth = canvas.width / (window.devicePixelRatio || 1);
+            const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
+            
+            // Scale around center point (same as RenderSystem)
+            ctx.translate(canvasWidth / 2, canvasHeight / 2);
+            ctx.scale(zoom, zoom);
+            ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
+        }
+        
+        // Now screenX/screenY are in canvas space, ready for rendering
+        
         // Get sprite and dimensions
         let sprite = this.previewSprite;
         let spriteWidth = 64;
         let spriteHeight = 64;
         let scale = this.selectedPrefab.scale || 1;
         
-        // Use loaded preview sprite if available
+        // Use loaded preview sprite if available - USE naturalWidth/naturalHeight!
         if (sprite && sprite.complete && sprite.naturalWidth > 0) {
-            spriteWidth = sprite.width;
-            spriteHeight = sprite.height;
+            spriteWidth = sprite.naturalWidth;
+            spriteHeight = sprite.naturalHeight;
         }
         
         // Calculate final dimensions with scaling (same as GameObject)
+        // NOTE: Don't multiply by zoom here - the preview is rendered outside the zoom transformation
         const resolutionScale = this.game.resolutionScale || 1;
         const finalScale = scale * resolutionScale;
         const scaledWidth = spriteWidth * finalScale;
@@ -503,25 +539,34 @@ class EditorManager {
         
         // Draw collision box if enabled
         if (this.showCollisionBoxes) {
-            // Calculate collision bounds based on prefab settings
-            const expandTop = this.selectedPrefab.collisionExpandTopPercent || 0;
-            const expandBottom = this.selectedPrefab.collisionExpandBottomPercent || 0;
-            const expandLeft = this.selectedPrefab.collisionExpandLeftPercent || 0;
-            const expandRight = this.selectedPrefab.collisionExpandRightPercent || 0;
+            // Calculate collision bounds based on prefab settings (matching GameObject.getCollisionBounds)
+            const expandTop = (this.selectedPrefab.collisionExpandTopPercent || 0) * scaledHeight;
+            const expandBottom = (this.selectedPrefab.collisionExpandBottomPercent || 0) * scaledHeight;
+            const expandLeft = (this.selectedPrefab.collisionExpandLeftPercent || 0) * scaledWidth;
+            const expandRight = (this.selectedPrefab.collisionExpandRightPercent || 0) * scaledWidth;
             
-            const collisionWidth = scaledWidth * (1 + expandLeft + expandRight);
-            const collisionHeight = scaledHeight * (1 + expandTop + expandBottom);
-            const collisionX = screenX - collisionWidth / 2 - (scaledWidth * expandLeft / 2) + (scaledWidth * expandRight / 2);
-            const collisionY = screenY - collisionHeight / 2 - (scaledHeight * expandTop / 2) + (scaledHeight * expandBottom / 2);
+            let collisionWidth = scaledWidth + expandLeft + expandRight;
+            let collisionHeight = scaledHeight + expandTop + expandBottom;
+            
+            // Calculate base position (centered on sprite)
+            let collisionX = screenX - collisionWidth / 2;
+            let collisionY = screenY - collisionHeight / 2;
+            
+            // Adjust for asymmetric expansion
+            collisionX += (expandRight - expandLeft) / 2;
+            collisionY += (expandBottom - expandTop) / 2;
             
             // Draw collision box
-            ctx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
             ctx.lineWidth = 2;
-            ctx.setLineDash([5, 5]);
-            ctx.strokeRect(collisionX, collisionY, collisionWidth, collisionHeight);
             ctx.setLineDash([]);
+            ctx.strokeRect(collisionX, collisionY, collisionWidth, collisionHeight);
             
-            // Draw collision center point
+            // Fill with semi-transparent red
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+            ctx.fillRect(collisionX, collisionY, collisionWidth, collisionHeight);
+            
+            // Draw center point
             ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
             ctx.beginPath();
             ctx.arc(screenX, screenY, 4, 0, Math.PI * 2);
