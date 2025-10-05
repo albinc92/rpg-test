@@ -129,6 +129,14 @@ class EditorManager {
                 if (this.ui) this.ui.updateViewMenu();
             }
             
+            // Toggle layer panel
+            else if (e.key === 'l' || e.key === 'L') {
+                if (this.layerPanel) {
+                    this.layerPanel.toggle();
+                    console.log('[EditorManager] Layer Panel:', this.layerPanel.isVisible() ? 'SHOWN' : 'HIDDEN');
+                }
+            }
+            
             // Toggle snap to grid
             else if (e.key === 'Shift') {
                 this.snapToGrid = true;
@@ -206,10 +214,12 @@ class EditorManager {
         if (!this.ui) {
             this.ui = new EditorUI(this);
             this.propertyPanel = new PropertyPanel(this);
+            this.layerPanel = new LayerPanel(this);
         }
         
         // Show UI
         this.ui.show();
+        this.layerPanel.show();
         
         // Setup mouse event listeners for drag
         this.setupMouseListeners();
@@ -234,6 +244,7 @@ class EditorManager {
         if (this.ui) {
             this.ui.hide();
             this.propertyPanel.hide();
+            this.layerPanel.hide();
         }
         
         // Close paint tool panel if open

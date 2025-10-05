@@ -47,6 +47,7 @@ async function loadGameScripts() {
         await loadScript('/src/systems/InventoryManager.js');
         
         // Load new subsystems for better architecture
+        await loadScript('/src/systems/LayerManager.js'); // NEW: Multi-layer map system
         await loadScript('/src/systems/RenderSystem.js');
         await loadScript('/src/systems/CollisionSystem.js');
         await loadScript('/src/systems/InteractionSystem.js');
@@ -59,6 +60,7 @@ async function loadGameScripts() {
         await loadScript('/src/editor/EditorUI.js');
         await loadScript('/src/editor/ObjectPalette.js');
         await loadScript('/src/editor/PropertyPanel.js');
+        await loadScript('/src/editor/LayerPanel.js'); // NEW: Layer management panel
         await loadScript('/src/systems/EditorManager.js');
         
         // Load game engine

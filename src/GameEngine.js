@@ -59,6 +59,7 @@ class GameEngine {
         this.inventoryManager = new InventoryManager(this.itemManager);
         
         // NEW: Specialized subsystems for better architecture
+        this.layerManager = new LayerManager(); // Multi-layer map system
         this.renderSystem = new RenderSystem(this.canvas, this.ctx);
         this.collisionSystem = new CollisionSystem();
         this.interactionSystem = new InteractionSystem();
@@ -524,6 +525,15 @@ class GameEngine {
         
         this.currentMapId = mapId;
         this.currentMap = mapData;
+        
+        // Initialize layers for this map (creates base layer if doesn't exist)
+        this.layerManager.initializeMapLayers(mapId);
+        
+        // Set base layer's background to the map image
+        const baseLayer = this.layerManager.getLayers(mapId)[0];
+        if (baseLayer && this.currentMap.image) {
+            baseLayer.backgroundImage = this.currentMap.image;
+        }
         
         // Load all objects for this map (NPCs, trees, chests, portals, etc.)
         this.objectManager.loadObjectsForMap(mapId);
