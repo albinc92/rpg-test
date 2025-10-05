@@ -167,9 +167,11 @@ class ObjectPalette {
                     data: { 
                         category: 'InteractiveObject', 
                         objectType: 'chest',
+                        spriteSrc: 'assets/npc/chest-0.png',
                         chestType: 'wooden',
                         gold: 0,
-                        loot: []
+                        loot: [],
+                        scale: 0.15
                     }
                 },
                 { 

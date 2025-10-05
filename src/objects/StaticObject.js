@@ -93,12 +93,18 @@ class StaticObject extends GameObject {
         const screenX = scaledX - width / 2;
         const screenY = scaledY - height / 2 - altitudeOffset;
         
+        // Determine if we should flip horizontally
+        const shouldFlip = this.reverseFacing === true || this.direction === 'right';
+        
         ctx.save();
         
         // Apply rotation if needed
         if (this.animationType === 'rotate' && this.rotation) {
             ctx.translate(scaledX, scaledY - altitudeOffset);
             ctx.rotate(this.rotation);
+            if (shouldFlip) {
+                ctx.scale(-1, 1);
+            }
             ctx.drawImage(this.sprite, -width / 2, -height / 2, width, height);
         }
         // Apply swaying if needed
@@ -106,11 +112,14 @@ class StaticObject extends GameObject {
             const resolutionScale = game?.resolutionScale || 1.0;
             const scaledSwayOffset = this.swayOffset * resolutionScale;
             ctx.translate(scaledX + scaledSwayOffset, scaledY - altitudeOffset);
+            if (shouldFlip) {
+                ctx.scale(-1, 1);
+            }
             ctx.drawImage(this.sprite, -width / 2, -height / 2, width, height);
         }
         // Normal rendering
         else {
-            if (this.direction === 'right') {
+            if (shouldFlip) {
                 ctx.translate(scaledX, scaledY - altitudeOffset);
                 ctx.scale(-1, 1);
                 ctx.drawImage(this.sprite, -width / 2, -height / 2, width, height);

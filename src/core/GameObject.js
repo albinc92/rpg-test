@@ -12,6 +12,7 @@ class GameObject {
         // Visual properties
         this.direction = options.direction || 'left'; // 'left' or 'right'
         this.scale = options.scale || 1.0;
+        this.reverseFacing = options.reverseFacing || false; // Flip sprite horizontally
         
         // Sprite dimensions (will be set when sprite loads)
         this.spriteWidth = 0;
@@ -172,13 +173,17 @@ class GameObject {
         
         ctx.save();
         
-        if (this.direction === 'right') {
-            // Flip sprite horizontally for right-facing (sprites naturally face left)
+        // Determine if we should flip horizontally
+        // reverseFacing takes priority and forces a flip
+        const shouldFlip = this.reverseFacing === true || this.direction === 'right';
+        
+        if (shouldFlip) {
+            // Flip sprite horizontally
             ctx.translate(scaledX, scaledY - altitudeOffset);
             ctx.scale(-1, 1);
             ctx.drawImage(this.sprite, -width / 2, -height / 2, width, height);
         } else {
-            // Default left-facing (no flip needed)
+            // Default rendering (no flip)
             ctx.drawImage(this.sprite, screenX, screenY, width, height);
         }
         

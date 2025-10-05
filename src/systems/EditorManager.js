@@ -1136,6 +1136,7 @@ class EditorManager {
             if (obj.actorType) data.actorType = obj.actorType;
             if (obj.objectType) data.objectType = obj.objectType;
             if (obj.castsShadow === false) data.castsShadow = false;
+            if (obj.reverseFacing) data.reverseFacing = obj.reverseFacing;
             
             // Add collision customization if present
             if (obj.collisionExpandTopPercent) data.collisionExpandTopPercent = obj.collisionExpandTopPercent;
