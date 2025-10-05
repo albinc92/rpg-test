@@ -18,6 +18,7 @@ class EditorManager {
         // Paint tool state
         this.isPainting = false;
         this.paintMode = 'texture'; // 'texture' or 'collision'
+        this.toolAction = 'paint'; // 'paint', 'erase', or 'fill'
         this.selectedTexture = null; // Current texture to paint with
         this.brushSize = 64; // Brush radius in pixels
         this.brushStyle = 'soft'; // 'soft', 'hard', 'very-soft'
@@ -1261,12 +1262,18 @@ class EditorManager {
      * Paint texture or collision at position
      */
     paintAt(worldX, worldY) {
-        // For collision mode, we don't need a texture
-        if (this.paintMode === 'texture' && (!this.selectedTexture || !this.loadedTextures[this.selectedTexture])) {
+        const mapId = this.game.currentMapId;
+        
+        // Handle erase action
+        if (this.toolAction === 'erase') {
+            this.eraseAt(worldX, worldY, mapId);
             return;
         }
         
-        const mapId = this.game.currentMapId;
+        // For texture mode with paint action, we need a texture
+        if (this.toolAction === 'paint' && this.paintMode === 'texture' && (!this.selectedTexture || !this.loadedTextures[this.selectedTexture])) {
+            return;
+        }
         
         // Handle collision painting
         if (this.paintMode === 'collision') {
@@ -1414,6 +1421,126 @@ class EditorManager {
     }
 
     /**
+     * Erase texture or collision at position
+     */
+    eraseAt(worldX, worldY, mapId) {
+        let canvas;
+        
+        // Get the appropriate canvas based on paint mode
+        if (this.paintMode === 'collision') {
+            canvas = this.collisionLayers[mapId];
+        } else {
+            canvas = this.getPaintLayer(mapId);
+        }
+        
+        if (!canvas) return;
+        
+        const ctx = canvas.getContext('2d');
+        const brushSize = this.brushSize;
+        
+        // Use destination-out to erase
+        ctx.save();
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.fillStyle = 'rgba(255, 255, 255, 1.0)';
+        
+        // Erase based on brush shape (for collision) or always circle for texture
+        if (this.paintMode === 'collision' && this.brushShape === 'square') {
+            // Square eraser
+            ctx.fillRect(worldX - brushSize, worldY - brushSize, brushSize * 2, brushSize * 2);
+        } else {
+            // Circle eraser (default for texture, optional for collision)
+            ctx.beginPath();
+            ctx.arc(worldX, worldY, brushSize, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        ctx.restore();
+    }
+
+    /**
+     * Fill entire layer with texture or collision
+     */
+    fillLayer(mapId) {
+        let canvas;
+        
+        // Get the appropriate canvas based on paint mode
+        if (this.paintMode === 'collision') {
+            // Initialize collision canvas if needed
+            if (!this.collisionLayers[mapId]) {
+                const mapData = this.game.mapManager.maps[mapId];
+                if (!mapData) return;
+                
+                const mapScale = mapData.scale || 1.0;
+                const resolutionScale = this.game.resolutionScale || 1.0;
+                const scaledWidth = mapData.width * mapScale * resolutionScale;
+                const scaledHeight = mapData.height * mapScale * resolutionScale;
+                
+                canvas = document.createElement('canvas');
+                canvas.width = scaledWidth;
+                canvas.height = scaledHeight;
+                this.collisionLayers[mapId] = canvas;
+            } else {
+                canvas = this.collisionLayers[mapId];
+            }
+            
+            // Fill with solid red collision
+            const ctx = canvas.getContext('2d');
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 0, 0, 1.0)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.restore();
+            
+            console.log(`[EditorManager] Filled collision layer for map ${mapId}`);
+        } else {
+            // Texture mode - require texture
+            if (!this.selectedTexture || !this.loadedTextures[this.selectedTexture]) {
+                console.warn('[EditorManager] Cannot fill: no texture selected');
+                return;
+            }
+            
+            canvas = this.getPaintLayer(mapId);
+            if (!canvas) {
+                // Initialize paint layer if needed
+                this.initializePaintLayer(mapId);
+                
+                // Also initialize for active layer if using layer system
+                if (this.game.layerManager && this.game.layerManager.hasLayers(mapId)) {
+                    const activeLayerId = this.game.layerManager.activeLayerId;
+                    if (activeLayerId !== null) {
+                        const mapData = this.game.mapManager.maps[mapId];
+                        if (mapData) {
+                            const mapScale = mapData.scale || 1.0;
+                            const resolutionScale = this.game.resolutionScale || 1.0;
+                            const scaledWidth = mapData.width * mapScale * resolutionScale;
+                            const scaledHeight = mapData.height * mapScale * resolutionScale;
+                            
+                            if (!this.game.layerManager.getPaintCanvas(mapId, activeLayerId)) {
+                                this.game.layerManager.initializePaintCanvas(mapId, activeLayerId, scaledWidth, scaledHeight);
+                            }
+                        }
+                    }
+                }
+                
+                canvas = this.getPaintLayer(mapId);
+                if (!canvas) return;
+            }
+            
+            // Fill with texture pattern
+            const ctx = canvas.getContext('2d');
+            const texture = this.loadedTextures[this.selectedTexture];
+            
+            ctx.save();
+            const pattern = ctx.createPattern(texture, 'repeat');
+            ctx.fillStyle = pattern;
+            ctx.globalAlpha = this.brushOpacity;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.restore();
+            
+            console.log(`[EditorManager] Filled texture layer for map ${mapId}`);
+        }
+    }
+
+    /**
      * Get collision layer for a map (called by RenderSystem)
      */
     getCollisionLayer(mapId) {
@@ -1426,12 +1553,37 @@ class EditorManager {
     startPainting(x, y) {
         if (this.selectedTool !== 'paint') return;
         
-        // For texture mode, require a texture
-        if (this.paintMode === 'texture' && !this.selectedTexture) return;
+        const mapId = this.game.currentMapId;
+        
+        // Handle fill action - execute immediately and return
+        if (this.toolAction === 'fill') {
+            // For texture mode with fill, require a texture
+            if (this.paintMode === 'texture' && !this.selectedTexture) return;
+            
+            // Capture state before filling (for undo)
+            const canvas = this.paintMode === 'collision' ? this.collisionLayers[mapId] : this.getPaintLayer(mapId);
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                const beforeState = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                
+                // Store state for undo
+                this.addHistory({
+                    type: 'fill',
+                    mapId: mapId,
+                    imageData: beforeState
+                });
+            }
+            
+            // Execute fill
+            this.fillLayer(mapId);
+            return; // Don't set isPainting for fill action
+        }
+        
+        // For texture mode with paint/erase, require a texture (except erase doesn't need it)
+        if (this.toolAction === 'paint' && this.paintMode === 'texture' && !this.selectedTexture) return;
         
         // Capture paint layer state before painting starts (for undo)
-        const mapId = this.game.currentMapId;
-        const canvas = this.paintMode === 'collision' ? this.collisionLayers[mapId] : this.paintLayers[mapId];
+        const canvas = this.paintMode === 'collision' ? this.collisionLayers[mapId] : this.getPaintLayer(mapId);
         if (canvas) {
             const ctx = canvas.getContext('2d');
             this.paintStartState = ctx.getImageData(0, 0, canvas.width, canvas.height);

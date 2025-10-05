@@ -1882,9 +1882,10 @@ class EditorUI {
         paintModeLabel.style.cssText = 'margin-bottom: 8px; font-size: 13px; font-weight: bold;';
         panel.appendChild(paintModeLabel);
         
+        // Layer selection (Texture or Collision)
         const paintModes = [
-            { value: 'texture', label: '🎨 Texture', icon: '🎨' },
-            { value: 'collision', label: '🚧 Collision', icon: '🚧' }
+            { value: 'texture', label: '🎨 Texture Layer' },
+            { value: 'collision', label: '🚧 Collision Layer' }
         ];
         
         // Initialize paint mode if not set
@@ -1908,7 +1909,7 @@ class EditorUI {
                 border: 1px solid #555;
                 border-radius: 4px;
                 cursor: pointer;
-                font-size: 12px;
+                font-size: 11px;
                 display: inline-block;
             `;
             btn.onclick = () => {
@@ -1918,22 +1919,87 @@ class EditorUI {
                 });
                 // Update section visibility based on mode
                 if (mode.value === 'collision') {
-                    // Collision mode: show brush shape, hide texture, style, and opacity
+                    // Collision mode: show brush shape and tool actions, hide texture, style, and opacity
                     textureSection.style.display = 'none';
                     brushStyleSection.style.display = 'none';
                     opacitySection.style.display = 'none';
                     brushShapeSection.style.display = 'block';
+                    toolActionSection.style.display = 'block';
                 } else {
-                    // Texture mode: show texture, style, and opacity, hide brush shape
+                    // Texture mode: show texture, style, opacity, and tool actions, hide brush shape
                     textureSection.style.display = 'block';
                     brushStyleSection.style.display = 'block';
                     opacitySection.style.display = 'block';
                     brushShapeSection.style.display = 'none';
+                    toolActionSection.style.display = 'block';
                 }
             };
             paintModeButtons.push(btn);
             panel.appendChild(btn);
         });
+        
+        // Add spacing
+        const spacer2 = document.createElement('div');
+        spacer2.style.cssText = 'margin-bottom: 8px;';
+        panel.appendChild(spacer2);
+        
+        // Tool Action (Paint, Erase, Fill)
+        const toolActionLabel = document.createElement('div');
+        toolActionLabel.textContent = 'Tool Action:';
+        toolActionLabel.style.cssText = 'margin-bottom: 8px; font-size: 13px; font-weight: bold;';
+        panel.appendChild(toolActionLabel);
+        
+        const toolActionSection = document.createElement('div');
+        
+        const toolActions = [
+            { value: 'paint', label: '🖌️ Paint' },
+            { value: 'erase', label: '🧹 Erase' },
+            { value: 'fill', label: '🪣 Fill' }
+        ];
+        
+        // Initialize tool action if not set
+        if (!this.editor.toolAction) {
+            this.editor.toolAction = 'paint';
+        }
+        
+        const toolActionButtons = [];
+        
+        toolActions.forEach(action => {
+            const btn = document.createElement('button');
+            btn.textContent = action.label;
+            btn.dataset.toolAction = action.value;
+            btn.style.cssText = `
+                width: 32%;
+                padding: 8px;
+                margin-bottom: 8px;
+                margin-right: ${action.value !== 'fill' ? '2%' : '0'};
+                background: ${this.editor.toolAction === action.value ? '#4a9eff' : '#333'};
+                color: white;
+                border: 1px solid #555;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 11px;
+                display: inline-block;
+            `;
+            btn.onclick = () => {
+                this.editor.toolAction = action.value;
+                toolActionButtons.forEach(b => {
+                    b.style.background = b.dataset.toolAction === action.value ? '#4a9eff' : '#333';
+                });
+                // Update brush size visibility (hide for fill)
+                if (action.value === 'fill') {
+                    brushSizeLabel.style.display = 'none';
+                    brushSizeSlider.style.display = 'none';
+                } else {
+                    brushSizeLabel.style.display = 'block';
+                    brushSizeSlider.style.display = 'block';
+                }
+            };
+            toolActionButtons.push(btn);
+            toolActionSection.appendChild(btn);
+        });
+        
+        panel.appendChild(toolActionSection);
         
         // Add spacing
         const spacer = document.createElement('div');
