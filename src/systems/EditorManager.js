@@ -1400,14 +1400,17 @@ class EditorManager {
         if (this.brushShape === 'square') {
             // Square brush
             ctx.fillRect(worldX - brushSize, worldY - brushSize, brushSize * 2, brushSize * 2);
+            console.log(`[EditorManager] Drew square collision at (${worldX}, ${worldY}), size: ${brushSize * 2}`);
         } else {
             // Circle brush (default)
             ctx.beginPath();
             ctx.arc(worldX, worldY, brushSize, 0, Math.PI * 2);
             ctx.fill();
+            console.log(`[EditorManager] Drew circle collision at (${worldX}, ${worldY}), radius: ${brushSize}`);
         }
         
         ctx.restore();
+        console.log(`[EditorManager] Collision canvas has content: ${canvas.width}x${canvas.height}`);
     }
 
     /**

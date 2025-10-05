@@ -195,6 +195,52 @@ class RenderSystem {
         if (unassignedObjects.length > 0) {
             this.renderLayerObjects(unassignedObjects, npcs, player, game, null, false);
         }
+        
+        // Render collision layer (if editor has painted collision areas)
+        // Only show when collision boxes are enabled (F1 or editor toggle)
+        if (game?.editorManager) {
+            const showCollisions = game.editorManager.showCollisionBoxes || 
+                                  (game.inputManager && game.inputManager.showCollisionBoxes);
+            
+            const collisionLayer = game.editorManager.getCollisionLayer(game.currentMapId);
+            if (collisionLayer && showCollisions) {
+                console.log('[RenderSystem] Rendering collision layer (layers mode), size:', collisionLayer.width, 'x', collisionLayer.height);
+                
+                this.ctx.save();
+                
+                // First, draw the semi-transparent red fill
+                this.ctx.globalAlpha = 0.3;
+                this.ctx.globalCompositeOperation = 'source-over';
+                this.ctx.drawImage(collisionLayer, 0, 0);
+                
+                // Then draw a border by using canvas effects
+                this.ctx.globalAlpha = 1.0;
+                
+                // Create a temp canvas for the outline
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = collisionLayer.width;
+                tempCanvas.height = collisionLayer.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                // Copy collision layer to temp
+                tempCtx.drawImage(collisionLayer, 0, 0);
+                
+                // Create outline by subtracting a slightly eroded version
+                tempCtx.globalCompositeOperation = 'destination-out';
+                tempCtx.drawImage(collisionLayer, -2, 0);
+                tempCtx.drawImage(collisionLayer, 2, 0);
+                tempCtx.drawImage(collisionLayer, 0, -2);
+                tempCtx.drawImage(collisionLayer, 0, 2);
+                
+                // Draw the outline (what's left after erosion)
+                this.ctx.drawImage(tempCanvas, 0, 0);
+                
+                this.ctx.restore();
+                console.log('[RenderSystem] Collision layer rendered');
+            } else if (collisionLayer) {
+                console.log('[RenderSystem] Collision layer exists but showCollisions is false');
+            }
+        }
     }
     
     /**
@@ -270,12 +316,48 @@ class RenderSystem {
             }
             
             // Render collision layer (if editor has painted collision areas)
+            // Only show when collision boxes are enabled (F1 or editor toggle)
+            const showCollisions = game.editorManager.showCollisionBoxes || 
+                                  (game.inputManager && game.inputManager.showCollisionBoxes);
+            
             const collisionLayer = game.editorManager.getCollisionLayer(game.currentMapId);
-            if (collisionLayer && game.editorManager.showCollisionBoxes) {
+            if (collisionLayer && showCollisions) {
+                console.log('[RenderSystem] Rendering collision layer, size:', collisionLayer.width, 'x', collisionLayer.height);
+                
                 this.ctx.save();
-                this.ctx.globalAlpha = 0.5;
+                
+                // First, draw the semi-transparent red fill
+                this.ctx.globalAlpha = 0.3;
+                this.ctx.globalCompositeOperation = 'source-over';
                 this.ctx.drawImage(collisionLayer, 0, 0);
+                
+                // Then draw a border by using canvas filters/effects
+                // Create outline by drawing collision layer with stroke effect
+                this.ctx.globalAlpha = 1.0;
+                
+                // Create a temp canvas for the outline
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = collisionLayer.width;
+                tempCanvas.height = collisionLayer.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                // Copy collision layer to temp
+                tempCtx.drawImage(collisionLayer, 0, 0);
+                
+                // Create outline by subtracting a slightly eroded version
+                tempCtx.globalCompositeOperation = 'destination-out';
+                tempCtx.drawImage(collisionLayer, -2, 0);
+                tempCtx.drawImage(collisionLayer, 2, 0);
+                tempCtx.drawImage(collisionLayer, 0, -2);
+                tempCtx.drawImage(collisionLayer, 0, 2);
+                
+                // Draw the outline (what's left after erosion)
+                this.ctx.drawImage(tempCanvas, 0, 0);
+                
                 this.ctx.restore();
+                console.log('[RenderSystem] Collision layer rendered');
+            } else if (collisionLayer) {
+                console.log('[RenderSystem] Collision layer exists but showCollisions is false');
             }
         }
         
