@@ -677,6 +677,35 @@ class GameEngine {
             }
         }
         
+        // Check painted collision areas
+        if (movingActor.canBeBlocked && this.editorManager) {
+            const collisionLayer = this.editorManager.getCollisionLayer(this.currentMapId);
+            if (collisionLayer) {
+                // One-time diagnostic
+                if (!this._loggedPaintedCollisionCheck) {
+                    this._loggedPaintedCollisionCheck = true;
+                    console.log('✅ [Painted Collision] System active, checking collisions for map', this.currentMapId);
+                    console.log('Player position:', movingActor.x, movingActor.y);
+                    console.log('Canvas size:', collisionLayer.width, 'x', collisionLayer.height);
+                    
+                    // Sample a pixel directly at player position to test
+                    const ctx = collisionLayer.getContext('2d');
+                    const testX = Math.floor(movingActor.x);
+                    const testY = Math.floor(movingActor.y);
+                    if (testX >= 0 && testX < collisionLayer.width && testY >= 0 && testY < collisionLayer.height) {
+                        const testData = ctx.getImageData(testX, testY, 1, 1).data;
+                        console.log(`Test pixel at player position (${testX}, ${testY}): rgba(${testData[0]}, ${testData[1]}, ${testData[2]}, ${testData[3]})`);
+                    }
+                }
+                
+                // Check if the actor's collision bounds intersect with painted collision
+                if (this.checkPaintedCollision(newX, newY, movingActor, collisionLayer, game || this)) {
+                    console.log('🚫 [Painted Collision] BLOCKED movement at', Math.floor(newX), Math.floor(newY));
+                    return { collides: true, object: 'painted_collision' };
+                }
+            }
+        }
+        
         // Get all objects that could block movement on current map
         const allObjects = this.getAllGameObjectsOnMap(this.currentMapId);
         
@@ -697,6 +726,86 @@ class GameEngine {
         }
         
         return { collides: false, object: null };
+    }
+    
+    /**
+     * Check if actor collides with painted collision areas
+     * OPTIMIZED: Cache image data to avoid expensive getImageData() calls every frame
+     */
+    checkPaintedCollision(newX, newY, movingActor, collisionLayer, game) {
+        // Cache the collision layer image data (only update when layer changes)
+        if (!collisionLayer._cachedImageData || collisionLayer._dataDirty) {
+            const ctx = collisionLayer.getContext('2d');
+            collisionLayer._cachedImageData = ctx.getImageData(0, 0, collisionLayer.width, collisionLayer.height);
+            collisionLayer._dataDirty = false;
+            
+            // One-time diagnostic
+            if (!this._paintedCollisionDebugDone) {
+                this._paintedCollisionDebugDone = true;
+                let redCount = 0;
+                const data = collisionLayer._cachedImageData.data;
+                for (let i = 0; i < data.length; i += 4) {
+                    if (data[i] > 200 && data[i + 1] < 50 && data[i + 2] < 50 && data[i + 3] > 200) {
+                        redCount++;
+                    }
+                }
+                console.log(`🎨 [Painted Collision] Layer: ${collisionLayer.width}x${collisionLayer.height}, red pixels: ${redCount}`);
+            }
+        }
+        
+        const imageData = collisionLayer._cachedImageData;
+        const data = imageData.data;
+        const width = collisionLayer.width;
+        
+        // Get actor's collision bounds at the new position
+        const actorWidth = movingActor.getActualWidth(game);
+        const actorHeight = movingActor.getActualHeight(game);
+        
+        // Apply collision size adjustments
+        const collisionWidth = actorWidth * (1 + (movingActor.collisionExpandLeftPercent || 0) + (movingActor.collisionExpandRightPercent || 0));
+        const collisionHeight = actorHeight * (1 + (movingActor.collisionExpandTopPercent || 0) + (movingActor.collisionExpandBottomPercent || 0));
+        
+        // Calculate bounds
+        const halfWidth = collisionWidth / 2;
+        const halfHeight = collisionHeight / 2;
+        const left = Math.floor(newX - halfWidth);
+        const right = Math.ceil(newX + halfWidth);
+        const top = Math.floor(newY - halfHeight);
+        const bottom = Math.ceil(newY + halfHeight);
+        
+        // Sample multiple points around the actor's collision bounds
+        const samplePoints = [
+            { x: left, y: top },       // Top-left
+            { x: right, y: top },      // Top-right
+            { x: left, y: bottom },    // Bottom-left
+            { x: right, y: bottom },   // Bottom-right
+            { x: Math.floor(newX), y: top },       // Top-center
+            { x: Math.floor(newX), y: bottom },    // Bottom-center
+            { x: left, y: Math.floor(newY) },      // Left-center
+            { x: right, y: Math.floor(newY) },     // Right-center
+            { x: Math.floor(newX), y: Math.floor(newY) }  // Center
+        ];
+        
+        // Check each sample point using cached data
+        for (const point of samplePoints) {
+            // Make sure point is within canvas bounds
+            if (point.x < 0 || point.x >= collisionLayer.width || 
+                point.y < 0 || point.y >= collisionLayer.height) {
+                continue;
+            }
+            
+            // Calculate pixel index in the image data array
+            const pixelIndex = (point.y * width + point.x) * 4;
+            
+            // Check if pixel is red (painted collision) with alpha > 0
+            // Painted collision is solid red: rgba(255, 0, 0, 1.0)
+            if (data[pixelIndex] > 200 && data[pixelIndex + 1] < 50 && 
+                data[pixelIndex + 2] < 50 && data[pixelIndex + 3] > 200) {
+                return true; // Collision detected
+            }
+        }
+        
+        return false; // No collision
     }
     
     /**

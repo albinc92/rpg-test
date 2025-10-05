@@ -1417,6 +1417,10 @@ class EditorManager {
         }
         
         ctx.restore();
+        
+        // Mark canvas as dirty so collision cache gets updated
+        canvas._dataDirty = true;
+        
         console.log(`[EditorManager] Collision canvas has content: ${canvas.width}x${canvas.height}`);
     }
 
@@ -1454,6 +1458,10 @@ class EditorManager {
             }
             
             ctx.restore();
+            
+            // Mark canvas as dirty so collision cache gets updated
+            canvas._dataDirty = true;
+            
             return;
         }
         
@@ -1538,6 +1546,9 @@ class EditorManager {
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.restore();
             
+            // Mark canvas as dirty so collision cache gets updated
+            canvas._dataDirty = true;
+            
             console.log(`[EditorManager] Filled collision layer for map ${mapId}`);
         } else {
             // Texture mode - require texture
@@ -1596,12 +1607,48 @@ class EditorManager {
     }
 
     /**
+     * Bake collision canvas to image for better rendering performance
+     */
+    bakeCollisionLayer(mapId) {
+        const canvas = this.collisionLayers[mapId];
+        if (!canvas) return;
+        
+        // Convert canvas to data URL
+        const dataURL = canvas.toDataURL('image/png');
+        
+        // Create an image from the canvas
+        const img = new Image();
+        img.onload = () => {
+            canvas._bakedImage = img;
+            canvas._imageReady = true;
+            console.log(`[EditorManager] Baked collision layer for map ${mapId} to image for better performance`);
+        };
+        img.src = dataURL;
+    }
+
+    /**
      * Start painting
      */
     startPainting(x, y) {
         if (this.selectedTool !== 'paint') return;
         
         const mapId = this.game.currentMapId;
+        
+        // Invalidate baked images when starting to paint
+        if (this.paintMode === 'texture' && this.game.layerManager) {
+            const activeLayerId = this.game.layerManager.activeLayerId;
+            if (activeLayerId !== null) {
+                const layer = this.game.layerManager.getLayer(mapId, activeLayerId);
+                if (layer) {
+                    layer.paintImageReady = false; // Fall back to canvas while painting
+                }
+            }
+        } else if (this.paintMode === 'collision') {
+            const canvas = this.collisionLayers[mapId];
+            if (canvas) {
+                canvas._imageReady = false; // Fall back to canvas while painting
+            }
+        }
         
         // Handle fill action - execute immediately and return
         if (this.toolAction === 'fill') {
@@ -1665,6 +1712,17 @@ class EditorManager {
                 imageData: this.paintStartState
             });
             this.paintStartState = null;
+        }
+        
+        // Bake the paint canvas to an image for better performance
+        if (this.paintMode === 'texture' && this.game.layerManager) {
+            const activeLayerId = this.game.layerManager.activeLayerId;
+            if (activeLayerId !== null) {
+                this.game.layerManager.bakeLayerPaint(this.game.currentMapId, activeLayerId);
+            }
+        } else if (this.paintMode === 'collision') {
+            // Bake collision layer to image
+            this.bakeCollisionLayer(this.game.currentMapId);
         }
     }
 

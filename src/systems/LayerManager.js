@@ -254,6 +254,27 @@ class LayerManager {
     }
 
     /**
+     * Convert paint canvas to optimized image for better rendering performance
+     * Call this when painting is complete (e.g., on mouse up)
+     */
+    bakeLayerPaint(mapId, layerId) {
+        const layer = this.getLayer(mapId, layerId);
+        if (!layer || !layer.paintCanvas) return;
+        
+        // Convert canvas to data URL
+        const dataURL = layer.paintCanvas.toDataURL('image/png');
+        
+        // Create an image from the canvas
+        const img = new Image();
+        img.onload = () => {
+            layer.paintImage = img;
+            layer.paintImageReady = true;
+            console.log(`[LayerManager] Baked paint layer "${layer.name}" to image for better performance`);
+        };
+        img.src = dataURL;
+    }
+
+    /**
      * Determine which layer the player is on based on their position
      * Checks if there's a visible background/paint at the player's position
      */

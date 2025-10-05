@@ -178,8 +178,10 @@ class RenderSystem {
                 this.ctx.drawImage(layer.backgroundImage, 0, 0, scaledWidth, scaledHeight);
             }
             
-            // 2. Render paint canvas
-            if (layer.paintCanvas) {
+            // 2. Render paint canvas (prefer baked image for performance)
+            if (layer.paintImageReady && layer.paintImage) {
+                this.ctx.drawImage(layer.paintImage, 0, 0);
+            } else if (layer.paintCanvas) {
                 this.ctx.drawImage(layer.paintCanvas, 0, 0);
             }
             
@@ -206,31 +208,34 @@ class RenderSystem {
             if (collisionLayer && showCollisions) {
                 console.log('[RenderSystem] Rendering collision layer (layers mode), size:', collisionLayer.width, 'x', collisionLayer.height);
                 
+                // Use baked image if available for performance
+                const imageSource = (collisionLayer._imageReady && collisionLayer._bakedImage) ? collisionLayer._bakedImage : collisionLayer;
+                
                 this.ctx.save();
                 
                 // First, draw the semi-transparent red fill
                 this.ctx.globalAlpha = 0.3;
                 this.ctx.globalCompositeOperation = 'source-over';
-                this.ctx.drawImage(collisionLayer, 0, 0);
+                this.ctx.drawImage(imageSource, 0, 0);
                 
                 // Then draw a border by using canvas effects
                 this.ctx.globalAlpha = 1.0;
                 
                 // Create a temp canvas for the outline
                 const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = collisionLayer.width;
-                tempCanvas.height = collisionLayer.height;
+                tempCanvas.width = imageSource.width;
+                tempCanvas.height = imageSource.height;
                 const tempCtx = tempCanvas.getContext('2d');
                 
                 // Copy collision layer to temp
-                tempCtx.drawImage(collisionLayer, 0, 0);
+                tempCtx.drawImage(imageSource, 0, 0);
                 
                 // Create outline by subtracting a slightly eroded version
                 tempCtx.globalCompositeOperation = 'destination-out';
-                tempCtx.drawImage(collisionLayer, -2, 0);
-                tempCtx.drawImage(collisionLayer, 2, 0);
-                tempCtx.drawImage(collisionLayer, 0, -2);
-                tempCtx.drawImage(collisionLayer, 0, 2);
+                tempCtx.drawImage(imageSource, -2, 0);
+                tempCtx.drawImage(imageSource, 2, 0);
+                tempCtx.drawImage(imageSource, 0, -2);
+                tempCtx.drawImage(imageSource, 0, 2);
                 
                 // Draw the outline (what's left after erosion)
                 this.ctx.drawImage(tempCanvas, 0, 0);
@@ -324,12 +329,15 @@ class RenderSystem {
             if (collisionLayer && showCollisions) {
                 console.log('[RenderSystem] Rendering collision layer, size:', collisionLayer.width, 'x', collisionLayer.height);
                 
+                // Use baked image if available for performance
+                const imageSource = (collisionLayer._imageReady && collisionLayer._bakedImage) ? collisionLayer._bakedImage : collisionLayer;
+                
                 this.ctx.save();
                 
                 // First, draw the semi-transparent red fill
                 this.ctx.globalAlpha = 0.3;
                 this.ctx.globalCompositeOperation = 'source-over';
-                this.ctx.drawImage(collisionLayer, 0, 0);
+                this.ctx.drawImage(imageSource, 0, 0);
                 
                 // Then draw a border by using canvas filters/effects
                 // Create outline by drawing collision layer with stroke effect
@@ -337,19 +345,19 @@ class RenderSystem {
                 
                 // Create a temp canvas for the outline
                 const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = collisionLayer.width;
-                tempCanvas.height = collisionLayer.height;
+                tempCanvas.width = imageSource.width;
+                tempCanvas.height = imageSource.height;
                 const tempCtx = tempCanvas.getContext('2d');
                 
                 // Copy collision layer to temp
-                tempCtx.drawImage(collisionLayer, 0, 0);
+                tempCtx.drawImage(imageSource, 0, 0);
                 
                 // Create outline by subtracting a slightly eroded version
                 tempCtx.globalCompositeOperation = 'destination-out';
-                tempCtx.drawImage(collisionLayer, -2, 0);
-                tempCtx.drawImage(collisionLayer, 2, 0);
-                tempCtx.drawImage(collisionLayer, 0, -2);
-                tempCtx.drawImage(collisionLayer, 0, 2);
+                tempCtx.drawImage(imageSource, -2, 0);
+                tempCtx.drawImage(imageSource, 2, 0);
+                tempCtx.drawImage(imageSource, 0, -2);
+                tempCtx.drawImage(imageSource, 0, 2);
                 
                 // Draw the outline (what's left after erosion)
                 this.ctx.drawImage(tempCanvas, 0, 0);
