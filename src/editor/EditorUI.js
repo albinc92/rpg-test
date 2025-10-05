@@ -228,7 +228,7 @@ class EditorUI {
     createToolsMenu(toolbar) {
         const toolsMenu = new DropdownMenu('Tools', [
             {
-                label: '🖌️ Paint Terrain',
+                label: '🖌️ Paint Tool',
                 action: () => {
                     this.editor.setTool('paint');
                     this.showPaintToolPanel();
@@ -1876,6 +1876,70 @@ class EditorUI {
         title.style.cssText = 'margin: 0 0 16px 0; color: #4a9eff;';
         panel.appendChild(title);
         
+        // Paint Mode Selector
+        const paintModeLabel = document.createElement('div');
+        paintModeLabel.textContent = 'Paint Mode:';
+        paintModeLabel.style.cssText = 'margin-bottom: 8px; font-size: 13px; font-weight: bold;';
+        panel.appendChild(paintModeLabel);
+        
+        const paintModes = [
+            { value: 'texture', label: '🎨 Texture', icon: '🎨' },
+            { value: 'collision', label: '🚧 Collision', icon: '🚧' }
+        ];
+        
+        // Initialize paint mode if not set
+        if (!this.editor.paintMode) {
+            this.editor.paintMode = 'texture';
+        }
+        
+        const paintModeButtons = [];
+        
+        paintModes.forEach(mode => {
+            const btn = document.createElement('button');
+            btn.textContent = mode.label;
+            btn.dataset.paintMode = mode.value;
+            btn.style.cssText = `
+                width: 48%;
+                padding: 8px;
+                margin-bottom: 8px;
+                margin-right: ${mode.value === 'texture' ? '4%' : '0'};
+                background: ${this.editor.paintMode === mode.value ? '#4a9eff' : '#333'};
+                color: white;
+                border: 1px solid #555;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 12px;
+                display: inline-block;
+            `;
+            btn.onclick = () => {
+                this.editor.paintMode = mode.value;
+                paintModeButtons.forEach(b => {
+                    b.style.background = b.dataset.paintMode === mode.value ? '#4a9eff' : '#333';
+                });
+                // Update section visibility based on mode
+                if (mode.value === 'collision') {
+                    // Collision mode: show brush shape, hide texture, style, and opacity
+                    textureSection.style.display = 'none';
+                    brushStyleSection.style.display = 'none';
+                    opacitySection.style.display = 'none';
+                    brushShapeSection.style.display = 'block';
+                } else {
+                    // Texture mode: show texture, style, and opacity, hide brush shape
+                    textureSection.style.display = 'block';
+                    brushStyleSection.style.display = 'block';
+                    opacitySection.style.display = 'block';
+                    brushShapeSection.style.display = 'none';
+                }
+            };
+            paintModeButtons.push(btn);
+            panel.appendChild(btn);
+        });
+        
+        // Add spacing
+        const spacer = document.createElement('div');
+        spacer.style.cssText = 'margin-bottom: 16px; clear: both;';
+        panel.appendChild(spacer);
+        
         // Brush Size
         const brushSizeLabel = document.createElement('div');
         brushSizeLabel.textContent = `Brush Size: ${this.editor.brushSize}px`;
@@ -1894,11 +1958,14 @@ class EditorUI {
         };
         panel.appendChild(brushSizeSlider);
         
-        // Brush Style
+        // Brush Style Section (only for texture mode)
+        const brushStyleSection = document.createElement('div');
+        brushStyleSection.style.display = this.editor.paintMode === 'texture' ? 'block' : 'none';
+        
         const brushStyleLabel = document.createElement('div');
         brushStyleLabel.textContent = 'Brush Style:';
         brushStyleLabel.style.cssText = 'margin-bottom: 8px; font-size: 13px; font-weight: bold;';
-        panel.appendChild(brushStyleLabel);
+        brushStyleSection.appendChild(brushStyleLabel);
         
         const brushStyles = [
             { value: 'hard', label: 'Hard Edge' },
@@ -1912,7 +1979,7 @@ class EditorUI {
         brushStyles.forEach(style => {
             const btn = document.createElement('button');
             btn.textContent = style.label;
-            btn.dataset.brushStyle = style.value; // Store value in data attribute
+            btn.dataset.brushStyle = style.value;
             btn.style.cssText = `
                 width: 100%;
                 padding: 8px;
@@ -1926,20 +1993,22 @@ class EditorUI {
             `;
             btn.onclick = () => {
                 this.editor.brushStyle = style.value;
-                // Update only brush style buttons
                 brushStyleButtons.forEach(b => {
                     b.style.background = b.dataset.brushStyle === style.value ? '#4a9eff' : '#333';
                 });
             };
             brushStyleButtons.push(btn);
-            panel.appendChild(btn);
+            brushStyleSection.appendChild(btn);
         });
         
-        // Opacity
+        // Opacity Section (only for texture mode)
+        const opacitySection = document.createElement('div');
+        opacitySection.style.display = this.editor.paintMode === 'texture' ? 'block' : 'none';
+        
         const opacityLabel = document.createElement('div');
         opacityLabel.textContent = `Opacity: ${Math.round(this.editor.brushOpacity * 100)}%`;
         opacityLabel.style.cssText = 'margin: 16px 0 8px 0; font-size: 13px;';
-        panel.appendChild(opacityLabel);
+        opacitySection.appendChild(opacityLabel);
         
         const opacitySlider = document.createElement('input');
         opacitySlider.type = 'range';
@@ -1951,13 +2020,65 @@ class EditorUI {
             this.editor.brushOpacity = parseInt(opacitySlider.value) / 100;
             opacityLabel.textContent = `Opacity: ${Math.round(this.editor.brushOpacity * 100)}%`;
         };
-        panel.appendChild(opacitySlider);
+        opacitySection.appendChild(opacitySlider);
+        
+        // Brush Shape Section (only for collision mode)
+        const brushShapeSection = document.createElement('div');
+        brushShapeSection.style.display = this.editor.paintMode === 'collision' ? 'block' : 'none';
+        
+        const brushShapeLabel = document.createElement('div');
+        brushShapeLabel.textContent = 'Brush Shape:';
+        brushShapeLabel.style.cssText = 'margin-bottom: 8px; font-size: 13px; font-weight: bold;';
+        brushShapeSection.appendChild(brushShapeLabel);
+        
+        const brushShapes = [
+            { value: 'circle', label: '⭕ Circle' },
+            { value: 'square', label: '⬜ Square' }
+        ];
+        
+        const brushShapeButtons = [];
+        
+        brushShapes.forEach(shape => {
+            const btn = document.createElement('button');
+            btn.textContent = shape.label;
+            btn.dataset.brushShape = shape.value;
+            btn.style.cssText = `
+                width: 48%;
+                padding: 8px;
+                margin-bottom: 8px;
+                margin-right: ${shape.value === 'circle' ? '4%' : '0'};
+                background: ${this.editor.brushShape === shape.value ? '#4a9eff' : '#333'};
+                color: white;
+                border: 1px solid #555;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 12px;
+                display: inline-block;
+            `;
+            btn.onclick = () => {
+                this.editor.brushShape = shape.value;
+                brushShapeButtons.forEach(b => {
+                    b.style.background = b.dataset.brushShape === shape.value ? '#4a9eff' : '#333';
+                });
+            };
+            brushShapeButtons.push(btn);
+            brushShapeSection.appendChild(btn);
+        });
+        
+        // Add sections to panel
+        panel.appendChild(brushStyleSection);
+        panel.appendChild(opacitySection);
+        panel.appendChild(brushShapeSection);
+        
+        // Texture Section (only for texture mode)
+        const textureSection = document.createElement('div');
+        textureSection.style.display = this.editor.paintMode === 'texture' ? 'block' : 'none';
         
         // Current Texture
         const textureLabel = document.createElement('div');
         textureLabel.textContent = 'Current Texture:';
         textureLabel.style.cssText = 'margin-bottom: 8px; font-size: 13px; font-weight: bold;';
-        panel.appendChild(textureLabel);
+        textureSection.appendChild(textureLabel);
         
         const texturePreview = document.createElement('div');
         texturePreview.style.cssText = `
@@ -1983,7 +2104,7 @@ class EditorUI {
         } else {
             texturePreview.textContent = 'No texture selected';
         }
-        panel.appendChild(texturePreview);
+        textureSection.appendChild(texturePreview);
         
         // Select Texture Button
         const selectTextureBtn = document.createElement('button');
@@ -2000,7 +2121,10 @@ class EditorUI {
             margin-bottom: 8px;
         `;
         selectTextureBtn.onclick = () => this.showTextureManager();
-        panel.appendChild(selectTextureBtn);
+        textureSection.appendChild(selectTextureBtn);
+        
+        // Add texture section to panel
+        panel.appendChild(textureSection);
         
         // Close Panel Button
         const closeBtn = document.createElement('button');

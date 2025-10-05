@@ -17,11 +17,14 @@ class EditorManager {
         
         // Paint tool state
         this.isPainting = false;
+        this.paintMode = 'texture'; // 'texture' or 'collision'
         this.selectedTexture = null; // Current texture to paint with
         this.brushSize = 64; // Brush radius in pixels
         this.brushStyle = 'soft'; // 'soft', 'hard', 'very-soft'
+        this.brushShape = 'circle'; // 'circle' or 'square' (for collision mode)
         this.brushOpacity = 0.8;
         this.paintLayers = {}; // Store paint layers per map {mapId: canvas}
+        this.collisionLayers = {}; // Store collision layers per map {mapId: canvas}
         this.textures = []; // Available textures for painting
         this.loadedTextures = {}; // Cache of loaded texture images
         this.paintStartState = null; // Store canvas state before stroke for undo
@@ -1255,12 +1258,21 @@ class EditorManager {
     }
 
     /**
-     * Paint texture at position
+     * Paint texture or collision at position
      */
     paintAt(worldX, worldY) {
-        if (!this.selectedTexture || !this.loadedTextures[this.selectedTexture]) return;
+        // For collision mode, we don't need a texture
+        if (this.paintMode === 'texture' && (!this.selectedTexture || !this.loadedTextures[this.selectedTexture])) {
+            return;
+        }
         
         const mapId = this.game.currentMapId;
+        
+        // Handle collision painting
+        if (this.paintMode === 'collision') {
+            this.paintCollisionAt(worldX, worldY, mapId);
+            return;
+        }
         
         // Initialize paint canvas for active layer if needed
         if (this.game.layerManager && this.game.layerManager.hasLayers(mapId)) {
@@ -1351,14 +1363,72 @@ class EditorManager {
     }
 
     /**
+     * Paint collision area at position
+     */
+    paintCollisionAt(worldX, worldY, mapId) {
+        console.log(`[EditorManager] Painting collision at (${worldX}, ${worldY}) on map ${mapId}`);
+        
+        // Initialize collision canvas if needed
+        if (!this.collisionLayers[mapId]) {
+            const mapData = this.game.mapManager.maps[mapId];
+            if (!mapData) return;
+            
+            const mapScale = mapData.scale || 1.0;
+            const resolutionScale = this.game.resolutionScale || 1.0;
+            const scaledWidth = mapData.width * mapScale * resolutionScale;
+            const scaledHeight = mapData.height * mapScale * resolutionScale;
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = scaledWidth;
+            canvas.height = scaledHeight;
+            this.collisionLayers[mapId] = canvas;
+            console.log(`[EditorManager] Initialized collision layer for map ${mapId}: ${scaledWidth}x${scaledHeight}`);
+        }
+        
+        const canvas = this.collisionLayers[mapId];
+        if (!canvas) return;
+        
+        const ctx = canvas.getContext('2d');
+        const brushSize = this.brushSize;
+        
+        // Draw collision area (solid red, no transparency)
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 0, 0, 1.0)'; // Solid red
+        ctx.globalCompositeOperation = 'source-over';
+        
+        // Draw based on brush shape
+        if (this.brushShape === 'square') {
+            // Square brush
+            ctx.fillRect(worldX - brushSize, worldY - brushSize, brushSize * 2, brushSize * 2);
+        } else {
+            // Circle brush (default)
+            ctx.beginPath();
+            ctx.arc(worldX, worldY, brushSize, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        ctx.restore();
+    }
+
+    /**
+     * Get collision layer for a map (called by RenderSystem)
+     */
+    getCollisionLayer(mapId) {
+        return this.collisionLayers[mapId];
+    }
+
+    /**
      * Start painting
      */
     startPainting(x, y) {
-        if (this.selectedTool !== 'paint' || !this.selectedTexture) return;
+        if (this.selectedTool !== 'paint') return;
+        
+        // For texture mode, require a texture
+        if (this.paintMode === 'texture' && !this.selectedTexture) return;
         
         // Capture paint layer state before painting starts (for undo)
         const mapId = this.game.currentMapId;
-        const canvas = this.paintLayers[mapId];
+        const canvas = this.paintMode === 'collision' ? this.collisionLayers[mapId] : this.paintLayers[mapId];
         if (canvas) {
             const ctx = canvas.getContext('2d');
             this.paintStartState = ctx.getImageData(0, 0, canvas.width, canvas.height);

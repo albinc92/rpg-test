@@ -268,6 +268,15 @@ class RenderSystem {
                 this.ctx.drawImage(paintLayer, 0, 0);
                 this.ctx.restore();
             }
+            
+            // Render collision layer (if editor has painted collision areas)
+            const collisionLayer = game.editorManager.getCollisionLayer(game.currentMapId);
+            if (collisionLayer && game.editorManager.showCollisionBoxes) {
+                this.ctx.save();
+                this.ctx.globalAlpha = 0.5;
+                this.ctx.drawImage(collisionLayer, 0, 0);
+                this.ctx.restore();
+            }
         }
         
         // Collect and sort all renderable objects
