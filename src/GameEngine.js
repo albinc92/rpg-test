@@ -738,106 +738,86 @@ class GameEngine {
      * OPTIMIZED: Cache image data to avoid expensive getImageData() calls every frame
      */
     checkPaintedCollision(newX, newY, movingActor, collisionLayer, game) {
-        // Cache the collision layer image data (only update when layer changes)
+        // ALWAYS read directly from the canvas (not the baked image)
+        // The canvas has the actual painted data we need to check
         if (!collisionLayer._cachedImageData || collisionLayer._dataDirty) {
             const ctx = collisionLayer.getContext('2d');
             collisionLayer._cachedImageData = ctx.getImageData(0, 0, collisionLayer.width, collisionLayer.height);
             collisionLayer._dataDirty = false;
             
-            // Count red pixels for diagnostic
-            let redCount = 0;
+            // Debug: Sample pixels to verify the image data
             const data = collisionLayer._cachedImageData.data;
+            let redCount = 0;
             for (let i = 0; i < data.length; i += 4) {
                 if (data[i] > 200 && data[i + 1] < 50 && data[i + 2] < 50 && data[i + 3] > 200) {
                     redCount++;
                 }
             }
-            console.log(`🎨 [Collision Cache Updated] ${collisionLayer.width}x${collisionLayer.height}, red pixels: ${redCount}`);
+            
+            console.log(`🎨 [Collision] Reading from canvas (${collisionLayer.width}x${collisionLayer.height}), red pixels: ${redCount}`);
         }
         
         const imageData = collisionLayer._cachedImageData;
         const data = imageData.data;
-        const width = collisionLayer.width;
+        const width = imageData.width;
+        const height = imageData.height;
         
-        // Debug: Check coordinate spaces (one-time)
-        if (!this._collisionCoordDebug) {
-            this._collisionCoordDebug = true;
-            const mapData = game.mapManager.maps[game.currentMapId];
-            const mapScale = mapData.scale || 1.0;
-            const resolutionScale = game.resolutionScale || 1.0;
-            console.log('🔍 [Collision Coords Debug]', {
-                mapOriginal: `${mapData.width}x${mapData.height}`,
-                mapScale: mapScale,
-                resolutionScale: resolutionScale,
-                worldSpace: `${mapData.width * mapScale}x${mapData.height * mapScale}`,
-                canvasSize: `${collisionLayer.width}x${collisionLayer.height}`,
-                needsScaling: collisionLayer.width !== (mapData.width * mapScale)
-            });
-        }
-        
+        // Convert logical coordinates to render coordinates (same as painting uses)
+        const mapScale = game.currentMap?.scale || 1.0;
         const resolutionScale = game.resolutionScale || 1.0;
+        const coordinateScale = mapScale * resolutionScale;
         
-        // Get actor's collision bounds at the new position
+        // Convert newX/newY from logical space to canvas space
+        const canvasX = newX * coordinateScale;
+        const canvasY = newY * coordinateScale;
+        
+        // Get actor's collision bounds in canvas space
         const actorWidth = movingActor.getActualWidth(game);
         const actorHeight = movingActor.getActualHeight(game);
         
-        // Apply collision size adjustments
-        const collisionWidth = actorWidth * (1 + (movingActor.collisionExpandLeftPercent || 0) + (movingActor.collisionExpandRightPercent || 0));
-        const collisionHeight = actorHeight * (1 + (movingActor.collisionExpandTopPercent || 0) + (movingActor.collisionExpandBottomPercent || 0));
-        
-        // Calculate bounds
-        const halfWidth = collisionWidth / 2;
-        const halfHeight = collisionHeight / 2;
-        const left = Math.floor(newX - halfWidth);
-        const right = Math.ceil(newX + halfWidth);
-        const top = Math.floor(newY - halfHeight);
-        const bottom = Math.ceil(newY + halfHeight);
+        // Calculate bounds in canvas space
+        const halfWidth = actorWidth / 2;
+        const halfHeight = actorHeight / 2;
         
         // Sample multiple points around the actor's collision bounds
-        // Scale world coordinates to canvas coordinates
+        // These are now in canvas pixel coordinates (matching where we paint)
         const samplePoints = [
-            { x: Math.floor(left * resolutionScale), y: Math.floor(top * resolutionScale) },       // Top-left
-            { x: Math.floor(right * resolutionScale), y: Math.floor(top * resolutionScale) },      // Top-right
-            { x: Math.floor(left * resolutionScale), y: Math.floor(bottom * resolutionScale) },    // Bottom-left
-            { x: Math.floor(right * resolutionScale), y: Math.floor(bottom * resolutionScale) },   // Bottom-right
-            { x: Math.floor(newX * resolutionScale), y: Math.floor(top * resolutionScale) },       // Top-center
-            { x: Math.floor(newX * resolutionScale), y: Math.floor(bottom * resolutionScale) },    // Bottom-center
-            { x: Math.floor(left * resolutionScale), y: Math.floor(newY * resolutionScale) },      // Left-center
-            { x: Math.floor(right * resolutionScale), y: Math.floor(newY * resolutionScale) },     // Right-center
-            { x: Math.floor(newX * resolutionScale), y: Math.floor(newY * resolutionScale) }       // Center
+            { x: Math.floor(canvasX), y: Math.floor(canvasY) },                                    // Center
+            { x: Math.floor(canvasX - halfWidth), y: Math.floor(canvasY - halfHeight) },          // Top-left
+            { x: Math.floor(canvasX + halfWidth), y: Math.floor(canvasY - halfHeight) },          // Top-right
+            { x: Math.floor(canvasX - halfWidth), y: Math.floor(canvasY + halfHeight) },          // Bottom-left
+            { x: Math.floor(canvasX + halfWidth), y: Math.floor(canvasY + halfHeight) },          // Bottom-right
+            { x: Math.floor(canvasX), y: Math.floor(canvasY - halfHeight) },                      // Top-center
+            { x: Math.floor(canvasX), y: Math.floor(canvasY + halfHeight) },                      // Bottom-center
+            { x: Math.floor(canvasX - halfWidth), y: Math.floor(canvasY) },                       // Left-center
+            { x: Math.floor(canvasX + halfWidth), y: Math.floor(canvasY) }                        // Right-center
         ];
-        
-        // Debug: Show sample area (one-time)
-        if (!this._collisionSampleDebug) {
-            this._collisionSampleDebug = true;
-            console.log(`🔍 [Collision Debug] Checking area:`, {
-                actorPos: `(${Math.floor(newX)}, ${Math.floor(newY)})`,
-                bounds: `L:${left} R:${right} T:${top} B:${bottom}`,
-                size: `${Math.floor(collisionWidth)}x${Math.floor(collisionHeight)}`,
-                samplePoints: samplePoints.length
-            });
-        }
         
         // Check each sample point using cached data
         for (const point of samplePoints) {
-            // Make sure point is within canvas bounds
-            if (point.x < 0 || point.x >= collisionLayer.width || 
-                point.y < 0 || point.y >= collisionLayer.height) {
+            // Make sure point is within image bounds
+            if (point.x < 0 || point.x >= width || 
+                point.y < 0 || point.y >= height) {
                 continue;
             }
             
             // Calculate pixel index in the image data array
             const pixelIndex = (point.y * width + point.x) * 4;
+            const r = data[pixelIndex];
+            const g = data[pixelIndex + 1];
+            const b = data[pixelIndex + 2];
+            const a = data[pixelIndex + 3];
+            
+            // Debug: Log what we're checking (throttled)
+            if (!this._lastDebugLog || Date.now() - this._lastDebugLog > 2000) {
+                console.log(`🔍 [Collision Check] Logical (${newX.toFixed(1)}, ${newY.toFixed(1)}) -> Canvas (${canvasX.toFixed(1)}, ${canvasY.toFixed(1)}) -> Pixel (${point.x}, ${point.y}) = RGBA(${r},${g},${b},${a})`);
+                this._lastDebugLog = Date.now();
+            }
             
             // Check if pixel is red (painted collision) with alpha > 0
             // Painted collision is solid red: rgba(255, 0, 0, 1.0)
-            if (data[pixelIndex] > 200 && data[pixelIndex + 1] < 50 && 
-                data[pixelIndex + 2] < 50 && data[pixelIndex + 3] > 200) {
-                // Log collision detection (throttled to avoid spam)
-                if (!this._lastCollisionLog || Date.now() - this._lastCollisionLog > 1000) {
-                    console.log(`🚫 [Painted Collision] Blocking at world (${Math.floor(newX)}, ${Math.floor(newY)}), canvas point (${point.x}, ${point.y})`);
-                    this._lastCollisionLog = Date.now();
-                }
+            if (r > 200 && g < 50 && b < 50 && a > 200) {
+                console.log(`🚫 [Collision] BLOCKED! Logical (${newX.toFixed(1)}, ${newY.toFixed(1)}) -> Canvas (${canvasX.toFixed(1)}, ${canvasY.toFixed(1)}) -> Pixel (${point.x}, ${point.y})`);
                 return true; // Collision detected
             }
         }
