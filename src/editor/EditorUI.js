@@ -801,7 +801,40 @@ class EditorUI {
 
         // Buttons
         const buttonContainer = document.createElement('div');
-        buttonContainer.style.cssText = 'display: flex; gap: 12px; justify-content: flex-end;';
+        buttonContainer.style.cssText = 'display: flex; gap: 12px; justify-content: space-between;';
+
+        const leftButtons = document.createElement('div');
+        leftButtons.style.cssText = 'display: flex; gap: 12px;';
+
+        const exportBtn = document.createElement('button');
+        exportBtn.textContent = '💾 Export JSON';
+        exportBtn.type = 'button';
+        exportBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #4a9eff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        `;
+        exportBtn.onclick = () => {
+            const json = JSON.stringify(items, null, 2);
+            console.log('[ItemBrowser] Items JSON:', json);
+            
+            // Copy to clipboard
+            navigator.clipboard.writeText(json).then(() => {
+                this.showNotification('✅ Items JSON copied to clipboard!');
+            }).catch(err => {
+                alert('Items JSON:\n\n' + json);
+            });
+        };
+
+        leftButtons.appendChild(exportBtn);
+
+        const rightButtons = document.createElement('div');
+        rightButtons.style.cssText = 'display: flex; gap: 12px;';
 
         const newBtn = document.createElement('button');
         newBtn.textContent = '➕ New Item';
@@ -835,8 +868,11 @@ class EditorUI {
         `;
         closeBtn.onclick = () => backdrop.remove();
 
-        buttonContainer.appendChild(newBtn);
-        buttonContainer.appendChild(closeBtn);
+        rightButtons.appendChild(newBtn);
+        rightButtons.appendChild(closeBtn);
+        
+        buttonContainer.appendChild(leftButtons);
+        buttonContainer.appendChild(rightButtons);
         modal.appendChild(buttonContainer);
 
         backdrop.appendChild(modal);
@@ -853,7 +889,22 @@ class EditorUI {
      */
     showItemEditor(itemId) {
         const isNew = !itemId;
+        
+        // Ensure itemManager and items exist
+        if (!this.editor.game.itemManager) {
+            alert('Error: Item Manager not found!');
+            console.error('[ItemEditor] itemManager is undefined');
+            return;
+        }
+        
+        if (!this.editor.game.itemManager.items) {
+            console.log('[ItemEditor] Creating empty items object');
+            this.editor.game.itemManager.items = {};
+        }
+        
         const items = this.editor.game.itemManager.items;
+        console.log('[ItemEditor] Items object:', items);
+        
         let itemData = isNew ? {
             id: '',
             name: 'New Item',
@@ -1126,11 +1177,21 @@ class EditorUI {
             font-size: 14px;
         `;
         saveBtn.onclick = () => {
+            console.log('[ItemEditor] Saving item:', itemData);
+            console.log('[ItemEditor] Is new:', isNew);
+            console.log('[ItemEditor] Item ID:', itemData.id);
+            console.log('[ItemEditor] Item ID type:', typeof itemData.id);
+            console.log('[ItemEditor] Item ID trimmed:', itemData.id.trim());
+            
             if (isNew) {
-                if (!itemData.id) {
+                // Trim the ID and check
+                const trimmedId = (itemData.id || '').trim();
+                if (!trimmedId) {
                     alert('Please enter an Item ID!');
                     return;
                 }
+                itemData.id = trimmedId; // Use trimmed version
+                
                 if (items[itemData.id]) {
                     alert('Item ID already exists!');
                     return;
@@ -1138,6 +1199,8 @@ class EditorUI {
             }
             
             items[itemData.id] = itemData;
+            console.log('[ItemEditor] Item saved successfully!');
+            console.log('[ItemEditor] All items:', items);
             this.showNotification(isNew ? 
                 `✅ Item "${itemData.name}" created!` : 
                 `✅ Item "${itemData.name}" saved!`);
