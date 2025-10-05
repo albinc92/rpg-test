@@ -138,7 +138,10 @@ class LayerPanel {
 
         this.layerListContainer.innerHTML = '';
 
-        layers.forEach((layer, index) => {
+        // Reverse order so highest z-index appears at top
+        const reversedLayers = [...layers].reverse();
+
+        reversedLayers.forEach((layer, index) => {
             const layerItem = document.createElement('div');
             const isActive = layer.id === activeLayerId;
             
@@ -264,16 +267,20 @@ class LayerPanel {
     }
 
     /**
-     * Add a new layer
+     * Add a new layer (above currently active layer)
      */
     addLayer() {
         const layerName = prompt('Enter layer name:', `Layer ${this.game.layerManager.getLayers(this.game.currentMapId).length}`);
         if (!layerName) return;
 
-        const newLayer = this.game.layerManager.addLayer(this.game.currentMapId, layerName);
+        // Get active layer to determine z-index
+        const activeLayer = this.game.layerManager.getActiveLayer(this.game.currentMapId);
+        const newZIndex = activeLayer ? activeLayer.zIndex + 1 : 1;
+
+        const newLayer = this.game.layerManager.addLayer(this.game.currentMapId, layerName, newZIndex);
         if (newLayer) {
             this.updateLayerList();
-            console.log(`[LayerPanel] Added layer: ${layerName}`);
+            console.log(`[LayerPanel] Added layer: ${layerName} at z-index ${newZIndex}`);
         }
     }
 

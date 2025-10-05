@@ -1261,7 +1261,27 @@ class EditorManager {
         if (!this.selectedTexture || !this.loadedTextures[this.selectedTexture]) return;
         
         const mapId = this.game.currentMapId;
-        const canvas = this.paintLayers[mapId];
+        
+        // Initialize paint canvas for active layer if needed
+        if (this.game.layerManager && this.game.layerManager.hasLayers(mapId)) {
+            const activeLayerId = this.game.layerManager.activeLayerId;
+            if (activeLayerId) {
+                const mapData = this.game.mapManager.maps[mapId];
+                if (mapData) {
+                    const mapScale = mapData.scale || 1.0;
+                    const resolutionScale = this.game.resolutionScale || 1.0;
+                    const scaledWidth = mapData.width * mapScale * resolutionScale;
+                    const scaledHeight = mapData.height * mapScale * resolutionScale;
+                    
+                    // Ensure the active layer has a paint canvas
+                    if (!this.game.layerManager.getPaintCanvas(mapId, activeLayerId)) {
+                        this.game.layerManager.initializePaintCanvas(mapId, activeLayerId, scaledWidth, scaledHeight);
+                    }
+                }
+            }
+        }
+        
+        const canvas = this.getPaintLayer(mapId);
         if (!canvas) return;
         
         const ctx = canvas.getContext('2d');
@@ -1379,6 +1399,15 @@ class EditorManager {
      * Get paint layer for a map (called by RenderSystem)
      */
     getPaintLayer(mapId) {
+        // If layer system is enabled, return the active layer's paint canvas
+        if (this.game.layerManager && this.game.layerManager.hasLayers(mapId)) {
+            const activeLayerId = this.game.layerManager.activeLayerId;
+            if (activeLayerId) {
+                return this.game.layerManager.getPaintCanvas(mapId, activeLayerId);
+            }
+        }
+        
+        // Fallback to legacy paint layer system
         return this.paintLayers[mapId];
     }
 

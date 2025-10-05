@@ -88,20 +88,22 @@ class LayerManager {
     /**
      * Add a new layer to a map
      */
-    addLayer(mapId, name = 'New Layer') {
+    addLayer(mapId, name = 'New Layer', zIndex = null) {
         if (!this.layers[mapId]) {
             console.error(`[LayerManager] Cannot add layer - map ${mapId} not initialized`);
             return null;
         }
         
-        // Find next available z-index
-        const maxZ = Math.max(...this.layers[mapId].map(l => l.zIndex));
-        const newZIndex = maxZ + 1;
+        // If no z-index specified, add at top (one above max)
+        if (zIndex === null) {
+            const maxZ = Math.max(...this.layers[mapId].map(l => l.zIndex));
+            zIndex = maxZ + 1;
+        }
         
         const newLayer = {
             id: `${mapId}_layer_${Date.now()}`,
             name: name,
-            zIndex: newZIndex,
+            zIndex: zIndex,
             visible: true,
             locked: false,
             opacity: 1.0,
@@ -112,7 +114,7 @@ class LayerManager {
         this.layers[mapId].push(newLayer);
         this.activeLayerId = newLayer.id;
         
-        console.log(`[LayerManager] Added layer "${name}" (z:${newZIndex}) to map ${mapId}`);
+        console.log(`[LayerManager] Added layer "${name}" (z:${zIndex}) to map ${mapId}`);
         return newLayer;
     }
 
