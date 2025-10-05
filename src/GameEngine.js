@@ -681,28 +681,33 @@ class GameEngine {
         if (movingActor.canBeBlocked && this.editorManager) {
             const collisionLayer = this.editorManager.getCollisionLayer(this.currentMapId);
             if (collisionLayer) {
-                // One-time diagnostic
-                if (!this._loggedPaintedCollisionCheck) {
-                    this._loggedPaintedCollisionCheck = true;
-                    console.log('✅ [Painted Collision] System active, checking collisions for map', this.currentMapId);
-                    console.log('Player position:', movingActor.x, movingActor.y);
-                    console.log('Canvas size:', collisionLayer.width, 'x', collisionLayer.height);
-                    
-                    // Sample a pixel directly at player position to test
-                    const ctx = collisionLayer.getContext('2d');
-                    const testX = Math.floor(movingActor.x);
-                    const testY = Math.floor(movingActor.y);
-                    if (testX >= 0 && testX < collisionLayer.width && testY >= 0 && testY < collisionLayer.height) {
-                        const testData = ctx.getImageData(testX, testY, 1, 1).data;
-                        console.log(`Test pixel at player position (${testX}, ${testY}): rgba(${testData[0]}, ${testData[1]}, ${testData[2]}, ${testData[3]})`);
-                    }
+                // One-time debug to confirm system is active
+                if (!this._collisionSystemDebug) {
+                    this._collisionSystemDebug = true;
+                    console.log('✅ [Painted Collision System] Active and checking collisions');
+                    console.log('   - Map ID:', this.currentMapId);
+                    console.log('   - Canvas size:', collisionLayer.width, 'x', collisionLayer.height);
+                    console.log('   - Actor position:', Math.floor(movingActor.x), Math.floor(movingActor.y));
                 }
                 
                 // Check if the actor's collision bounds intersect with painted collision
                 if (this.checkPaintedCollision(newX, newY, movingActor, collisionLayer, game || this)) {
-                    console.log('🚫 [Painted Collision] BLOCKED movement at', Math.floor(newX), Math.floor(newY));
                     return { collides: true, object: 'painted_collision' };
                 }
+            } else {
+                // Debug: No collision layer found
+                if (!this._noCollisionLayerWarning) {
+                    this._noCollisionLayerWarning = true;
+                    console.warn('⚠️ [Painted Collision] No collision layer found for map', this.currentMapId);
+                }
+            }
+        } else {
+            // Debug: Conditions not met
+            if (!this._collisionCheckSkipped) {
+                this._collisionCheckSkipped = true;
+                console.warn('⚠️ [Painted Collision] Check skipped:');
+                console.warn('   - canBeBlocked:', movingActor.canBeBlocked);
+                console.warn('   - editorManager exists:', !!this.editorManager);
             }
         }
         
@@ -739,18 +744,15 @@ class GameEngine {
             collisionLayer._cachedImageData = ctx.getImageData(0, 0, collisionLayer.width, collisionLayer.height);
             collisionLayer._dataDirty = false;
             
-            // One-time diagnostic
-            if (!this._paintedCollisionDebugDone) {
-                this._paintedCollisionDebugDone = true;
-                let redCount = 0;
-                const data = collisionLayer._cachedImageData.data;
-                for (let i = 0; i < data.length; i += 4) {
-                    if (data[i] > 200 && data[i + 1] < 50 && data[i + 2] < 50 && data[i + 3] > 200) {
-                        redCount++;
-                    }
+            // Count red pixels for diagnostic
+            let redCount = 0;
+            const data = collisionLayer._cachedImageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i] > 200 && data[i + 1] < 50 && data[i + 2] < 50 && data[i + 3] > 200) {
+                    redCount++;
                 }
-                console.log(`🎨 [Painted Collision] Layer: ${collisionLayer.width}x${collisionLayer.height}, red pixels: ${redCount}`);
             }
+            console.log(`🎨 [Collision Cache Updated] ${collisionLayer.width}x${collisionLayer.height}, red pixels: ${redCount}`);
         }
         
         const imageData = collisionLayer._cachedImageData;
@@ -786,6 +788,17 @@ class GameEngine {
             { x: Math.floor(newX), y: Math.floor(newY) }  // Center
         ];
         
+        // Debug: Show sample area (one-time)
+        if (!this._collisionSampleDebug) {
+            this._collisionSampleDebug = true;
+            console.log(`🔍 [Collision Debug] Checking area:`, {
+                actorPos: `(${Math.floor(newX)}, ${Math.floor(newY)})`,
+                bounds: `L:${left} R:${right} T:${top} B:${bottom}`,
+                size: `${Math.floor(collisionWidth)}x${Math.floor(collisionHeight)}`,
+                samplePoints: samplePoints.length
+            });
+        }
+        
         // Check each sample point using cached data
         for (const point of samplePoints) {
             // Make sure point is within canvas bounds
@@ -801,6 +814,11 @@ class GameEngine {
             // Painted collision is solid red: rgba(255, 0, 0, 1.0)
             if (data[pixelIndex] > 200 && data[pixelIndex + 1] < 50 && 
                 data[pixelIndex + 2] < 50 && data[pixelIndex + 3] > 200) {
+                // Log collision detection (throttled to avoid spam)
+                if (!this._lastCollisionLog || Date.now() - this._lastCollisionLog > 1000) {
+                    console.log(`🚫 [Painted Collision] Blocking at (${Math.floor(newX)}, ${Math.floor(newY)})`);
+                    this._lastCollisionLog = Date.now();
+                }
                 return true; // Collision detected
             }
         }

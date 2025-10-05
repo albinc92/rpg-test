@@ -1373,8 +1373,6 @@ class EditorManager {
      * Paint collision area at position
      */
     paintCollisionAt(worldX, worldY, mapId) {
-        console.log(`[EditorManager] Painting collision at (${worldX}, ${worldY}) on map ${mapId}`);
-        
         // Initialize collision canvas if needed
         if (!this.collisionLayers[mapId]) {
             const mapData = this.game.mapManager.maps[mapId];
@@ -1407,21 +1405,17 @@ class EditorManager {
         if (this.brushShape === 'square') {
             // Square brush
             ctx.fillRect(worldX - brushSize, worldY - brushSize, brushSize * 2, brushSize * 2);
-            console.log(`[EditorManager] Drew square collision at (${worldX}, ${worldY}), size: ${brushSize * 2}`);
         } else {
             // Circle brush (default)
             ctx.beginPath();
             ctx.arc(worldX, worldY, brushSize, 0, Math.PI * 2);
             ctx.fill();
-            console.log(`[EditorManager] Drew circle collision at (${worldX}, ${worldY}), radius: ${brushSize}`);
         }
         
         ctx.restore();
         
         // Mark canvas as dirty so collision cache gets updated
         canvas._dataDirty = true;
-        
-        console.log(`[EditorManager] Collision canvas has content: ${canvas.width}x${canvas.height}`);
     }
 
     /**
@@ -1621,6 +1615,9 @@ class EditorManager {
         img.onload = () => {
             canvas._bakedImage = img;
             canvas._imageReady = true;
+            // IMPORTANT: Keep _dataDirty true so collision detection recaches ImageData
+            // The rendering will use the baked image, but collision detection needs to update its cache
+            canvas._dataDirty = true;
             console.log(`[EditorManager] Baked collision layer for map ${mapId} to image for better performance`);
         };
         img.src = dataURL;
@@ -1744,61 +1741,45 @@ class EditorManager {
 
     /**
      * Render brush preview
+     * NOTE: This is called AFTER camera transform is applied by RenderSystem,
+     * so we draw in world coordinates (mouseWorldX/Y) and they're automatically
+     * transformed to screen space by the existing camera transform.
      */
     renderBrushPreview(ctx) {
         if (this.selectedTool !== 'paint') return;
         
-        const rect = this.game.canvas.getBoundingClientRect();
-        const canvas = this.game.canvas;
-        
-        // Get mouse position in screen/CSS pixels
-        const mouseScreenX = this.rawMouseX;
-        const mouseScreenY = this.rawMouseY;
-        const relativeX = mouseScreenX - rect.left;
-        const relativeY = mouseScreenY - rect.top;
-        
-        // Convert to canvas coordinates
-        const transform = ctx.getTransform();
-        const contextScaleX = transform.a;
-        const contextScaleY = transform.d;
-        
-        const canvasToDisplayX = canvas.width / rect.width;
-        const canvasToDisplayY = canvas.height / rect.height;
-        
-        const finalScaleX = canvasToDisplayX / contextScaleX;
-        const finalScaleY = canvasToDisplayY / contextScaleY;
-        
-        const screenX = relativeX * finalScaleX;
-        const screenY = relativeY * finalScaleY;
-        
         ctx.save();
         
-        // Apply zoom transformation
+        // Draw in world coordinates - the camera transform is already applied
+        // so mouseWorldX/Y will be automatically converted to screen position
+        const worldX = this.mouseWorldX;
+        const worldY = this.mouseWorldY;
+        
+        // Get zoom level to scale line width and center dot appropriately
         const zoom = this.game.camera.zoom || 1.0;
-        if (zoom !== 1.0) {
-            const canvasWidth = canvas.width / (window.devicePixelRatio || 1);
-            const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
-            
-            ctx.translate(canvasWidth / 2, canvasHeight / 2);
-            ctx.scale(zoom, zoom);
-            ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
+        
+        // Draw brush circle (size is in world space, so it scales with zoom automatically)
+        ctx.strokeStyle = this.selectedTexture ? 'rgba(74, 158, 255, 0.8)' : 'rgba(255, 0, 0, 0.8)';
+        ctx.lineWidth = 2 / zoom; // Scale line width inversely so it stays visible
+        ctx.setLineDash([5 / zoom, 5 / zoom]); // Scale dash pattern too
+        ctx.beginPath();
+        
+        if (this.brushShape === 'square') {
+            // Square brush
+            const halfSize = this.brushSize;
+            ctx.rect(worldX - halfSize, worldY - halfSize, halfSize * 2, halfSize * 2);
+        } else {
+            // Circle brush (default)
+            ctx.arc(worldX, worldY, this.brushSize, 0, Math.PI * 2);
         }
         
-        // Draw brush circle
-        // Brush size is in world space, so we don't multiply by zoom here
-        // (the zoom transformation is already applied to the context)
-        ctx.strokeStyle = this.selectedTexture ? 'rgba(74, 158, 255, 0.8)' : 'rgba(255, 0, 0, 0.8)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
-        ctx.beginPath();
-        ctx.arc(screenX, screenY, this.brushSize, 0, Math.PI * 2);
         ctx.stroke();
         ctx.setLineDash([]);
         
-        // Draw center dot
+        // Draw center dot (scale inversely so it stays same size on screen)
         ctx.fillStyle = this.selectedTexture ? 'rgba(74, 158, 255, 1)' : 'rgba(255, 0, 0, 1)';
         ctx.beginPath();
-        ctx.arc(screenX, screenY, 3, 0, Math.PI * 2);
+        ctx.arc(worldX, worldY, 3 / zoom, 0, Math.PI * 2);
         ctx.fill();
         
         ctx.restore();

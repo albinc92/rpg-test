@@ -206,8 +206,6 @@ class RenderSystem {
             
             const collisionLayer = game.editorManager.getCollisionLayer(game.currentMapId);
             if (collisionLayer && showCollisions) {
-                console.log('[RenderSystem] Rendering collision layer (layers mode), size:', collisionLayer.width, 'x', collisionLayer.height);
-                
                 // Use baked image if available for performance
                 const imageSource = (collisionLayer._imageReady && collisionLayer._bakedImage) ? collisionLayer._bakedImage : collisionLayer;
                 
@@ -241,9 +239,6 @@ class RenderSystem {
                 this.ctx.drawImage(tempCanvas, 0, 0);
                 
                 this.ctx.restore();
-                console.log('[RenderSystem] Collision layer rendered');
-            } else if (collisionLayer) {
-                console.log('[RenderSystem] Collision layer exists but showCollisions is false');
             }
         }
     }
@@ -327,8 +322,6 @@ class RenderSystem {
             
             const collisionLayer = game.editorManager.getCollisionLayer(game.currentMapId);
             if (collisionLayer && showCollisions) {
-                console.log('[RenderSystem] Rendering collision layer, size:', collisionLayer.width, 'x', collisionLayer.height);
-                
                 // Use baked image if available for performance
                 const imageSource = (collisionLayer._imageReady && collisionLayer._bakedImage) ? collisionLayer._bakedImage : collisionLayer;
                 
