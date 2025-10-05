@@ -1378,6 +1378,7 @@ class EditorManager {
             const mapData = this.game.mapManager.maps[mapId];
             if (!mapData) return;
             
+            // Canvas sized for rendering (with resolution scale)
             const mapScale = mapData.scale || 1.0;
             const resolutionScale = this.game.resolutionScale || 1.0;
             const scaledWidth = mapData.width * mapScale * resolutionScale;
@@ -1397,6 +1398,7 @@ class EditorManager {
         const brushSize = this.brushSize;
         
         // Draw collision area (solid red, no transparency)
+        // Use worldX/worldY directly - canvas is sized to match world coordinates
         ctx.save();
         ctx.fillStyle = 'rgba(255, 0, 0, 1.0)'; // Solid red
         ctx.globalCompositeOperation = 'source-over';
@@ -1741,42 +1743,53 @@ class EditorManager {
 
     /**
      * Render brush preview
-     * NOTE: This is called AFTER camera transform is applied by RenderSystem,
-     * so we draw in world coordinates (mouseWorldX/Y) and they're automatically
-     * transformed to screen space by the existing camera transform.
+     * NOTE: This is called AFTER RenderSystem restores camera transform,
+     * so we need to manually apply the camera transform to draw the preview
+     * in the correct screen position.
      */
     renderBrushPreview(ctx) {
         if (this.selectedTool !== 'paint') return;
         
+        const camera = this.game.camera;
+        const zoom = camera.zoom || 1.0;
+        
         ctx.save();
         
-        // Draw in world coordinates - the camera transform is already applied
-        // so mouseWorldX/Y will be automatically converted to screen position
+        // Apply the same camera transform that RenderSystem uses
+        const canvasWidth = this.game.CANVAS_WIDTH;
+        const canvasHeight = this.game.CANVAS_HEIGHT;
+        
+        // Apply zoom (scale around canvas center)
+        if (zoom !== 1.0) {
+            ctx.translate(canvasWidth / 2, canvasHeight / 2);
+            ctx.scale(zoom, zoom);
+            ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
+        }
+        
+        // Apply camera translation
+        ctx.translate(-camera.x, -camera.y);
+        
+        // Now draw in world coordinates
         const worldX = this.mouseWorldX;
         const worldY = this.mouseWorldY;
         
-        // Get zoom level to scale line width and center dot appropriately
-        const zoom = this.game.camera.zoom || 1.0;
-        
-        // Draw brush circle (size is in world space, so it scales with zoom automatically)
+        // Draw brush preview
         ctx.strokeStyle = this.selectedTexture ? 'rgba(74, 158, 255, 0.8)' : 'rgba(255, 0, 0, 0.8)';
-        ctx.lineWidth = 2 / zoom; // Scale line width inversely so it stays visible
-        ctx.setLineDash([5 / zoom, 5 / zoom]); // Scale dash pattern too
+        ctx.lineWidth = 2 / zoom;
+        ctx.setLineDash([5 / zoom, 5 / zoom]);
         ctx.beginPath();
         
         if (this.brushShape === 'square') {
-            // Square brush
             const halfSize = this.brushSize;
             ctx.rect(worldX - halfSize, worldY - halfSize, halfSize * 2, halfSize * 2);
         } else {
-            // Circle brush (default)
             ctx.arc(worldX, worldY, this.brushSize, 0, Math.PI * 2);
         }
         
         ctx.stroke();
         ctx.setLineDash([]);
         
-        // Draw center dot (scale inversely so it stays same size on screen)
+        // Draw center dot
         ctx.fillStyle = this.selectedTexture ? 'rgba(74, 158, 255, 1)' : 'rgba(255, 0, 0, 1)';
         ctx.beginPath();
         ctx.arc(worldX, worldY, 3 / zoom, 0, Math.PI * 2);

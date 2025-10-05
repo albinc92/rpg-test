@@ -759,6 +759,10 @@ class GameEngine {
         const data = imageData.data;
         const width = collisionLayer.width;
         
+        // IMPORTANT: Canvas is in render space (world * resolutionScale)
+        // but our coordinates are in world space, so we need to scale them
+        const resolutionScale = game.resolutionScale || 1.0;
+        
         // Get actor's collision bounds at the new position
         const actorWidth = movingActor.getActualWidth(game);
         const actorHeight = movingActor.getActualHeight(game);
@@ -776,16 +780,17 @@ class GameEngine {
         const bottom = Math.ceil(newY + halfHeight);
         
         // Sample multiple points around the actor's collision bounds
+        // Scale world coordinates to canvas coordinates
         const samplePoints = [
-            { x: left, y: top },       // Top-left
-            { x: right, y: top },      // Top-right
-            { x: left, y: bottom },    // Bottom-left
-            { x: right, y: bottom },   // Bottom-right
-            { x: Math.floor(newX), y: top },       // Top-center
-            { x: Math.floor(newX), y: bottom },    // Bottom-center
-            { x: left, y: Math.floor(newY) },      // Left-center
-            { x: right, y: Math.floor(newY) },     // Right-center
-            { x: Math.floor(newX), y: Math.floor(newY) }  // Center
+            { x: Math.floor(left * resolutionScale), y: Math.floor(top * resolutionScale) },       // Top-left
+            { x: Math.floor(right * resolutionScale), y: Math.floor(top * resolutionScale) },      // Top-right
+            { x: Math.floor(left * resolutionScale), y: Math.floor(bottom * resolutionScale) },    // Bottom-left
+            { x: Math.floor(right * resolutionScale), y: Math.floor(bottom * resolutionScale) },   // Bottom-right
+            { x: Math.floor(newX * resolutionScale), y: Math.floor(top * resolutionScale) },       // Top-center
+            { x: Math.floor(newX * resolutionScale), y: Math.floor(bottom * resolutionScale) },    // Bottom-center
+            { x: Math.floor(left * resolutionScale), y: Math.floor(newY * resolutionScale) },      // Left-center
+            { x: Math.floor(right * resolutionScale), y: Math.floor(newY * resolutionScale) },     // Right-center
+            { x: Math.floor(newX * resolutionScale), y: Math.floor(newY * resolutionScale) }       // Center
         ];
         
         // Debug: Show sample area (one-time)
@@ -816,7 +821,7 @@ class GameEngine {
                 data[pixelIndex + 2] < 50 && data[pixelIndex + 3] > 200) {
                 // Log collision detection (throttled to avoid spam)
                 if (!this._lastCollisionLog || Date.now() - this._lastCollisionLog > 1000) {
-                    console.log(`🚫 [Painted Collision] Blocking at (${Math.floor(newX)}, ${Math.floor(newY)})`);
+                    console.log(`🚫 [Painted Collision] Blocking at world (${Math.floor(newX)}, ${Math.floor(newY)}), canvas point (${point.x}, ${point.y})`);
                     this._lastCollisionLog = Date.now();
                 }
                 return true; // Collision detected
