@@ -210,7 +210,6 @@ class ObjectPalette {
             btn.onclick = () => {
                 this.editor.selectedPrefab = obj.data;
                 this.editor.setTool('place');
-                console.log('[ObjectPalette] Selected:', obj.name);
             };
             this.objectList.appendChild(btn);
         });

@@ -72,10 +72,13 @@ class Chest extends InteractiveObject {
         
         // Give loot to player
         const receivedItems = [];
-        this.loot.forEach(item => {
+        this.loot.forEach(lootItem => {
             if (player.inventory) {
-                player.inventory.addItem(item);
-                receivedItems.push(item);
+                const amount = lootItem.amount || 1;
+                for (let i = 0; i < amount; i++) {
+                    player.inventory.addItem({ id: lootItem.id });
+                }
+                receivedItems.push({ ...lootItem, amount });
             }
         });
         
@@ -104,7 +107,13 @@ class Chest extends InteractiveObject {
         
         if (items.length > 0) {
             items.forEach(item => {
-                message += `📦 ${item.name || item.id}\n`;
+                const amount = item.amount || 1;
+                const itemName = item.name || item.id;
+                if (amount > 1) {
+                    message += `📦 ${itemName} x${amount}\n`;
+                } else {
+                    message += `📦 ${itemName}\n`;
+                }
             });
         }
         

@@ -89,7 +89,6 @@ class PropertyPanel {
         }
         this.addCheckbox('Reverse Facing', obj.reverseFacing, (value) => {
             obj.reverseFacing = value;
-            console.log('[PropertyPanel] Reverse Facing set to:', value, 'for object:', obj.constructor.name);
         });
 
         // Sprite selector for objects that have sprites
@@ -604,65 +603,200 @@ class PropertyPanel {
         const container = document.createElement('div');
         container.style.marginBottom = '15px';
 
-        const label = document.createElement('label');
-        label.textContent = 'Loot Items';
-        label.style.cssText = `
-            display: block;
-            margin-bottom: 5px;
-            font-size: 12px;
+        const button = document.createElement('button');
+        button.textContent = '📦 Loot List';
+        button.style.cssText = `
+            width: 100%;
+            padding: 10px;
+            background: #4a9eff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
             font-weight: bold;
         `;
+        button.onmouseover = () => button.style.background = '#5aafff';
+        button.onmouseout = () => button.style.background = '#4a9eff';
+        button.onclick = () => this.openLootListModal(obj);
 
-        // Loot items list
-        const lootList = document.createElement('div');
-        lootList.style.cssText = `
-            background: #222;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 8px;
-            margin-bottom: 8px;
-            min-height: 40px;
+        container.appendChild(button);
+        this.propertiesContainer.appendChild(container);
+    }
+
+    /**
+     * Open loot list modal
+     */
+    openLootListModal(obj) {
+        // Load items data
+        const items = this.editor.game.dataLoader.getItems() || {};
+        
+        // Create modal overlay
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         `;
 
-        const updateLootList = () => {
-            lootList.innerHTML = '';
-            
+        // Create modal container
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: #1a1a1a;
+            border: 2px solid #444;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 700px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        `;
+
+        // Header
+        const header = document.createElement('div');
+        header.style.cssText = `
+            padding: 15px 20px;
+            background: #2a2a2a;
+            border-bottom: 2px solid #444;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        `;
+
+        const title = document.createElement('h3');
+        title.textContent = 'Loot List Editor';
+        title.style.cssText = `
+            margin: 0;
+            color: white;
+            font-size: 18px;
+        `;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '✕';
+        closeBtn.style.cssText = `
+            background: #d32f2f;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+        `;
+        closeBtn.onclick = () => overlay.remove();
+
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        // Current loot section
+        const currentLootSection = document.createElement('div');
+        currentLootSection.style.cssText = `
+            padding: 20px;
+            border-bottom: 2px solid #444;
+            overflow-y: auto;
+            max-height: 300px;
+        `;
+
+        const currentTitle = document.createElement('h4');
+        currentTitle.textContent = 'Current Loot';
+        currentTitle.style.cssText = `
+            margin: 0 0 15px 0;
+            color: white;
+            font-size: 16px;
+        `;
+        currentLootSection.appendChild(currentTitle);
+
+        // Loot grid
+        const lootGrid = document.createElement('div');
+        lootGrid.style.cssText = `
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+        `;
+
+        const updateLootGrid = () => {
+            lootGrid.innerHTML = '';
+
             if (!obj.loot || obj.loot.length === 0) {
                 const emptyMsg = document.createElement('div');
-                emptyMsg.textContent = 'No loot items';
+                emptyMsg.textContent = 'No items in loot list';
                 emptyMsg.style.cssText = `
                     color: #888;
-                    font-size: 11px;
                     font-style: italic;
+                    grid-column: 1 / -1;
+                    text-align: center;
+                    padding: 20px;
                 `;
-                lootList.appendChild(emptyMsg);
+                lootGrid.appendChild(emptyMsg);
                 return;
             }
 
-            obj.loot.forEach((item, index) => {
-                const itemRow = document.createElement('div');
-                itemRow.style.cssText = `
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    padding: 6px;
-                    background: #333;
-                    border-radius: 4px;
-                    margin-bottom: 4px;
+            obj.loot.forEach((lootItem, index) => {
+                const itemData = items[lootItem.id];
+                const itemCard = document.createElement('div');
+                itemCard.style.cssText = `
+                    background: #2a2a2a;
+                    border: 2px solid #444;
+                    border-radius: 8px;
+                    padding: 10px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    position: relative;
                 `;
+                itemCard.onmouseover = () => itemCard.style.borderColor = '#4a9eff';
+                itemCard.onmouseout = () => itemCard.style.borderColor = '#444';
 
-                const itemText = document.createElement('div');
-                itemText.textContent = item.id || item.name || 'Unknown Item';
-                itemText.style.cssText = `
-                    flex: 1;
+                // Item icon
+                if (itemData && itemData.icon) {
+                    const icon = document.createElement('img');
+                    icon.src = itemData.icon;
+                    icon.style.cssText = `
+                        width: 48px;
+                        height: 48px;
+                        object-fit: contain;
+                        display: block;
+                        margin: 0 auto 8px;
+                        background: #1a1a1a;
+                        border-radius: 4px;
+                    `;
+                    itemCard.appendChild(icon);
+                }
+
+                // Item name
+                const name = document.createElement('div');
+                name.textContent = itemData ? itemData.name : lootItem.id;
+                name.style.cssText = `
                     color: white;
                     font-size: 12px;
+                    text-align: center;
+                    margin-bottom: 8px;
+                    font-weight: bold;
+                `;
+                itemCard.appendChild(name);
+
+                // Amount control
+                const amountControl = document.createElement('div');
+                amountControl.style.cssText = `
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 5px;
+                    margin-bottom: 8px;
                 `;
 
-                const removeBtn = document.createElement('button');
-                removeBtn.textContent = '✕';
-                removeBtn.style.cssText = `
-                    background: #d32f2f;
+                const minusBtn = document.createElement('button');
+                minusBtn.textContent = '-';
+                minusBtn.style.cssText = `
+                    background: #333;
                     color: white;
                     border: none;
                     border-radius: 3px;
@@ -670,81 +804,198 @@ class PropertyPanel {
                     height: 24px;
                     cursor: pointer;
                     font-size: 14px;
-                    line-height: 1;
                 `;
-                removeBtn.onclick = () => {
-                    obj.loot.splice(index, 1);
-                    updateLootList();
+                minusBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    lootItem.amount = Math.max(1, (lootItem.amount || 1) - 1);
+                    amountDisplay.textContent = lootItem.amount;
                 };
 
-                itemRow.appendChild(itemText);
-                itemRow.appendChild(removeBtn);
-                lootList.appendChild(itemRow);
+                const amountDisplay = document.createElement('div');
+                amountDisplay.textContent = lootItem.amount || 1;
+                amountDisplay.style.cssText = `
+                    color: white;
+                    font-size: 14px;
+                    min-width: 30px;
+                    text-align: center;
+                    font-weight: bold;
+                `;
+
+                const plusBtn = document.createElement('button');
+                plusBtn.textContent = '+';
+                plusBtn.style.cssText = `
+                    background: #333;
+                    color: white;
+                    border: none;
+                    border-radius: 3px;
+                    width: 24px;
+                    height: 24px;
+                    cursor: pointer;
+                    font-size: 14px;
+                `;
+                plusBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    lootItem.amount = (lootItem.amount || 1) + 1;
+                    amountDisplay.textContent = lootItem.amount;
+                };
+
+                amountControl.appendChild(minusBtn);
+                amountControl.appendChild(amountDisplay);
+                amountControl.appendChild(plusBtn);
+                itemCard.appendChild(amountControl);
+
+                // Delete button
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '🗑️ Remove';
+                deleteBtn.style.cssText = `
+                    width: 100%;
+                    padding: 5px;
+                    background: #d32f2f;
+                    color: white;
+                    border: none;
+                    border-radius: 3px;
+                    cursor: pointer;
+                    font-size: 11px;
+                `;
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    obj.loot.splice(index, 1);
+                    updateLootGrid();
+                };
+                itemCard.appendChild(deleteBtn);
+
+                lootGrid.appendChild(itemCard);
             });
         };
 
-        // Add item controls
-        const addContainer = document.createElement('div');
-        addContainer.style.cssText = `
-            display: flex;
-            gap: 8px;
+        currentLootSection.appendChild(lootGrid);
+
+        // Available items section
+        const availableSection = document.createElement('div');
+        availableSection.style.cssText = `
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
         `;
 
-        const itemInput = document.createElement('input');
-        itemInput.type = 'text';
-        itemInput.placeholder = 'Item ID (e.g., potion)';
-        itemInput.style.cssText = `
-            flex: 1;
-            padding: 6px;
+        const availableTitle = document.createElement('h4');
+        availableTitle.textContent = 'Add Items';
+        availableTitle.style.cssText = `
+            margin: 0 0 15px 0;
+            color: white;
+            font-size: 16px;
+        `;
+        availableSection.appendChild(availableTitle);
+
+        // Search box
+        const searchBox = document.createElement('input');
+        searchBox.type = 'text';
+        searchBox.placeholder = 'Search items...';
+        searchBox.style.cssText = `
+            width: 100%;
+            padding: 8px;
             background: #222;
             color: white;
             border: 1px solid #555;
             border-radius: 4px;
-            font-size: 12px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        `;
+        availableSection.appendChild(searchBox);
+
+        // Items grid
+        const itemsGrid = document.createElement('div');
+        itemsGrid.style.cssText = `
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
         `;
 
-        const addBtn = document.createElement('button');
-        addBtn.textContent = '+ Add';
-        addBtn.style.cssText = `
-            padding: 6px 12px;
-            background: #4a9eff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        `;
-        addBtn.onclick = () => {
-            const itemId = itemInput.value.trim();
-            if (itemId) {
-                if (!obj.loot) {
-                    obj.loot = [];
+        const renderAvailableItems = (filter = '') => {
+            itemsGrid.innerHTML = '';
+            const filterLower = filter.toLowerCase();
+
+            Object.values(items).forEach(item => {
+                // Filter items
+                if (filter && !item.name.toLowerCase().includes(filterLower) && 
+                    !item.id.toLowerCase().includes(filterLower)) {
+                    return;
                 }
-                obj.loot.push({ id: itemId });
-                itemInput.value = '';
-                updateLootList();
-            }
+
+                const itemCard = document.createElement('div');
+                itemCard.style.cssText = `
+                    background: #2a2a2a;
+                    border: 2px solid #444;
+                    border-radius: 8px;
+                    padding: 10px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    text-align: center;
+                `;
+                itemCard.onmouseover = () => {
+                    itemCard.style.borderColor = '#4a9eff';
+                    itemCard.style.background = '#333';
+                };
+                itemCard.onmouseout = () => {
+                    itemCard.style.borderColor = '#444';
+                    itemCard.style.background = '#2a2a2a';
+                };
+                itemCard.onclick = () => {
+                    if (!obj.loot) obj.loot = [];
+                    obj.loot.push({ id: item.id, amount: 1 });
+                    updateLootGrid();
+                };
+
+                // Item icon
+                if (item.icon) {
+                    const icon = document.createElement('img');
+                    icon.src = item.icon;
+                    icon.style.cssText = `
+                        width: 48px;
+                        height: 48px;
+                        object-fit: contain;
+                        display: block;
+                        margin: 0 auto 8px;
+                        background: #1a1a1a;
+                        border-radius: 4px;
+                    `;
+                    itemCard.appendChild(icon);
+                }
+
+                // Item name
+                const name = document.createElement('div');
+                name.textContent = item.name;
+                name.style.cssText = `
+                    color: white;
+                    font-size: 11px;
+                    word-break: break-word;
+                `;
+                itemCard.appendChild(name);
+
+                itemsGrid.appendChild(itemCard);
+            });
         };
-        addBtn.onmouseover = () => addBtn.style.background = '#5aafff';
-        addBtn.onmouseout = () => addBtn.style.background = '#4a9eff';
 
-        // Allow Enter key to add item
-        itemInput.onkeypress = (e) => {
-            if (e.key === 'Enter') {
-                addBtn.click();
-            }
-        };
+        searchBox.oninput = () => renderAvailableItems(searchBox.value);
+        availableSection.appendChild(itemsGrid);
 
-        addContainer.appendChild(itemInput);
-        addContainer.appendChild(addBtn);
-
-        container.appendChild(label);
-        container.appendChild(lootList);
-        container.appendChild(addContainer);
-        this.propertiesContainer.appendChild(container);
+        // Assemble modal
+        modal.appendChild(header);
+        modal.appendChild(currentLootSection);
+        modal.appendChild(availableSection);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
 
         // Initial render
-        updateLootList();
+        updateLootGrid();
+        renderAvailableItems();
+
+        // Close on overlay click
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+            }
+        };
     }
 
     /**

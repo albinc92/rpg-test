@@ -35,7 +35,11 @@ class ObjectManager {
                 'merchant': (data) => new NPC({ ...data, npcType: 'merchant' })
             },
             'InteractiveObject': {
-                'chest': (data) => new Chest(data),
+                'chest': (data) => new Chest({ 
+                    spriteSrc: 'assets/npc/chest-0.png',
+                    scale: 0.15,
+                    ...data 
+                }),
                 'portal': (data) => new Portal(data),
                 'sign': (data) => new InteractiveObject({ ...data, objectType: 'sign' })
             }
