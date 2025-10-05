@@ -197,10 +197,10 @@ class RenderSystem {
         }
         
         // Render collision layer (if editor has painted collision areas)
-        // Only show when collision boxes are enabled (F1 or editor toggle)
+        // Only show when debug mode (F1) OR editor is active with collision boxes enabled
         if (game?.editorManager) {
-            const showCollisions = game.editorManager.showCollisionBoxes || 
-                                  (game.inputManager && game.inputManager.showCollisionBoxes);
+            const showCollisions = (game.settings && game.settings.showDebugInfo) || 
+                                  (game.editorManager.isActive && game.editorManager.showCollisionBoxes);
             
             const collisionLayer = game.editorManager.getCollisionLayer(game.currentMapId);
             if (collisionLayer && showCollisions) {
@@ -316,9 +316,9 @@ class RenderSystem {
             }
             
             // Render collision layer (if editor has painted collision areas)
-            // Only show when collision boxes are enabled (F1 or editor toggle)
-            const showCollisions = game.editorManager.showCollisionBoxes || 
-                                  (game.inputManager && game.inputManager.showCollisionBoxes);
+            // Only show when debug mode (F1) OR editor is active with collision boxes enabled
+            const showCollisions = (game.settings && game.settings.showDebugInfo) || 
+                                  (game.editorManager.isActive && game.editorManager.showCollisionBoxes);
             
             const collisionLayer = game.editorManager.getCollisionLayer(game.currentMapId);
             if (collisionLayer && showCollisions) {
