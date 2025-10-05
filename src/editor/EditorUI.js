@@ -1861,26 +1861,57 @@ class EditorUI {
             right: 20px;
             top: 80px;
             width: 280px;
+            max-height: calc(100vh - 100px);
             background: rgba(0, 0, 0, 0.95);
             border: 2px solid #4a9eff;
             border-radius: 8px;
-            padding: 16px;
             color: white;
             font-family: Arial, sans-serif;
             z-index: 1001;
+            display: flex;
+            flex-direction: column;
         `;
         
         // Title
         const title = document.createElement('h3');
         title.textContent = '🖌️ Paint Tool';
-        title.style.cssText = 'margin: 0 0 16px 0; color: #4a9eff;';
+        title.style.cssText = 'margin: 0; padding: 16px 16px 12px 16px; color: #4a9eff; flex-shrink: 0;';
         panel.appendChild(title);
+        
+        // Scrollable content container
+        const scrollContent = document.createElement('div');
+        scrollContent.style.cssText = `
+            overflow-y: auto;
+            overflow-x: hidden;
+            flex: 1;
+            padding: 0 16px 16px 16px;
+        `;
+        
+        // Add custom scrollbar styling
+        const style = document.createElement('style');
+        style.textContent = `
+            #paint-tool-panel div::-webkit-scrollbar {
+                width: 8px;
+            }
+            #paint-tool-panel div::-webkit-scrollbar-track {
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 4px;
+            }
+            #paint-tool-panel div::-webkit-scrollbar-thumb {
+                background: #4a9eff;
+                border-radius: 4px;
+            }
+            #paint-tool-panel div::-webkit-scrollbar-thumb:hover {
+                background: #6bb3ff;
+            }
+        `;
+        document.head.appendChild(style);
         
         // Paint Mode Selector
         const paintModeLabel = document.createElement('div');
         paintModeLabel.textContent = 'Paint Mode:';
         paintModeLabel.style.cssText = 'margin-bottom: 8px; font-size: 13px; font-weight: bold;';
-        panel.appendChild(paintModeLabel);
+        scrollContent.appendChild(paintModeLabel);
         
         // Layer selection (Texture or Collision)
         const paintModes = [
@@ -1935,19 +1966,19 @@ class EditorUI {
                 }
             };
             paintModeButtons.push(btn);
-            panel.appendChild(btn);
+            scrollContent.appendChild(btn);
         });
         
         // Add spacing
         const spacer2 = document.createElement('div');
         spacer2.style.cssText = 'margin-bottom: 8px;';
-        panel.appendChild(spacer2);
+        scrollContent.appendChild(spacer2);
         
         // Tool Action (Paint, Erase, Fill)
         const toolActionLabel = document.createElement('div');
         toolActionLabel.textContent = 'Tool Action:';
         toolActionLabel.style.cssText = 'margin-bottom: 8px; font-size: 13px; font-weight: bold;';
-        panel.appendChild(toolActionLabel);
+        scrollContent.appendChild(toolActionLabel);
         
         const toolActionSection = document.createElement('div');
         
@@ -1999,18 +2030,18 @@ class EditorUI {
             toolActionSection.appendChild(btn);
         });
         
-        panel.appendChild(toolActionSection);
+        scrollContent.appendChild(toolActionSection);
         
         // Add spacing
         const spacer = document.createElement('div');
         spacer.style.cssText = 'margin-bottom: 16px; clear: both;';
-        panel.appendChild(spacer);
+        scrollContent.appendChild(spacer);
         
         // Brush Size
         const brushSizeLabel = document.createElement('div');
         brushSizeLabel.textContent = `Brush Size: ${this.editor.brushSize}px`;
         brushSizeLabel.style.cssText = 'margin-bottom: 8px; font-size: 13px;';
-        panel.appendChild(brushSizeLabel);
+        scrollContent.appendChild(brushSizeLabel);
         
         const brushSizeSlider = document.createElement('input');
         brushSizeSlider.type = 'range';
@@ -2022,7 +2053,7 @@ class EditorUI {
             this.editor.brushSize = parseInt(brushSizeSlider.value);
             brushSizeLabel.textContent = `Brush Size: ${this.editor.brushSize}px`;
         };
-        panel.appendChild(brushSizeSlider);
+        scrollContent.appendChild(brushSizeSlider);
         
         // Brush Style Section (only for texture mode)
         const brushStyleSection = document.createElement('div');
@@ -2131,10 +2162,10 @@ class EditorUI {
             brushShapeSection.appendChild(btn);
         });
         
-        // Add sections to panel
-        panel.appendChild(brushStyleSection);
-        panel.appendChild(opacitySection);
-        panel.appendChild(brushShapeSection);
+        // Add sections to scrollContent
+        scrollContent.appendChild(brushStyleSection);
+        scrollContent.appendChild(opacitySection);
+        scrollContent.appendChild(brushShapeSection);
         
         // Texture Section (only for texture mode)
         const textureSection = document.createElement('div');
@@ -2189,8 +2220,19 @@ class EditorUI {
         selectTextureBtn.onclick = () => this.showTextureManager();
         textureSection.appendChild(selectTextureBtn);
         
-        // Add texture section to panel
-        panel.appendChild(textureSection);
+        // Add texture section to scrollContent
+        scrollContent.appendChild(textureSection);
+        
+        // Add scrollContent to panel
+        panel.appendChild(scrollContent);
+        
+        // Footer with close button (fixed at bottom)
+        const footer = document.createElement('div');
+        footer.style.cssText = `
+            padding: 12px 16px;
+            border-top: 1px solid #555;
+            flex-shrink: 0;
+        `;
         
         // Close Panel Button
         const closeBtn = document.createElement('button');
@@ -2209,7 +2251,8 @@ class EditorUI {
             this.editor.setTool('select');
             panel.remove();
         };
-        panel.appendChild(closeBtn);
+        footer.appendChild(closeBtn);
+        panel.appendChild(footer);
         
         document.body.appendChild(panel);
     }

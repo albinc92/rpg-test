@@ -1438,22 +1438,70 @@ class EditorManager {
         const ctx = canvas.getContext('2d');
         const brushSize = this.brushSize;
         
-        // Use destination-out to erase
-        ctx.save();
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.fillStyle = 'rgba(255, 255, 255, 1.0)';
-        
-        // Erase based on brush shape (for collision) or always circle for texture
-        if (this.paintMode === 'collision' && this.brushShape === 'square') {
-            // Square eraser
-            ctx.fillRect(worldX - brushSize, worldY - brushSize, brushSize * 2, brushSize * 2);
-        } else {
-            // Circle eraser (default for texture, optional for collision)
-            ctx.beginPath();
-            ctx.arc(worldX, worldY, brushSize, 0, Math.PI * 2);
-            ctx.fill();
+        // For collision mode: simple hard erase
+        if (this.paintMode === 'collision') {
+            ctx.save();
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.fillStyle = 'rgba(255, 255, 255, 1.0)';
+            
+            // Erase based on brush shape
+            if (this.brushShape === 'square') {
+                ctx.fillRect(worldX - brushSize, worldY - brushSize, brushSize * 2, brushSize * 2);
+            } else {
+                ctx.beginPath();
+                ctx.arc(worldX, worldY, brushSize, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            ctx.restore();
+            return;
         }
         
+        // For texture mode: support soft edges and opacity
+        // Create brush with gradient based on style
+        const brushCanvas = document.createElement('canvas');
+        brushCanvas.width = brushSize * 2;
+        brushCanvas.height = brushSize * 2;
+        const brushCtx = brushCanvas.getContext('2d');
+        
+        // Create radial gradient for brush based on style
+        let gradient;
+        switch (this.brushStyle) {
+            case 'hard':
+                // Sharp edges
+                gradient = brushCtx.createRadialGradient(brushSize, brushSize, brushSize * 0.8, brushSize, brushSize, brushSize);
+                gradient.addColorStop(0, `rgba(255, 255, 255, ${this.brushOpacity})`);
+                gradient.addColorStop(0.99, `rgba(255, 255, 255, ${this.brushOpacity})`);
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                break;
+            
+            case 'very-soft':
+                // Very gradual fade
+                gradient = brushCtx.createRadialGradient(brushSize, brushSize, 0, brushSize, brushSize, brushSize);
+                gradient.addColorStop(0, `rgba(255, 255, 255, ${this.brushOpacity})`);
+                gradient.addColorStop(0.3, `rgba(255, 255, 255, ${this.brushOpacity * 0.8})`);
+                gradient.addColorStop(0.6, `rgba(255, 255, 255, ${this.brushOpacity * 0.4})`);
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                break;
+            
+            case 'soft':
+            default:
+                // Medium soft edges
+                gradient = brushCtx.createRadialGradient(brushSize, brushSize, 0, brushSize, brushSize, brushSize);
+                gradient.addColorStop(0, `rgba(255, 255, 255, ${this.brushOpacity})`);
+                gradient.addColorStop(0.7, `rgba(255, 255, 255, ${this.brushOpacity * 0.5})`);
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                break;
+        }
+        
+        // Fill brush with gradient
+        brushCtx.fillStyle = gradient;
+        brushCtx.fillRect(0, 0, brushSize * 2, brushSize * 2);
+        
+        // Apply the eraser brush to the canvas
+        ctx.save();
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.drawImage(brushCanvas, worldX - brushSize, worldY - brushSize);
         ctx.restore();
     }
 
