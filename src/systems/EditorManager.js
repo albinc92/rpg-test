@@ -221,9 +221,9 @@ class EditorManager {
             this.layerPanel = new LayerPanel(this);
         }
         
-        // Show UI
+        // Show UI (but not layer panel by default - user can open it with F4)
         this.ui.show();
-        this.layerPanel.show();
+        // this.layerPanel.show(); // Don't show by default
         
         // Setup mouse event listeners for drag
         this.setupMouseListeners();

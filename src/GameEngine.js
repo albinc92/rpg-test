@@ -759,8 +759,22 @@ class GameEngine {
         const data = imageData.data;
         const width = collisionLayer.width;
         
-        // IMPORTANT: Canvas is in render space (world * resolutionScale)
-        // but our coordinates are in world space, so we need to scale them
+        // Debug: Check coordinate spaces (one-time)
+        if (!this._collisionCoordDebug) {
+            this._collisionCoordDebug = true;
+            const mapData = game.mapManager.maps[game.currentMapId];
+            const mapScale = mapData.scale || 1.0;
+            const resolutionScale = game.resolutionScale || 1.0;
+            console.log('🔍 [Collision Coords Debug]', {
+                mapOriginal: `${mapData.width}x${mapData.height}`,
+                mapScale: mapScale,
+                resolutionScale: resolutionScale,
+                worldSpace: `${mapData.width * mapScale}x${mapData.height * mapScale}`,
+                canvasSize: `${collisionLayer.width}x${collisionLayer.height}`,
+                needsScaling: collisionLayer.width !== (mapData.width * mapScale)
+            });
+        }
+        
         const resolutionScale = game.resolutionScale || 1.0;
         
         // Get actor's collision bounds at the new position
