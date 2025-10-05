@@ -150,26 +150,69 @@ class LayerManager {
     }
 
     /**
-     * Move layer up in z-order (increase z-index)
+     * Move layer up in z-order (increase z-index by swapping with layer above)
      */
     moveLayerUp(mapId, layerId) {
         const layer = this.getLayer(mapId, layerId);
         if (!layer) return false;
         
-        layer.zIndex++;
-        console.log(`[LayerManager] Moved layer "${layer.name}" up (z:${layer.zIndex})`);
+        // Get all layers to find the layer above
+        const layers = this.getLayers(mapId);
+        const maxZIndex = layers.length - 1;
+        
+        // Don't allow moving beyond the max z-index
+        if (layer.zIndex >= maxZIndex) {
+            console.log(`[LayerManager] Cannot move layer "${layer.name}" up - already at max z-index (${maxZIndex})`);
+            return false;
+        }
+        
+        // Find the layer with z-index one higher
+        const layerAbove = layers.find(l => l.zIndex === layer.zIndex + 1);
+        if (!layerAbove) {
+            // No layer above, just increment
+            layer.zIndex++;
+        } else {
+            // Swap z-indices
+            const tempZ = layer.zIndex;
+            layer.zIndex = layerAbove.zIndex;
+            layerAbove.zIndex = tempZ;
+            console.log(`[LayerManager] Swapped "${layer.name}" (z:${layer.zIndex}) with "${layerAbove.name}" (z:${layerAbove.zIndex})`);
+        }
+        
+        console.log(`[LayerManager] Moved layer "${layer.name}" up to z:${layer.zIndex}`);
         return true;
     }
 
     /**
-     * Move layer down in z-order (decrease z-index)
+     * Move layer down in z-order (decrease z-index by swapping with layer below)
      */
     moveLayerDown(mapId, layerId) {
         const layer = this.getLayer(mapId, layerId);
-        if (!layer || layer.zIndex <= 0) return false;
+        if (!layer) return false;
         
-        layer.zIndex--;
-        console.log(`[LayerManager] Moved layer "${layer.name}" down (z:${layer.zIndex})`);
+        // Don't allow moving to z-index 0 (reserved for ground layer)
+        if (layer.zIndex <= 1) {
+            console.log(`[LayerManager] Cannot move layer "${layer.name}" down - would overlap with ground layer (z:0)`);
+            return false;
+        }
+        
+        // Get all layers to find the layer below
+        const layers = this.getLayers(mapId);
+        
+        // Find the layer with z-index one lower
+        const layerBelow = layers.find(l => l.zIndex === layer.zIndex - 1);
+        if (!layerBelow || layerBelow.locked) {
+            // No layer below or it's locked (ground layer), don't move
+            console.log(`[LayerManager] Cannot move layer "${layer.name}" down - no moveable layer below`);
+            return false;
+        }
+        
+        // Swap z-indices
+        const tempZ = layer.zIndex;
+        layer.zIndex = layerBelow.zIndex;
+        layerBelow.zIndex = tempZ;
+        
+        console.log(`[LayerManager] Swapped "${layer.name}" (z:${layer.zIndex}) with "${layerBelow.name}" (z:${layerBelow.zIndex})`);
         return true;
     }
 
