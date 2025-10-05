@@ -157,6 +157,21 @@ class EditorUI {
                     this.updateViewMenu();
                 }
             },
+            {
+                label: '📚 Layers',
+                shortcut: 'L',
+                action: () => {
+                    if (this.editor.layerPanel) {
+                        if (this.editor.layerPanel.isVisible()) {
+                            this.editor.layerPanel.hide();
+                            console.log('[Editor] Layers Panel: Hidden');
+                        } else {
+                            this.editor.layerPanel.show();
+                            console.log('[Editor] Layers Panel: Shown');
+                        }
+                    }
+                }
+            },
             { separator: true },
             {
                 label: '🔍 Zoom In',
