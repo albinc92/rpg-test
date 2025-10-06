@@ -140,6 +140,13 @@ class RenderSystem {
         
         // Restore camera transform
         this.ctx.restore();
+        
+        // Render day/night cycle overlay if enabled for this map
+        if (game?.currentMap?.dayNightCycle && game?.dayNightCycle) {
+            const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
+            const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
+            game.dayNightCycle.render(this.ctx, canvasWidth, canvasHeight);
+        }
     }
     
     /**

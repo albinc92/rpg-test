@@ -67,7 +67,7 @@ class PerformanceMonitor {
         if (!this.enabled) return;
         
         const panelWidth = 260;
-        const panelHeight = 128; // Increased height for collision box indicator
+        const panelHeight = 226; // Increased for day/night controls + shader info
         const padding = 12;
         const lineHeight = 16;
         
@@ -114,7 +114,45 @@ class PerformanceMonitor {
         // Collision boxes indicator
         ctx.fillStyle = '#ff0000';
         ctx.fillText('■ Collision boxes visible', 20, y);
-        y += lineHeight + 4;
+        y += lineHeight;
+        
+        // Day/Night cycle info (if available)
+        if (game?.dayNightCycle && game?.currentMap?.dayNightCycle) {
+            y += 4; // Extra spacing
+            ctx.fillStyle = '#00ffff';
+            ctx.fillText('─── Day/Night Cycle ───', 20, y);
+            y += lineHeight;
+            
+            ctx.fillStyle = '#00ff00';
+            const timeStr = game.dayNightCycle.getTimeString();
+            const phase = game.dayNightCycle.getCurrentPhase();
+            ctx.fillText(`Time: ${timeStr} (${phase})`, 20, y);
+            y += lineHeight;
+            
+            const timeScale = game.dayNightCycle.timeScale;
+            ctx.fillText(`Speed: ${timeScale.toFixed(1)}x`, 20, y);
+            y += lineHeight;
+            
+            // Show shader info if using shader
+            if (game.dayNightCycle.useShader) {
+                const shaderInfo = game.dayNightCycle.getShaderInfo();
+                ctx.fillStyle = '#ffaa00';
+                ctx.fillText(`Shader: B:${shaderInfo.brightness} S:${shaderInfo.saturation} T:${shaderInfo.temperature}`, 20, y);
+                y += lineHeight;
+            } else {
+                ctx.fillStyle = '#ffaa00';
+                ctx.fillText('Mode: 2D Overlay (no shader)', 20, y);
+                y += lineHeight;
+            }
+            
+            // Quick time buttons hint
+            ctx.fillStyle = '#666666';
+            ctx.font = '11px Courier New, monospace';
+            ctx.fillText('F2: Dawn  F3: Noon  F4: Dusk  F5: Night', 20, y);
+            y += 14;
+            ctx.fillText('F6: Speed +10x  F7: Speed -10x', 20, y);
+            y += lineHeight;
+        }
         
         // F1 hint in dimmer color
         ctx.fillStyle = '#666666';

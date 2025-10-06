@@ -77,6 +77,9 @@ class GameEngine {
         // Editor system
         this.editorManager = new EditorManager(this);
         
+        // Day/Night cycle system with shader support
+        this.dayNightCycle = new DayNightCycle(this.canvas);
+        
         // Game state
         this.currentMapId = '0-0';
         this.currentMap = null;
@@ -249,16 +252,64 @@ class GameEngine {
             e.preventDefault(); // Prevent browser's help menu
         }
         
-        // F5 - Clear audio cache and debug
-        if (e.code === 'F5') {
-            this.audioManager.clearAudioCache();
-            this.debugAudioAssignments();
-            console.log('Audio cache cleared! Refresh the page for fresh audio.');
-        }
-        
-        // F6 - Debug audio assignments
-        if (e.code === 'F6') {
-            this.debugAudioAssignments();
+        // F2-F7 - Day/Night cycle controls (when available and enabled for map)
+        if (this.dayNightCycle && this.currentMap?.dayNightCycle) {
+            // F2 - Set time to dawn (6:00)
+            if (e.code === 'F2') {
+                this.dayNightCycle.setTime(6);
+                console.log('🌅 Time set to Dawn (6:00)');
+                e.preventDefault();
+            }
+            
+            // F3 - Set time to noon (12:00)
+            if (e.code === 'F3') {
+                this.dayNightCycle.setTime(12);
+                console.log('☀️ Time set to Noon (12:00)');
+                e.preventDefault();
+            }
+            
+            // F4 - Set time to dusk (18:00)
+            if (e.code === 'F4') {
+                this.dayNightCycle.setTime(18);
+                console.log('🌇 Time set to Dusk (18:00)');
+                e.preventDefault();
+            }
+            
+            // F5 - Set time to midnight (0:00) - overrides audio cache clear
+            if (e.code === 'F5') {
+                this.dayNightCycle.setTime(0);
+                console.log('🌙 Time set to Midnight (0:00)');
+                e.preventDefault();
+            }
+            
+            // F6 - Increase time scale by 10x - overrides audio debug
+            if (e.code === 'F6') {
+                const newScale = Math.min(1000, this.dayNightCycle.timeScale + 10);
+                this.dayNightCycle.setTimeScale(newScale);
+                console.log(`⏩ Time scale increased to ${newScale}x`);
+                e.preventDefault();
+            }
+            
+            // F7 - Decrease time scale by 10x
+            if (e.code === 'F7') {
+                const newScale = Math.max(0, this.dayNightCycle.timeScale - 10);
+                this.dayNightCycle.setTimeScale(newScale);
+                console.log(`⏪ Time scale decreased to ${newScale}x`);
+                e.preventDefault();
+            }
+        } else {
+            // Fallback to original F5/F6 behavior when day/night cycle is not active
+            // F5 - Clear audio cache and debug
+            if (e.code === 'F5') {
+                this.audioManager.clearAudioCache();
+                this.debugAudioAssignments();
+                console.log('Audio cache cleared! Refresh the page for fresh audio.');
+            }
+            
+            // F6 - Debug audio assignments
+            if (e.code === 'F6') {
+                this.debugAudioAssignments();
+            }
         }
     }
 
@@ -361,6 +412,11 @@ class GameEngine {
         
         // Track playtime
         this.playtime += deltaTime;
+        
+        // Update day/night cycle if enabled for this map
+        if (this.currentMap.dayNightCycle && this.dayNightCycle) {
+            this.dayNightCycle.update(deltaTime);
+        }
         
         // Handle input for gameplay
         this.handleGameplayInput(this.inputManager);
