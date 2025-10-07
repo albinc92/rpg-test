@@ -94,6 +94,7 @@ class WeatherSystem {
     
     /**
      * Initialize particle pools based on current settings
+     * Now particles are positioned in world space around the camera
      */
     initializeParticles() {
         // Clear existing particles
@@ -101,17 +102,16 @@ class WeatherSystem {
         this.snowParticles = [];
         this.leafParticles = [];
         
-        // Account for devicePixelRatio
-        const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
-        const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
+        // Get camera viewport with padding
+        const viewport = this.getCameraViewport();
         
-        console.log(`🌤️ Initializing weather particles (${canvasWidth}x${canvasHeight})`);
+        console.log(`🌤️ Initializing weather particles in world space`);
         
         // Initialize rain particles
         if (this.precipitation.startsWith('rain')) {
             const count = this.getParticleCount('rain');
             for (let i = 0; i < count; i++) {
-                this.rainParticles.push(this.createRainParticle(canvasWidth, canvasHeight));
+                this.rainParticles.push(this.createRainParticle(viewport));
             }
         }
         
@@ -119,17 +119,45 @@ class WeatherSystem {
         if (this.precipitation.startsWith('snow')) {
             const count = this.getParticleCount('snow');
             for (let i = 0; i < count; i++) {
-                this.snowParticles.push(this.createSnowParticle(canvasWidth, canvasHeight));
+                this.snowParticles.push(this.createSnowParticle(viewport));
             }
         }
         
         // Initialize leaf particles
         if (this.particles !== 'none') {
-            const count = Math.min(50, this.maxParticles);
+            const count = Math.min(20, this.maxParticles);  // Reduced from 50 to 20
             for (let i = 0; i < count; i++) {
-                this.leafParticles.push(this.createLeafParticle(canvasWidth, canvasHeight));
+                this.leafParticles.push(this.createLeafParticle(viewport));
             }
         }
+    }
+    
+    /**
+     * Get camera viewport in world coordinates with padding
+     */
+    getCameraViewport() {
+        const camera = this.game.camera;
+        const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
+        const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
+        const zoom = camera.zoom || 1.0;
+        
+        // Calculate viewport size in world coordinates
+        const viewportWidth = canvasWidth / zoom;
+        const viewportHeight = canvasHeight / zoom;
+        
+        // Add padding (50% extra on each side)
+        const padding = 0.5;
+        const paddedWidth = viewportWidth * (1 + padding * 2);
+        const paddedHeight = viewportHeight * (1 + padding * 2);
+        
+        return {
+            left: camera.x - paddedWidth / 2,
+            right: camera.x + paddedWidth / 2,
+            top: camera.y - paddedHeight / 2,
+            bottom: camera.y + paddedHeight / 2,
+            width: paddedWidth,
+            height: paddedHeight
+        };
     }
     
     /**
@@ -150,24 +178,24 @@ class WeatherSystem {
     }
     
     /**
-     * Create a rain particle
+     * Create a rain particle in world coordinates
      */
-    createRainParticle(canvasWidth, canvasHeight) {
+    createRainParticle(viewport) {
         return {
-            x: Math.random() * canvasWidth,
-            y: Math.random() * canvasHeight,
+            x: viewport.left + Math.random() * viewport.width,
+            y: viewport.top + Math.random() * viewport.height,
             speed: 10 + Math.random() * 5,
             length: 10 + Math.random() * 10
         };
     }
     
     /**
-     * Create a snow particle
+     * Create a snow particle in world coordinates
      */
-    createSnowParticle(canvasWidth, canvasHeight) {
+    createSnowParticle(viewport) {
         return {
-            x: Math.random() * canvasWidth,
-            y: Math.random() * canvasHeight,
+            x: viewport.left + Math.random() * viewport.width,
+            y: viewport.top + Math.random() * viewport.height,
             speed: 1 + Math.random() * 2,
             size: 2 + Math.random() * 3,
             sway: Math.random() * Math.PI * 2,
@@ -176,16 +204,16 @@ class WeatherSystem {
     }
     
     /**
-     * Create a leaf particle
+     * Create a leaf particle in world coordinates
      */
-    createLeafParticle(canvasWidth, canvasHeight) {
+    createLeafParticle(viewport) {
         return {
-            x: Math.random() * canvasWidth,
-            y: Math.random() * -canvasHeight, // Start above screen
+            x: viewport.left + Math.random() * viewport.width,
+            y: viewport.top - Math.random() * 200, // Start above viewport
             speed: 0.5 + Math.random() * 1,
             size: 4 + Math.random() * 4,
             rotation: Math.random() * Math.PI * 2,
-            rotationSpeed: (Math.random() - 0.5) * 0.05,
+            rotationSpeed: (Math.random() - 0.5) * 0.015,  // Reduced from 0.05 to 0.015
             sway: Math.random() * Math.PI * 2,
             swaySpeed: 0.01 + Math.random() * 0.02,
             color: this.getLeafColor()
@@ -289,11 +317,10 @@ class WeatherSystem {
     }
     
     /**
-     * Update rain particles
+     * Update rain particles in world coordinates
      */
     updateRainParticles(deltaTime) {
-        const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
-        const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
+        const viewport = this.getCameraViewport();
         
         for (let particle of this.rainParticles) {
             // Wind affects horizontal movement (stronger effect for rain)
@@ -302,22 +329,21 @@ class WeatherSystem {
             particle.y += particle.speed * deltaTime * 60;
             particle.x += windForceX * deltaTime * 60;
             
-            // Reset if off screen
-            if (particle.y > canvasHeight) {
-                particle.y = -particle.length;
-                particle.x = Math.random() * canvasWidth;
+            // Reset if outside viewport bounds
+            if (particle.y > viewport.bottom) {
+                particle.y = viewport.top - particle.length;
+                particle.x = viewport.left + Math.random() * viewport.width;
             }
-            if (particle.x < -50) particle.x = canvasWidth + 50;
-            if (particle.x > canvasWidth + 50) particle.x = -50;
+            if (particle.x < viewport.left - 50) particle.x = viewport.right + 50;
+            if (particle.x > viewport.right + 50) particle.x = viewport.left - 50;
         }
     }
     
     /**
-     * Update snow particles
+     * Update snow particles in world coordinates
      */
     updateSnowParticles(deltaTime) {
-        const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
-        const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
+        const viewport = this.getCameraViewport();
         
         for (let particle of this.snowParticles) {
             // Update sway
@@ -330,22 +356,21 @@ class WeatherSystem {
             particle.y += particle.speed * deltaTime * 60;
             particle.x += (windForce + swayOffset) * deltaTime * 60;
             
-            // Reset if off screen
-            if (particle.y > canvasHeight) {
-                particle.y = -10;
-                particle.x = Math.random() * canvasWidth;
+            // Reset if outside viewport bounds
+            if (particle.y > viewport.bottom) {
+                particle.y = viewport.top - particle.size;
+                particle.x = viewport.left + Math.random() * viewport.width;
             }
-            if (particle.x < -50) particle.x = canvasWidth + 50;
-            if (particle.x > canvasWidth + 50) particle.x = -50;
+            if (particle.x < viewport.left - 50) particle.x = viewport.right + 50;
+            if (particle.x > viewport.right + 50) particle.x = viewport.left - 50;
         }
     }
     
     /**
-     * Update leaf particles
+     * Update leaf particles in world coordinates
      */
     updateLeafParticles(deltaTime) {
-        const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
-        const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
+        const viewport = this.getCameraViewport();
         
         for (let particle of this.leafParticles) {
             // Update rotation and sway
@@ -362,50 +387,46 @@ class WeatherSystem {
             particle.y += (particle.speed + windVerticalEffect) * deltaTime * 60;
             particle.x += (windForce + swayOffset) * deltaTime * 60;
             
-            // Increase rotation speed with wind
-            particle.rotationSpeed += this.windStrength * 0.001;
+            // Increase rotation speed with wind (but keep it controlled)
+            particle.rotationSpeed += this.windStrength * 0.0003;  // Reduced from 0.001
+            // Clamp rotation speed to prevent uncontrolled spinning
+            particle.rotationSpeed = Math.max(-0.02, Math.min(0.02, particle.rotationSpeed));
             
-            // Reset if off screen
-            if (particle.y > canvasHeight + 20) {
-                particle.y = -20;
-                particle.x = Math.random() * canvasWidth;
+            // Reset if outside viewport bounds
+            if (particle.y > viewport.bottom + 20) {
+                particle.y = viewport.top - 20;
+                particle.x = viewport.left + Math.random() * viewport.width;
                 particle.rotation = Math.random() * Math.PI * 2;
-                particle.rotationSpeed = (Math.random() - 0.5) * 0.05;
+                particle.rotationSpeed = (Math.random() - 0.5) * 0.015;  // Reduced from 0.05
             }
-            if (particle.x < -50) particle.x = canvasWidth + 50;
-            if (particle.x > canvasWidth + 50) particle.x = -50;
+            if (particle.x < viewport.left - 50) particle.x = viewport.right + 50;
+            if (particle.x > viewport.right + 50) particle.x = viewport.left - 50;
         }
     }
     
     /**
-     * Render weather effects
+     * Render weather effects in world space
+     * Particles are now positioned in world coordinates and move with the map
      */
-    render(canvasWidth, canvasHeight) {
+    render() {
         const ctx = this.ctx;
         
-        // Use provided dimensions or fallback to canvas properties
-        const width = canvasWidth || this.canvas.width;
-        const height = canvasHeight || this.canvas.height;
+        // Note: Sun effects are skipped in world-space rendering as they should be screen-space
+        // TODO: Render sun effects in screen space separately if needed
         
-        // Render sun effects (lens flare/god rays)
-        if (this.precipitation === 'sun' || 
-            (this.precipitation === 'dynamic' && this.currentDynamicWeather === 'sun')) {
-            this.renderSunEffects(width, height);
-        }
-        
-        // Render rain
+        // Render rain (world coordinates)
         if (this.precipitation.startsWith('rain') || 
             (this.precipitation === 'dynamic' && this.currentDynamicWeather.startsWith('rain'))) {
             this.renderRain();
         }
         
-        // Render snow
+        // Render snow (world coordinates)
         if (this.precipitation.startsWith('snow') || 
             (this.precipitation === 'dynamic' && this.currentDynamicWeather.startsWith('snow'))) {
             this.renderSnow();
         }
         
-        // Render falling particles (leaves, sakura)
+        // Render falling particles (leaves, sakura) (world coordinates)
         if (this.particles !== 'none') {
             this.renderLeaves();
         }

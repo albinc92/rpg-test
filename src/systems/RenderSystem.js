@@ -138,22 +138,17 @@ class RenderSystem {
             this.renderDebugCollisionBoxes(renderables, game);
         }
         
+        // Render weather effects in world space (BEFORE restoring camera transform)
+        if (game?.currentMap?.weather && game?.weatherSystem) {
+            game.weatherSystem.render();
+        }
+        
         // Restore camera transform
         this.ctx.restore();
         
         // Get actual canvas dimensions (not scaled by devicePixelRatio)
         const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
         const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
-        
-        // Render weather effects first (in screen space, completely independent of camera/world)
-        if (game?.currentMap?.weather && game?.weatherSystem) {
-            this.ctx.save();
-            // Reset transform but keep devicePixelRatio scaling
-            const dpr = window.devicePixelRatio || 1;
-            this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            game.weatherSystem.render(canvasWidth, canvasHeight);
-            this.ctx.restore();
-        }
         
         // Render day/night cycle overlay on top (affects weather particles and everything)
         if (game?.currentMap?.dayNightCycle && game?.dayNightCycle) {
