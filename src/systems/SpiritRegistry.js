@@ -89,7 +89,6 @@ class SpiritRegistry {
             stats: template.stats,
             moveSpeed: template.moveSpeed,
             movePattern: template.movePattern || 'wander',
-            rarity: template.rarity,
             spiritId: spiritId, // Store template ID for reference
             description: template.description
         });
@@ -98,39 +97,4 @@ class SpiritRegistry {
         return spirit;
     }
 
-    /**
-     * Get spirits by rarity
-     */
-    getTemplatesByRarity(rarity) {
-        return Array.from(this.templates.values()).filter(t => t.rarity === rarity);
-    }
-
-    /**
-     * Get weighted random spirit ID based on rarity
-     * Common: 50%, Uncommon: 30%, Rare: 15%, Legendary: 5%
-     */
-    getWeightedRandomSpiritId() {
-        const rarityWeights = {
-            common: 50,
-            uncommon: 30,
-            rare: 15,
-            legendary: 5
-        };
-
-        const allTemplates = this.getAllTemplates();
-        if (allTemplates.length === 0) return null;
-
-        // Build weighted pool
-        const weightedPool = [];
-        allTemplates.forEach(template => {
-            const weight = rarityWeights[template.rarity] || 10;
-            for (let i = 0; i < weight; i++) {
-                weightedPool.push(template.id);
-            }
-        });
-
-        // Pick random from weighted pool
-        const randomIndex = Math.floor(Math.random() * weightedPool.length);
-        return weightedPool[randomIndex];
-    }
 }

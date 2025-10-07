@@ -36,8 +36,7 @@ class Spirit extends Actor {
         };
         this.currentHp = this.stats.hp;
         
-        // Rarity
-        this.rarity = options.rarity || 'common';
+        // Description
         this.description = options.description || '';
         
         // Movement

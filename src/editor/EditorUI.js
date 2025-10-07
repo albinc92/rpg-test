@@ -717,6 +717,11 @@ class EditorUI {
         addEntryForm.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 8px;';
 
         // Spirit dropdown
+        const spiritLabel = document.createElement('label');
+        spiritLabel.textContent = 'Spirit Type:';
+        spiritLabel.style.cssText = 'font-size: 12px; color: #ccc; font-weight: bold; grid-column: 1 / -1; margin-bottom: -4px;';
+        addEntryForm.appendChild(spiritLabel);
+
         const spiritSelect = document.createElement('select');
         spiritSelect.style.cssText = 'padding: 8px; background: #1a1a1a; color: white; border: 1px solid #555; border-radius: 4px; font-size: 12px; grid-column: 1 / -1;';
         
@@ -730,16 +735,26 @@ class EditorUI {
             allTemplates.forEach(template => {
                 const option = document.createElement('option');
                 option.value = template.id;
-                option.textContent = `${template.name} (${template.rarity})`;
+                option.textContent = template.name;
                 spiritSelect.appendChild(option);
             });
         }
         addEntryForm.appendChild(spiritSelect);
 
         // Max Population
+        const maxPopLabel = document.createElement('label');
+        maxPopLabel.textContent = 'Max Population:';
+        maxPopLabel.style.cssText = 'font-size: 12px; color: #ccc; font-weight: bold; margin-top: 4px; margin-bottom: -4px;';
+        addEntryForm.appendChild(maxPopLabel);
+
+        const spawnRateLabel = document.createElement('label');
+        spawnRateLabel.textContent = 'Spawn Rate (per second):';
+        spawnRateLabel.style.cssText = 'font-size: 12px; color: #ccc; font-weight: bold; margin-top: 4px; margin-bottom: -4px;';
+        addEntryForm.appendChild(spawnRateLabel);
+
         const maxPopInput = document.createElement('input');
         maxPopInput.type = 'number';
-        maxPopInput.placeholder = 'Max Population';
+        maxPopInput.placeholder = '5';
         maxPopInput.value = '5';
         maxPopInput.min = '1';
         maxPopInput.style.cssText = 'padding: 8px; background: #1a1a1a; color: white; border: 1px solid #555; border-radius: 4px; font-size: 12px;';
@@ -748,7 +763,7 @@ class EditorUI {
         // Spawn Rate
         const spawnRateInput = document.createElement('input');
         spawnRateInput.type = 'number';
-        spawnRateInput.placeholder = 'Spawn Rate/s';
+        spawnRateInput.placeholder = '0.1';
         spawnRateInput.value = '0.1';
         spawnRateInput.step = '0.01';
         spawnRateInput.min = '0.01';
@@ -756,6 +771,11 @@ class EditorUI {
         addEntryForm.appendChild(spawnRateInput);
 
         // Time Condition
+        const timeLabel = document.createElement('label');
+        timeLabel.textContent = 'Time Condition:';
+        timeLabel.style.cssText = 'font-size: 12px; color: #ccc; font-weight: bold; grid-column: 1 / -1; margin-top: 4px; margin-bottom: -4px;';
+        addEntryForm.appendChild(timeLabel);
+
         const timeSelect = document.createElement('select');
         timeSelect.style.cssText = 'padding: 8px; background: #1a1a1a; color: white; border: 1px solid #555; border-radius: 4px; font-size: 12px; grid-column: 1 / -1;';
         
@@ -2047,8 +2067,7 @@ class EditorUI {
             
             const allTemplates = spirits.getAllTemplates();
             allTemplates.forEach(spirit => {
-                if (filter && !spirit.name.toLowerCase().includes(filter.toLowerCase()) && 
-                    !spirit.rarity.toLowerCase().includes(filter.toLowerCase())) {
+                if (filter && !spirit.name.toLowerCase().includes(filter.toLowerCase())) {
                     return;
                 }
 
@@ -2093,21 +2112,10 @@ class EditorUI {
                 name.style.cssText = `
                     font-size: 13px;
                     font-weight: bold;
-                    margin-bottom: 4px;
-                    color: ${this.getRarityColor(spirit.rarity)};
+                    margin-bottom: 8px;
+                    color: #4a9eff;
                 `;
                 spiritCard.appendChild(name);
-
-                // Rarity
-                const rarity = document.createElement('div');
-                rarity.textContent = spirit.rarity.toUpperCase();
-                rarity.style.cssText = `
-                    font-size: 10px;
-                    color: ${this.getRarityColor(spirit.rarity)};
-                    text-transform: uppercase;
-                    margin-bottom: 6px;
-                `;
-                spiritCard.appendChild(rarity);
 
                 // Stats summary
                 const stats = document.createElement('div');
@@ -2220,7 +2228,6 @@ class EditorUI {
                 },
                 moveSpeed: 1.5,
                 movePattern: 'wander',
-                rarity: 'common',
                 description: ''
             };
         } else {
@@ -2337,11 +2344,6 @@ class EditorUI {
 
         form.appendChild(this.createConfigSelect('Move Pattern', spiritData.movePattern, ['wander', 'static'], (value) => {
             spiritData.movePattern = value;
-        }));
-
-        // Rarity
-        form.appendChild(this.createConfigSelect('Rarity', spiritData.rarity, ['common', 'uncommon', 'rare', 'legendary'], (value) => {
-            spiritData.rarity = value;
         }));
 
         // Description
@@ -3224,6 +3226,13 @@ class EditorUI {
                 // Update section visibility based on mode
                 if (mode.value === 'collision') {
                     // Collision mode: show brush shape and tool actions, hide texture, style, and opacity
+                    textureSection.style.display = 'none';
+                    brushStyleSection.style.display = 'none';
+                    opacitySection.style.display = 'none';
+                    brushShapeSection.style.display = 'block';
+                    toolActionSection.style.display = 'block';
+                } else if (mode.value === 'spawn') {
+                    // Spawn Zone mode: show brush shape and tool actions, hide texture, style, and opacity
                     textureSection.style.display = 'none';
                     brushStyleSection.style.display = 'none';
                     opacitySection.style.display = 'none';

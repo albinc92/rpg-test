@@ -21,7 +21,6 @@
       },
       "moveSpeed": 1.5,
       "movePattern": "wander",
-      "rarity": "common",
       "description": "A gentle forest spirit that appears during the day"
     },
     {
@@ -45,7 +44,6 @@
       },
       "moveSpeed": 2.0,
       "movePattern": "wander",
-      "rarity": "uncommon",
       "description": "A mysterious wisp that only appears at night"
     },
     {
@@ -69,7 +67,6 @@
       },
       "moveSpeed": 1.2,
       "movePattern": "wander",
-      "rarity": "rare",
       "description": "A powerful guardian that appears only at dawn"
     },
     {
@@ -93,7 +90,6 @@
       },
       "moveSpeed": 1.8,
       "movePattern": "wander",
-      "rarity": "rare",
       "description": "A shadowy being that emerges during dusk"
     }
   ]

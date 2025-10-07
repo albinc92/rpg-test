@@ -1479,9 +1479,9 @@ class EditorManager {
         const ctx = canvas.getContext('2d');
         const brushSize = this.brushSize;
         
-        // Draw spawn zone (semi-transparent blue)
+        // Draw spawn zone (solid blue for binary pixel detection)
         ctx.save();
-        ctx.fillStyle = 'rgba(0, 100, 255, 0.5)'; // Blue with 50% opacity
+        ctx.fillStyle = 'rgba(0, 100, 255, 1.0)'; // Solid blue, 100% opacity
         ctx.globalCompositeOperation = 'source-over';
         
         // Draw based on brush shape
