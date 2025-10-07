@@ -1405,6 +1405,36 @@ class EditorUI {
     }
 
     /**
+     * Create config checkbox
+     */
+    createConfigCheckbox(label, checked, onChange) {
+        const container = document.createElement('div');
+        container.style.cssText = 'display: flex; align-items: center; gap: 12px; padding: 8px 0;';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = checked;
+        checkbox.style.cssText = `
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        `;
+        checkbox.onchange = () => onChange(checkbox.checked);
+
+        const labelEl = document.createElement('label');
+        labelEl.textContent = label;
+        labelEl.style.cssText = 'font-size: 14px; color: #ddd; cursor: pointer; user-select: none;';
+        labelEl.onclick = () => {
+            checkbox.checked = !checkbox.checked;
+            onChange(checkbox.checked);
+        };
+
+        container.appendChild(checkbox);
+        container.appendChild(labelEl);
+        return container;
+    }
+
+    /**
      * Show Item Browser Modal
      */
     showItemBrowser() {
@@ -2330,6 +2360,16 @@ class EditorUI {
         }, { min: 0.1, max: 5.0, step: 0.1 }));
 
         // Collision
+        const collisionHeader = document.createElement('div');
+        collisionHeader.textContent = '💥 Collision Settings';
+        collisionHeader.style.cssText = 'font-size: 14px; font-weight: bold; color: #4a9eff; margin-top: 8px;';
+        form.appendChild(collisionHeader);
+        
+        // Has Collision checkbox
+        form.appendChild(this.createConfigCheckbox('Has Collision', spiritData.hasCollision !== false, (checked) => {
+            spiritData.hasCollision = checked;
+        }));
+        
         const collisionGrid = document.createElement('div');
         collisionGrid.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 12px;';
         collisionGrid.appendChild(this.createConfigSelect('Collision Shape', spiritData.collisionShape, ['circle', 'rectangle'], (value) => {
@@ -2339,6 +2379,17 @@ class EditorUI {
             spiritData.collisionPercent = parseFloat(value);
         }, { min: 0.1, max: 2.0, step: 0.1 }));
         form.appendChild(collisionGrid);
+        
+        // Visual Effects Section
+        const visualHeader = document.createElement('div');
+        visualHeader.textContent = '✨ Visual Effects';
+        visualHeader.style.cssText = 'font-size: 14px; font-weight: bold; color: #4a9eff; margin-top: 8px;';
+        form.appendChild(visualHeader);
+        
+        // Is Floating checkbox
+        form.appendChild(this.createConfigCheckbox('Floating/Hovering (with bobbing animation)', spiritData.isFloating || false, (checked) => {
+            spiritData.isFloating = checked;
+        }));
 
         // Stats Section
         const statsHeader = document.createElement('div');

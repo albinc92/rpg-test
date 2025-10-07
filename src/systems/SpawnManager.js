@@ -246,6 +246,11 @@ class SpawnManager {
         const unscaledX = scaledPosition.x / combinedScale;
         const unscaledY = scaledPosition.y / combinedScale;
         
+        console.log(`[SpawnManager] 🔍 Coordinate conversion:`);
+        console.log(`  - Scaled position from cache: (${Math.round(scaledPosition.x)}, ${Math.round(scaledPosition.y)})`);
+        console.log(`  - mapScale: ${mapScale}, resolutionScale: ${resolutionScale}, combined: ${combinedScale}`);
+        console.log(`  - Unscaled for spirit creation: (${Math.round(unscaledX)}, ${Math.round(unscaledY)})`)
+        
         // Create spirit using registry with unscaled coordinates
         const spirit = this.game.spiritRegistry.createSpirit(
             spiritId,
@@ -262,11 +267,46 @@ class SpawnManager {
         // Add to ObjectManager (not npcs array - using new architecture)
         this.game.objectManager.addObject(this.currentMapId, spirit);
         
+        // Set spawn zone boundaries so spirit can respect them while roaming
+        spirit.spawnZoneBounds = this.calculateSpawnZoneBounds();
+        
         // Track spawned spirit
         this.allSpawnedSpirits.push(spirit);
         
         const template = this.game.spiritRegistry.getTemplate(spiritId);
         console.log(`[SpawnManager] ✨ Spawned ${template.name} at scaled(${Math.round(scaledPosition.x)}, ${Math.round(scaledPosition.y)}) / unscaled(${Math.round(unscaledX)}, ${Math.round(unscaledY)}) [Total: ${this.allSpawnedSpirits.length}/${this.spawnDensity}]`);
+    }
+
+    /**
+     * Calculate spawn zone boundaries from cached spawn points
+     * Returns { minX, maxX, minY, maxY } in scaled coordinates
+     */
+    calculateSpawnZoneBounds() {
+        if (!this.spawnZoneCache || this.spawnZoneCache.length === 0) {
+            return null;
+        }
+        
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
+        
+        // Find min/max of all spawn points
+        this.spawnZoneCache.forEach(point => {
+            if (point.x < minX) minX = point.x;
+            if (point.x > maxX) maxX = point.x;
+            if (point.y < minY) minY = point.y;
+            if (point.y > maxY) maxY = point.y;
+        });
+        
+        // Add some padding (50 pixels) so spirits don't hit the exact edge
+        const padding = 50;
+        return {
+            minX: minX - padding,
+            maxX: maxX + padding,
+            minY: minY - padding,
+            maxY: maxY + padding
+        };
     }
 
     /**
@@ -329,7 +369,16 @@ class SpawnManager {
         console.log(`[SpawnManager] ✅ Cached ${spawnPoints.length} spawn zone positions in ${(endTime - startTime).toFixed(2)}ms`);
         
         if (spawnPoints.length > 0) {
-            console.log(`[SpawnManager] 📍 Sample spawn points:`, spawnPoints.slice(0, 3));
+            // Find bounds of spawn points for debugging
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            spawnPoints.forEach(p => {
+                if (p.x < minX) minX = p.x;
+                if (p.x > maxX) maxX = p.x;
+                if (p.y < minY) minY = p.y;
+                if (p.y > maxY) maxY = p.y;
+            });
+            console.log(`[SpawnManager] 📍 Spawn zone bounds: X(${minX} to ${maxX}), Y(${minY} to ${maxY})`);
+            console.log(`[SpawnManager] 📍 Sample spawn points:`, spawnPoints.slice(0, 5));
         }
     }
     

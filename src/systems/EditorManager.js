@@ -1470,7 +1470,10 @@ class EditorManager {
             canvas.width = scaledWidth;
             canvas.height = scaledHeight;
             this.spawnLayers[mapId] = canvas;
-            console.log(`[EditorManager] Initialized spawn zone layer for map ${mapId}: ${scaledWidth}x${scaledHeight}`);
+            console.log(`[EditorManager] 🎨 Initialized spawn zone layer for map ${mapId}:`);
+            console.log(`  - Map dimensions: ${mapData.width}x${mapData.height}`);
+            console.log(`  - Map scale: ${mapScale}, Resolution scale: ${resolutionScale}`);
+            console.log(`  - Canvas size: ${scaledWidth}x${scaledHeight}`);
         }
         
         const canvas = this.spawnLayers[mapId];
@@ -1478,6 +1481,13 @@ class EditorManager {
         
         const ctx = canvas.getContext('2d');
         const brushSize = this.brushSize;
+        
+        // worldX/worldY are already in scaled world coordinates
+        // The spawn layer canvas is also in scaled world coordinates (rendered at 0,0 with camera transform)
+        // So we use worldX/worldY directly
+        
+        // DEBUG: Log painting to verify coordinates
+        console.log(`[EditorManager] 🎨 Painting spawn zone at world(${Math.round(worldX)}, ${Math.round(worldY)}) on canvas ${canvas.width}x${canvas.height}, brush size: ${brushSize}`);
         
         // Draw spawn zone (solid blue for binary pixel detection)
         ctx.save();

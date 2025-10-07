@@ -87,8 +87,12 @@ class SpiritRegistry {
             // Don't pass spriteWidth/spriteHeight - GameObject will auto-detect from image
             // Only pass scale for consistent sizing with other game objects
             scale: template.scale || 0.8,
+            hasCollision: template.hasCollision !== false, // Default true
             collisionShape: template.collisionShape,
             collisionPercent: template.collisionPercent,
+            isFloating: template.isFloating || false, // Default: not floating
+            floatingSpeed: template.floatingSpeed,
+            floatingRange: template.floatingRange,
             stats: template.stats,
             moveSpeed: template.moveSpeed,
             movePattern: template.movePattern || 'wander',

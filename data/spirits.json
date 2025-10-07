@@ -5,8 +5,10 @@
       "name": "Sylphie",
       "spriteSrc": "assets/npc/Spirits/sylphie.png",
       "scale": 0.01,
+      "hasCollision": true,
       "collisionShape": "circle",
       "collisionPercent": 0.3,
+      "isFloating": false,
       "stats": {
         "hp": 50,
         "attack": 12,
@@ -22,8 +24,10 @@
       "name": "Nythra",
       "spriteSrc": "assets/npc/Spirits/nythra.png",
       "scale": 0.01,
+      "hasCollision": true,
       "collisionShape": "circle",
       "collisionPercent": 0.3,
+      "isFloating": true,
       "stats": {
         "hp": 45,
         "attack": 15,
@@ -39,8 +43,10 @@
       "name": "Dawn Guardian",
       "spriteSrc": "assets/npc/Spirits/Sylphie00.png",
       "scale": 0.01,
+      "hasCollision": true,
       "collisionShape": "circle",
       "collisionPercent": 0.3,
+      "isFloating": false,
       "stats": {
         "hp": 65,
         "attack": 18,
@@ -56,8 +62,10 @@
       "name": "Dusk Shadow",
       "spriteSrc": "assets/npc/Spirits/Sylphie00.png",
       "scale": 0.01,
+      "hasCollision": true,
       "collisionShape": "circle",
       "collisionPercent": 0.3,
+      "isFloating": false,
       "stats": {
         "hp": 60,
         "attack": 20,

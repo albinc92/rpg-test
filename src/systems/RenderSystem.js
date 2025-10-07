@@ -409,7 +409,8 @@ class RenderSystem {
         
         // Draw collision boxes for all objects
         renderables.forEach(({ obj }) => {
-            if (!obj.hasCollision) return;
+            // Skip objects with hasCollision explicitly set to false
+            if (obj.hasCollision === false) return;
             
             const shape = obj.collisionShape || 'rectangle';
             

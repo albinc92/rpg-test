@@ -11,7 +11,7 @@ class Spirit extends Actor {
             maxSpeed: moveSpeed * 50, // Convert template moveSpeed to maxSpeed for physics
             movementSpeed: moveSpeed * 0.8, // Use for AI input (slightly slower for ethereal feel)
             behaviorType: 'roaming',
-            altitude: 40, // Default floating altitude
+            altitude: 0, // No altitude offset - floating is visual only
             blocksMovement: false, // Spirits are ethereal and don't block movement
             canBeBlocked: false, // Spirits can phase through objects
             collisionPercent: 0.3, // Smaller collision area for spirits
@@ -49,7 +49,8 @@ class Spirit extends Actor {
         this.pulseSpeed = options.pulseSpeed || 0.003;
         this.glowEffect = options.glowEffect !== false;
         
-        // Floating animation
+        // Floating/hovering animation (optional)
+        this.isFloating = options.isFloating !== undefined ? options.isFloating : false; // Default: no floating
         this.floatingSpeed = options.floatingSpeed || 0.002;
         this.floatingRange = options.floatingRange || 15;
         
@@ -65,6 +66,9 @@ class Spirit extends Actor {
         this.roamingRadius = options.roamingRadius || 200;
         this.originalX = this.x;
         this.originalY = this.y;
+        
+        // Spawn zone boundaries (set by SpawnManager after spawning)
+        this.spawnZoneBounds = null; // Will be { minX, maxX, minY, maxY } in scaled coordinates
         
         // Roaming state
         this.roamingDirection = { x: 0, y: 0 };
@@ -95,9 +99,45 @@ class Spirit extends Actor {
     /**
      * Spirit-specific roaming that stays near spawn point
      * Uses timer-based movement for smooth, continuous ethereal floating
+     * Respects spawn zone boundaries if set
      */
     updateSpiritRoaming(deltaTime) {
-        // Calculate distance from original position
+        // Get scaled position for boundary checking
+        const mapScale = this.game?.currentMap?.scale || 1.0;
+        const resolutionScale = this.game?.resolutionScale || 1.0;
+        const combinedScale = mapScale * resolutionScale;
+        const scaledX = this.x * combinedScale;
+        const scaledY = this.y * combinedScale;
+        
+        // Check if outside spawn zone boundaries
+        const outsideSpawnZone = this.spawnZoneBounds && (
+            scaledX < this.spawnZoneBounds.minX ||
+            scaledX > this.spawnZoneBounds.maxX ||
+            scaledY < this.spawnZoneBounds.minY ||
+            scaledY > this.spawnZoneBounds.maxY
+        );
+        
+        // If outside spawn zone, move back towards center
+        if (outsideSpawnZone) {
+            const centerX = (this.spawnZoneBounds.minX + this.spawnZoneBounds.maxX) / 2;
+            const centerY = (this.spawnZoneBounds.minY + this.spawnZoneBounds.maxY) / 2;
+            
+            const dx = centerX - scaledX;
+            const dy = centerY - scaledY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance > 0) {
+                const dirX = dx / distance;
+                const dirY = dy / distance;
+                this.applyMovement(dirX * this.movementSpeed * 1.5, dirY * this.movementSpeed * 1.5, deltaTime);
+            }
+            
+            // Reset roaming timer when returning
+            this.roamingTimer = 0;
+            return;
+        }
+        
+        // Fallback: Check distance from original spawn point
         const dx = this.x - this.originalX;
         const dy = this.y - this.originalY;
         const distanceFromOrigin = Math.sqrt(dx * dx + dy * dy);
@@ -105,9 +145,8 @@ class Spirit extends Actor {
         // Update roaming timer
         this.roamingTimer -= deltaTime;
         
-        // If too far from origin, force return to spawn area
+        // If too far from origin (fallback when no spawn zone bounds), force return
         if (distanceFromOrigin > this.roamingRadius) {
-            // Move directly back towards spawn point
             const dirX = -(dx / distanceFromOrigin);
             const dirY = -(dy / distanceFromOrigin);
             this.applyMovement(dirX * this.movementSpeed * 1.5, dirY * this.movementSpeed * 1.5, deltaTime);
@@ -169,26 +208,34 @@ class Spirit extends Actor {
             return;
         }
         
-        const mapScale = game.currentMap?.scale || 1.0;
-        const scaledWidth = this.getWidth() * mapScale;
-        const scaledHeight = this.getHeight() * mapScale;
+        // Use same scaling approach as GameObject
+        const finalScale = this.getFinalScale(game);
+        const resolutionScale = game?.resolutionScale || 1.0;
+        const baseWidth = this.spriteWidth || this.fallbackWidth || 0;
+        const baseHeight = this.spriteHeight || this.fallbackHeight || 0;
+        const scaledWidth = baseWidth * finalScale;
+        const scaledHeight = baseHeight * finalScale;
         
-        // Calculate floating altitude with animation
-        let currentAltitude = this.altitude * mapScale;
-        if (this.floatingSpeed && this.floatingRange && game.gameTime !== undefined) {
-            const floatingOffset = Math.sin(game.gameTime * this.floatingSpeed) * (this.floatingRange * mapScale);
-            currentAltitude += floatingOffset;
+        // Get scaled position (like GameObject does)
+        const scaledX = this.getScaledX(game);
+        const scaledY = this.getScaledY(game);
+        
+        // Calculate floating animation (vertical bobbing effect) - only if floating is enabled
+        let floatingOffset = 0;
+        if (this.isFloating && this.floatingSpeed && this.floatingRange && game.gameTime !== undefined) {
+            floatingOffset = Math.sin(game.gameTime * this.floatingSpeed) * (this.floatingRange * resolutionScale);
         }
         
         // Calculate pulsing alpha for ethereal effect
         const basePulse = game.gameTime !== undefined ? Math.sin(game.gameTime * this.pulseSpeed) * 0.2 : 0;
         const spiritAlpha = Math.max(0.3, Math.min(1.0, this.baseAlpha + basePulse));
         
-        // Draw shadow (very faint for spirits)
+        // Draw shadow (very faint for spirits) at ground position
         if (this.castsShadow) {
             ctx.save();
             ctx.globalAlpha = 0.15; // Very faint shadow
-            game.drawShadow(this.x, this.y, scaledWidth, scaledHeight, currentAltitude);
+            // Shadow stays at ground level, not affected by floating
+            game.drawShadow(scaledX, scaledY, scaledWidth, scaledHeight, 0);
             ctx.restore();
         }
         
@@ -204,18 +251,18 @@ class Spirit extends Actor {
             ctx.shadowOffsetY = 0;
         }
         
-        // Render sprite at floating position
-        const screenX = this.x - scaledWidth / 2;
-        const screenY = this.y - scaledHeight / 2 - currentAltitude;
+        // Render sprite centered at scaled position with floating animation
+        const screenX = scaledX - scaledWidth / 2;
+        const screenY = scaledY - scaledHeight / 2 - floatingOffset;
         
         // Debug: Log draw call once
         if (!this._drawLogged) {
-            console.log(`[Spirit] Drawing ${this.name} at (${Math.round(screenX)}, ${Math.round(screenY)}) size: ${Math.round(scaledWidth)}x${Math.round(scaledHeight)}, alpha: ${spiritAlpha.toFixed(2)}, sprite: ${this.sprite.width}x${this.sprite.height}`);
+            console.log(`[Spirit] Drawing ${this.name} at screen(${Math.round(screenX)}, ${Math.round(screenY)}) from scaled(${Math.round(scaledX)}, ${Math.round(scaledY)}) size: ${Math.round(scaledWidth)}x${Math.round(scaledHeight)}`);
             this._drawLogged = true;
         }
         
         if (this.direction === 'right') {
-            ctx.translate(this.x, this.y - currentAltitude);
+            ctx.translate(scaledX, scaledY - floatingOffset);
             ctx.scale(-1, 1);
             ctx.drawImage(this.sprite, -scaledWidth / 2, -scaledHeight / 2, scaledWidth, scaledHeight);
         } else {
@@ -329,8 +376,14 @@ class Spirit extends Actor {
         }
         
         // Update collision
+        this.hasCollision = template.hasCollision !== false; // Default true
         this.collisionShape = template.collisionShape || 'circle';
         this.collisionPercent = template.collisionPercent || 0.3;
+        
+        // Update floating/hovering
+        this.isFloating = template.isFloating || false;
+        this.floatingSpeed = template.floatingSpeed || 0.002;
+        this.floatingRange = template.floatingRange || 15;
         
         // Update stats (deep copy to avoid reference issues)
         const oldMaxHp = this.stats.hp;
