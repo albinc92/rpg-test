@@ -110,15 +110,12 @@ class CollisionSystem {
     
     /**
      * Check collision between two circles/ellipses
+     * Uses proper ellipse-to-ellipse collision detection
      */
     checkEllipseEllipseCollision(circleA, circleB) {
         // Calculate distance between centers
         const dx = circleB.centerX - circleA.centerX;
         const dy = circleB.centerY - circleA.centerY;
-        
-        // For ellipses, use average radius for approximation
-        const avgRadiusA = (circleA.radiusX + circleA.radiusY) / 2;
-        const avgRadiusB = (circleB.radiusX + circleB.radiusY) / 2;
         
         // If both are perfect circles (radiusX == radiusY), use exact circle collision
         if (circleA.radiusX === circleA.radiusY && circleB.radiusX === circleB.radiusY) {
@@ -126,9 +123,19 @@ class CollisionSystem {
             return distance <= (circleA.radiusX + circleB.radiusX);
         }
         
-        // For ellipses, use approximate collision with average radii
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        return distance <= (avgRadiusA + avgRadiusB);
+        // For ellipses, treat ellipse B as a point and test against expanded ellipse A
+        // This is more accurate than averaging radii
+        // Expand ellipse A by ellipse B's radii
+        const expandedRadiusX = circleA.radiusX + circleB.radiusX;
+        const expandedRadiusY = circleA.radiusY + circleB.radiusY;
+        
+        // Normalize the distance by the expanded radii
+        const normalizedDistX = dx / expandedRadiusX;
+        const normalizedDistY = dy / expandedRadiusY;
+        const normalizedDistSquared = normalizedDistX * normalizedDistX + normalizedDistY * normalizedDistY;
+        
+        // Collision if normalized distance <= 1
+        return normalizedDistSquared <= 1.0;
     }
     
     /**

@@ -335,10 +335,17 @@ class GameObject {
     
     /**
      * Check if this object's collision box intersects with another's collision box
+     * Now uses CollisionSystem to support circular/elliptical collision shapes
      */
     collidesWith(other, game) {
         if (!this.hasCollision || !other.hasCollision) return false;
         
+        // Use CollisionSystem for proper shape-aware collision detection
+        if (game && game.collisionSystem) {
+            return game.collisionSystem.checkCollision(this, other, game);
+        }
+        
+        // Fallback to rectangle collision if no collision system available
         const thisBounds = this.getCollisionBounds(game);
         const otherBounds = other.getCollisionBounds(game);
         
@@ -350,6 +357,7 @@ class GameObject {
     
     /**
      * Check if this object would collide with another at a specific position
+     * Now uses CollisionSystem to support circular/elliptical collision shapes
      */
     wouldCollideAt(x, y, other, game) {
         if (!this.hasCollision || !other.hasCollision) return false;
@@ -363,7 +371,7 @@ class GameObject {
         this.x = x;
         this.y = y;
         
-        // Check collision
+        // Check collision using CollisionSystem (supports circular shapes)
         const collision = this.collidesWith(other, game);
         
         // Restore original position
