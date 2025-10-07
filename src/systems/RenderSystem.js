@@ -230,8 +230,9 @@ class RenderSystem {
                 this.ctx.restore();
             }
             
-            // Render spawn zones if enabled
-            const showSpawnZones = game.editorManager.isActive && game.editorManager.showSpawnZones;
+            // Render spawn zones if enabled (F1 debug mode OR editor)
+            const showSpawnZones = (game.settings && game.settings.showDebugInfo) ||
+                                   (game.editorManager.isActive && game.editorManager.showSpawnZones);
             const spawnLayer = game.editorManager.getSpawnLayer(game.currentMapId);
             if (spawnLayer && showSpawnZones) {
                 // Use baked image if available for performance

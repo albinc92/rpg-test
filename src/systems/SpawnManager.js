@@ -1,12 +1,13 @@
 /**
  * SpawnManager - Handles automatic spirit spawning based on spawn zones and spawn tables
- * Manages population limits, time conditions, and spawn positioning
+ * Uses weighted spawn system: map has total spawn density, each spirit has spawn weight (1-100)
  */
 class SpawnManager {
     constructor(game) {
         this.game = game;
         this.spawnTable = [];
-        this.spawnedSpirits = new Map(); // spiritId -> array of spirit instances
+        this.allSpawnedSpirits = []; // All spirits spawned by this manager
+        this.spawnDensity = 10; // Total number of spirits on the map
         this.spawnCheckInterval = 5000; // Check every 5 seconds
         this.lastSpawnCheck = 0;
         this.enabled = false;
@@ -31,8 +32,9 @@ class SpawnManager {
             return;
         }
         
-        // Load spawn table from map data
+        // Load spawn configuration from map data
         this.spawnTable = mapData.spawnTable || [];
+        this.spawnDensity = mapData.spawnDensity || 10; // Default 10 spirits
         
         if (this.spawnTable.length === 0) {
             console.log(`[SpawnManager] No spawn table configured for map: ${mapId}`);
@@ -40,13 +42,27 @@ class SpawnManager {
             return;
         }
         
-        console.log(`[SpawnManager] Loaded ${this.spawnTable.length} spawn entries`);
+        console.log(`[SpawnManager] Loaded spawn config:`, {
+            spawnDensity: this.spawnDensity,
+            spawnEntries: this.spawnTable.length,
+            entries: this.spawnTable
+        });
+        
+        // Check if spawn zones exist
+        const spawnLayer = this.game.editorManager.getSpawnLayer(mapId);
+        if (!spawnLayer) {
+            console.warn(`[SpawnManager] ⚠️ No spawn zones painted for map: ${mapId}. Paint spawn zones in Map Editor to enable spawning.`);
+            this.enabled = false;
+            return;
+        }
+        
+        console.log(`[SpawnManager] ✅ Spawn system enabled for map: ${mapId} (density: ${this.spawnDensity})`);
         this.enabled = true;
         this.lastSpawnCheck = Date.now();
     }
 
     /**
-     * Update spawn manager - check for new spawns periodically
+     * Update spawn manager - maintain spawn density
      */
     update(deltaTime) {
         if (!this.enabled || !this.spawnTable.length) return;
@@ -60,39 +76,62 @@ class SpawnManager {
         
         this.lastSpawnCheck = now;
         
-        // Check each spawn entry
-        this.spawnTable.forEach(entry => {
-            this.checkSpawn(entry);
-        });
+        // Clean up dead/removed spirits
+        this.cleanUpSpirits();
+        
+        // Count current active spirits
+        const currentCount = this.allSpawnedSpirits.length;
+        
+        // Spawn spirits to reach density
+        const spawnNeeded = this.spawnDensity - currentCount;
+        
+        if (spawnNeeded > 0) {
+            console.log(`[SpawnManager] Need to spawn ${spawnNeeded} spirits (current: ${currentCount}/${this.spawnDensity})`);
+            
+            for (let i = 0; i < spawnNeeded; i++) {
+                this.spawnWeightedRandomSpirit();
+            }
+        }
     }
 
     /**
-     * Check if a spawn entry should spawn a spirit
+     * Spawn a random spirit based on weighted spawn table
      */
-    checkSpawn(entry) {
-        // Check time condition
-        if (!this.checkTimeCondition(entry.timeCondition)) {
+    spawnWeightedRandomSpirit() {
+        // Filter by time condition
+        const validEntries = this.spawnTable.filter(entry => 
+            this.checkTimeCondition(entry.timeCondition)
+        );
+        
+        if (validEntries.length === 0) {
+            console.log(`[SpawnManager] No valid spirits for current time condition`);
             return;
         }
         
-        // Count current population for this spirit type
-        const currentCount = this.countSpirits(entry.spiritId);
+        // Calculate total weight
+        const totalWeight = validEntries.reduce((sum, entry) => sum + (entry.spawnWeight || 50), 0);
         
-        // Check if we're at max population
-        if (currentCount >= entry.maxPopulation) {
-            return;
+        // Random weighted selection
+        let random = Math.random() * totalWeight;
+        let selectedEntry = null;
+        
+        for (const entry of validEntries) {
+            random -= (entry.spawnWeight || 50);
+            if (random <= 0) {
+                selectedEntry = entry;
+                break;
+            }
         }
         
-        // Roll spawn chance (spawn rate is probability per second)
-        // Convert to probability per check interval
-        const checkIntervalSeconds = this.spawnCheckInterval / 1000;
-        const spawnChance = entry.spawnRate * checkIntervalSeconds;
-        const roll = Math.random();
-        
-        if (roll <= spawnChance) {
-            // Attempt to spawn
-            this.spawnSpirit(entry.spiritId);
+        if (!selectedEntry) {
+            selectedEntry = validEntries[validEntries.length - 1]; // Fallback to last entry
         }
+        
+        // Attempt to spawn the selected spirit
+        const template = this.game.spiritRegistry.getTemplate(selectedEntry.spiritId);
+        console.log(`[SpawnManager] 🎲 Rolled ${template?.name || selectedEntry.spiritId} (weight: ${selectedEntry.spawnWeight}/${totalWeight})`);
+        
+        this.spawnSpirit(selectedEntry.spiritId);
     }
 
     /**
@@ -123,23 +162,12 @@ class SpawnManager {
     }
 
     /**
-     * Count how many spirits of a specific type are currently spawned
+     * Clean up dead/removed spirits from tracking
      */
-    countSpirits(spiritId) {
-        const spirits = this.spawnedSpirits.get(spiritId) || [];
-        
-        // Remove any spirits that have been deleted/removed from the game
-        const activeSpirits = spirits.filter(spirit => {
-            // Check if spirit is still in the NPC array
+    cleanUpSpirits() {
+        this.allSpawnedSpirits = this.allSpawnedSpirits.filter(spirit => {
             return this.game.npcs.includes(spirit);
         });
-        
-        // Update the map with only active spirits
-        if (activeSpirits.length !== spirits.length) {
-            this.spawnedSpirits.set(spiritId, activeSpirits);
-        }
-        
-        return activeSpirits.length;
     }
 
     /**
@@ -177,13 +205,10 @@ class SpawnManager {
         this.game.npcs.push(spirit);
         
         // Track spawned spirit
-        if (!this.spawnedSpirits.has(spiritId)) {
-            this.spawnedSpirits.set(spiritId, []);
-        }
-        this.spawnedSpirits.get(spiritId).push(spirit);
+        this.allSpawnedSpirits.push(spirit);
         
         const template = this.game.spiritRegistry.getTemplate(spiritId);
-        console.log(`[SpawnManager] ✨ Spawned ${template.name} at (${Math.round(position.x)}, ${Math.round(position.y)})`);
+        console.log(`[SpawnManager] ✨ Spawned ${template.name} at (${Math.round(position.x)}, ${Math.round(position.y)}) [Total: ${this.allSpawnedSpirits.length}/${this.spawnDensity}]`);
     }
 
     /**
@@ -241,9 +266,9 @@ class SpawnManager {
             const imageData = ctx.getImageData(canvasX, canvasY, 1, 1);
             const [r, g, b, a] = imageData.data;
             
-            // Check if pixel is blue (spawn zone color: rgba(0, 100, 255, 0.5))
+            // Check if pixel is blue (spawn zone color: rgba(0, 100, 255, 1.0))
             // Allow some tolerance for variations
-            const isBlue = (r < 50 && g > 50 && g < 150 && b > 200 && a > 0);
+            const isBlue = (r < 50 && g > 50 && g < 150 && b > 200 && a > 128);
             
             return isBlue;
         } catch (error) {
@@ -302,19 +327,17 @@ class SpawnManager {
      * Clear all spawned spirits (called on map change)
      */
     clearSpawns() {
-        console.log(`[SpawnManager] Clearing spawned spirits`);
+        console.log(`[SpawnManager] Clearing ${this.allSpawnedSpirits.length} spawned spirits`);
         
         // Remove spawned spirits from game
-        this.spawnedSpirits.forEach((spirits, spiritId) => {
-            spirits.forEach(spirit => {
-                const index = this.game.npcs.indexOf(spirit);
-                if (index !== -1) {
-                    this.game.npcs.splice(index, 1);
-                }
-            });
+        this.allSpawnedSpirits.forEach(spirit => {
+            const index = this.game.npcs.indexOf(spirit);
+            if (index !== -1) {
+                this.game.npcs.splice(index, 1);
+            }
         });
         
-        this.spawnedSpirits.clear();
+        this.allSpawnedSpirits = [];
         this.enabled = false;
     }
 
@@ -322,21 +345,19 @@ class SpawnManager {
      * Get spawn statistics for debugging
      */
     getStats() {
-        const stats = {
-            enabled: this.enabled,
-            mapId: this.currentMapId,
-            spawnTableSize: this.spawnTable.length,
-            totalSpawned: 0,
-            byType: {}
-        };
-        
-        this.spawnedSpirits.forEach((spirits, spiritId) => {
-            const count = this.countSpirits(spiritId);
-            stats.byType[spiritId] = count;
-            stats.totalSpawned += count;
+        const spiritCounts = {};
+        this.allSpawnedSpirits.forEach(spirit => {
+            const id = spirit.spiritId || 'unknown';
+            spiritCounts[id] = (spiritCounts[id] || 0) + 1;
         });
         
-        return stats;
+        return {
+            enabled: this.enabled,
+            mapId: this.currentMapId,
+            spawnDensity: this.spawnDensity,
+            totalSpawned: this.allSpawnedSpirits.length,
+            byType: spiritCounts
+        };
     }
 
     /**

@@ -645,10 +645,23 @@ class EditorUI {
         spawnHeader.style.cssText = 'font-size: 16px; font-weight: bold; color: #4a9eff; margin-top: 20px; margin-bottom: 12px; border-top: 1px solid #444; padding-top: 12px;';
         form.appendChild(spawnHeader);
 
-        // Initialize spawn table if it doesn't exist
+        // Initialize spawn config if it doesn't exist
         if (!mapData.spawnTable) {
             mapData.spawnTable = [];
         }
+        if (!mapData.spawnDensity) {
+            mapData.spawnDensity = 10; // Default 10 spirits
+        }
+
+        // Spawn Density Field
+        const densityContainer = document.createElement('div');
+        densityContainer.style.cssText = 'background: #252525; padding: 12px; border-radius: 8px; border: 1px solid #444; margin-bottom: 12px;';
+        
+        const densityField = this.createConfigField('Spawn Density (total spirits on map)', mapData.spawnDensity, 'number', (value) => {
+            mapData.spawnDensity = parseInt(value) || 10;
+        }, { min: 0, step: 1 });
+        densityContainer.appendChild(densityField);
+        form.appendChild(densityContainer);
 
         // Spawn table container
         const spawnTableContainer = document.createElement('div');
@@ -678,13 +691,14 @@ class EditorUI {
                                      entry.timeCondition === 'dawn' ? '🌅 Dawn' :
                                      entry.timeCondition === 'dusk' ? '🌆 Dusk' :
                                      entry.timeCondition === 'nightfall' ? '🌃 Nightfall' : entry.timeCondition;
+                    const weight = entry.spawnWeight || 50;
                     
                     entryDiv.innerHTML = `
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div style="flex: 1;">
                                 <div style="font-weight: bold; color: #4a9eff; font-size: 14px;">${spiritName}</div>
                                 <div style="font-size: 12px; color: #aaa; margin-top: 4px;">
-                                    Max: ${entry.maxPopulation} | Rate: ${entry.spawnRate}/s | Time: ${timeLabel}
+                                    Weight: ${weight} | Time: ${timeLabel}
                                 </div>
                             </div>
                             <button type="button" style="background: #d9534f; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px;">
@@ -741,34 +755,21 @@ class EditorUI {
         }
         addEntryForm.appendChild(spiritSelect);
 
-        // Max Population
-        const maxPopLabel = document.createElement('label');
-        maxPopLabel.textContent = 'Max Population:';
-        maxPopLabel.style.cssText = 'font-size: 12px; color: #ccc; font-weight: bold; margin-top: 4px; margin-bottom: -4px;';
-        addEntryForm.appendChild(maxPopLabel);
+        // Spawn Weight
+        const weightLabel = document.createElement('label');
+        weightLabel.textContent = 'Spawn Weight (1-100):';
+        weightLabel.style.cssText = 'font-size: 12px; color: #ccc; font-weight: bold; grid-column: 1 / -1; margin-top: 4px; margin-bottom: -4px;';
+        addEntryForm.appendChild(weightLabel);
 
-        const spawnRateLabel = document.createElement('label');
-        spawnRateLabel.textContent = 'Spawn Rate (per second):';
-        spawnRateLabel.style.cssText = 'font-size: 12px; color: #ccc; font-weight: bold; margin-top: 4px; margin-bottom: -4px;';
-        addEntryForm.appendChild(spawnRateLabel);
-
-        const maxPopInput = document.createElement('input');
-        maxPopInput.type = 'number';
-        maxPopInput.placeholder = '5';
-        maxPopInput.value = '5';
-        maxPopInput.min = '1';
-        maxPopInput.style.cssText = 'padding: 8px; background: #1a1a1a; color: white; border: 1px solid #555; border-radius: 4px; font-size: 12px;';
-        addEntryForm.appendChild(maxPopInput);
-
-        // Spawn Rate
-        const spawnRateInput = document.createElement('input');
-        spawnRateInput.type = 'number';
-        spawnRateInput.placeholder = '0.1';
-        spawnRateInput.value = '0.1';
-        spawnRateInput.step = '0.01';
-        spawnRateInput.min = '0.01';
-        spawnRateInput.style.cssText = 'padding: 8px; background: #1a1a1a; color: white; border: 1px solid #555; border-radius: 4px; font-size: 12px;';
-        addEntryForm.appendChild(spawnRateInput);
+        const weightInput = document.createElement('input');
+        weightInput.type = 'number';
+        weightInput.placeholder = '50';
+        weightInput.value = '50';
+        weightInput.min = '1';
+        weightInput.max = '100';
+        weightInput.step = '1';
+        weightInput.style.cssText = 'padding: 8px; background: #1a1a1a; color: white; border: 1px solid #555; border-radius: 4px; font-size: 12px; grid-column: 1 / -1;';
+        addEntryForm.appendChild(weightInput);
 
         // Time Condition
         const timeLabel = document.createElement('label');
@@ -803,8 +804,7 @@ class EditorUI {
         addBtn.style.cssText = 'padding: 10px; background: #5cb85c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; grid-column: 1 / -1; margin-top: 4px;';
         addBtn.onclick = () => {
             const spiritId = spiritSelect.value;
-            const maxPopulation = parseInt(maxPopInput.value);
-            const spawnRate = parseFloat(spawnRateInput.value);
+            const spawnWeight = parseInt(weightInput.value);
             const timeCondition = timeSelect.value;
             
             if (!spiritId) {
@@ -812,27 +812,20 @@ class EditorUI {
                 return;
             }
             
-            if (maxPopulation < 1) {
-                this.showNotification('⚠️ Max population must be at least 1', 'warning');
-                return;
-            }
-            
-            if (spawnRate <= 0) {
-                this.showNotification('⚠️ Spawn rate must be greater than 0', 'warning');
+            if (spawnWeight < 1 || spawnWeight > 100) {
+                this.showNotification('⚠️ Spawn weight must be between 1-100', 'warning');
                 return;
             }
             
             mapData.spawnTable.push({
                 spiritId: spiritId,
-                maxPopulation: maxPopulation,
-                spawnRate: spawnRate,
+                spawnWeight: spawnWeight,
                 timeCondition: timeCondition
             });
             
             renderSpawnEntries();
             spiritSelect.value = '';
-            maxPopInput.value = '5';
-            spawnRateInput.value = '0.1';
+            weightInput.value = '50';
             timeSelect.value = 'any';
             
             this.showNotification('✅ Spawn entry added!');
