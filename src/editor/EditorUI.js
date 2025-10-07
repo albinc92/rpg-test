@@ -336,9 +336,15 @@ class EditorUI {
                         label: '⚙️ Current Map Config', 
                         action: () => this.showMapConfig() 
                     },
-                    { label: '➕ New Map', disabled: true },
+                    { 
+                        label: '➕ New Map', 
+                        action: () => this.showMapCreator() 
+                    },
                     { separator: true },
-                    { label: '📋 All Maps', disabled: true }
+                    { 
+                        label: '📋 All Maps', 
+                        action: () => this.showMapBrowser() 
+                    }
                 ]
             }
         ]);
@@ -586,6 +592,385 @@ class EditorUI {
         backdrop.onclick = (e) => {
             if (e.target === backdrop) backdrop.remove();
         };
+    }
+
+    /**
+     * Show map browser (all maps)
+     */
+    showMapBrowser() {
+        // Create modal backdrop
+        const backdrop = document.createElement('div');
+        backdrop.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: #1a1a1a;
+            border: 2px solid #4a9eff;
+            border-radius: 12px;
+            padding: 24px;
+            width: 700px;
+            max-height: 80vh;
+            overflow-y: auto;
+            color: white;
+            font-family: Arial, sans-serif;
+        `;
+
+        // Title
+        const title = document.createElement('h2');
+        title.textContent = '📋 All Maps';
+        title.style.cssText = 'margin-top: 0; color: #4a9eff;';
+        modal.appendChild(title);
+
+        // Map list container
+        const mapList = document.createElement('div');
+        mapList.style.cssText = 'display: flex; flex-direction: column; gap: 12px;';
+
+        const maps = this.editor.game.mapManager.maps;
+        const currentMapId = this.editor.game.currentMapId;
+
+        Object.entries(maps).forEach(([mapId, mapData]) => {
+            const mapCard = document.createElement('div');
+            mapCard.style.cssText = `
+                background: ${mapId === currentMapId ? '#2a3a4a' : '#252525'};
+                border: 2px solid ${mapId === currentMapId ? '#4a9eff' : '#444'};
+                border-radius: 8px;
+                padding: 16px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            `;
+
+            // Map info
+            const info = document.createElement('div');
+            info.style.cssText = 'flex: 1;';
+            
+            const mapName = document.createElement('div');
+            mapName.textContent = `${mapData.name}${mapId === currentMapId ? ' (Current)' : ''}`;
+            mapName.style.cssText = 'font-weight: bold; font-size: 16px; margin-bottom: 4px;';
+            
+            const mapDetails = document.createElement('div');
+            mapDetails.style.cssText = 'font-size: 12px; color: #aaa;';
+            mapDetails.innerHTML = `
+                ID: <code style="color: #4a9eff">${mapId}</code> | 
+                Scale: ${mapData.scale || 1} | 
+                Music: ${mapData.music ? '🎵' : '🔇'} | 
+                Ambience: ${mapData.ambience ? '🌊' : '-'}
+            `;
+
+            info.appendChild(mapName);
+            info.appendChild(mapDetails);
+
+            // Action buttons
+            const actions = document.createElement('div');
+            actions.style.cssText = 'display: flex; gap: 8px;';
+
+            // Go To button
+            const goToBtn = document.createElement('button');
+            goToBtn.textContent = mapId === currentMapId ? '✓ Here' : '🚀 Go';
+            goToBtn.disabled = mapId === currentMapId;
+            goToBtn.style.cssText = `
+                padding: 6px 12px;
+                background: ${mapId === currentMapId ? '#555' : '#4a9eff'};
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: ${mapId === currentMapId ? 'default' : 'pointer'};
+                font-size: 12px;
+                font-weight: bold;
+            `;
+            goToBtn.onclick = () => {
+                this.editor.game.loadMap(mapId);
+                backdrop.remove();
+                this.showNotification(`🗺️ Teleported to ${mapData.name}`);
+            };
+
+            // Edit button
+            const editBtn = document.createElement('button');
+            editBtn.textContent = '⚙️';
+            editBtn.style.cssText = `
+                padding: 6px 12px;
+                background: #666;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 12px;
+            `;
+            editBtn.onclick = () => {
+                backdrop.remove();
+                // Load the map first if not current
+                if (mapId !== currentMapId) {
+                    this.editor.game.loadMap(mapId);
+                }
+                this.showMapConfig();
+            };
+
+            actions.appendChild(goToBtn);
+            actions.appendChild(editBtn);
+
+            mapCard.appendChild(info);
+            mapCard.appendChild(actions);
+            mapList.appendChild(mapCard);
+        });
+
+        modal.appendChild(mapList);
+
+        // Export button
+        const exportBtn = document.createElement('button');
+        exportBtn.textContent = '💾 Export maps.json';
+        exportBtn.style.cssText = `
+            margin-top: 16px;
+            padding: 10px 20px;
+            background: #2a8a2a;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+        `;
+        exportBtn.onclick = () => {
+            this.exportMapsJSON();
+        };
+        modal.appendChild(exportBtn);
+
+        // Close button
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Close';
+        closeBtn.style.cssText = `
+            margin-top: 12px;
+            padding: 10px 20px;
+            background: #555;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+        `;
+        closeBtn.onclick = () => backdrop.remove();
+        modal.appendChild(closeBtn);
+
+        backdrop.appendChild(modal);
+        document.body.appendChild(backdrop);
+
+        // Close on backdrop click
+        backdrop.onclick = (e) => {
+            if (e.target === backdrop) backdrop.remove();
+        };
+    }
+
+    /**
+     * Show map creator
+     */
+    showMapCreator() {
+        // Create modal backdrop
+        const backdrop = document.createElement('div');
+        backdrop.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: #1a1a1a;
+            border: 2px solid #4a9eff;
+            border-radius: 12px;
+            padding: 24px;
+            width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            color: white;
+            font-family: Arial, sans-serif;
+        `;
+
+        // Title
+        const title = document.createElement('h2');
+        title.textContent = '➕ Create New Map';
+        title.style.cssText = 'margin-top: 0; color: #4a9eff;';
+        modal.appendChild(title);
+
+        // Form data
+        const formData = {
+            mapId: '',
+            name: '',
+            imageSrc: 'assets/maps/',
+            scale: 3.0,
+            music: null,
+            ambience: null,
+            dayNightCycle: false
+        };
+
+        // Create form
+        const form = document.createElement('form');
+        form.style.cssText = 'display: flex; flex-direction: column; gap: 16px;';
+
+        // Map ID
+        form.appendChild(this.createConfigField('Map ID', '', 'text', (value) => {
+            formData.mapId = value;
+        }, { placeholder: 'e.g. 0-3, cave-1, town-center', required: true }));
+
+        // Map Name
+        form.appendChild(this.createConfigField('Map Name', '', 'text', (value) => {
+            formData.name = value;
+        }, { placeholder: 'e.g. Dark Forest, Town Square', required: true }));
+
+        // Background Image
+        form.appendChild(this.createConfigField('Background Image Path', 'assets/maps/', 'text', (value) => {
+            formData.imageSrc = value;
+        }, { placeholder: 'assets/maps/map-name.png', required: true }));
+
+        // Map Scale
+        form.appendChild(this.createConfigField('Map Scale', '3.0', 'number', (value) => {
+            formData.scale = parseFloat(value);
+        }, { step: 0.1, min: 0.1 }));
+
+        // Background Music
+        const musicOptions = ['none', 'assets/audio/bgm/00.mp3', 'assets/audio/bgm/01.mp3', 'assets/audio/bgm/02.mp3'];
+        form.appendChild(this.createConfigSelect('Background Music', 'none', musicOptions, (value) => {
+            formData.music = value === 'none' ? null : value;
+        }));
+
+        // Ambience
+        const ambienceOptions = ['none', 'assets/audio/ambience/forest-0.mp3'];
+        form.appendChild(this.createConfigSelect('Ambience', 'none', ambienceOptions, (value) => {
+            formData.ambience = value === 'none' ? null : value;
+        }));
+
+        // Day/Night Cycle checkbox
+        const checkboxContainer = document.createElement('div');
+        checkboxContainer.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = 'dayNightCycle';
+        checkbox.checked = false;
+        checkbox.onchange = () => {
+            formData.dayNightCycle = checkbox.checked;
+        };
+        
+        const checkboxLabel = document.createElement('label');
+        checkboxLabel.htmlFor = 'dayNightCycle';
+        checkboxLabel.textContent = '☀️ Enable Day/Night Cycle';
+        checkboxLabel.style.cssText = 'cursor: pointer; font-size: 14px;';
+        
+        checkboxContainer.appendChild(checkbox);
+        checkboxContainer.appendChild(checkboxLabel);
+        form.appendChild(checkboxContainer);
+
+        modal.appendChild(form);
+
+        // Buttons
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = 'display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end;';
+
+        const createBtn = document.createElement('button');
+        createBtn.textContent = '✨ Create Map';
+        createBtn.type = 'button';
+        createBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #4a9eff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        `;
+        createBtn.onclick = () => {
+            // Validate
+            if (!formData.mapId || !formData.name || !formData.imageSrc) {
+                alert('Please fill in all required fields!');
+                return;
+            }
+
+            // Check if map ID already exists
+            if (this.editor.game.mapManager.maps[formData.mapId]) {
+                alert(`Map ID "${formData.mapId}" already exists!`);
+                return;
+            }
+
+            // Create the new map
+            this.editor.game.mapManager.maps[formData.mapId] = {
+                name: formData.name,
+                imageSrc: formData.imageSrc,
+                scale: formData.scale,
+                music: formData.music,
+                ambience: formData.ambience,
+                dayNightCycle: formData.dayNightCycle
+            };
+
+            this.showNotification(`✅ Map "${formData.name}" created!`);
+            backdrop.remove();
+            
+            // Ask if they want to go to the new map
+            setTimeout(() => {
+                if (confirm(`Go to the new map "${formData.name}" now?`)) {
+                    this.editor.game.loadMap(formData.mapId);
+                }
+            }, 100);
+        };
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.type = 'button';
+        cancelBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #555;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        `;
+        cancelBtn.onclick = () => backdrop.remove();
+
+        buttonContainer.appendChild(cancelBtn);
+        buttonContainer.appendChild(createBtn);
+        modal.appendChild(buttonContainer);
+
+        backdrop.appendChild(modal);
+        document.body.appendChild(backdrop);
+
+        // Close on backdrop click
+        backdrop.onclick = (e) => {
+            if (e.target === backdrop) backdrop.remove();
+        };
+    }
+
+    /**
+     * Export maps.json
+     */
+    exportMapsJSON() {
+        const mapsData = JSON.stringify(this.editor.game.mapManager.maps, null, 2);
+        const blob = new Blob([mapsData], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'maps.json';
+        a.click();
+        URL.revokeObjectURL(url);
+        this.showNotification('💾 maps.json exported!');
     }
 
     /**
