@@ -543,6 +543,74 @@ class EditorUI {
             mapData.ambience = value === 'none' ? null : value;
         }));
 
+        // Day/Night Cycle
+        const dayNightCheckbox = document.createElement('div');
+        dayNightCheckbox.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+        const dayNightInput = document.createElement('input');
+        dayNightInput.type = 'checkbox';
+        dayNightInput.id = 'dayNightCycle';
+        dayNightInput.checked = mapData.dayNightCycle || false;
+        dayNightInput.onchange = () => {
+            mapData.dayNightCycle = dayNightInput.checked;
+        };
+        const dayNightLabel = document.createElement('label');
+        dayNightLabel.htmlFor = 'dayNightCycle';
+        dayNightLabel.textContent = '☀️ Enable Day/Night Cycle';
+        dayNightLabel.style.cssText = 'cursor: pointer; font-size: 14px;';
+        dayNightCheckbox.appendChild(dayNightInput);
+        dayNightCheckbox.appendChild(dayNightLabel);
+        form.appendChild(dayNightCheckbox);
+
+        // Weather Section Header
+        const weatherHeader = document.createElement('div');
+        weatherHeader.textContent = '🌤️ Weather Configuration';
+        weatherHeader.style.cssText = 'font-size: 16px; font-weight: bold; color: #4a9eff; margin-top: 20px; margin-bottom: 12px; border-top: 1px solid #444; padding-top: 12px;';
+        form.appendChild(weatherHeader);
+
+        // Initialize weather object if it doesn't exist
+        if (!mapData.weather) {
+            mapData.weather = {
+                precipitation: 'none',
+                wind: 'none',
+                particles: 'none'
+            };
+        }
+
+        // Precipitation
+        const precipitationOptions = [
+            'none',
+            'dynamic',
+            'sun',
+            'rain-light',
+            'rain-medium',
+            'rain-heavy',
+            'snow-light',
+            'snow-medium',
+            'snow-heavy'
+        ];
+        form.appendChild(this.createConfigSelect('Precipitation', mapData.weather.precipitation || 'none', precipitationOptions, (value) => {
+            mapData.weather.precipitation = value;
+        }));
+
+        // Wind
+        const windOptions = ['none', 'dynamic', 'light', 'medium', 'heavy'];
+        form.appendChild(this.createConfigSelect('Wind', mapData.weather.wind || 'none', windOptions, (value) => {
+            mapData.weather.wind = value;
+        }));
+
+        // Falling Particles
+        const particleOptions = [
+            'none',
+            'leaf-green',
+            'leaf-orange',
+            'leaf-red',
+            'leaf-brown',
+            'sakura'
+        ];
+        form.appendChild(this.createConfigSelect('Falling Particles', mapData.weather.particles || 'none', particleOptions, (value) => {
+            mapData.weather.particles = value;
+        }));
+
         modal.appendChild(form);
 
         // Buttons
@@ -818,7 +886,12 @@ class EditorUI {
             scale: 3.0,
             music: null,
             ambience: null,
-            dayNightCycle: false
+            dayNightCycle: false,
+            weather: {
+                precipitation: 'none',
+                wind: 'none',
+                particles: 'none'
+            }
         };
 
         // Create form
@@ -878,6 +951,47 @@ class EditorUI {
         checkboxContainer.appendChild(checkboxLabel);
         form.appendChild(checkboxContainer);
 
+        // Weather Section Header
+        const weatherHeader = document.createElement('div');
+        weatherHeader.textContent = '🌤️ Weather Configuration';
+        weatherHeader.style.cssText = 'font-size: 16px; font-weight: bold; color: #4a9eff; margin-top: 20px; margin-bottom: 12px; border-top: 1px solid #444; padding-top: 12px;';
+        form.appendChild(weatherHeader);
+
+        // Precipitation
+        const precipitationOptions = [
+            'none',
+            'dynamic',
+            'sun',
+            'rain-light',
+            'rain-medium',
+            'rain-heavy',
+            'snow-light',
+            'snow-medium',
+            'snow-heavy'
+        ];
+        form.appendChild(this.createConfigSelect('Precipitation', 'none', precipitationOptions, (value) => {
+            formData.weather.precipitation = value;
+        }));
+
+        // Wind
+        const windOptions = ['none', 'dynamic', 'light', 'medium', 'heavy'];
+        form.appendChild(this.createConfigSelect('Wind', 'none', windOptions, (value) => {
+            formData.weather.wind = value;
+        }));
+
+        // Falling Particles
+        const particleOptions = [
+            'none',
+            'leaf-green',
+            'leaf-orange',
+            'leaf-red',
+            'leaf-brown',
+            'sakura'
+        ];
+        form.appendChild(this.createConfigSelect('Falling Particles', 'none', particleOptions, (value) => {
+            formData.weather.particles = value;
+        }));
+
         modal.appendChild(form);
 
         // Buttons
@@ -917,7 +1031,8 @@ class EditorUI {
                 scale: formData.scale,
                 music: formData.music,
                 ambience: formData.ambience,
-                dayNightCycle: formData.dayNightCycle
+                dayNightCycle: formData.dayNightCycle,
+                weather: formData.weather
             };
 
             this.showNotification(`✅ Map "${formData.name}" created!`);

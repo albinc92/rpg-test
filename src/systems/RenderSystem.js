@@ -147,6 +147,11 @@ class RenderSystem {
             const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
             game.dayNightCycle.render(this.ctx, canvasWidth, canvasHeight);
         }
+        
+        // Render weather effects if enabled for this map
+        if (game?.currentMap?.weather && game?.weatherSystem) {
+            game.weatherSystem.render();
+        }
     }
     
     /**

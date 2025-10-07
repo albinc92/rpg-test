@@ -54,6 +54,7 @@ async function loadGameScripts() {
         await loadScript('/src/systems/SettingsManager.js');
         await loadScript('/src/systems/DayNightShader.js'); // NEW: WebGL shader for day/night lighting
         await loadScript('/src/systems/DayNightCycle.js'); // NEW: Day/night cycle system
+        await loadScript('/src/systems/WeatherSystem.js'); // NEW: Weather effects system
         await loadScript('/src/systems/PerformanceMonitor.js');
         await loadScript('/src/systems/SaveGameManager.js');
         
