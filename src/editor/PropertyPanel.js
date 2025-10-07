@@ -168,6 +168,59 @@ class PropertyPanel {
         this.addCollapsibleSection('Collision', () => {
             const section = document.createElement('div');
             
+            // Collision shape selection (radio buttons)
+            const shapeGroup = document.createElement('div');
+            shapeGroup.style.cssText = 'margin-bottom: 12px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px;';
+            
+            const shapeLabel = document.createElement('div');
+            shapeLabel.textContent = 'Collision Shape:';
+            shapeLabel.style.cssText = 'margin-bottom: 8px; font-weight: 600; color: #90caf9;';
+            shapeGroup.appendChild(shapeLabel);
+            
+            const radioContainer = document.createElement('div');
+            radioContainer.style.cssText = 'display: flex; gap: 16px;';
+            
+            // Rectangle radio button
+            const rectangleLabel = document.createElement('label');
+            rectangleLabel.style.cssText = 'display: flex; align-items: center; gap: 6px; cursor: pointer; color: #e0e0e0;';
+            const rectangleRadio = document.createElement('input');
+            rectangleRadio.type = 'radio';
+            rectangleRadio.name = 'collisionShape';
+            rectangleRadio.value = 'rectangle';
+            rectangleRadio.checked = (obj.collisionShape || 'rectangle') === 'rectangle';
+            rectangleRadio.style.cssText = 'cursor: pointer;';
+            rectangleRadio.onchange = () => {
+                obj.collisionShape = 'rectangle';
+            };
+            rectangleLabel.appendChild(rectangleRadio);
+            rectangleLabel.appendChild(document.createTextNode('⬜ Square'));
+            radioContainer.appendChild(rectangleLabel);
+            
+            // Circle radio button
+            const circleLabel = document.createElement('label');
+            circleLabel.style.cssText = 'display: flex; align-items: center; gap: 6px; cursor: pointer; color: #e0e0e0;';
+            const circleRadio = document.createElement('input');
+            circleRadio.type = 'radio';
+            circleRadio.name = 'collisionShape';
+            circleRadio.value = 'circle';
+            circleRadio.checked = obj.collisionShape === 'circle';
+            circleRadio.style.cssText = 'cursor: pointer;';
+            circleRadio.onchange = () => {
+                obj.collisionShape = 'circle';
+            };
+            circleLabel.appendChild(circleRadio);
+            circleLabel.appendChild(document.createTextNode('⚫ Round'));
+            radioContainer.appendChild(circleLabel);
+            
+            shapeGroup.appendChild(radioContainer);
+            section.appendChild(shapeGroup);
+            
+            // Info text about oval shapes
+            const infoText = document.createElement('div');
+            infoText.textContent = 'Tip: Use Round + different expand % to create ovals';
+            infoText.style.cssText = 'font-size: 11px; color: #90caf9; margin-bottom: 12px; font-style: italic;';
+            section.appendChild(infoText);
+            
             if (obj.collisionExpandTopPercent !== undefined) {
                 section.appendChild(this.createNumberInput('Top %', obj.collisionExpandTopPercent, (value) => {
                     obj.collisionExpandTopPercent = value;

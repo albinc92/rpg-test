@@ -616,15 +616,36 @@ class EditorManager {
             collisionX += (expandRight - expandLeft) / 2;
             collisionY += (expandBottom - expandTop) / 2;
             
-            // Draw collision box
+            // Get collision shape
+            const collisionShape = this.selectedPrefab.collisionShape || 'rectangle';
+            
             ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
             ctx.lineWidth = 2;
             ctx.setLineDash([]);
-            ctx.strokeRect(collisionX, collisionY, collisionWidth, collisionHeight);
             
-            // Fill with semi-transparent red
-            ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-            ctx.fillRect(collisionX, collisionY, collisionWidth, collisionHeight);
+            // Draw circular/elliptical collision box
+            if (collisionShape === 'circle') {
+                const centerX = collisionX + collisionWidth / 2;
+                const centerY = collisionY + collisionHeight / 2;
+                const radiusX = collisionWidth / 2;
+                const radiusY = collisionHeight / 2;
+                
+                // Draw collision ellipse/circle
+                ctx.beginPath();
+                ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // Fill with semi-transparent red
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+                ctx.fill();
+            } else {
+                // Draw rectangular collision box
+                ctx.strokeRect(collisionX, collisionY, collisionWidth, collisionHeight);
+                
+                // Fill with semi-transparent red
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+                ctx.fillRect(collisionX, collisionY, collisionWidth, collisionHeight);
+            }
             
             // Draw center point
             ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';

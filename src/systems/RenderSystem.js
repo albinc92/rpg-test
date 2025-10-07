@@ -402,27 +402,51 @@ class RenderSystem {
         renderables.forEach(({ obj }) => {
             if (!obj.hasCollision) return;
             
-            // Get collision bounds with proper scaling
-            const bounds = obj.getCollisionBounds(game);
+            const shape = obj.collisionShape || 'rectangle';
             
-            // Draw collision box with red outline
-            this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-            this.ctx.lineWidth = 2;
-            this.ctx.strokeRect(
-                bounds.x,
-                bounds.y,
-                bounds.width,
-                bounds.height
-            );
-            
-            // Fill with semi-transparent red
-            this.ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-            this.ctx.fillRect(
-                bounds.x,
-                bounds.y,
-                bounds.width,
-                bounds.height
-            );
+            // Draw circular collision box
+            if (shape === 'circle') {
+                const circle = obj.getCollisionCircle(game);
+                
+                // Draw collision ellipse/circle with red outline
+                this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.ellipse(
+                    circle.centerX,
+                    circle.centerY,
+                    circle.radiusX,
+                    circle.radiusY,
+                    0, 0, Math.PI * 2
+                );
+                this.ctx.stroke();
+                
+                // Fill with semi-transparent red
+                this.ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+                this.ctx.fill();
+            } else {
+                // Draw rectangular collision box
+                const bounds = obj.getCollisionBounds(game);
+                
+                // Draw collision box with red outline
+                this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(
+                    bounds.x,
+                    bounds.y,
+                    bounds.width,
+                    bounds.height
+                );
+                
+                // Fill with semi-transparent red
+                this.ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+                this.ctx.fillRect(
+                    bounds.x,
+                    bounds.y,
+                    bounds.width,
+                    bounds.height
+                );
+            }
             
             // Draw a small circle at the object's actual position (center point)
             const scaledX = obj.getScaledX(game);

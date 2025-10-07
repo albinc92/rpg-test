@@ -49,6 +49,9 @@ class GameObject {
         this.collisionOffsetXPercent = options.collisionOffsetXPercent || 0; // Horizontal offset for collision box
         this.collisionOffsetYPercent = options.collisionOffsetYPercent || 0; // Vertical offset for collision box
         
+        // Collision shape - 'rectangle' or 'circle' (ellipse if width != height)
+        this.collisionShape = options.collisionShape || 'rectangle'; // Default to rectangle for backward compatibility
+        
         // Collision behavior
         this.blocksMovement = options.blocksMovement !== false; // Default true - whether this object blocks other objects
         this.canBeBlocked = options.canBeBlocked !== false; // Default true - whether this object can be blocked by others
@@ -297,6 +300,23 @@ class GameObject {
             right: collisionX + collisionWidth,
             top: collisionY,
             bottom: collisionY + collisionHeight
+        };
+    }
+    
+    /**
+     * Get circular collision bounds (center + radius)
+     * Returns center point and radius for circular collision detection
+     * If collision expand percentages differ, creates ellipse (radiusX != radiusY)
+     */
+    getCollisionCircle(game) {
+        const bounds = this.getCollisionBounds(game);
+        
+        return {
+            centerX: bounds.x + bounds.width / 2,
+            centerY: bounds.y + bounds.height / 2,
+            radiusX: bounds.width / 2,
+            radiusY: bounds.height / 2,
+            radius: Math.max(bounds.width, bounds.height) / 2 // Use larger dimension for simple circle-circle tests
         };
     }
     
