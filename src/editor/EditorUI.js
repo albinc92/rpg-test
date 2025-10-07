@@ -659,6 +659,11 @@ class EditorUI {
         
         const densityField = this.createConfigField('Spawn Density (total spirits on map)', mapData.spawnDensity, 'number', (value) => {
             mapData.spawnDensity = parseInt(value) || 10;
+            
+            // Reinitialize spawn system immediately when density changes
+            if (this.editor.game.spawnManager) {
+                this.editor.game.spawnManager.initialize(this.editor.game.currentMapId);
+            }
         }, { min: 0, step: 1 });
         densityContainer.appendChild(densityField);
         form.appendChild(densityContainer);
@@ -711,6 +716,11 @@ class EditorUI {
                     removeBtn.onclick = () => {
                         mapData.spawnTable.splice(index, 1);
                         renderSpawnEntries();
+                        
+                        // Reinitialize spawn system immediately
+                        if (this.editor.game.spawnManager) {
+                            this.editor.game.spawnManager.initialize(this.editor.game.currentMapId);
+                        }
                     };
                     
                     spawnEntriesDiv.appendChild(entryDiv);
@@ -828,6 +838,11 @@ class EditorUI {
             weightInput.value = '50';
             timeSelect.value = 'any';
             
+            // Reinitialize spawn system immediately
+            if (this.editor.game.spawnManager) {
+                this.editor.game.spawnManager.initialize(this.editor.game.currentMapId);
+            }
+            
             this.showNotification('✅ Spawn entry added!');
         };
         addEntryForm.appendChild(addBtn);
@@ -859,6 +874,13 @@ class EditorUI {
             if (this.editor.game.weatherSystem) {
                 this.editor.game.weatherSystem.setWeather(mapData.weather || null);
             }
+            
+            // Reinitialize spawn system with new spawn configuration
+            if (this.editor.game.spawnManager) {
+                console.log('[EditorUI] Reinitializing spawn system with new configuration');
+                this.editor.game.spawnManager.initialize(this.editor.game.currentMapId);
+            }
+            
             this.showNotification('✅ Map configuration saved!');
             backdrop.remove();
         };

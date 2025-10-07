@@ -18,7 +18,7 @@ class SpawnManager {
      * Initialize spawn manager for a specific map
      */
     initialize(mapId) {
-        console.log(`[SpawnManager] Initializing for map: ${mapId}`);
+        console.log(`[SpawnManager] 🔄 Initializing for map: ${mapId}`);
         
         // Clear previous spawns
         this.clearSpawns();
@@ -27,7 +27,7 @@ class SpawnManager {
         const mapData = this.game.mapManager.maps[mapId];
         
         if (!mapData) {
-            console.warn(`[SpawnManager] Map data not found for: ${mapId}`);
+            console.warn(`[SpawnManager] ❌ Map data not found for: ${mapId}`);
             this.enabled = false;
             return;
         }
@@ -37,15 +37,19 @@ class SpawnManager {
         this.spawnDensity = mapData.spawnDensity || 10; // Default 10 spirits
         
         if (this.spawnTable.length === 0) {
-            console.log(`[SpawnManager] No spawn table configured for map: ${mapId}`);
+            console.log(`[SpawnManager] ⚠️ No spawn table configured for map: ${mapId} - spawning disabled`);
             this.enabled = false;
             return;
         }
         
-        console.log(`[SpawnManager] Loaded spawn config:`, {
+        console.log(`[SpawnManager] 📋 Loaded spawn config:`, {
             spawnDensity: this.spawnDensity,
             spawnEntries: this.spawnTable.length,
-            entries: this.spawnTable
+            entries: this.spawnTable.map(e => ({
+                spirit: e.spiritId,
+                weight: e.spawnWeight,
+                time: e.timeCondition
+            }))
         });
         
         // Check if spawn zones exist
@@ -59,6 +63,10 @@ class SpawnManager {
         console.log(`[SpawnManager] ✅ Spawn system enabled for map: ${mapId} (density: ${this.spawnDensity})`);
         this.enabled = true;
         this.lastSpawnCheck = Date.now();
+        
+        // Trigger initial spawn check immediately
+        console.log(`[SpawnManager] 🎲 Triggering initial spawn check...`);
+        this.lastSpawnCheck = 0; // Force immediate check on first update
     }
 
     /**
@@ -82,11 +90,15 @@ class SpawnManager {
         // Count current active spirits
         const currentCount = this.allSpawnedSpirits.length;
         
+        // Get current time info
+        const currentTime = this.game.dayNightCycle?.timeOfDay || 12;
+        const timeFormatted = `${Math.floor(currentTime).toString().padStart(2, '0')}:${Math.floor((currentTime % 1) * 60).toString().padStart(2, '0')}`;
+        
         // Spawn spirits to reach density
         const spawnNeeded = this.spawnDensity - currentCount;
         
         if (spawnNeeded > 0) {
-            console.log(`[SpawnManager] Need to spawn ${spawnNeeded} spirits (current: ${currentCount}/${this.spawnDensity})`);
+            console.log(`[SpawnManager] 🎯 Spawn check at ${timeFormatted} - need ${spawnNeeded} spirits (current: ${currentCount}/${this.spawnDensity})`);
             
             for (let i = 0; i < spawnNeeded; i++) {
                 this.spawnWeightedRandomSpirit();
@@ -98,13 +110,16 @@ class SpawnManager {
      * Spawn a random spirit based on weighted spawn table
      */
     spawnWeightedRandomSpirit() {
+        const currentTime = this.game.dayNightCycle?.timeOfDay || 12;
+        
         // Filter by time condition
         const validEntries = this.spawnTable.filter(entry => 
             this.checkTimeCondition(entry.timeCondition)
         );
         
         if (validEntries.length === 0) {
-            console.log(`[SpawnManager] No valid spirits for current time condition`);
+            console.log(`[SpawnManager] ⏰ No valid spirits for current time (${currentTime.toFixed(1)}h). Available conditions:`, 
+                this.spawnTable.map(e => e.timeCondition));
             return;
         }
         
@@ -129,7 +144,7 @@ class SpawnManager {
         
         // Attempt to spawn the selected spirit
         const template = this.game.spiritRegistry.getTemplate(selectedEntry.spiritId);
-        console.log(`[SpawnManager] 🎲 Rolled ${template?.name || selectedEntry.spiritId} (weight: ${selectedEntry.spawnWeight}/${totalWeight})`);
+        console.log(`[SpawnManager] 🎲 Rolled ${template?.name || selectedEntry.spiritId} (weight: ${selectedEntry.spawnWeight}/${totalWeight}) at time ${currentTime.toFixed(1)}h`);
         
         this.spawnSpirit(selectedEntry.spiritId);
     }
@@ -138,26 +153,31 @@ class SpawnManager {
      * Check if current time matches the time condition
      */
     checkTimeCondition(condition) {
-        if (condition === 'any') return true;
+        if (!condition || condition === 'any') return true;
         
         // Check if day/night cycle is active
         if (!this.game.dayNightCycle) return true;
         
-        const currentTime = this.game.dayNightCycle.currentTime;
+        const currentTime = this.game.dayNightCycle.timeOfDay; // Fixed: use timeOfDay not currentTime
         
-        switch(condition) {
+        // Normalize condition names (support both 'day' and 'daytime')
+        const normalizedCondition = condition.toLowerCase().replace('time', '');
+        
+        switch(normalizedCondition) {
             case 'day':
                 return currentTime >= 7 && currentTime < 17;
             case 'night':
-                return currentTime >= 0 && currentTime < 5;
+                return (currentTime >= 0 && currentTime < 5) || (currentTime >= 21 && currentTime < 24);
             case 'dawn':
                 return currentTime >= 5 && currentTime < 7;
             case 'dusk':
                 return currentTime >= 17 && currentTime < 19;
+            case 'evening':
             case 'nightfall':
-                return currentTime >= 19 && currentTime < 24;
+                return currentTime >= 19 && currentTime < 21;
             default:
-                return false;
+                console.warn(`[SpawnManager] Unknown time condition: ${condition}`);
+                return true; // Default to allowing spawn if unknown condition
         }
     }
 
@@ -166,7 +186,9 @@ class SpawnManager {
      */
     cleanUpSpirits() {
         this.allSpawnedSpirits = this.allSpawnedSpirits.filter(spirit => {
-            return this.game.npcs.includes(spirit);
+            // Check if spirit still exists in ObjectManager for current map
+            const mapObjects = this.game.objectManager.getObjectsForMap(this.currentMapId);
+            return mapObjects.includes(spirit);
         });
     }
 
@@ -201,8 +223,8 @@ class SpawnManager {
             return;
         }
         
-        // Add to game
-        this.game.npcs.push(spirit);
+        // Add to ObjectManager (not npcs array - using new architecture)
+        this.game.objectManager.addObject(this.currentMapId, spirit);
         
         // Track spawned spirit
         this.allSpawnedSpirits.push(spirit);
@@ -283,25 +305,11 @@ class SpawnManager {
     hasCollisionAt(x, y) {
         const checkRadius = 32; // Minimum distance from objects/NPCs
         
-        // Check collision with static objects
-        for (const obj of this.game.objects) {
-            if (obj.mapId !== this.currentMapId) continue;
-            
+        // Check collision with all objects on current map (using ObjectManager)
+        const mapObjects = this.game.objectManager.getObjectsForMap(this.currentMapId);
+        for (const obj of mapObjects) {
             const dx = obj.x - x;
             const dy = obj.y - y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            if (distance < checkRadius) {
-                return true;
-            }
-        }
-        
-        // Check collision with NPCs (including other spirits)
-        for (const npc of this.game.npcs) {
-            if (npc.mapId !== this.currentMapId) continue;
-            
-            const dx = npc.x - x;
-            const dy = npc.y - y;
             const distance = Math.sqrt(dx * dx + dy * dy);
             
             if (distance < checkRadius) {
@@ -329,12 +337,9 @@ class SpawnManager {
     clearSpawns() {
         console.log(`[SpawnManager] Clearing ${this.allSpawnedSpirits.length} spawned spirits`);
         
-        // Remove spawned spirits from game
+        // Remove spawned spirits from ObjectManager
         this.allSpawnedSpirits.forEach(spirit => {
-            const index = this.game.npcs.indexOf(spirit);
-            if (index !== -1) {
-                this.game.npcs.splice(index, 1);
-            }
+            this.game.objectManager.removeObject(this.currentMapId, spirit.id);
         });
         
         this.allSpawnedSpirits = [];

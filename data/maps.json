@@ -5,7 +5,20 @@
     "scale": 3.0,
     "music": "assets/audio/bgm/01.mp3",
     "ambience": "assets/audio/ambience/forest-0.mp3",
-    "dayNightCycle": true
+    "dayNightCycle": true,
+    "spawnDensity": 10,
+    "spawnTable": [
+      {
+        "spiritId": "forest_sprite",
+        "spawnWeight": 50,
+        "timeCondition": "daytime"
+      },
+      {
+        "spiritId": "dusk_shadow",
+        "spawnWeight": 50,
+        "timeCondition": "dusk"
+      }
+    ]
   },
   "0-1": {
     "name": "Village Square",
