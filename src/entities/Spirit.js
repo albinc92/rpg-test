@@ -116,7 +116,26 @@ class Spirit extends Actor {
      * Render spirit with ethereal effects
      */
     render(ctx, game) {
-        if (!this.spriteLoaded || !this.sprite) return;
+        // Debug: Log render calls (only log once per spirit when loaded)
+        if (this.spriteLoaded && !this._renderLogged) {
+            console.log(`[Spirit] Rendering ${this.name} - spriteLoaded: ${this.spriteLoaded}, dimensions: ${this.spriteWidth}x${this.spriteHeight}, scale: ${this.scale}`);
+            this._renderLogged = true;
+        }
+        
+        if (!this.sprite) {
+            // No sprite object at all - can't render
+            if (!this._renderWarningLogged) {
+                console.warn(`[Spirit] ${this.name} (${this.id}) has no sprite object - spriteSrc: ${this.spriteSrc}`);
+                this._renderWarningLogged = true;
+            }
+            return;
+        }
+        
+        // If sprite is loading but not ready yet, render a placeholder
+        if (!this.spriteLoaded) {
+            this.renderPlaceholder(ctx, game);
+            return;
+        }
         
         const mapScale = game.currentMap?.scale || 1.0;
         const scaledWidth = this.getWidth() * mapScale;
@@ -124,13 +143,13 @@ class Spirit extends Actor {
         
         // Calculate floating altitude with animation
         let currentAltitude = this.altitude * mapScale;
-        if (this.floatingSpeed && this.floatingRange) {
+        if (this.floatingSpeed && this.floatingRange && game.gameTime !== undefined) {
             const floatingOffset = Math.sin(game.gameTime * this.floatingSpeed) * (this.floatingRange * mapScale);
             currentAltitude += floatingOffset;
         }
         
         // Calculate pulsing alpha for ethereal effect
-        const basePulse = Math.sin(game.gameTime * this.pulseSpeed) * 0.2;
+        const basePulse = game.gameTime !== undefined ? Math.sin(game.gameTime * this.pulseSpeed) * 0.2 : 0;
         const spiritAlpha = Math.max(0.3, Math.min(1.0, this.baseAlpha + basePulse));
         
         // Draw shadow (very faint for spirits)
@@ -157,6 +176,12 @@ class Spirit extends Actor {
         const screenX = this.x - scaledWidth / 2;
         const screenY = this.y - scaledHeight / 2 - currentAltitude;
         
+        // Debug: Log draw call once
+        if (!this._drawLogged) {
+            console.log(`[Spirit] Drawing ${this.name} at (${Math.round(screenX)}, ${Math.round(screenY)}) size: ${Math.round(scaledWidth)}x${Math.round(scaledHeight)}, alpha: ${spiritAlpha.toFixed(2)}, sprite: ${this.sprite.width}x${this.sprite.height}`);
+            this._drawLogged = true;
+        }
+        
         if (this.direction === 'right') {
             ctx.translate(this.x, this.y - currentAltitude);
             ctx.scale(-1, 1);
@@ -164,6 +189,43 @@ class Spirit extends Actor {
         } else {
             ctx.drawImage(this.sprite, screenX, screenY, scaledWidth, scaledHeight);
         }
+        
+        ctx.restore();
+        
+        // Draw spawn effect if active
+        if (this.spawnEffect.active) {
+            this.renderSpawnEffect(ctx, game);
+        }
+    }
+    
+    /**
+     * Render placeholder while sprite is loading
+     */
+    renderPlaceholder(ctx, game) {
+        const mapScale = game.currentMap?.scale || 1.0;
+        const size = 32 * this.scale * mapScale; // Default spirit size
+        
+        ctx.save();
+        
+        // Pulsing ethereal circle
+        const pulseAlpha = game.gameTime !== undefined ? 0.3 + Math.sin(game.gameTime * 0.005) * 0.2 : 0.5;
+        ctx.globalAlpha = pulseAlpha;
+        ctx.fillStyle = '#87CEEB'; // Sky blue
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 2;
+        
+        // Draw circle
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Draw name above (for debugging)
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Loading...', this.x, this.y - size);
         
         ctx.restore();
         

@@ -12,6 +12,10 @@ class SpawnManager {
         this.lastSpawnCheck = 0;
         this.enabled = false;
         this.currentMapId = null;
+        
+        // Performance optimization: cache spawn zone positions
+        this.spawnZoneCache = null; // Array of valid spawn positions {x, y}
+        this.spawnZoneCacheValid = false;
     }
 
     /**
@@ -52,7 +56,7 @@ class SpawnManager {
             }))
         });
         
-        // Check if spawn zones exist
+        // Check if spawn zones exist and build cache
         const spawnLayer = this.game.editorManager.getSpawnLayer(mapId);
         if (!spawnLayer) {
             console.warn(`[SpawnManager] ⚠️ No spawn zones painted for map: ${mapId}. Paint spawn zones in Map Editor to enable spawning.`);
@@ -60,7 +64,16 @@ class SpawnManager {
             return;
         }
         
-        console.log(`[SpawnManager] ✅ Spawn system enabled for map: ${mapId} (density: ${this.spawnDensity})`);
+        // Build spawn zone cache for performance
+        this.buildSpawnZoneCache(mapId, spawnLayer);
+        
+        if (!this.spawnZoneCache || this.spawnZoneCache.length === 0) {
+            console.warn(`[SpawnManager] ⚠️ No valid spawn zone positions found for map: ${mapId}`);
+            this.enabled = false;
+            return;
+        }
+        
+        console.log(`[SpawnManager] ✅ Spawn system enabled for map: ${mapId} (density: ${this.spawnDensity}, spawn points: ${this.spawnZoneCache.length})`);
         this.enabled = true;
         this.lastSpawnCheck = Date.now();
         
@@ -94,13 +107,15 @@ class SpawnManager {
         const currentTime = this.game.dayNightCycle?.timeOfDay || 12;
         const timeFormatted = `${Math.floor(currentTime).toString().padStart(2, '0')}:${Math.floor((currentTime % 1) * 60).toString().padStart(2, '0')}`;
         
-        // Spawn spirits to reach density
+        // Spawn spirits to reach density (but spawn gradually, not all at once)
         const spawnNeeded = this.spawnDensity - currentCount;
         
         if (spawnNeeded > 0) {
-            console.log(`[SpawnManager] 🎯 Spawn check at ${timeFormatted} - need ${spawnNeeded} spirits (current: ${currentCount}/${this.spawnDensity})`);
+            // Spawn maximum 2 spirits per check to avoid FPS spike
+            const spawnThisCheck = Math.min(spawnNeeded, 2);
+            console.log(`[SpawnManager] 🎯 Spawn check at ${timeFormatted} - spawning ${spawnThisCheck} spirits (current: ${currentCount}/${this.spawnDensity})`);
             
-            for (let i = 0; i < spawnNeeded; i++) {
+            for (let i = 0; i < spawnThisCheck; i++) {
                 this.spawnWeightedRandomSpirit();
             }
         }
@@ -244,33 +259,78 @@ class SpawnManager {
     }
 
     /**
-     * Find a valid spawn position within spawn zones
+     * Build spawn zone cache by scanning the spawn layer once (performance optimization)
+     */
+    buildSpawnZoneCache(mapId, spawnLayer) {
+        // Skip if cache already valid
+        if (this.spawnZoneCacheValid && this.spawnZoneCache) {
+            console.log(`[SpawnManager] ✅ Using existing spawn zone cache (${this.spawnZoneCache.length} points)`);
+            return;
+        }
+        
+        console.log(`[SpawnManager] 🗺️ Building spawn zone cache for map: ${mapId}...`);
+        const startTime = performance.now();
+        
+        const mapData = this.game.mapManager.maps[mapId];
+        const mapScale = mapData.scale || 1.0;
+        const resolutionScale = this.game.resolutionScale || 1.0;
+        
+        const canvasWidth = spawnLayer.width;
+        const canvasHeight = spawnLayer.height;
+        
+        // Get all pixel data at once (much faster than repeated getImageData calls)
+        const ctx = spawnLayer.getContext('2d');
+        const imageData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
+        const pixels = imageData.data;
+        
+        // Sample grid for spawn points (every 16 pixels to avoid too many points)
+        const sampleRate = 16;
+        const spawnPoints = [];
+        
+        for (let cy = 0; cy < canvasHeight; cy += sampleRate) {
+            for (let cx = 0; cx < canvasWidth; cx += sampleRate) {
+                const index = (cy * canvasWidth + cx) * 4;
+                const r = pixels[index];
+                const g = pixels[index + 1];
+                const b = pixels[index + 2];
+                const a = pixels[index + 3];
+                
+                // Check if pixel is blue (spawn zone color: rgba(0, 100, 255, 1.0))
+                const isBlue = (r < 50 && g > 50 && g < 150 && b > 200 && a > 128);
+                
+                if (isBlue) {
+                    // Convert canvas coordinates to world coordinates
+                    const worldX = (cx / resolutionScale);
+                    const worldY = (cy / resolutionScale);
+                    spawnPoints.push({ x: worldX, y: worldY });
+                }
+            }
+        }
+        
+        this.spawnZoneCache = spawnPoints;
+        this.spawnZoneCacheValid = true;
+        
+        const endTime = performance.now();
+        console.log(`[SpawnManager] ✅ Cached ${spawnPoints.length} spawn zone positions in ${(endTime - startTime).toFixed(2)}ms`);
+    }
+    
+    /**
+     * Find a valid spawn position within spawn zones (using cached positions)
      */
     findValidSpawnPosition(spiritId, maxAttempts = 20) {
-        const spawnLayer = this.game.editorManager.getSpawnLayer(this.currentMapId);
-        
-        if (!spawnLayer) {
-            console.warn(`[SpawnManager] No spawn zones found for map: ${this.currentMapId}`);
+        if (!this.spawnZoneCache || this.spawnZoneCache.length === 0) {
+            console.warn(`[SpawnManager] No spawn zone cache available`);
             return null;
         }
         
-        const mapData = this.game.mapManager.maps[this.currentMapId];
-        const mapScale = mapData.scale || 1.0;
-        const mapWidth = mapData.width * mapScale;
-        const mapHeight = mapData.height * mapScale;
-        
-        // Get spawn zone canvas context for pixel checking
-        const ctx = spawnLayer.getContext('2d');
-        
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
-            // Random position within map bounds
-            const x = Math.random() * mapWidth;
-            const y = Math.random() * mapHeight;
+            // Pick a random spawn point from cache
+            const randomIndex = Math.floor(Math.random() * this.spawnZoneCache.length);
+            const spawnPoint = this.spawnZoneCache[randomIndex];
             
-            // Check if position is in spawn zone (blue pixel)
-            if (!this.isInSpawnZone(ctx, x, y, mapScale)) {
-                continue;
-            }
+            // Add some random offset (±8 pixels) for variety
+            const x = spawnPoint.x + (Math.random() - 0.5) * 16;
+            const y = spawnPoint.y + (Math.random() - 0.5) * 16;
             
             // Check collision with existing objects and NPCs
             if (this.hasCollisionAt(x, y)) {
@@ -281,33 +341,12 @@ class SpawnManager {
             return { x, y };
         }
         
-        return null;
+        // Fallback: return a random spawn point even if there's a collision
+        const randomIndex = Math.floor(Math.random() * this.spawnZoneCache.length);
+        return { ...this.spawnZoneCache[randomIndex] };
     }
 
-    /**
-     * Check if a position is within a spawn zone (blue pixel)
-     */
-    isInSpawnZone(ctx, x, y, mapScale) {
-        try {
-            // Scale coordinates to canvas resolution
-            const resolutionScale = this.game.resolutionScale || 1.0;
-            const canvasX = Math.floor(x * resolutionScale);
-            const canvasY = Math.floor(y * resolutionScale);
-            
-            // Get pixel data
-            const imageData = ctx.getImageData(canvasX, canvasY, 1, 1);
-            const [r, g, b, a] = imageData.data;
-            
-            // Check if pixel is blue (spawn zone color: rgba(0, 100, 255, 1.0))
-            // Allow some tolerance for variations
-            const isBlue = (r < 50 && g > 50 && g < 150 && b > 200 && a > 128);
-            
-            return isBlue;
-        } catch (error) {
-            // Out of bounds or error reading pixel
-            return false;
-        }
-    }
+
 
     /**
      * Check if there's a collision at the given position
@@ -342,6 +381,15 @@ class SpawnManager {
     }
 
     /**
+     * Invalidate spawn zone cache (call when spawn zones are edited)
+     */
+    invalidateCache() {
+        this.spawnZoneCache = null;
+        this.spawnZoneCacheValid = false;
+        console.log(`[SpawnManager] 🗑️ Spawn zone cache invalidated`);
+    }
+    
+    /**
      * Clear all spawned spirits (called on map change)
      */
     clearSpawns() {
@@ -354,6 +402,9 @@ class SpawnManager {
         
         this.allSpawnedSpirits = [];
         this.enabled = false;
+        
+        // Invalidate cache
+        this.invalidateCache();
     }
 
     /**

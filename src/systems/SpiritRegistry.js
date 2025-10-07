@@ -78,6 +78,8 @@ class SpiritRegistry {
             return null;
         }
 
+        console.log(`[SpiritRegistry] Creating ${template.name} with sprite: ${template.spriteSrc}`);
+        
         // Create spirit with template data using the global Spirit class
         const spirit = new Spirit(this.game, x, y, mapId, {
             name: template.name,
@@ -93,7 +95,7 @@ class SpiritRegistry {
             description: template.description
         });
 
-        console.log(`[SpiritRegistry] Created ${template.name} at (${x}, ${y}) on map ${mapId}`);
+        console.log(`[SpiritRegistry] ✅ Created ${template.name} (${spirit.id}) at (${Math.round(x)}, ${Math.round(y)}) - sprite loaded: ${spirit.spriteLoaded}, spriteSrc: ${spirit.spriteSrc}`);
         return spirit;
     }
 

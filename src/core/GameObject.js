@@ -14,13 +14,13 @@ class GameObject {
         this.scale = options.scale || 1.0;
         this.reverseFacing = options.reverseFacing || false; // Flip sprite horizontally
         
-        // Sprite dimensions (will be set when sprite loads)
-        this.spriteWidth = 0;
-        this.spriteHeight = 0;
+        // Sprite dimensions (will be set when sprite loads, or from options)
+        this.spriteWidth = options.spriteWidth || 0;
+        this.spriteHeight = options.spriteHeight || 0;
         
         // Fallback dimensions if sprite fails to load
-        this.fallbackWidth = options.width || 64;
-        this.fallbackHeight = options.height || 64;
+        this.fallbackWidth = options.width || options.spriteWidth || 64;
+        this.fallbackHeight = options.height || options.spriteHeight || 64;
         
         // Sprite handling
         this.spriteSrc = options.spriteSrc || null;
@@ -66,20 +66,26 @@ class GameObject {
      * Load sprite from source path
      */
     loadSprite(src) {
+        console.log(`[GameObject] 🔄 Loading sprite: ${src} (pre-set dimensions: ${this.spriteWidth}x${this.spriteHeight})`);
         this.sprite = new Image();
         this.sprite.onload = () => {
             this.spriteLoaded = true;
-            // Store actual sprite dimensions
-            this.spriteWidth = this.sprite.width;
-            this.spriteHeight = this.sprite.height;
+            // Store actual sprite dimensions (only if not already set)
+            const hadDimensions = this.spriteWidth && this.spriteHeight;
+            if (!this.spriteWidth) this.spriteWidth = this.sprite.width;
+            if (!this.spriteHeight) this.spriteHeight = this.sprite.height;
+            console.log(`[GameObject] ✅ Sprite loaded successfully: ${src}`);
+            console.log(`[GameObject] 📐 Dimensions: ${this.spriteWidth}x${this.spriteHeight} (pre-set: ${hadDimensions}, actual: ${this.sprite.width}x${this.sprite.height})`);
         };
-        this.sprite.onerror = () => {
-            console.error(`Failed to load sprite: ${src}`);
+        this.sprite.onerror = (error) => {
+            console.error(`[GameObject] ❌ Failed to load sprite: ${src}`, error);
+            console.error(`[GameObject] 💡 Check if file exists at: ${window.location.origin}/${src}`);
             // Use fallback dimensions if sprite fails to load
-            this.spriteWidth = this.fallbackWidth;
-            this.spriteHeight = this.fallbackHeight;
+            if (!this.spriteWidth) this.spriteWidth = this.fallbackWidth;
+            if (!this.spriteHeight) this.spriteHeight = this.fallbackHeight;
         };
         this.sprite.src = src;
+        console.log(`[GameObject] 📡 Sprite src set to: ${this.sprite.src}`);
     }
     
     /**
