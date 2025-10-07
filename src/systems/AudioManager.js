@@ -589,7 +589,7 @@ class AudioManager {
     crossfadeWeather(oldAudio, newAudio, duration, newFilename) {
         const steps = 50;
         const stepTime = duration / steps;
-        const volumeStep = this.calculateEffectVolume() / steps;
+        const volumeStep = this.calculateWeatherVolume() / steps;
         
         let currentStep = 0;
         const crossfadeId = `weather_${Date.now()}`;
@@ -606,12 +606,12 @@ class AudioManager {
             
             // Fade out old audio
             if (oldAudio && !oldAudio.paused) {
-                oldAudio.volume = Math.max(0, this.calculateEffectVolume() * (1 - progress));
+                oldAudio.volume = Math.max(0, this.calculateWeatherVolume() * (1 - progress));
             }
             
             // Fade in new audio
             if (newAudio && !newAudio.paused) {
-                newAudio.volume = Math.min(this.calculateEffectVolume(), this.calculateEffectVolume() * progress);
+                newAudio.volume = Math.min(this.calculateWeatherVolume(), this.calculateWeatherVolume() * progress);
             }
             
             if (currentStep >= steps) {
@@ -645,7 +645,7 @@ class AudioManager {
 
         const steps = 50;
         const stepTime = duration / steps;
-        const volumeStep = this.calculateEffectVolume() / steps;
+        const volumeStep = this.calculateWeatherVolume() / steps;
         
         let currentStep = 0;
         const crossfadeId = `weather_out_${Date.now()}`;
@@ -691,6 +691,25 @@ class AudioManager {
         this.weatherAudio = null;
     }
 
+    pauseWeatherSound() {
+        if (this.weatherAudio && !this.weatherAudio.paused) {
+            console.log(`[AudioManager] Pausing Weather Sound: ${this.currentWeatherSound}`);
+            this.weatherAudio.pause();
+        }
+    }
+
+    resumeWeatherSound() {
+        if (this.weatherAudio && this.weatherAudio.paused && this.currentWeatherSound) {
+            console.log(`[AudioManager] Resuming Weather Sound: ${this.currentWeatherSound}`);
+            const playPromise = this.weatherAudio.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.error(`[AudioManager] Failed to resume weather sound '${this.currentWeatherSound}':`, error);
+                });
+            }
+        }
+    }
+
     /**
      * Pause all audio (BGM and Ambience)
      */
@@ -698,15 +717,17 @@ class AudioManager {
         console.log('[AudioManager] ⏸️ Pausing all audio');
         this.pauseBGM();
         this.pauseAmbience();
+        this.pauseWeatherSound();
     }
 
     /**
-     * Resume all audio (BGM and Ambience)
+     * Resume all audio (BGM, Ambience, and Weather)
      */
     resumeAll() {
         console.log('[AudioManager] ▶️ Resuming all audio');
         this.resumeBGM();
         this.resumeAmbience();
+        this.resumeWeatherSound();
     }
 
     playEffect(filename, volume = 1.0) {
@@ -770,6 +791,10 @@ class AudioManager {
         return this.settings.muted ? 0 : this.settings.masterVolume * this.settings.effectVolume * 0.6; // Ambience at 60% of effect volume
     }
 
+    calculateWeatherVolume() {
+        return this.settings.muted ? 0 : this.settings.masterVolume * this.settings.effectVolume * 0.7; // Weather at 70% of effect volume
+    }
+
     // Settings management
     setMasterVolume(volume) {
         this.settings.masterVolume = Math.max(0, Math.min(1, volume));
@@ -799,6 +824,9 @@ class AudioManager {
         }
         if (this.ambienceAudio) {
             this.ambienceAudio.volume = this.calculateAmbienceVolume();
+        }
+        if (this.weatherAudio) {
+            this.weatherAudio.volume = this.calculateWeatherVolume();
         }
         this.updateEffectVolumes();
     }
