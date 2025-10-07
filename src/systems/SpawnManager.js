@@ -64,18 +64,19 @@ class SpawnManager {
             return;
         }
         
-        // Build spawn zone cache for performance
+        console.log(`[SpawnManager] 🗺️ Found spawn layer for map ${mapId}, dimensions: ${spawnLayer.width}x${spawnLayer.height}`);
+        
+        // Build spawn zone cache for performance (or use existing cache for this map)
         this.buildSpawnZoneCache(mapId, spawnLayer);
         
         if (!this.spawnZoneCache || this.spawnZoneCache.length === 0) {
-            console.warn(`[SpawnManager] ⚠️ No valid spawn zone positions found for map: ${mapId}`);
+            console.warn(`[SpawnManager] ⚠️ No valid spawn zone positions found for map: ${mapId}. Make sure spawn zones are painted with blue color.`);
             this.enabled = false;
             return;
         }
         
         console.log(`[SpawnManager] ✅ Spawn system enabled for map: ${mapId} (density: ${this.spawnDensity}, spawn points: ${this.spawnZoneCache.length})`);
         this.enabled = true;
-        this.lastSpawnCheck = Date.now();
         
         // Trigger initial spawn check immediately
         console.log(`[SpawnManager] 🎲 Triggering initial spawn check...`);
@@ -107,13 +108,14 @@ class SpawnManager {
         const currentTime = this.game.dayNightCycle?.timeOfDay || 12;
         const timeFormatted = `${Math.floor(currentTime).toString().padStart(2, '0')}:${Math.floor((currentTime % 1) * 60).toString().padStart(2, '0')}`;
         
-        // Spawn spirits to reach density (but spawn gradually, not all at once)
+        // Spawn spirits to reach density
         const spawnNeeded = this.spawnDensity - currentCount;
         
         if (spawnNeeded > 0) {
-            // Spawn maximum 2 spirits per check to avoid FPS spike
-            const spawnThisCheck = Math.min(spawnNeeded, 2);
-            console.log(`[SpawnManager] 🎯 Spawn check at ${timeFormatted} - spawning ${spawnThisCheck} spirits (current: ${currentCount}/${this.spawnDensity})`);
+            // Spawn multiple spirits per check to reach target density faster
+            // Cap at 5 per check to avoid FPS spike, but allow faster spawning
+            const spawnThisCheck = Math.min(spawnNeeded, 5);
+            console.log(`[SpawnManager] 🎯 Spawn check at ${timeFormatted} - attempting ${spawnThisCheck} spawns (current: ${currentCount}/${this.spawnDensity})`);
             
             for (let i = 0; i < spawnThisCheck; i++) {
                 this.spawnWeightedRandomSpirit();
@@ -227,19 +229,28 @@ class SpawnManager {
             return;
         }
         
-        // Find valid spawn position
-        const position = this.findValidSpawnPosition(spiritId);
+        // Find valid spawn position (in canvas/scaled coordinates)
+        const scaledPosition = this.findValidSpawnPosition(spiritId);
         
-        if (!position) {
+        if (!scaledPosition) {
             console.log(`[SpawnManager] Could not find valid spawn position for: ${spiritId}`);
             return;
         }
         
-        // Create spirit using registry
+        // Convert scaled position back to unscaled world coordinates for spirit creation
+        const mapData = this.game.mapManager.maps[this.currentMapId];
+        const mapScale = mapData?.scale || 1.0;
+        const resolutionScale = this.game.resolutionScale || 1.0;
+        const combinedScale = mapScale * resolutionScale;
+        
+        const unscaledX = scaledPosition.x / combinedScale;
+        const unscaledY = scaledPosition.y / combinedScale;
+        
+        // Create spirit using registry with unscaled coordinates
         const spirit = this.game.spiritRegistry.createSpirit(
             spiritId,
-            position.x,
-            position.y,
+            unscaledX,
+            unscaledY,
             this.currentMapId
         );
         
@@ -255,7 +266,7 @@ class SpawnManager {
         this.allSpawnedSpirits.push(spirit);
         
         const template = this.game.spiritRegistry.getTemplate(spiritId);
-        console.log(`[SpawnManager] ✨ Spawned ${template.name} at (${Math.round(position.x)}, ${Math.round(position.y)}) [Total: ${this.allSpawnedSpirits.length}/${this.spawnDensity}]`);
+        console.log(`[SpawnManager] ✨ Spawned ${template.name} at scaled(${Math.round(scaledPosition.x)}, ${Math.round(scaledPosition.y)}) / unscaled(${Math.round(unscaledX)}, ${Math.round(unscaledY)}) [Total: ${this.allSpawnedSpirits.length}/${this.spawnDensity}]`);
     }
 
     /**
@@ -274,9 +285,13 @@ class SpawnManager {
         const mapData = this.game.mapManager.maps[mapId];
         const mapScale = mapData.scale || 1.0;
         const resolutionScale = this.game.resolutionScale || 1.0;
+        const combinedScale = mapScale * resolutionScale;
         
         const canvasWidth = spawnLayer.width;
         const canvasHeight = spawnLayer.height;
+        
+        console.log(`[SpawnManager] 🗺️ Spawn layer dimensions: ${canvasWidth}x${canvasHeight}`);
+        console.log(`[SpawnManager] 🗺️ Map scale: ${mapScale}, Resolution scale: ${resolutionScale}, Combined: ${combinedScale}`);
         
         // Get all pixel data at once (much faster than repeated getImageData calls)
         const ctx = spawnLayer.getContext('2d');
@@ -299,10 +314,10 @@ class SpawnManager {
                 const isBlue = (r < 50 && g > 50 && g < 150 && b > 200 && a > 128);
                 
                 if (isBlue) {
-                    // Convert canvas coordinates to world coordinates
-                    const worldX = (cx / resolutionScale);
-                    const worldY = (cy / resolutionScale);
-                    spawnPoints.push({ x: worldX, y: worldY });
+                    // Canvas coordinates are already in world coordinates
+                    // The spawn layer canvas size matches the scaled world size
+                    // So we just use cx, cy directly
+                    spawnPoints.push({ x: cx, y: cy });
                 }
             }
         }
@@ -312,12 +327,16 @@ class SpawnManager {
         
         const endTime = performance.now();
         console.log(`[SpawnManager] ✅ Cached ${spawnPoints.length} spawn zone positions in ${(endTime - startTime).toFixed(2)}ms`);
+        
+        if (spawnPoints.length > 0) {
+            console.log(`[SpawnManager] 📍 Sample spawn points:`, spawnPoints.slice(0, 3));
+        }
     }
     
     /**
      * Find a valid spawn position within spawn zones (using cached positions)
      */
-    findValidSpawnPosition(spiritId, maxAttempts = 20) {
+    findValidSpawnPosition(spiritId, maxAttempts = 30) {
         if (!this.spawnZoneCache || this.spawnZoneCache.length === 0) {
             console.warn(`[SpawnManager] No spawn zone cache available`);
             return null;
@@ -328,9 +347,9 @@ class SpawnManager {
             const randomIndex = Math.floor(Math.random() * this.spawnZoneCache.length);
             const spawnPoint = this.spawnZoneCache[randomIndex];
             
-            // Add some random offset (±8 pixels) for variety
-            const x = spawnPoint.x + (Math.random() - 0.5) * 16;
-            const y = spawnPoint.y + (Math.random() - 0.5) * 16;
+            // Add some random offset (±32 pixels) for more variety and spread
+            const x = spawnPoint.x + (Math.random() - 0.5) * 64;
+            const y = spawnPoint.y + (Math.random() - 0.5) * 64;
             
             // Check collision with existing objects and NPCs
             if (this.hasCollisionAt(x, y)) {
@@ -341,9 +360,15 @@ class SpawnManager {
             return { x, y };
         }
         
-        // Fallback: return a random spawn point even if there's a collision
+        // Fallback: return a random spawn point with offset even if there's a collision
+        // This ensures spirits can spawn even in crowded areas
         const randomIndex = Math.floor(Math.random() * this.spawnZoneCache.length);
-        return { ...this.spawnZoneCache[randomIndex] };
+        const fallbackPoint = this.spawnZoneCache[randomIndex];
+        console.log(`[SpawnManager] ⚠️ Using fallback spawn position after ${maxAttempts} attempts`);
+        return { 
+            x: fallbackPoint.x + (Math.random() - 0.5) * 64, 
+            y: fallbackPoint.y + (Math.random() - 0.5) * 64 
+        };
     }
 
 
@@ -352,13 +377,23 @@ class SpawnManager {
      * Check if there's a collision at the given position
      */
     hasCollisionAt(x, y) {
-        const checkRadius = 32; // Minimum distance from objects/NPCs
+        const checkRadius = 48; // Minimum distance from objects/NPCs (increased for better spacing)
+        
+        // Get map scale factors for proper coordinate comparison
+        const mapData = this.game.mapManager.maps[this.currentMapId];
+        const mapScale = mapData?.scale || 1.0;
+        const resolutionScale = this.game.resolutionScale || 1.0;
+        const combinedScale = mapScale * resolutionScale;
         
         // Check collision with all objects on current map (using ObjectManager)
         const mapObjects = this.game.objectManager.getObjectsForMap(this.currentMapId);
         for (const obj of mapObjects) {
-            const dx = obj.x - x;
-            const dy = obj.y - y;
+            // Get object's scaled position for comparison
+            const objX = obj.x * combinedScale;
+            const objY = obj.y * combinedScale;
+            
+            const dx = objX - x;
+            const dy = objY - y;
             const distance = Math.sqrt(dx * dx + dy * dy);
             
             if (distance < checkRadius) {
@@ -368,11 +403,14 @@ class SpawnManager {
         
         // Check collision with player
         if (this.game.player) {
-            const dx = this.game.player.x - x;
-            const dy = this.game.player.y - y;
+            const playerX = this.game.player.x * combinedScale;
+            const playerY = this.game.player.y * combinedScale;
+            
+            const dx = playerX - x;
+            const dy = playerY - y;
             const distance = Math.sqrt(dx * dx + dy * dy);
             
-            if (distance < checkRadius) {
+            if (distance < checkRadius * 2) { // Give player more space
                 return true;
             }
         }
@@ -403,8 +441,9 @@ class SpawnManager {
         this.allSpawnedSpirits = [];
         this.enabled = false;
         
-        // Invalidate cache
-        this.invalidateCache();
+        // Don't invalidate cache on map change - cache can be reused if returning to same map
+        // Only invalidate when spawn zones are actually edited
+        // this.invalidateCache();
     }
 
     /**
