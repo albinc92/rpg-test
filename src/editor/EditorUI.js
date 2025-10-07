@@ -2226,15 +2226,9 @@ class EditorUI {
                 id: '',
                 name: 'New Spirit',
                 spriteSrc: 'assets/npc/Spirits/Sylphie00.png',
-                spriteWidth: 32,
-                spriteHeight: 32,
+                scale: 0.8, // Use scale instead of spriteWidth/spriteHeight
                 collisionShape: 'circle',
-                collisionPercent: {
-                    top: -0.7,
-                    left: -0.1,
-                    right: -0.1,
-                    bottom: 0
-                },
+                collisionPercent: 0.3, // Simple number instead of object
                 stats: {
                     hp: 50,
                     attack: 10,
@@ -2284,10 +2278,31 @@ class EditorUI {
             font-family: Arial, sans-serif;
         `;
 
-        // Title
+        // Title with instance count
         const title = document.createElement('h2');
-        title.textContent = isNew ? '👻 Create New Spirit' : `👻 Edit Spirit: ${spiritData.name}`;
-        title.style.cssText = 'margin-top: 0; color: #4a9eff;';
+        title.style.cssText = 'margin-top: 0; color: #4a9eff; display: flex; justify-content: space-between; align-items: center;';
+        
+        const titleText = document.createElement('span');
+        titleText.textContent = isNew ? '👻 Create New Spirit' : `👻 Edit Spirit: ${spiritData.name}`;
+        title.appendChild(titleText);
+        
+        // Show instance count for existing spirits
+        if (!isNew) {
+            const instanceCount = this.countSpiritInstances(spiritData.id);
+            const countBadge = document.createElement('span');
+            countBadge.textContent = `${instanceCount} active`;
+            countBadge.style.cssText = `
+                font-size: 14px;
+                background: ${instanceCount > 0 ? '#4a9eff' : '#666'};
+                color: white;
+                padding: 4px 12px;
+                border-radius: 12px;
+                font-weight: normal;
+            `;
+            countBadge.title = `${instanceCount} spirit(s) currently using this template on active maps`;
+            title.appendChild(countBadge);
+        }
+        
         modal.appendChild(title);
 
         // Form
@@ -2309,21 +2324,21 @@ class EditorUI {
             spiritData.spriteSrc = value;
         }));
 
-        // Sprite Dimensions
-        const dimensionsDiv = document.createElement('div');
-        dimensionsDiv.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 12px;';
-        dimensionsDiv.appendChild(this.createConfigField('Sprite Width', spiritData.spriteWidth, 'number', (value) => {
-            spiritData.spriteWidth = parseInt(value);
-        }, { min: 1 }));
-        dimensionsDiv.appendChild(this.createConfigField('Sprite Height', spiritData.spriteHeight, 'number', (value) => {
-            spiritData.spriteHeight = parseInt(value);
-        }, { min: 1 }));
-        form.appendChild(dimensionsDiv);
+        // Sprite Scale (consistent with other game objects)
+        form.appendChild(this.createConfigField('Scale', spiritData.scale || 0.8, 'number', (value) => {
+            spiritData.scale = parseFloat(value);
+        }, { min: 0.1, max: 5.0, step: 0.1 }));
 
-        // Collision Shape
-        form.appendChild(this.createConfigSelect('Collision Shape', spiritData.collisionShape, ['circle', 'rectangle'], (value) => {
+        // Collision
+        const collisionGrid = document.createElement('div');
+        collisionGrid.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 12px;';
+        collisionGrid.appendChild(this.createConfigSelect('Collision Shape', spiritData.collisionShape, ['circle', 'rectangle'], (value) => {
             spiritData.collisionShape = value;
         }));
+        collisionGrid.appendChild(this.createConfigField('Collision %', spiritData.collisionPercent || 0.3, 'number', (value) => {
+            spiritData.collisionPercent = parseFloat(value);
+        }, { min: 0.1, max: 2.0, step: 0.1 }));
+        form.appendChild(collisionGrid);
 
         // Stats Section
         const statsHeader = document.createElement('div');
@@ -2506,15 +2521,38 @@ class EditorUI {
                 console.warn('[SpiritEditor] Auto-save not implemented. Please manually update data/spirits.json:');
                 console.log(JSON.stringify(data, null, 2));
 
-                // Update registry in memory
-                this.editor.game.spiritRegistry.templates.set(spiritData.id, spiritData);
+                // Update registry in memory and propagate to existing spirits
+                const updatedCount = this.editor.game.spiritRegistry.updateTemplate(spiritData.id, spiritData);
                 
-                this.showNotification('⚠️ Note: Please manually copy the console JSON to data/spirits.json', 'warning');
+                if (updatedCount > 0) {
+                    this.showNotification(`✅ Template updated! Changes applied to ${updatedCount} existing spirit(s). Copy JSON from console to spirits.json.`, 'success');
+                } else {
+                    this.showNotification('⚠️ Template updated in memory. Copy JSON from console to spirits.json.', 'warning');
+                }
             })
             .catch(error => {
                 console.error('[SpiritEditor] Error loading spirits.json:', error);
                 alert('Error loading spirits.json. Check console for details.');
             });
+    }
+
+    /**
+     * Count how many spirit instances are using a template
+     */
+    countSpiritInstances(spiritId) {
+        let count = 0;
+        const allMaps = this.editor.game.objectManager.objects;
+        
+        for (const mapId in allMaps) {
+            const mapObjects = allMaps[mapId];
+            mapObjects.forEach(obj => {
+                if (obj instanceof Spirit && obj.spiritId === spiritId) {
+                    count++;
+                }
+            });
+        }
+        
+        return count;
     }
 
     /**

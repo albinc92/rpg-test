@@ -78,14 +78,15 @@ class SpiritRegistry {
             return null;
         }
 
-        console.log(`[SpiritRegistry] Creating ${template.name} with sprite: ${template.spriteSrc}`);
+        console.log(`[SpiritRegistry] Creating ${template.name} with sprite: ${template.spriteSrc}, scale: ${template.scale || 0.8}`);
         
         // Create spirit with template data using the global Spirit class
         const spirit = new Spirit(this.game, x, y, mapId, {
             name: template.name,
             spriteSrc: template.spriteSrc,
-            spriteWidth: template.spriteWidth,
-            spriteHeight: template.spriteHeight,
+            // Don't pass spriteWidth/spriteHeight - GameObject will auto-detect from image
+            // Only pass scale for consistent sizing with other game objects
+            scale: template.scale || 0.8,
             collisionShape: template.collisionShape,
             collisionPercent: template.collisionPercent,
             stats: template.stats,
@@ -95,8 +96,48 @@ class SpiritRegistry {
             description: template.description
         });
 
-        console.log(`[SpiritRegistry] ✅ Created ${template.name} (${spirit.id}) at (${Math.round(x)}, ${Math.round(y)}) - sprite loaded: ${spirit.spriteLoaded}, spriteSrc: ${spirit.spriteSrc}`);
+        console.log(`[SpiritRegistry] ✅ Created ${template.name} (${spirit.id}) at (${Math.round(x)}, ${Math.round(y)}) with scale ${spirit.scale} - sprite loaded: ${spirit.spriteLoaded}, spriteSrc: ${spirit.spriteSrc}`);
         return spirit;
+    }
+
+    /**
+     * Update a spirit template (usually from editor)
+     * This will propagate changes to all existing spirits using this template
+     * @param {string} spiritId - The spirit template ID
+     * @param {Object} templateData - Updated template data
+     */
+    updateTemplate(spiritId, templateData) {
+        // Update the template in memory
+        this.templates.set(spiritId, templateData);
+        console.log(`[SpiritRegistry] 📝 Updated template: ${spiritId}`);
+        
+        // Find all existing spirits using this template and update them
+        const allMaps = this.game.objectManager.objects;
+        let updatedCount = 0;
+        
+        for (const mapId in allMaps) {
+            const mapObjects = allMaps[mapId];
+            mapObjects.forEach(obj => {
+                if (obj instanceof Spirit && obj.spiritId === spiritId) {
+                    obj.updateFromTemplate(templateData);
+                    updatedCount++;
+                }
+            });
+        }
+        
+        console.log(`[SpiritRegistry] ✅ Propagated template changes to ${updatedCount} existing spirit(s)`);
+        return updatedCount;
+    }
+
+    /**
+     * Save all templates to spirits.json
+     * Returns JSON string that can be downloaded/saved
+     */
+    exportTemplates() {
+        const data = {
+            spirits: Array.from(this.templates.values())
+        };
+        return JSON.stringify(data, null, 2);
     }
 
 }

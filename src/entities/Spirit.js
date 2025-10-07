@@ -3,19 +3,21 @@
  */
 class Spirit extends Actor {
     constructor(game, x, y, mapId, options = {}) {
+        const moveSpeed = options.moveSpeed || 1.5;
         super({
             x: x,
             y: y,
-            scale: options.scale || 0.8,
-            maxSpeed: (options.moveSpeed || 1.5) * 50, // Convert moveSpeed to maxSpeed
+            scale: options.scale || 0.8, // Use scale just like other GameObjects
+            maxSpeed: moveSpeed * 50, // Convert template moveSpeed to maxSpeed for physics
+            movementSpeed: moveSpeed * 0.8, // Use for AI input (slightly slower for ethereal feel)
             behaviorType: 'roaming',
             altitude: 40, // Default floating altitude
             blocksMovement: false, // Spirits are ethereal and don't block movement
             canBeBlocked: false, // Spirits can phase through objects
             collisionPercent: 0.3, // Smaller collision area for spirits
             spriteSrc: options.spriteSrc,
-            spriteWidth: options.spriteWidth,
-            spriteHeight: options.spriteHeight,
+            // Don't pre-set spriteWidth/spriteHeight - let GameObject auto-detect from image
+            // spriteWidth and spriteHeight will be set automatically when sprite loads
             collisionShape: options.collisionShape || 'circle',
             ...options
         });
@@ -63,6 +65,11 @@ class Spirit extends Actor {
         this.roamingRadius = options.roamingRadius || 200;
         this.originalX = this.x;
         this.originalY = this.y;
+        
+        // Roaming state
+        this.roamingDirection = { x: 0, y: 0 };
+        this.roamingTimer = 0;
+        this.roamingDuration = 0;
     }
     
     /**
@@ -87,6 +94,7 @@ class Spirit extends Actor {
     
     /**
      * Spirit-specific roaming that stays near spawn point
+     * Uses timer-based movement for smooth, continuous ethereal floating
      */
     updateSpiritRoaming(deltaTime) {
         // Calculate distance from original position
@@ -94,21 +102,45 @@ class Spirit extends Actor {
         const dy = this.y - this.originalY;
         const distanceFromOrigin = Math.sqrt(dx * dx + dy * dy);
         
-        // If too far from origin, move back
+        // Update roaming timer
+        this.roamingTimer -= deltaTime;
+        
+        // If too far from origin, force return to spawn area
         if (distanceFromOrigin > this.roamingRadius) {
-            const returnForce = 0.3;
-            const moveX = -(dx / distanceFromOrigin) * returnForce;
-            const moveY = -(dy / distanceFromOrigin) * returnForce;
-            this.applyMovement(moveX, moveY, deltaTime);
-        } else {
-            // Random roaming within radius
-            if (Math.random() < 0.01) { // 1% chance per frame
-                const angle = Math.random() * Math.PI * 2;
-                const force = 0.2;
-                const moveX = Math.cos(angle) * force;
-                const moveY = Math.sin(angle) * force;
-                this.applyMovement(moveX, moveY, deltaTime);
+            // Move directly back towards spawn point
+            const dirX = -(dx / distanceFromOrigin);
+            const dirY = -(dy / distanceFromOrigin);
+            this.applyMovement(dirX * this.movementSpeed * 1.5, dirY * this.movementSpeed * 1.5, deltaTime);
+            
+            // Reset roaming timer when returning
+            this.roamingTimer = 0;
+        } 
+        // Pick new random direction when timer expires
+        else if (this.roamingTimer <= 0) {
+            // Move for 1-3 seconds in one direction
+            this.roamingDuration = 1.0 + Math.random() * 2.0;
+            this.roamingTimer = this.roamingDuration;
+            
+            // Pick random direction
+            const angle = Math.random() * Math.PI * 2;
+            this.roamingDirection.x = Math.cos(angle);
+            this.roamingDirection.y = Math.sin(angle);
+            
+            // Occasionally pause (20% chance)
+            if (Math.random() < 0.2) {
+                this.roamingDirection.x = 0;
+                this.roamingDirection.y = 0;
+                this.roamingTimer = 0.5 + Math.random() * 1.0; // Pause for 0.5-1.5 seconds
             }
+        }
+        
+        // Apply current roaming direction
+        if (this.roamingDirection.x !== 0 || this.roamingDirection.y !== 0) {
+            this.applyMovement(
+                this.roamingDirection.x * this.movementSpeed, 
+                this.roamingDirection.y * this.movementSpeed, 
+                deltaTime
+            );
         }
     }
     
@@ -118,7 +150,7 @@ class Spirit extends Actor {
     render(ctx, game) {
         // Debug: Log render calls (only log once per spirit when loaded)
         if (this.spriteLoaded && !this._renderLogged) {
-            console.log(`[Spirit] Rendering ${this.name} - spriteLoaded: ${this.spriteLoaded}, dimensions: ${this.spriteWidth}x${this.spriteHeight}, scale: ${this.scale}`);
+            console.log(`[Spirit] Rendering ${this.name} - spriteLoaded: ${this.spriteLoaded}, auto-detected dimensions: ${this.spriteWidth}x${this.spriteHeight}, scale: ${this.scale}`);
             this._renderLogged = true;
         }
         
@@ -276,5 +308,56 @@ class Spirit extends Actor {
             // Use normal physics with collision
             super.updatePhysics(deltaTime, game);
         }
+    }
+
+    /**
+     * Update this spirit instance from a template (when template is edited in editor)
+     * @param {Object} template - Updated template data
+     */
+    updateFromTemplate(template) {
+        console.log(`[Spirit] 🔄 Updating ${this.name} (${this.id}) from template`);
+        
+        // Update visual properties
+        this.name = template.name;
+        this.description = template.description;
+        this.scale = template.scale || 0.8;
+        
+        // Update sprite if it changed
+        if (template.spriteSrc !== this.spriteSrc) {
+            this.spriteSrc = template.spriteSrc;
+            this.loadSprite(template.spriteSrc);
+        }
+        
+        // Update collision
+        this.collisionShape = template.collisionShape || 'circle';
+        this.collisionPercent = template.collisionPercent || 0.3;
+        
+        // Update stats (deep copy to avoid reference issues)
+        const oldMaxHp = this.stats.hp;
+        this.stats = {
+            hp: template.stats.hp,
+            attack: template.stats.attack,
+            defense: template.stats.defense,
+            speed: template.stats.speed
+        };
+        
+        // Update current HP proportionally if max HP changed
+        const hpRatio = this.currentHp / (oldMaxHp || 1);
+        this.currentHp = Math.max(1, Math.floor(template.stats.hp * hpRatio));
+        
+        // Update movement
+        const moveSpeed = template.moveSpeed || 1.5;
+        this.maxSpeed = moveSpeed * 50;
+        this.movementSpeed = moveSpeed * 0.8;
+        this.movePattern = template.movePattern || 'wander';
+        
+        // Trigger visual update effect
+        this.spawnEffect = {
+            active: true,
+            duration: 1000, // 1 second flash
+            startTime: Date.now()
+        };
+        
+        console.log(`[Spirit] ✅ Updated ${this.name} - scale: ${this.scale}, moveSpeed: ${moveSpeed}, stats: ${JSON.stringify(this.stats)}, HP: ${this.currentHp}/${this.stats.hp}`);
     }
 }
