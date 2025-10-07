@@ -9,7 +9,8 @@ class Player extends Actor {
             acceleration: 2500,
             friction: 0.8,
             spriteSrc: 'assets/npc/main-0.png',
-            collisionExpandTopPercent: -0.7,
+            collisionShape: 'circle',
+            collisionExpandTopPercent: -0.8,
             collisionExpandRightPercent: -0.1,
             collisionExpandLeftPercent: -0.1,
             ...options
