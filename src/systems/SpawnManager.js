@@ -108,6 +108,7 @@ class SpawnManager {
 
     /**
      * Spawn a random spirit based on weighted spawn table
+     * Uses rarity-based probability: spiritRarity/totalRaritySum
      */
     spawnWeightedRandomSpirit() {
         const currentTime = this.game.dayNightCycle?.timeOfDay || 12;
@@ -123,16 +124,21 @@ class SpawnManager {
             return;
         }
         
-        // Calculate total weight
-        const totalWeight = validEntries.reduce((sum, entry) => sum + (entry.spawnWeight || 50), 0);
+        // Calculate total rarity sum
+        const totalRarity = validEntries.reduce((sum, entry) => sum + (entry.spawnWeight || 50), 0);
         
-        // Random weighted selection
-        let random = Math.random() * totalWeight;
+        // Generate random value between 0 and totalRarity
+        const random = Math.random() * totalRarity;
+        
+        // Select spirit based on rarity ranges
+        let cumulativeRarity = 0;
         let selectedEntry = null;
         
         for (const entry of validEntries) {
-            random -= (entry.spawnWeight || 50);
-            if (random <= 0) {
+            const rarity = entry.spawnWeight || 50;
+            cumulativeRarity += rarity;
+            
+            if (random <= cumulativeRarity) {
                 selectedEntry = entry;
                 break;
             }
@@ -142,9 +148,13 @@ class SpawnManager {
             selectedEntry = validEntries[validEntries.length - 1]; // Fallback to last entry
         }
         
+        // Calculate spawn probability for logging
+        const spiritRarity = selectedEntry.spawnWeight || 50;
+        const spawnProbability = ((spiritRarity / totalRarity) * 100).toFixed(1);
+        
         // Attempt to spawn the selected spirit
         const template = this.game.spiritRegistry.getTemplate(selectedEntry.spiritId);
-        console.log(`[SpawnManager] 🎲 Rolled ${template?.name || selectedEntry.spiritId} (weight: ${selectedEntry.spawnWeight}/${totalWeight}) at time ${currentTime.toFixed(1)}h`);
+        console.log(`[SpawnManager] 🎲 Rolled ${template?.name || selectedEntry.spiritId} (${spawnProbability}% chance: ${spiritRarity}/${totalRarity}) at time ${currentTime.toFixed(1)}h`);
         
         this.spawnSpirit(selectedEntry.spiritId);
     }
