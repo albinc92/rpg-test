@@ -341,7 +341,24 @@ class EditorUI {
                 ]
             },
             {
-                label: '🗺️ Maps',
+                label: '� Spirit Templates',
+                items: [
+                    { 
+                        label: '📝 Browse Spirits', 
+                        action: () => this.showSpiritBrowser(),
+                        get disabled() {
+                            const count = window.game?.spiritRegistry?.templates?.size || 0;
+                            return count === 0;
+                        }
+                    },
+                    { 
+                        label: '➕ New Spirit', 
+                        action: () => this.showSpiritEditor(null) 
+                    }
+                ]
+            },
+            {
+                label: '�🗺️ Maps',
                 items: [
                     { 
                         label: '⚙️ Current Map Config', 
@@ -1948,6 +1965,564 @@ class EditorUI {
         backdrop.onclick = (e) => {
             if (e.target === backdrop) backdrop.remove();
         };
+    }
+
+    /**
+     * Show spirit browser
+     */
+    showSpiritBrowser() {
+        const spirits = this.editor.game.spiritRegistry;
+        
+        if (!spirits || !spirits.loaded || spirits.templates.size === 0) {
+            alert('No spirit templates found! Spirit registry not loaded.');
+            return;
+        }
+
+        // Create modal backdrop
+        const backdrop = document.createElement('div');
+        backdrop.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: #1a1a1a;
+            border: 2px solid #4a9eff;
+            border-radius: 12px;
+            padding: 24px;
+            width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            color: white;
+            font-family: Arial, sans-serif;
+        `;
+
+        // Title
+        const title = document.createElement('h2');
+        title.textContent = '👻 Spirit Template Browser';
+        title.style.cssText = 'margin-top: 0; color: #4a9eff;';
+        modal.appendChild(title);
+
+        // Filter/Search
+        const searchContainer = document.createElement('div');
+        searchContainer.style.cssText = 'margin-bottom: 16px;';
+        
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.placeholder = '🔍 Search spirits...';
+        searchInput.style.cssText = `
+            width: 100%;
+            padding: 10px;
+            background: #2a2a2a;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 6px;
+            font-size: 14px;
+        `;
+        searchContainer.appendChild(searchInput);
+        modal.appendChild(searchContainer);
+
+        // Spirit grid
+        const spiritGrid = document.createElement('div');
+        spiritGrid.style.cssText = `
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        `;
+
+        // Render spirits
+        const renderSpirits = (filter = '') => {
+            spiritGrid.innerHTML = '';
+            
+            const allTemplates = spirits.getAllTemplates();
+            allTemplates.forEach(spirit => {
+                if (filter && !spirit.name.toLowerCase().includes(filter.toLowerCase()) && 
+                    !spirit.rarity.toLowerCase().includes(filter.toLowerCase())) {
+                    return;
+                }
+
+                const spiritCard = document.createElement('div');
+                spiritCard.style.cssText = `
+                    background: #2a2a2a;
+                    border: 2px solid #444;
+                    border-radius: 8px;
+                    padding: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    text-align: center;
+                `;
+                spiritCard.onmouseover = () => {
+                    spiritCard.style.borderColor = '#4a9eff';
+                    spiritCard.style.transform = 'translateY(-2px)';
+                };
+                spiritCard.onmouseout = () => {
+                    spiritCard.style.borderColor = '#444';
+                    spiritCard.style.transform = 'translateY(0)';
+                };
+                spiritCard.onclick = () => {
+                    backdrop.remove();
+                    this.showSpiritEditor(spirit.id);
+                };
+
+                // Sprite preview
+                const sprite = document.createElement('img');
+                sprite.src = spirit.spriteSrc;
+                sprite.style.cssText = `
+                    width: 64px;
+                    height: 64px;
+                    image-rendering: pixelated;
+                    margin-bottom: 8px;
+                    opacity: 0.8;
+                `;
+                spiritCard.appendChild(sprite);
+
+                // Name
+                const name = document.createElement('div');
+                name.textContent = spirit.name;
+                name.style.cssText = `
+                    font-size: 13px;
+                    font-weight: bold;
+                    margin-bottom: 4px;
+                    color: ${this.getRarityColor(spirit.rarity)};
+                `;
+                spiritCard.appendChild(name);
+
+                // Rarity
+                const rarity = document.createElement('div');
+                rarity.textContent = spirit.rarity.toUpperCase();
+                rarity.style.cssText = `
+                    font-size: 10px;
+                    color: ${this.getRarityColor(spirit.rarity)};
+                    text-transform: uppercase;
+                    margin-bottom: 6px;
+                `;
+                spiritCard.appendChild(rarity);
+
+                // Stats summary
+                const stats = document.createElement('div');
+                stats.style.cssText = `
+                    font-size: 10px;
+                    color: #aaa;
+                    line-height: 1.4;
+                `;
+                stats.innerHTML = `
+                    HP: ${spirit.stats.hp} | ATK: ${spirit.stats.attack}<br>
+                    DEF: ${spirit.stats.defense} | SPD: ${spirit.stats.speed}
+                `;
+                spiritCard.appendChild(stats);
+
+                spiritGrid.appendChild(spiritCard);
+            });
+
+            if (spiritGrid.children.length === 0) {
+                const noResults = document.createElement('div');
+                noResults.textContent = 'No spirits found';
+                noResults.style.cssText = `
+                    grid-column: 1 / -1;
+                    text-align: center;
+                    color: #888;
+                    padding: 20px;
+                `;
+                spiritGrid.appendChild(noResults);
+            }
+        };
+
+        renderSpirits();
+        searchInput.oninput = () => renderSpirits(searchInput.value);
+
+        modal.appendChild(spiritGrid);
+
+        // Buttons
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = 'display: flex; gap: 12px; justify-content: flex-end;';
+
+        const newBtn = document.createElement('button');
+        newBtn.textContent = '➕ New Spirit';
+        newBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #5cb85c;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        `;
+        newBtn.onclick = () => {
+            backdrop.remove();
+            this.showSpiritEditor(null);
+        };
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Close';
+        closeBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #555;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        `;
+        closeBtn.onclick = () => backdrop.remove();
+
+        buttonContainer.appendChild(newBtn);
+        buttonContainer.appendChild(closeBtn);
+        modal.appendChild(buttonContainer);
+
+        backdrop.appendChild(modal);
+        document.body.appendChild(backdrop);
+
+        // Close on backdrop click
+        backdrop.onclick = (e) => {
+            if (e.target === backdrop) backdrop.remove();
+        };
+    }
+
+    /**
+     * Show spirit editor
+     */
+    showSpiritEditor(spiritId) {
+        const isNew = !spiritId;
+        let spiritData;
+
+        if (isNew) {
+            // Create new spirit template
+            spiritData = {
+                id: '',
+                name: 'New Spirit',
+                spriteSrc: 'assets/npc/Spirits/Sylphie00.png',
+                spriteWidth: 32,
+                spriteHeight: 32,
+                collisionShape: 'circle',
+                collisionPercent: {
+                    top: -0.7,
+                    left: -0.1,
+                    right: -0.1,
+                    bottom: 0
+                },
+                stats: {
+                    hp: 50,
+                    attack: 10,
+                    defense: 10,
+                    speed: 15
+                },
+                moveSpeed: 1.5,
+                movePattern: 'wander',
+                rarity: 'common',
+                description: ''
+            };
+        } else {
+            // Load existing spirit
+            const template = this.editor.game.spiritRegistry.getTemplate(spiritId);
+            if (!template) {
+                alert('Spirit not found!');
+                return;
+            }
+            spiritData = JSON.parse(JSON.stringify(template)); // Deep copy
+        }
+
+        // Create modal backdrop
+        const backdrop = document.createElement('div');
+        backdrop.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: #1a1a1a;
+            border: 2px solid #4a9eff;
+            border-radius: 12px;
+            padding: 24px;
+            width: 600px;
+            max-height: 85vh;
+            overflow-y: auto;
+            color: white;
+            font-family: Arial, sans-serif;
+        `;
+
+        // Title
+        const title = document.createElement('h2');
+        title.textContent = isNew ? '👻 Create New Spirit' : `👻 Edit Spirit: ${spiritData.name}`;
+        title.style.cssText = 'margin-top: 0; color: #4a9eff;';
+        modal.appendChild(title);
+
+        // Form
+        const form = document.createElement('form');
+        form.style.cssText = 'display: flex; flex-direction: column; gap: 16px;';
+
+        // ID (disabled for existing)
+        form.appendChild(this.createConfigField('Spirit ID', spiritData.id, 'text', (value) => {
+            spiritData.id = value;
+        }, { disabled: !isNew, required: isNew }));
+
+        // Name
+        form.appendChild(this.createConfigField('Name', spiritData.name, 'text', (value) => {
+            spiritData.name = value;
+        }));
+
+        // Sprite Source
+        form.appendChild(this.createConfigField('Sprite Path', spiritData.spriteSrc, 'text', (value) => {
+            spiritData.spriteSrc = value;
+        }));
+
+        // Sprite Dimensions
+        const dimensionsDiv = document.createElement('div');
+        dimensionsDiv.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 12px;';
+        dimensionsDiv.appendChild(this.createConfigField('Sprite Width', spiritData.spriteWidth, 'number', (value) => {
+            spiritData.spriteWidth = parseInt(value);
+        }, { min: 1 }));
+        dimensionsDiv.appendChild(this.createConfigField('Sprite Height', spiritData.spriteHeight, 'number', (value) => {
+            spiritData.spriteHeight = parseInt(value);
+        }, { min: 1 }));
+        form.appendChild(dimensionsDiv);
+
+        // Collision Shape
+        form.appendChild(this.createConfigSelect('Collision Shape', spiritData.collisionShape, ['circle', 'rectangle'], (value) => {
+            spiritData.collisionShape = value;
+        }));
+
+        // Stats Section
+        const statsHeader = document.createElement('div');
+        statsHeader.textContent = '⚔️ Combat Stats';
+        statsHeader.style.cssText = 'font-size: 14px; font-weight: bold; color: #4a9eff; margin-top: 8px;';
+        form.appendChild(statsHeader);
+
+        const statsGrid = document.createElement('div');
+        statsGrid.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 12px;';
+        statsGrid.appendChild(this.createConfigField('HP', spiritData.stats.hp, 'number', (value) => {
+            spiritData.stats.hp = parseInt(value);
+        }, { min: 1 }));
+        statsGrid.appendChild(this.createConfigField('Attack', spiritData.stats.attack, 'number', (value) => {
+            spiritData.stats.attack = parseInt(value);
+        }, { min: 0 }));
+        statsGrid.appendChild(this.createConfigField('Defense', spiritData.stats.defense, 'number', (value) => {
+            spiritData.stats.defense = parseInt(value);
+        }, { min: 0 }));
+        statsGrid.appendChild(this.createConfigField('Speed', spiritData.stats.speed, 'number', (value) => {
+            spiritData.stats.speed = parseInt(value);
+        }, { min: 1 }));
+        form.appendChild(statsGrid);
+
+        // Movement
+        const movementHeader = document.createElement('div');
+        movementHeader.textContent = '🏃 Movement';
+        movementHeader.style.cssText = 'font-size: 14px; font-weight: bold; color: #4a9eff; margin-top: 8px;';
+        form.appendChild(movementHeader);
+
+        form.appendChild(this.createConfigField('Move Speed', spiritData.moveSpeed, 'number', (value) => {
+            spiritData.moveSpeed = parseFloat(value);
+        }, { min: 0.1, step: 0.1 }));
+
+        form.appendChild(this.createConfigSelect('Move Pattern', spiritData.movePattern, ['wander', 'static'], (value) => {
+            spiritData.movePattern = value;
+        }));
+
+        // Rarity
+        form.appendChild(this.createConfigSelect('Rarity', spiritData.rarity, ['common', 'uncommon', 'rare', 'legendary'], (value) => {
+            spiritData.rarity = value;
+        }));
+
+        // Description
+        const descLabel = document.createElement('label');
+        descLabel.textContent = 'Description';
+        descLabel.style.cssText = 'font-size: 13px; font-weight: bold;';
+        form.appendChild(descLabel);
+
+        const descTextarea = document.createElement('textarea');
+        descTextarea.value = spiritData.description || '';
+        descTextarea.style.cssText = `
+            padding: 8px;
+            background: #2a2a2a;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: Arial, sans-serif;
+            resize: vertical;
+            min-height: 60px;
+        `;
+        descTextarea.oninput = () => {
+            spiritData.description = descTextarea.value;
+        };
+        form.appendChild(descTextarea);
+
+        modal.appendChild(form);
+
+        // Buttons
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = 'display: flex; gap: 12px; margin-top: 24px; justify-content: space-between;';
+
+        const leftButtons = document.createElement('div');
+        leftButtons.style.cssText = 'display: flex; gap: 12px;';
+
+        const rightButtons = document.createElement('div');
+        rightButtons.style.cssText = 'display: flex; gap: 12px;';
+
+        // Delete button (only for existing)
+        if (!isNew) {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = '🗑️ Delete';
+            deleteBtn.type = 'button';
+            deleteBtn.style.cssText = `
+                padding: 10px 20px;
+                background: #d9534f;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 14px;
+            `;
+            deleteBtn.onclick = () => {
+                if (confirm(`Delete spirit "${spiritData.name}"?`)) {
+                    this.deleteSpiritTemplate(spiritData.id);
+                    backdrop.remove();
+                }
+            };
+            leftButtons.appendChild(deleteBtn);
+        }
+
+        // Save button
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = '💾 Save Spirit';
+        saveBtn.type = 'button';
+        saveBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #4a9eff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        `;
+        saveBtn.onclick = () => {
+            if (isNew && !spiritData.id) {
+                alert('Please enter a Spirit ID');
+                return;
+            }
+            if (!spiritData.name) {
+                alert('Please enter a name');
+                return;
+            }
+
+            this.saveSpiritTemplate(spiritData, isNew);
+            this.showNotification(isNew ? '✅ Spirit created!' : '✅ Spirit updated!');
+            backdrop.remove();
+        };
+
+        // Cancel button
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.type = 'button';
+        cancelBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #555;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        `;
+        cancelBtn.onclick = () => backdrop.remove();
+
+        rightButtons.appendChild(cancelBtn);
+        rightButtons.appendChild(saveBtn);
+
+        buttonContainer.appendChild(leftButtons);
+        buttonContainer.appendChild(rightButtons);
+        modal.appendChild(buttonContainer);
+
+        backdrop.appendChild(modal);
+        document.body.appendChild(backdrop);
+
+        // Close on backdrop click
+        backdrop.onclick = (e) => {
+            if (e.target === backdrop) backdrop.remove();
+        };
+    }
+
+    /**
+     * Save spirit template to spirits.json
+     */
+    saveSpiritTemplate(spiritData, isNew) {
+        // Get current spirits data
+        fetch('data/spirits.json')
+            .then(response => response.json())
+            .then(data => {
+                if (isNew) {
+                    // Add new spirit
+                    data.spirits.push(spiritData);
+                } else {
+                    // Update existing spirit
+                    const index = data.spirits.findIndex(s => s.id === spiritData.id);
+                    if (index !== -1) {
+                        data.spirits[index] = spiritData;
+                    } else {
+                        data.spirits.push(spiritData);
+                    }
+                }
+
+                // Save back to file (this would need a server endpoint in production)
+                console.log('[SpiritEditor] Spirit data to save:', data);
+                console.warn('[SpiritEditor] Auto-save not implemented. Please manually update data/spirits.json:');
+                console.log(JSON.stringify(data, null, 2));
+
+                // Update registry in memory
+                this.editor.game.spiritRegistry.templates.set(spiritData.id, spiritData);
+                
+                this.showNotification('⚠️ Note: Please manually copy the console JSON to data/spirits.json', 'warning');
+            })
+            .catch(error => {
+                console.error('[SpiritEditor] Error loading spirits.json:', error);
+                alert('Error loading spirits.json. Check console for details.');
+            });
+    }
+
+    /**
+     * Delete spirit template
+     */
+    deleteSpiritTemplate(spiritId) {
+        fetch('data/spirits.json')
+            .then(response => response.json())
+            .then(data => {
+                // Remove spirit
+                data.spirits = data.spirits.filter(s => s.id !== spiritId);
+
+                console.log('[SpiritEditor] Updated spirits data:', data);
+                console.warn('[SpiritEditor] Auto-save not implemented. Please manually update data/spirits.json:');
+                console.log(JSON.stringify(data, null, 2));
+
+                // Update registry
+                this.editor.game.spiritRegistry.templates.delete(spiritId);
+                
+                this.showNotification('✅ Spirit deleted (copy JSON from console to spirits.json)');
+            })
+            .catch(error => {
+                console.error('[SpiritEditor] Error loading spirits.json:', error);
+                alert('Error loading spirits.json');
+            });
     }
 
     /**
