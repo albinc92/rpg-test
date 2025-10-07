@@ -145,13 +145,7 @@ class RenderSystem {
         const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
         const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
         
-        // Render day/night cycle overlay first (with weather-based darkening)
-        if (game?.currentMap?.dayNightCycle && game?.dayNightCycle) {
-            const weatherState = game?.currentMap?.weather || null;
-            game.dayNightCycle.render(this.ctx, canvasWidth, canvasHeight, weatherState);
-        }
-        
-        // Render weather effects on top (in screen space, completely independent of camera/world)
+        // Render weather effects first (in screen space, completely independent of camera/world)
         if (game?.currentMap?.weather && game?.weatherSystem) {
             this.ctx.save();
             // Reset transform but keep devicePixelRatio scaling
@@ -159,6 +153,12 @@ class RenderSystem {
             this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             game.weatherSystem.render(canvasWidth, canvasHeight);
             this.ctx.restore();
+        }
+        
+        // Render day/night cycle overlay on top (affects weather particles and everything)
+        if (game?.currentMap?.dayNightCycle && game?.dayNightCycle) {
+            const weatherState = game?.currentMap?.weather || null;
+            game.dayNightCycle.render(this.ctx, canvasWidth, canvasHeight, weatherState);
         }
     }
     
