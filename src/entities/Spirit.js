@@ -2,17 +2,46 @@
  * Spirit class - extends Actor for ethereal/floating entities
  */
 class Spirit extends Actor {
-    constructor(options = {}) {
+    constructor(game, x, y, mapId, options = {}) {
         super({
+            x: x,
+            y: y,
             scale: options.scale || 0.8,
-            maxSpeed: 80,
+            maxSpeed: (options.moveSpeed || 1.5) * 50, // Convert moveSpeed to maxSpeed
             behaviorType: 'roaming',
             altitude: 40, // Default floating altitude
             blocksMovement: false, // Spirits are ethereal and don't block movement
             canBeBlocked: false, // Spirits can phase through objects
             collisionPercent: 0.3, // Smaller collision area for spirits
+            spriteSrc: options.spriteSrc,
+            spriteWidth: options.spriteWidth,
+            spriteHeight: options.spriteHeight,
+            collisionShape: options.collisionShape || 'circle',
             ...options
         });
+        
+        // Spirit identity
+        this.game = game;
+        this.id = options.id || `spirit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        this.name = options.name || 'Unknown Spirit';
+        this.spiritId = options.spiritId; // Template ID from spirits.json
+        this.mapId = mapId;
+        
+        // Stats
+        this.stats = options.stats || {
+            hp: 50,
+            attack: 10,
+            defense: 10,
+            speed: 15
+        };
+        this.currentHp = this.stats.hp;
+        
+        // Rarity
+        this.rarity = options.rarity || 'common';
+        this.description = options.description || '';
+        
+        // Movement
+        this.movePattern = options.movePattern || 'wander';
         
         // Spirit-specific visual properties
         this.baseAlpha = options.baseAlpha || 0.8;
@@ -25,7 +54,7 @@ class Spirit extends Actor {
         
         // Spawn effect
         this.spawnEffect = {
-            active: options.spawnEffect || false,
+            active: options.spawnEffect !== false, // Spawn effect enabled by default
             duration: 2000, // 2 seconds
             startTime: Date.now()
         };

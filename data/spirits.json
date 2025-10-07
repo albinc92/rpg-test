@@ -1,0 +1,100 @@
+{
+  "spirits": [
+    {
+      "id": "forest_sprite",
+      "name": "Sylphie",
+      "spriteSrc": "assets/npc/Spirits/sylphie.png",
+      "spriteWidth": 32,
+      "spriteHeight": 32,
+      "collisionShape": "circle",
+      "collisionPercent": {
+        "top": -0.7,
+        "left": -0.1,
+        "right": -0.1,
+        "bottom": 0
+      },
+      "stats": {
+        "hp": 50,
+        "attack": 12,
+        "defense": 8,
+        "speed": 15
+      },
+      "moveSpeed": 1.5,
+      "movePattern": "wander",
+      "rarity": "common",
+      "description": "A gentle forest spirit that appears during the day"
+    },
+    {
+      "id": "night_wisp",
+      "name": "Nythra",
+      "spriteSrc": "assets/npc/Spirits/nythra.png",
+      "spriteWidth": 32,
+      "spriteHeight": 32,
+      "collisionShape": "circle",
+      "collisionPercent": {
+        "top": -0.7,
+        "left": -0.1,
+        "right": -0.1,
+        "bottom": 0
+      },
+      "stats": {
+        "hp": 45,
+        "attack": 15,
+        "defense": 6,
+        "speed": 18
+      },
+      "moveSpeed": 2.0,
+      "movePattern": "wander",
+      "rarity": "uncommon",
+      "description": "A mysterious wisp that only appears at night"
+    },
+    {
+      "id": "dawn_guardian",
+      "name": "Dawn Guardian",
+      "spriteSrc": "assets/npc/Spirits/Sylphie00.png",
+      "spriteWidth": 32,
+      "spriteHeight": 32,
+      "collisionShape": "circle",
+      "collisionPercent": {
+        "top": -0.7,
+        "left": -0.1,
+        "right": -0.1,
+        "bottom": 0
+      },
+      "stats": {
+        "hp": 65,
+        "attack": 18,
+        "defense": 12,
+        "speed": 12
+      },
+      "moveSpeed": 1.2,
+      "movePattern": "wander",
+      "rarity": "rare",
+      "description": "A powerful guardian that appears only at dawn"
+    },
+    {
+      "id": "dusk_shadow",
+      "name": "Dusk Shadow",
+      "spriteSrc": "assets/npc/Spirits/Sylphie00.png",
+      "spriteWidth": 32,
+      "spriteHeight": 32,
+      "collisionShape": "circle",
+      "collisionPercent": {
+        "top": -0.7,
+        "left": -0.1,
+        "right": -0.1,
+        "bottom": 0
+      },
+      "stats": {
+        "hp": 60,
+        "attack": 20,
+        "defense": 10,
+        "speed": 16
+      },
+      "moveSpeed": 1.8,
+      "movePattern": "wander",
+      "rarity": "rare",
+      "description": "A shadowy being that emerges during dusk"
+    }
+  ]
+}

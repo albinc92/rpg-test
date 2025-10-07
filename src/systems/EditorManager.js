@@ -17,18 +17,22 @@ class EditorManager {
         
         // Paint tool state
         this.isPainting = false;
-        this.paintMode = 'texture'; // 'texture' or 'collision'
+        this.paintMode = 'texture'; // 'texture', 'collision', or 'spawn'
         this.toolAction = 'paint'; // 'paint', 'erase', or 'fill'
         this.selectedTexture = null; // Current texture to paint with
         this.brushSize = 64; // Brush radius in pixels
         this.brushStyle = 'soft'; // 'soft', 'hard', 'very-soft'
-        this.brushShape = 'circle'; // 'circle' or 'square' (for collision mode)
+        this.brushShape = 'circle'; // 'circle' or 'square' (for collision/spawn mode)
         this.brushOpacity = 0.8;
         this.paintLayers = {}; // Store paint layers per map {mapId: canvas}
         this.collisionLayers = {}; // Store collision layers per map {mapId: canvas}
+        this.spawnLayers = {}; // Store spawn zone layers per map {mapId: canvas}
         this.textures = []; // Available textures for painting
         this.loadedTextures = {}; // Cache of loaded texture images
         this.paintStartState = null; // Store canvas state before stroke for undo
+        
+        // Spawn zone visibility
+        this.showSpawnZones = true; // Show spawn zones in editor
         
         // Drag state for moving objects
         this.isDragging = false;
@@ -1302,6 +1306,12 @@ class EditorManager {
             return;
         }
         
+        // Handle spawn zone painting
+        if (this.paintMode === 'spawn') {
+            this.paintSpawnZoneAt(worldX, worldY, mapId);
+            return;
+        }
+        
         // Initialize paint canvas for active layer if needed
         if (this.game.layerManager && this.game.layerManager.hasLayers(mapId)) {
             const activeLayerId = this.game.layerManager.activeLayerId;
@@ -1442,6 +1452,56 @@ class EditorManager {
     }
 
     /**
+     * Paint spawn zone at world position
+     */
+    paintSpawnZoneAt(worldX, worldY, mapId) {
+        // Initialize spawn zone canvas if needed
+        if (!this.spawnLayers[mapId]) {
+            const mapData = this.game.mapManager.maps[mapId];
+            if (!mapData) return;
+            
+            // Canvas sized for rendering (with resolution scale)
+            const mapScale = mapData.scale || 1.0;
+            const resolutionScale = this.game.resolutionScale || 1.0;
+            const scaledWidth = mapData.width * mapScale * resolutionScale;
+            const scaledHeight = mapData.height * mapScale * resolutionScale;
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = scaledWidth;
+            canvas.height = scaledHeight;
+            this.spawnLayers[mapId] = canvas;
+            console.log(`[EditorManager] Initialized spawn zone layer for map ${mapId}: ${scaledWidth}x${scaledHeight}`);
+        }
+        
+        const canvas = this.spawnLayers[mapId];
+        if (!canvas) return;
+        
+        const ctx = canvas.getContext('2d');
+        const brushSize = this.brushSize;
+        
+        // Draw spawn zone (semi-transparent blue)
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 100, 255, 0.5)'; // Blue with 50% opacity
+        ctx.globalCompositeOperation = 'source-over';
+        
+        // Draw based on brush shape
+        if (this.brushShape === 'square') {
+            // Square brush
+            ctx.fillRect(worldX - brushSize, worldY - brushSize, brushSize * 2, brushSize * 2);
+        } else {
+            // Circle brush (default)
+            ctx.beginPath();
+            ctx.arc(worldX, worldY, brushSize, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        ctx.restore();
+        
+        // Mark canvas as dirty so spawn zone cache gets updated
+        canvas._dataDirty = true;
+    }
+
+    /**
      * Erase texture or collision at position
      */
     eraseAt(worldX, worldY, mapId) {
@@ -1450,6 +1510,8 @@ class EditorManager {
         // Get the appropriate canvas based on paint mode
         if (this.paintMode === 'collision') {
             canvas = this.collisionLayers[mapId];
+        } else if (this.paintMode === 'spawn') {
+            canvas = this.spawnLayers[mapId];
         } else {
             canvas = this.getPaintLayer(mapId);
         }
@@ -1459,8 +1521,8 @@ class EditorManager {
         const ctx = canvas.getContext('2d');
         const brushSize = this.brushSize;
         
-        // For collision mode: simple hard erase
-        if (this.paintMode === 'collision') {
+        // For collision and spawn modes: simple hard erase
+        if (this.paintMode === 'collision' || this.paintMode === 'spawn') {
             ctx.save();
             ctx.globalCompositeOperation = 'destination-out';
             ctx.fillStyle = 'rgba(255, 255, 255, 1.0)';
@@ -1647,6 +1709,34 @@ class EditorManager {
     }
 
     /**
+     * Get spawn zone layer for a map
+     */
+    getSpawnLayer(mapId) {
+        return this.spawnLayers[mapId];
+    }
+
+    /**
+     * Bake spawn zone canvas to image for better rendering performance
+     */
+    bakeSpawnLayer(mapId) {
+        const canvas = this.spawnLayers[mapId];
+        if (!canvas) return;
+        
+        // Convert canvas to data URL
+        const dataURL = canvas.toDataURL('image/png');
+        
+        // Create an image from the canvas
+        const img = new Image();
+        img.onload = () => {
+            canvas._bakedImage = img;
+            canvas._imageReady = true;
+            canvas._dataDirty = true;
+            console.log(`[EditorManager] Baked spawn zone layer for map ${mapId} to image for better performance`);
+        };
+        img.src = dataURL;
+    }
+
+    /**
      * Start painting
      */
     startPainting(x, y) {
@@ -1668,6 +1758,11 @@ class EditorManager {
             if (canvas) {
                 canvas._imageReady = false; // Fall back to canvas while painting
             }
+        } else if (this.paintMode === 'spawn') {
+            const canvas = this.spawnLayers[mapId];
+            if (canvas) {
+                canvas._imageReady = false; // Fall back to canvas while painting
+            }
         }
         
         // Handle fill action - execute immediately and return
@@ -1676,7 +1771,14 @@ class EditorManager {
             if (this.paintMode === 'texture' && !this.selectedTexture) return;
             
             // Capture state before filling (for undo)
-            const canvas = this.paintMode === 'collision' ? this.collisionLayers[mapId] : this.getPaintLayer(mapId);
+            let canvas;
+            if (this.paintMode === 'collision') {
+                canvas = this.collisionLayers[mapId];
+            } else if (this.paintMode === 'spawn') {
+                canvas = this.spawnLayers[mapId];
+            } else {
+                canvas = this.getPaintLayer(mapId);
+            }
             if (canvas) {
                 const ctx = canvas.getContext('2d');
                 const beforeState = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -1743,6 +1845,9 @@ class EditorManager {
         } else if (this.paintMode === 'collision') {
             // Bake collision layer to image
             this.bakeCollisionLayer(this.game.currentMapId);
+        } else if (this.paintMode === 'spawn') {
+            // Bake spawn zone layer to image
+            this.bakeSpawnLayer(this.game.currentMapId);
         }
     }
 

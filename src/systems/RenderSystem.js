@@ -229,6 +229,19 @@ class RenderSystem {
                 this.ctx.drawImage(imageSource, 0, 0);
                 this.ctx.restore();
             }
+            
+            // Render spawn zones if enabled
+            const showSpawnZones = game.editorManager.isActive && game.editorManager.showSpawnZones;
+            const spawnLayer = game.editorManager.getSpawnLayer(game.currentMapId);
+            if (spawnLayer && showSpawnZones) {
+                // Use baked image if available for performance
+                const imageSource = (spawnLayer._imageReady && spawnLayer._bakedImage) ? spawnLayer._bakedImage : spawnLayer;
+                
+                this.ctx.save();
+                this.ctx.globalAlpha = 0.5;
+                this.ctx.drawImage(imageSource, 0, 0);
+                this.ctx.restore();
+            }
         }
     }
     

@@ -158,6 +158,16 @@ class EditorUI {
                 }
             },
             {
+                label: '🎯 Spawn Zones',
+                shortcut: 'Z',
+                checked: this.editor.showSpawnZones,
+                action: () => {
+                    this.editor.showSpawnZones = !this.editor.showSpawnZones;
+                    console.log('[Editor] Spawn Zones:', this.editor.showSpawnZones ? 'ON' : 'OFF');
+                    this.updateViewMenu();
+                }
+            },
+            {
                 label: '📚 Layers',
                 shortcut: 'L',
                 action: () => {
@@ -217,6 +227,7 @@ class EditorUI {
         this.viewMenu.items[0].checked = this.editor.gridEnabled;
         this.viewMenu.items[1].checked = this.editor.snapToGrid;
         this.viewMenu.items[2].checked = this.editor.showCollisionBoxes;
+        this.viewMenu.items[3].checked = this.editor.showSpawnZones;
         
         // Update visual checkmarks
         this.viewMenu.updateCheckmarks();
@@ -610,6 +621,189 @@ class EditorUI {
         form.appendChild(this.createConfigSelect('Falling Particles', mapData.weather.particles || 'none', particleOptions, (value) => {
             mapData.weather.particles = value;
         }));
+
+        // Spawn Configuration Section
+        const spawnHeader = document.createElement('div');
+        spawnHeader.textContent = '🎯 Spirit Spawn Configuration';
+        spawnHeader.style.cssText = 'font-size: 16px; font-weight: bold; color: #4a9eff; margin-top: 20px; margin-bottom: 12px; border-top: 1px solid #444; padding-top: 12px;';
+        form.appendChild(spawnHeader);
+
+        // Initialize spawn table if it doesn't exist
+        if (!mapData.spawnTable) {
+            mapData.spawnTable = [];
+        }
+
+        // Spawn table container
+        const spawnTableContainer = document.createElement('div');
+        spawnTableContainer.style.cssText = 'background: #252525; padding: 12px; border-radius: 8px; border: 1px solid #444;';
+
+        // Display existing spawn entries
+        const spawnEntriesDiv = document.createElement('div');
+        spawnEntriesDiv.style.cssText = 'margin-bottom: 12px;';
+        
+        const renderSpawnEntries = () => {
+            spawnEntriesDiv.innerHTML = '';
+            
+            if (mapData.spawnTable.length === 0) {
+                const emptyMsg = document.createElement('div');
+                emptyMsg.textContent = 'No spawn entries configured';
+                emptyMsg.style.cssText = 'color: #888; font-style: italic; font-size: 13px; text-align: center; padding: 12px;';
+                spawnEntriesDiv.appendChild(emptyMsg);
+            } else {
+                mapData.spawnTable.forEach((entry, index) => {
+                    const entryDiv = document.createElement('div');
+                    entryDiv.style.cssText = 'background: #1a1a1a; padding: 10px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #333;';
+                    
+                    const spiritName = this.editor.game.spiritRegistry.getTemplate(entry.spiritId)?.name || entry.spiritId;
+                    const timeLabel = entry.timeCondition === 'any' ? 'Any Time' : 
+                                     entry.timeCondition === 'day' ? '☀️ Day' :
+                                     entry.timeCondition === 'night' ? '🌙 Night' :
+                                     entry.timeCondition === 'dawn' ? '🌅 Dawn' :
+                                     entry.timeCondition === 'dusk' ? '🌆 Dusk' :
+                                     entry.timeCondition === 'nightfall' ? '🌃 Nightfall' : entry.timeCondition;
+                    
+                    entryDiv.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: bold; color: #4a9eff; font-size: 14px;">${spiritName}</div>
+                                <div style="font-size: 12px; color: #aaa; margin-top: 4px;">
+                                    Max: ${entry.maxPopulation} | Rate: ${entry.spawnRate}/s | Time: ${timeLabel}
+                                </div>
+                            </div>
+                            <button type="button" style="background: #d9534f; color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px;">
+                                🗑️ Remove
+                            </button>
+                        </div>
+                    `;
+                    
+                    const removeBtn = entryDiv.querySelector('button');
+                    removeBtn.onclick = () => {
+                        mapData.spawnTable.splice(index, 1);
+                        renderSpawnEntries();
+                    };
+                    
+                    spawnEntriesDiv.appendChild(entryDiv);
+                });
+            }
+        };
+        
+        renderSpawnEntries();
+        spawnTableContainer.appendChild(spawnEntriesDiv);
+
+        // Add new spawn entry form
+        const addEntryHeader = document.createElement('div');
+        addEntryHeader.textContent = 'Add New Spawn Entry';
+        addEntryHeader.style.cssText = 'font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #ccc;';
+        spawnTableContainer.appendChild(addEntryHeader);
+
+        const addEntryForm = document.createElement('div');
+        addEntryForm.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 8px;';
+
+        // Spirit dropdown
+        const spiritSelect = document.createElement('select');
+        spiritSelect.style.cssText = 'padding: 8px; background: #1a1a1a; color: white; border: 1px solid #555; border-radius: 4px; font-size: 12px; grid-column: 1 / -1;';
+        
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = '-- Select Spirit --';
+        spiritSelect.appendChild(defaultOption);
+        
+        if (this.editor.game.spiritRegistry && this.editor.game.spiritRegistry.loaded) {
+            const allTemplates = this.editor.game.spiritRegistry.getAllTemplates();
+            allTemplates.forEach(template => {
+                const option = document.createElement('option');
+                option.value = template.id;
+                option.textContent = `${template.name} (${template.rarity})`;
+                spiritSelect.appendChild(option);
+            });
+        }
+        addEntryForm.appendChild(spiritSelect);
+
+        // Max Population
+        const maxPopInput = document.createElement('input');
+        maxPopInput.type = 'number';
+        maxPopInput.placeholder = 'Max Population';
+        maxPopInput.value = '5';
+        maxPopInput.min = '1';
+        maxPopInput.style.cssText = 'padding: 8px; background: #1a1a1a; color: white; border: 1px solid #555; border-radius: 4px; font-size: 12px;';
+        addEntryForm.appendChild(maxPopInput);
+
+        // Spawn Rate
+        const spawnRateInput = document.createElement('input');
+        spawnRateInput.type = 'number';
+        spawnRateInput.placeholder = 'Spawn Rate/s';
+        spawnRateInput.value = '0.1';
+        spawnRateInput.step = '0.01';
+        spawnRateInput.min = '0.01';
+        spawnRateInput.style.cssText = 'padding: 8px; background: #1a1a1a; color: white; border: 1px solid #555; border-radius: 4px; font-size: 12px;';
+        addEntryForm.appendChild(spawnRateInput);
+
+        // Time Condition
+        const timeSelect = document.createElement('select');
+        timeSelect.style.cssText = 'padding: 8px; background: #1a1a1a; color: white; border: 1px solid #555; border-radius: 4px; font-size: 12px; grid-column: 1 / -1;';
+        
+        const timeOptions = [
+            { value: 'any', label: 'Any Time' },
+            { value: 'day', label: '☀️ Day (7:00 - 17:00)' },
+            { value: 'night', label: '🌙 Night (0:00 - 5:00)' },
+            { value: 'dawn', label: '🌅 Dawn (5:00 - 7:00)' },
+            { value: 'dusk', label: '🌆 Dusk (17:00 - 19:00)' },
+            { value: 'nightfall', label: '🌃 Nightfall (19:00 - 24:00)' }
+        ];
+        
+        timeOptions.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.value;
+            option.textContent = opt.label;
+            timeSelect.appendChild(option);
+        });
+        addEntryForm.appendChild(timeSelect);
+
+        // Add button
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.textContent = '➕ Add Spawn Entry';
+        addBtn.style.cssText = 'padding: 10px; background: #5cb85c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; grid-column: 1 / -1; margin-top: 4px;';
+        addBtn.onclick = () => {
+            const spiritId = spiritSelect.value;
+            const maxPopulation = parseInt(maxPopInput.value);
+            const spawnRate = parseFloat(spawnRateInput.value);
+            const timeCondition = timeSelect.value;
+            
+            if (!spiritId) {
+                this.showNotification('⚠️ Please select a spirit', 'warning');
+                return;
+            }
+            
+            if (maxPopulation < 1) {
+                this.showNotification('⚠️ Max population must be at least 1', 'warning');
+                return;
+            }
+            
+            if (spawnRate <= 0) {
+                this.showNotification('⚠️ Spawn rate must be greater than 0', 'warning');
+                return;
+            }
+            
+            mapData.spawnTable.push({
+                spiritId: spiritId,
+                maxPopulation: maxPopulation,
+                spawnRate: spawnRate,
+                timeCondition: timeCondition
+            });
+            
+            renderSpawnEntries();
+            spiritSelect.value = '';
+            maxPopInput.value = '5';
+            spawnRateInput.value = '0.1';
+            timeSelect.value = 'any';
+            
+            this.showNotification('✅ Spawn entry added!');
+        };
+        addEntryForm.appendChild(addBtn);
+
+        spawnTableContainer.appendChild(addEntryForm);
+        form.appendChild(spawnTableContainer);
 
         modal.appendChild(form);
 
@@ -2417,10 +2611,11 @@ class EditorUI {
         paintModeLabel.style.cssText = 'margin-bottom: 8px; font-size: 13px; font-weight: bold;';
         scrollContent.appendChild(paintModeLabel);
         
-        // Layer selection (Texture or Collision)
+        // Layer selection (Texture, Collision, or Spawn)
         const paintModes = [
             { value: 'texture', label: '🎨 Texture Layer' },
-            { value: 'collision', label: '🚧 Collision Layer' }
+            { value: 'collision', label: '🚧 Collision Layer' },
+            { value: 'spawn', label: '🎯 Spawn Zones' }
         ];
         
         // Initialize paint mode if not set
@@ -2430,22 +2625,21 @@ class EditorUI {
         
         const paintModeButtons = [];
         
-        paintModes.forEach(mode => {
+        paintModes.forEach((mode, index) => {
             const btn = document.createElement('button');
             btn.textContent = mode.label;
             btn.dataset.paintMode = mode.value;
             btn.style.cssText = `
-                width: 48%;
+                width: 100%;
                 padding: 8px;
                 margin-bottom: 8px;
-                margin-right: ${mode.value === 'texture' ? '4%' : '0'};
                 background: ${this.editor.paintMode === mode.value ? '#4a9eff' : '#333'};
                 color: white;
                 border: 1px solid #555;
                 border-radius: 4px;
                 cursor: pointer;
                 font-size: 11px;
-                display: inline-block;
+                display: block;
             `;
             btn.onclick = () => {
                 this.editor.paintMode = mode.value;

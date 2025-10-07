@@ -47,6 +47,9 @@ class GameEngine {
         // Static object registry for template management
         this.staticObjectRegistry = new StaticObjectRegistry();
         
+        // Spirit registry for spirit templates
+        this.spiritRegistry = new SpiritRegistry(this);
+        
         // Core systems
         this.audioManager = new AudioManager();
         this.inputManager = new InputManager();
@@ -82,6 +85,9 @@ class GameEngine {
         
         // Weather system
         this.weatherSystem = new WeatherSystem(this);
+        
+        // Spawn system for spirits
+        this.spawnManager = new SpawnManager(this);
         
         // Game state
         this.currentMapId = '0-0';
@@ -129,6 +135,9 @@ class GameEngine {
             await this.mapManager.initialize();
             await this.objectManager.initialize();
             await this.itemManager.initialize();
+            
+            // Load spirit templates
+            await this.spiritRegistry.load();
             
             this.maps = this.mapManager.maps;
             
@@ -397,6 +406,11 @@ class GameEngine {
             this.weatherSystem.update(deltaTime);
         }
         
+        // Update spawn manager for spirit spawning
+        if (this.spawnManager) {
+            this.spawnManager.update(deltaTime);
+        }
+        
         // Handle input for gameplay
         this.handleGameplayInput(this.inputManager);
         
@@ -594,6 +608,11 @@ class GameEngine {
         // Initialize weather system for this map
         if (this.weatherSystem) {
             this.weatherSystem.setWeather(mapData.weather || null);
+        }
+        
+        // Initialize spawn system for this map
+        if (this.spawnManager) {
+            this.spawnManager.initialize(mapId);
         }
         
         console.log(`Loaded map: ${mapId}`);

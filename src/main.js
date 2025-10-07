@@ -35,6 +35,9 @@ async function loadGameScripts() {
         // Load static object registry for template management
         await loadScript('/src/systems/StaticObjectRegistry.js');
         
+        // Load spirit registry for spirit templates
+        await loadScript('/src/systems/SpiritRegistry.js');
+        
         // Load manager systems
         await loadScript('/src/systems/AudioManager.js');
         await loadScript('/src/systems/InputManager.js');
@@ -55,6 +58,7 @@ async function loadGameScripts() {
         await loadScript('/src/systems/DayNightShader.js'); // NEW: WebGL shader for day/night lighting
         await loadScript('/src/systems/DayNightCycle.js'); // NEW: Day/night cycle system
         await loadScript('/src/systems/WeatherSystem.js'); // NEW: Weather effects system
+        await loadScript('/src/systems/SpawnManager.js'); // NEW: Spirit spawning system
         await loadScript('/src/systems/PerformanceMonitor.js');
         await loadScript('/src/systems/SaveGameManager.js');
         
