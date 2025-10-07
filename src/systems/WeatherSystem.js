@@ -40,6 +40,7 @@ class WeatherSystem {
             this.wind = 'none';
             this.particles = 'none';
             console.log('🌤️ Weather system disabled (no config)');
+            this.stopWeatherSounds();
             return;
         }
         
@@ -51,6 +52,44 @@ class WeatherSystem {
         
         // Initialize particles
         this.initializeParticles();
+        
+        // Start weather sounds
+        this.updateWeatherSounds();
+    }
+    
+    /**
+     * Update weather sound effects based on current weather
+     */
+    updateWeatherSounds() {
+        if (!this.game.audioManager) return;
+        
+        // Determine which sound to play
+        // Priority: Rain/Snow > Wind
+        let weatherSound = 'none';
+        
+        if (this.precipitation.startsWith('rain')) {
+            weatherSound = this.precipitation; // rain-light, rain-medium, rain-heavy
+        } else if (this.precipitation.startsWith('snow')) {
+            // Snow uses wind sounds (wind with snow visual)
+            if (this.wind !== 'none' && this.wind !== 'dynamic') {
+                weatherSound = `wind-${this.wind}`; // wind-light, wind-medium, wind-heavy
+            } else {
+                weatherSound = 'wind-light'; // Default gentle wind for snow
+            }
+        } else if (this.wind !== 'none' && this.wind !== 'dynamic') {
+            weatherSound = `wind-${this.wind}`; // wind-light, wind-medium, wind-heavy
+        }
+        
+        this.game.audioManager.playWeatherSound(weatherSound);
+    }
+    
+    /**
+     * Stop weather sounds
+     */
+    stopWeatherSounds() {
+        if (this.game.audioManager) {
+            this.game.audioManager.stopWeatherSound();
+        }
     }
     
     /**

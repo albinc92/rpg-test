@@ -151,13 +151,14 @@ class DayNightCycle {
      * @param {CanvasRenderingContext2D} ctx - Canvas context
      * @param {number} width - Canvas width
      * @param {number} height - Canvas height
+     * @param {Object} weatherState - Optional weather state for cloud darkening
      */
-    render(ctx, width, height) {
+    render(ctx, width, height, weatherState = null) {
         // Use Canvas 2D filters for GPU-accelerated lighting
         // This applies effects without touching pixels or coordinates
         if (this.useShader && this.shader) {
             this.shader.updateFromTimeOfDay(this.timeOfDay);
-            this.renderWithFilters(ctx, width, height);
+            this.renderWithFilters(ctx, width, height, weatherState);
         } else {
             // Fallback: Use simple 2D overlay
             this.renderOverlay(ctx, width, height);
@@ -168,10 +169,22 @@ class DayNightCycle {
      * Render using layered approach: darkening + blue tint
      * Smooth continuous transitions across all time periods
      */
-    renderWithFilters(ctx, width, height) {
+    renderWithFilters(ctx, width, height, weatherState = null) {
         this.shader.updateFromTimeOfDay(this.timeOfDay);
         
         const time = this.timeOfDay;
+        
+        // Calculate weather darkening factor
+        let weatherDarkening = 0;
+        if (weatherState) {
+            if (weatherState.precipitation === 'rain-light' || weatherState.precipitation === 'snow-light') {
+                weatherDarkening = 0.15;
+            } else if (weatherState.precipitation === 'rain-medium' || weatherState.precipitation === 'snow-medium') {
+                weatherDarkening = 0.3;
+            } else if (weatherState.precipitation === 'rain-heavy' || weatherState.precipitation === 'snow-heavy') {
+                weatherDarkening = 0.5;
+            }
+        }
         
         // Calculate lighting values with smooth interpolation
         let darknessR, darknessG, darknessB;
@@ -201,9 +214,20 @@ class DayNightCycle {
             tintB = Math.floor(150 - t * 120);      // 150 -> 30
             tintAlpha = 0.35 - t * 0.25;            // 0.35 -> 0.1
         }
-        // Day (7-17): Full brightness, no tint needed
+        // Day (7-17): Full brightness, but apply weather darkening if raining/snowing
         else if (time >= 7 && time < 17) {
-            return; // No overlay during full daylight
+            if (weatherDarkening > 0) {
+                // Apply cloud darkening during daytime
+                darknessR = Math.floor(255 - weatherDarkening * 120);  // Darken based on weather
+                darknessG = Math.floor(255 - weatherDarkening * 120);
+                darknessB = Math.floor(255 - weatherDarkening * 100);  // Slightly less blue reduction
+                tintR = 180;
+                tintG = 190;
+                tintB = 200;  // Slight cool/gray tint for clouds
+                tintAlpha = weatherDarkening * 0.3;  // Subtle cloud color
+            } else {
+                return; // No overlay during clear daylight
+            }
         }
         // Dusk (17-19): Warm orange/red glow with slight darkening
         else if (time >= 17 && time < 19) {
@@ -230,6 +254,17 @@ class DayNightCycle {
             tintG = Math.floor(80 - t * 30);        // 80 -> 50
             tintB = Math.floor(20 + t * 130);       // 20 -> 150
             tintAlpha = 0.3 + t * 0.1;              // 0.3 -> 0.4
+        }
+        
+        // Additional weather darkening (applied on top of time-of-day)
+        if (weatherDarkening > 0 && time >= 7 && time < 17) {
+            // During day, weather provides the main darkening
+        } else if (weatherDarkening > 0) {
+            // During non-day hours, darken even more with weather
+            const extraDark = Math.floor(weatherDarkening * 50);
+            darknessR = Math.max(40, darknessR - extraDark);
+            darknessG = Math.max(40, darknessG - extraDark);
+            darknessB = Math.max(40, darknessB - extraDark);
         }
         
         // Apply darkening layer (multiply blend)

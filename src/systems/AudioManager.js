@@ -6,6 +6,10 @@ class AudioManager {
         this.currentAmbience = null;
         this.effectsAudio = new Map();
         
+        // Weather sound effects
+        this.weatherAudio = null;
+        this.currentWeatherSound = null;
+        
         // Crossfade settings
         this.DEFAULT_CROSSFADE_DURATION = 1500; // 1.5 seconds default
         this.activeCrossfades = new Set();
@@ -505,6 +509,186 @@ class AudioManager {
                 });
             }
         }
+    }
+
+    /**
+     * Play weather sound effects (rain, wind)
+     * @param {string} weatherType - Type of weather sound (e.g., 'rain-light', 'wind-medium')
+     * @param {number} crossfadeDuration - Duration of crossfade in milliseconds
+     */
+    playWeatherSound(weatherType, crossfadeDuration = this.DEFAULT_CROSSFADE_DURATION) {
+        // Handle null/empty (no weather sound should play)
+        if (!weatherType || weatherType === 'none') {
+            console.log('[AudioManager] No weather sound, stopping current weather audio');
+            this.crossfadeWeatherOut(crossfadeDuration);
+            return;
+        }
+
+        // Map weather types to audio files
+        const weatherSoundMap = {
+            'rain-light': 'rain-light.mp3',
+            'rain-medium': 'rain-medium.mp3',
+            'rain-heavy': 'rain-heavy.mp3',
+            'snow-light': 'wind-light.mp3',  // Snow uses wind sounds
+            'snow-medium': 'wind-medium.mp3',
+            'snow-heavy': 'wind-heavy.mp3',
+            'wind-light': 'wind-light.mp3',
+            'wind-medium': 'wind-medium.mp3',
+            'wind-heavy': 'wind-heavy.mp3'
+        };
+
+        const filename = weatherSoundMap[weatherType];
+        if (!filename) {
+            console.log(`[AudioManager] No sound mapped for weather type: ${weatherType}`);
+            return;
+        }
+
+        // Check if already playing
+        if (this.currentWeatherSound === filename && this.weatherAudio && !this.weatherAudio.paused) {
+            console.log(`[AudioManager] Weather sound '${filename}' is already playing, ignoring request`);
+            return;
+        }
+
+        const playAction = () => {
+            console.log(`[AudioManager] 🌧️ Playing Weather Sound with crossfade: ${filename} (${crossfadeDuration}ms)`);
+            
+            // Create new audio element
+            const newWeather = this.createAudioElement(`assets/audio/effect/${filename}`, 'Weather');
+            if (!newWeather) {
+                console.error(`[AudioManager] ❌ Failed to create weather audio element for: ${filename}`);
+                return;
+            }
+
+            newWeather.loop = true;
+            newWeather.volume = 0; // Start at 0 for crossfade in
+            
+            // Start playing the new track
+            const playPromise = newWeather.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    console.log(`[AudioManager] ✅ Weather sound '${filename}' loaded successfully, starting crossfade`);
+                    this.crossfadeWeather(this.weatherAudio, newWeather, crossfadeDuration, filename);
+                }).catch(error => {
+                    console.error(`[AudioManager] ❌ Failed to play weather sound '${filename}':`, error);
+                    this.audioElements.delete(newWeather);
+                });
+            }
+        };
+
+        if (this.audioEnabled) {
+            playAction();
+        } else {
+            console.log(`[AudioManager] Audio not enabled yet, queueing weather sound: ${filename}`);
+            this.pendingActions.push(playAction);
+        }
+    }
+
+    /**
+     * Crossfade between weather tracks
+     */
+    crossfadeWeather(oldAudio, newAudio, duration, newFilename) {
+        const steps = 50;
+        const stepTime = duration / steps;
+        const volumeStep = this.calculateEffectVolume() / steps;
+        
+        let currentStep = 0;
+        const crossfadeId = `weather_${Date.now()}`;
+        this.activeCrossfades.add(crossfadeId);
+
+        const fadeInterval = setInterval(() => {
+            if (!this.activeCrossfades.has(crossfadeId)) {
+                clearInterval(fadeInterval);
+                return;
+            }
+
+            currentStep++;
+            const progress = currentStep / steps;
+            
+            // Fade out old audio
+            if (oldAudio && !oldAudio.paused) {
+                oldAudio.volume = Math.max(0, this.calculateEffectVolume() * (1 - progress));
+            }
+            
+            // Fade in new audio
+            if (newAudio && !newAudio.paused) {
+                newAudio.volume = Math.min(this.calculateEffectVolume(), this.calculateEffectVolume() * progress);
+            }
+            
+            if (currentStep >= steps) {
+                clearInterval(fadeInterval);
+                this.activeCrossfades.delete(crossfadeId);
+                
+                // Stop and clean up old audio
+                if (oldAudio && oldAudio !== newAudio) {
+                    oldAudio.pause();
+                    oldAudio.currentTime = 0;
+                    this.audioElements.delete(oldAudio);
+                }
+                
+                // Update current weather reference
+                this.weatherAudio = newAudio;
+                this.currentWeatherSound = newFilename;
+                
+                console.log(`[AudioManager] Weather crossfade complete: ${newFilename}`);
+            }
+        }, stepTime);
+    }
+
+    /**
+     * Crossfade weather sound out
+     */
+    crossfadeWeatherOut(duration) {
+        if (!this.weatherAudio || this.weatherAudio.paused) {
+            this.currentWeatherSound = null;
+            return;
+        }
+
+        const steps = 50;
+        const stepTime = duration / steps;
+        const volumeStep = this.calculateEffectVolume() / steps;
+        
+        let currentStep = 0;
+        const crossfadeId = `weather_out_${Date.now()}`;
+        this.activeCrossfades.add(crossfadeId);
+
+        const fadeInterval = setInterval(() => {
+            if (!this.activeCrossfades.has(crossfadeId)) {
+                clearInterval(fadeInterval);
+                return;
+            }
+
+            currentStep++;
+            
+            if (this.weatherAudio && !this.weatherAudio.paused) {
+                this.weatherAudio.volume = Math.max(0, this.weatherAudio.volume - volumeStep);
+            }
+            
+            if (currentStep >= steps) {
+                clearInterval(fadeInterval);
+                this.activeCrossfades.delete(crossfadeId);
+                
+                if (this.weatherAudio) {
+                    this.weatherAudio.pause();
+                    this.weatherAudio.currentTime = 0;
+                    this.audioElements.delete(this.weatherAudio);
+                }
+                this.currentWeatherSound = null;
+                this.weatherAudio = null;
+                
+                console.log('[AudioManager] Weather sound crossfade out complete');
+            }
+        }, stepTime);
+    }
+
+    stopWeatherSound() {
+        if (this.weatherAudio && !this.weatherAudio.paused) {
+            console.log(`[AudioManager] Stopping Weather Sound: ${this.currentWeatherSound}`);
+            this.weatherAudio.pause();
+            this.weatherAudio.currentTime = 0;
+            this.audioElements.delete(this.weatherAudio);
+        }
+        this.currentWeatherSound = null;
+        this.weatherAudio = null;
     }
 
     /**
