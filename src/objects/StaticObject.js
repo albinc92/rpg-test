@@ -25,6 +25,13 @@ class StaticObject extends GameObject {
         // Behavior flags
         this.swaysInWind = options.swaysInWind || false; // Trees, grass
         
+        // Auto-enable sway animation if swaysInWind is true
+        if (this.swaysInWind && this.animationType === 'none') {
+            this.animationType = 'sway';
+            this.animationSpeed = 0.001;
+            this.animationIntensity = 1.0;
+        }
+        
         // Environmental properties
         this.providesShade = options.providesShade || false;
         this.makesSound = options.makesSound || false;
@@ -64,8 +71,35 @@ class StaticObject extends GameObject {
      * Update swaying animation (for trees, grass, etc.)
      */
     updateSwayAnimation(game) {
-        // Swaying will be handled in rendering
-        this.swayOffset = Math.sin(game.gameTime * this.animationSpeed) * this.animationIntensity;
+        // Get wind strength from weather system
+        let windStrength = 0;
+        let hasWind = false;
+        if (game?.weatherSystem && this.swaysInWind) {
+            windStrength = game.weatherSystem.windStrength || 0;
+            hasWind = windStrength > 0;
+        }
+        
+        // Base sway from animation settings (gentle idle sway)
+        const baseFrequency = this.animationSpeed;
+        const baseSway = Math.sin(game.gameTime * baseFrequency) * this.animationIntensity * 0.5;
+        
+        if (hasWind) {
+            // Enhanced sway from wind
+            const windMultiplier = 5.0; // Strong visible effect
+            
+            // Primary wind wave (affects all objects)
+            const windWave = Math.sin(game.gameTime * 0.002) * windStrength * windMultiplier;
+            
+            // Per-object variation (based on position for natural look)
+            const objectPhase = (this.x + this.y) * 0.01; // Unique phase per object
+            const objectVariation = Math.sin(game.gameTime * 0.003 + objectPhase) * windStrength * windMultiplier * 0.7;
+            
+            // Combine: base idle + wind wave + individual variation
+            this.swayOffset = baseSway + windWave + objectVariation;
+        } else {
+            // No wind - just gentle idle sway
+            this.swayOffset = baseSway;
+        }
     }
     
     /**
