@@ -38,8 +38,8 @@ class CollisionSystem {
      * Now properly accounts for all sprite scaling
      */
     checkCollision(objA, objB, game) {
-        const shapeA = objA.collisionShape || 'rectangle';
-        const shapeB = objB.collisionShape || 'rectangle';
+        const shapeA = objA.collisionShape || 'circle';
+        const shapeB = objB.collisionShape || 'circle';
         
         // Rectangle-Rectangle collision (AABB)
         if (shapeA === 'rectangle' && shapeB === 'rectangle') {
@@ -176,7 +176,7 @@ class CollisionSystem {
      * Check if a point is inside an object's collision bounds
      */
     pointInCollisionBounds(x, y, obj, game) {
-        const shape = obj.collisionShape || 'rectangle';
+        const shape = obj.collisionShape || 'circle';
         
         if (shape === 'circle') {
             const circle = obj.getCollisionCircle(game);

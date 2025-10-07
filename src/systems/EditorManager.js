@@ -617,7 +617,7 @@ class EditorManager {
             collisionY += (expandBottom - expandTop) / 2;
             
             // Get collision shape
-            const collisionShape = this.selectedPrefab.collisionShape || 'rectangle';
+            const collisionShape = this.selectedPrefab.collisionShape || 'circle';
             
             ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
             ctx.lineWidth = 2;

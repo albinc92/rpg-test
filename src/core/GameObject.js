@@ -50,7 +50,7 @@ class GameObject {
         this.collisionOffsetYPercent = options.collisionOffsetYPercent || 0; // Vertical offset for collision box
         
         // Collision shape - 'rectangle' or 'circle' (ellipse if width != height)
-        this.collisionShape = options.collisionShape || 'rectangle'; // Default to rectangle for backward compatibility
+        this.collisionShape = options.collisionShape || 'circle'; // Default to circle for more natural collision
         
         // Collision behavior
         this.blocksMovement = options.blocksMovement !== false; // Default true - whether this object blocks other objects

@@ -187,7 +187,7 @@ class PropertyPanel {
             rectangleRadio.type = 'radio';
             rectangleRadio.name = 'collisionShape';
             rectangleRadio.value = 'rectangle';
-            rectangleRadio.checked = (obj.collisionShape || 'rectangle') === 'rectangle';
+            rectangleRadio.checked = obj.collisionShape === 'rectangle';
             rectangleRadio.style.cssText = 'cursor: pointer;';
             rectangleRadio.onchange = () => {
                 obj.collisionShape = 'rectangle';
@@ -203,7 +203,7 @@ class PropertyPanel {
             circleRadio.type = 'radio';
             circleRadio.name = 'collisionShape';
             circleRadio.value = 'circle';
-            circleRadio.checked = obj.collisionShape === 'circle';
+            circleRadio.checked = (obj.collisionShape || 'circle') === 'circle';
             circleRadio.style.cssText = 'cursor: pointer;';
             circleRadio.onchange = () => {
                 obj.collisionShape = 'circle';
