@@ -21,7 +21,7 @@ class WeatherSystem {
         this.rainParticles = [];
         this.snowParticles = [];
         this.leafParticles = [];
-        this.maxParticles = 200;
+        this.maxParticles = 500;
         
         // Wind properties
         this.windStrength = 0; // 0-1
@@ -39,12 +39,15 @@ class WeatherSystem {
             this.precipitation = 'none';
             this.wind = 'none';
             this.particles = 'none';
+            console.log('🌤️ Weather system disabled (no config)');
             return;
         }
         
         this.precipitation = weatherConfig.precipitation || 'none';
         this.wind = weatherConfig.wind || 'none';
         this.particles = weatherConfig.particles || 'none';
+        
+        console.log(`🌤️ Weather set - Precipitation: ${this.precipitation}, Wind: ${this.wind}, Particles: ${this.particles}`);
         
         // Initialize particles
         this.initializeParticles();
@@ -59,8 +62,11 @@ class WeatherSystem {
         this.snowParticles = [];
         this.leafParticles = [];
         
-        const canvasWidth = this.canvas.width;
-        const canvasHeight = this.canvas.height;
+        // Account for devicePixelRatio
+        const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
+        const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
+        
+        console.log(`🌤️ Initializing weather particles (${canvasWidth}x${canvasHeight})`);
         
         // Initialize rain particles
         if (this.precipitation.startsWith('rain')) {
@@ -92,9 +98,9 @@ class WeatherSystem {
      */
     getParticleCount(type) {
         if (type === 'rain') {
-            if (this.precipitation === 'rain-light') return 100;
-            if (this.precipitation === 'rain-medium') return 150;
-            if (this.precipitation === 'rain-heavy') return 200;
+            if (this.precipitation === 'rain-light') return 200;
+            if (this.precipitation === 'rain-medium') return 350;
+            if (this.precipitation === 'rain-heavy') return 500;
         }
         if (type === 'snow') {
             if (this.precipitation === 'snow-light') return 50;
@@ -247,15 +253,15 @@ class WeatherSystem {
      * Update rain particles
      */
     updateRainParticles(deltaTime) {
-        const canvasWidth = this.canvas.width;
-        const canvasHeight = this.canvas.height;
+        const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
+        const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
         
         for (let particle of this.rainParticles) {
-            // Apply wind
-            const windForce = Math.cos(this.windAngle) * this.windStrength * 5;
+            // Wind affects horizontal movement (stronger effect for rain)
+            const windForceX = this.windStrength * 15;
             
             particle.y += particle.speed * deltaTime * 60;
-            particle.x += windForce * deltaTime * 60;
+            particle.x += windForceX * deltaTime * 60;
             
             // Reset if off screen
             if (particle.y > canvasHeight) {
@@ -271,15 +277,15 @@ class WeatherSystem {
      * Update snow particles
      */
     updateSnowParticles(deltaTime) {
-        const canvasWidth = this.canvas.width;
-        const canvasHeight = this.canvas.height;
+        const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
+        const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
         
         for (let particle of this.snowParticles) {
             // Update sway
             particle.sway += particle.swaySpeed;
             
-            // Apply wind and sway
-            const windForce = Math.cos(this.windAngle) * this.windStrength * 3;
+            // Apply wind and sway (wind has stronger effect)
+            const windForce = this.windStrength * 8;
             const swayOffset = Math.sin(particle.sway) * 2;
             
             particle.y += particle.speed * deltaTime * 60;
@@ -299,26 +305,33 @@ class WeatherSystem {
      * Update leaf particles
      */
     updateLeafParticles(deltaTime) {
-        const canvasWidth = this.canvas.width;
-        const canvasHeight = this.canvas.height;
+        const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
+        const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
         
         for (let particle of this.leafParticles) {
             // Update rotation and sway
             particle.rotation += particle.rotationSpeed;
             particle.sway += particle.swaySpeed;
             
-            // Apply wind and sway
-            const windForce = Math.cos(this.windAngle) * this.windStrength * 4;
+            // Wind has strong effect on leaves - they blow sideways
+            const windForce = this.windStrength * 12;
             const swayOffset = Math.sin(particle.sway) * 3;
             
-            particle.y += particle.speed * deltaTime * 60;
+            // Wind also affects fall speed slightly (updrafts)
+            const windVerticalEffect = this.windStrength * -0.5;
+            
+            particle.y += (particle.speed + windVerticalEffect) * deltaTime * 60;
             particle.x += (windForce + swayOffset) * deltaTime * 60;
+            
+            // Increase rotation speed with wind
+            particle.rotationSpeed += this.windStrength * 0.001;
             
             // Reset if off screen
             if (particle.y > canvasHeight + 20) {
                 particle.y = -20;
                 particle.x = Math.random() * canvasWidth;
                 particle.rotation = Math.random() * Math.PI * 2;
+                particle.rotationSpeed = (Math.random() - 0.5) * 0.05;
             }
             if (particle.x < -50) particle.x = canvasWidth + 50;
             if (particle.x > canvasWidth + 50) particle.x = -50;
@@ -328,13 +341,17 @@ class WeatherSystem {
     /**
      * Render weather effects
      */
-    render() {
+    render(canvasWidth, canvasHeight) {
         const ctx = this.ctx;
+        
+        // Use provided dimensions or fallback to canvas properties
+        const width = canvasWidth || this.canvas.width;
+        const height = canvasHeight || this.canvas.height;
         
         // Render sun effects (lens flare/god rays)
         if (this.precipitation === 'sun' || 
             (this.precipitation === 'dynamic' && this.currentDynamicWeather === 'sun')) {
-            this.renderSunEffects();
+            this.renderSunEffects(width, height);
         }
         
         // Render rain
@@ -358,7 +375,7 @@ class WeatherSystem {
     /**
      * Render sun effects (lens flare/god rays)
      */
-    renderSunEffects() {
+    renderSunEffects(width, height) {
         // Only show during daytime
         if (this.game.dayNightCycle) {
             const time = this.game.dayNightCycle.time;
@@ -366,8 +383,6 @@ class WeatherSystem {
         }
         
         const ctx = this.ctx;
-        const width = this.canvas.width;
-        const height = this.canvas.height;
         
         // Sun position (top right area)
         const sunX = width * 0.8;
@@ -396,16 +411,17 @@ class WeatherSystem {
         const ctx = this.ctx;
         
         ctx.save();
-        ctx.strokeStyle = 'rgba(174, 194, 224, 0.5)';
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(174, 194, 224, 0.8)';
+        ctx.lineWidth = 2;
         ctx.lineCap = 'round';
         
         for (let particle of this.rainParticles) {
-            const windForce = Math.cos(this.windAngle) * this.windStrength * 5;
+            // Wind affects horizontal displacement
+            const windOffsetX = this.windStrength * 15;
             
             ctx.beginPath();
             ctx.moveTo(particle.x, particle.y);
-            ctx.lineTo(particle.x + windForce, particle.y + particle.length);
+            ctx.lineTo(particle.x + windOffsetX, particle.y + particle.length);
             ctx.stroke();
         }
         

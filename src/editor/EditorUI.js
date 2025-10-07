@@ -631,6 +631,10 @@ class EditorUI {
             font-size: 14px;
         `;
         saveBtn.onclick = () => {
+            // Reinitialize weather system with new settings
+            if (this.editor.game.weatherSystem) {
+                this.editor.game.weatherSystem.setWeather(mapData.weather || null);
+            }
             this.showNotification('✅ Map configuration saved!');
             backdrop.remove();
         };

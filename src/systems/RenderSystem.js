@@ -141,16 +141,23 @@ class RenderSystem {
         // Restore camera transform
         this.ctx.restore();
         
-        // Render day/night cycle overlay if enabled for this map
-        if (game?.currentMap?.dayNightCycle && game?.dayNightCycle) {
-            const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
-            const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
-            game.dayNightCycle.render(this.ctx, canvasWidth, canvasHeight);
+        // Get actual canvas dimensions (not scaled by devicePixelRatio)
+        const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
+        const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
+        
+        // Render weather effects in screen space (completely independent of camera/world)
+        if (game?.currentMap?.weather && game?.weatherSystem) {
+            this.ctx.save();
+            // Reset transform but keep devicePixelRatio scaling
+            const dpr = window.devicePixelRatio || 1;
+            this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            game.weatherSystem.render(canvasWidth, canvasHeight);
+            this.ctx.restore();
         }
         
-        // Render weather effects if enabled for this map
-        if (game?.currentMap?.weather && game?.weatherSystem) {
-            game.weatherSystem.render();
+        // Render day/night cycle overlay if enabled for this map
+        if (game?.currentMap?.dayNightCycle && game?.dayNightCycle) {
+            game.dayNightCycle.render(this.ctx, canvasWidth, canvasHeight);
         }
     }
     
