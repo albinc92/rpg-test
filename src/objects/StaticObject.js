@@ -77,6 +77,11 @@ class StaticObject extends GameObject {
         if (game?.weatherSystem && this.swaysInWind) {
             windStrength = game.weatherSystem.windStrength || 0;
             hasWind = windStrength > 0;
+            
+            // Debug logging (occasional)
+            if (Math.random() < 0.001) {
+                console.log('[SWAY DEBUG] Wind strength:', windStrength, 'Has wind:', hasWind, 'Weather:', game.weatherSystem.wind);
+            }
         }
         
         // Base sway from animation settings (gentle idle sway)

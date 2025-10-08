@@ -110,6 +110,7 @@ class WeatherSystem {
         // Initialize rain particles
         if (this.precipitation.startsWith('rain')) {
             const count = this.getParticleCount('rain');
+            console.log(`🌧️ Creating ${count} rain particles for ${this.precipitation}`);
             for (let i = 0; i < count; i++) {
                 this.rainParticles.push(this.createRainParticle(viewport));
             }
@@ -118,6 +119,7 @@ class WeatherSystem {
         // Initialize snow particles
         if (this.precipitation.startsWith('snow')) {
             const count = this.getParticleCount('snow');
+            console.log(`❄️ Creating ${count} snow particles for ${this.precipitation}`);
             for (let i = 0; i < count; i++) {
                 this.snowParticles.push(this.createSnowParticle(viewport));
             }
