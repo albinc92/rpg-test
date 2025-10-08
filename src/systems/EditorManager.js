@@ -602,20 +602,30 @@ class EditorManager {
         if (!this.isMultiSelecting || !this.multiSelectStart || !this.multiSelectEnd) return;
         
         const camera = this.game.camera;
-        
-        // Convert world coordinates to canvas coordinates (subtract camera position)
-        const startScreenX = this.multiSelectStart.x - camera.x;
-        const startScreenY = this.multiSelectStart.y - camera.y;
-        const endScreenX = this.multiSelectEnd.x - camera.x;
-        const endScreenY = this.multiSelectEnd.y - camera.y;
-        
-        // Calculate box dimensions in canvas space
-        const x = Math.min(startScreenX, endScreenX);
-        const y = Math.min(startScreenY, endScreenY);
-        const width = Math.abs(endScreenX - startScreenX);
-        const height = Math.abs(endScreenY - startScreenY);
+        const zoom = camera.zoom || 1.0;
+        const canvas = this.game.canvas;
         
         ctx.save();
+        
+        // Apply the same transformation that RenderSystem uses for the world
+        if (zoom !== 1.0) {
+            const canvasWidth = canvas.width / (window.devicePixelRatio || 1);
+            const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
+            
+            // Scale around center point (same as RenderSystem)
+            ctx.translate(canvasWidth / 2, canvasHeight / 2);
+            ctx.scale(zoom, zoom);
+            ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
+        }
+        
+        // Apply camera translation (same as RenderSystem)
+        ctx.translate(-camera.x, -camera.y);
+        
+        // Now draw in world coordinates
+        const x = Math.min(this.multiSelectStart.x, this.multiSelectEnd.x);
+        const y = Math.min(this.multiSelectStart.y, this.multiSelectEnd.y);
+        const width = Math.abs(this.multiSelectEnd.x - this.multiSelectStart.x);
+        const height = Math.abs(this.multiSelectEnd.y - this.multiSelectStart.y);
         
         // Draw semi-transparent blue fill
         ctx.fillStyle = 'rgba(0, 120, 255, 0.2)';
@@ -623,8 +633,8 @@ class EditorManager {
         
         // Draw blue border
         ctx.strokeStyle = '#0078ff';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
+        ctx.lineWidth = 2 / zoom; // Scale line width inversely with zoom
+        ctx.setLineDash([5 / zoom, 5 / zoom]); // Scale dash pattern inversely with zoom
         ctx.strokeRect(x, y, width, height);
         
         ctx.restore();
