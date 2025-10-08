@@ -711,26 +711,44 @@ class GameEngine {
         const sunHeight = Math.max(0, Math.sin((timeOfDay - 6) / 12 * Math.PI));
         
         // Shadow skew direction based on sun position
-        // Dawn (6h): sun in east → shadow skews to west (left) → negative skew
+        // Dawn (6h): sun in east (right) → shadow skews to west (left) → negative skew
         // Noon (12h): sun overhead → no skew (shadow behind object)
-        // Dusk (18h): sun in west → shadow skews to east (right) → positive skew
+        // Dusk (18h): sun in west (left) → shadow skews to east (right) → positive skew
         let shadowDirection = 0;
         if (timeOfDay >= 6 && timeOfDay <= 18) {
-            // Map time 6→18 to -1 (left) → +1 (right)
+            // Map time 6→18 to +1 (right) → -1 (left)
+            // INVERTED: We want dawn=right, dusk=left (opposite of time progress)
             const timeProgress = (timeOfDay - 6) / 12; // 0 to 1
-            shadowDirection = (timeProgress - 0.5) * 2; // -1 to +1
+            shadowDirection = (0.5 - timeProgress) * 2; // +1 to -1 (inverted!)
         }
         
-        // Shadow opacity (stronger during day, weaker at night)
+        // Shadow opacity (stronger during day, weaker/none at night)
         let shadowOpacity;
-        if (timeOfDay >= 5 && timeOfDay <= 19) {
-            // Daytime: shadow strength based on sun height
-            // At noon (sun high), shadow is strong but hidden behind object
-            // At dawn/dusk (sun low), shadow is long and visible
-            shadowOpacity = 0.5 * Math.max(0.3, sunHeight); // Always visible during day
+        let useMoonShadows = true; // Set to false to disable moon shadows completely
+        
+        if (timeOfDay >= 6 && timeOfDay < 18) {
+            // DAYTIME (6 AM - 6 PM): Sun shadows
+            // Shadow strength based on sun height
+            shadowOpacity = 0.5 * Math.max(0.3, sunHeight);
+            
+        } else if (timeOfDay >= 18 && timeOfDay < 20) {
+            // DUSK (6 PM - 8 PM): Shadows fade out as sun sets
+            const duskProgress = (timeOfDay - 18) / 2; // 0 to 1
+            shadowOpacity = 0.5 * (1 - duskProgress); // Fade from 0.5 to 0
+            
+        } else if (timeOfDay >= 4 && timeOfDay < 6) {
+            // DAWN (4 AM - 6 AM): Shadows fade in as sun rises
+            const dawnProgress = (timeOfDay - 4) / 2; // 0 to 1
+            shadowOpacity = 0.5 * dawnProgress; // Fade from 0 to 0.5
+            
+        } else if (useMoonShadows && (timeOfDay >= 20 || timeOfDay < 4)) {
+            // NIGHT (8 PM - 4 AM): Optional moon shadows (very faint, opposite direction)
+            shadowOpacity = 0.15; // Faint moon shadows
+            shadowDirection = -shadowDirection; // Moon casts shadows opposite to sun
+            
         } else {
-            // Nighttime: very faint
-            shadowOpacity = 0.05;
+            // NO SHADOWS at night if moon shadows disabled
+            shadowOpacity = 0;
         }
         
         // Shadow skew amount (how much the TOP shifts horizontally)
