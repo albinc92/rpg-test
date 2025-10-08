@@ -366,24 +366,76 @@ class EditorManager {
      */
     updateMousePosition() {
         const rect = this.game.canvas.getBoundingClientRect();
+        const canvas = this.game.canvas;
+        const ctx = this.game.ctx;
+
+        // Get mouse position (use rawMouse to match preview rendering)
+        const mouseScreenX = this.rawMouseX;
+        const mouseScreenY = this.rawMouseY;
+
+        // Calculate position relative to canvas element
+        let relativeX = mouseScreenX - rect.left;
+        let relativeY = mouseScreenY - rect.top;
+        
+        // Account for object-fit: contain letterboxing
+        // The canvas maintains aspect ratio, so there might be black bars
+        const canvasAspect = canvas.width / canvas.height;
+        const rectAspect = rect.width / rect.height;
+        
+        let renderWidth = rect.width;
+        let renderHeight = rect.height;
+        let offsetX = 0;
+        let offsetY = 0;
+        
+        if (rectAspect > canvasAspect) {
+            // Window is wider - vertical bars on sides
+            renderWidth = rect.height * canvasAspect;
+            offsetX = (rect.width - renderWidth) / 2;
+        } else {
+            // Window is taller - horizontal bars on top/bottom
+            renderHeight = rect.width / canvasAspect;
+            offsetY = (rect.height - renderHeight) / 2;
+        }
+        
+        // Adjust for letterboxing
+        relativeX = relativeX - offsetX;
+        relativeY = relativeY - offsetY;
+        
+        // Scale to actual render area
+        relativeX = (relativeX / renderWidth) * canvas.width;
+        relativeY = (relativeY / renderHeight) * canvas.height;
+        
+        // Now relativeX/Y are in canvas coordinates (0 to canvas.width/height)
+        const mouseCanvasX = relativeX;
+        const mouseCanvasY = relativeY;
+
+        // Convert canvas to world coordinates (add camera offset)
+        // The mouse canvas position needs to account for zoom to get the correct world position
         const camera = this.game.camera;
-        
-        // Simple screen to canvas coordinate conversion
-        // Screen coords → Canvas coords: account for canvas display size
-        const scaleX = this.game.canvas.width / rect.width;
-        const scaleY = this.game.canvas.height / rect.height;
-        
-        const canvasX = (this.rawMouseX - rect.left) * scaleX;
-        const canvasY = (this.rawMouseY - rect.top) * scaleY;
-        
-        // Canvas coords → World coords: add camera offset
-        const worldX = canvasX + camera.x;
-        const worldY = canvasY + camera.y;
-        
+        const zoom = camera.zoom || 1.0;
+
+        // To get world position, we need to reverse the zoom transformation
+        let worldCanvasX = mouseCanvasX;
+        let worldCanvasY = mouseCanvasY;
+
+        if (zoom !== 1.0) {
+            const canvasWidth = canvas.width / (window.devicePixelRatio || 1);
+            const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
+            const centerX = canvasWidth / 2;
+            const centerY = canvasHeight / 2;
+
+            // Reverse the zoom transformation: (point - center) / zoom + center
+            worldCanvasX = (mouseCanvasX - centerX) / zoom + centerX;
+            worldCanvasY = (mouseCanvasY - centerY) / zoom + centerY;
+        }
+
+        const worldX = worldCanvasX + camera.x;
+        const worldY = worldCanvasY + camera.y;
+
         // Store unsnapped coordinates (always available for multi-select)
         this.mouseWorldXUnsnapped = worldX;
         this.mouseWorldYUnsnapped = worldY;
-        
+
         // Apply grid snap if enabled (for placement/painting)
         if (this.snapToGrid) {
             this.mouseWorldX = Math.round(worldX / this.gridSize) * this.gridSize;
@@ -855,6 +907,12 @@ class EditorManager {
         const rect = this.game.canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
+        
+        console.log('[CLICK DEBUG] clientX/Y:', e.clientX, e.clientY);
+        console.log('[CLICK DEBUG] rect.left/top:', rect.left, rect.top);
+        console.log('[CLICK DEBUG] relative x/y:', x, y);
+        console.log('[CLICK DEBUG] mouseWorld:', this.mouseWorldX, this.mouseWorldY);
+        console.log('[CLICK DEBUG] camera:', this.game.camera.x, this.game.camera.y);
         
         // Handle paint tool
         if (this.selectedTool === 'paint') {
