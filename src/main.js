@@ -61,6 +61,7 @@ async function loadGameScripts() {
         await loadScript('/src/systems/SpawnManager.js'); // NEW: Spirit spawning system
         await loadScript('/src/systems/PerformanceMonitor.js');
         await loadScript('/src/systems/SaveGameManager.js');
+        await loadScript('/src/systems/TemplateManager.js'); // NEW: Object template system
         
         // Load editor components
         await loadScript('/src/editor/DropdownMenu.js'); // NEW: Dropdown menu component
@@ -68,6 +69,7 @@ async function loadGameScripts() {
         await loadScript('/src/editor/ObjectPalette.js');
         await loadScript('/src/editor/PropertyPanel.js');
         await loadScript('/src/editor/LayerPanel.js'); // NEW: Layer management panel
+        await loadScript('/src/editor/TemplateEditor.js'); // NEW: Template editor
         await loadScript('/src/systems/EditorManager.js');
         
         // Load game engine

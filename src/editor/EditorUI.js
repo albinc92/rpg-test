@@ -251,7 +251,16 @@ class EditorUI {
             },
             { separator: true },
             {
-                label: '🔨 Select Tool',
+                label: '� Edit Templates',
+                action: () => {
+                    if (this.editor.templateEditor) {
+                        this.editor.templateEditor.show();
+                    }
+                }
+            },
+            { separator: true },
+            {
+                label: '�🔨 Select Tool',
                 action: () => this.editor.setTool('select')
             }
         ]);

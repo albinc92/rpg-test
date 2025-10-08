@@ -89,6 +89,9 @@ class GameEngine {
         // Spawn system for spirits
         this.spawnManager = new SpawnManager(this);
         
+        // Template system for objects
+        this.templateManager = new TemplateManager(this);
+        
         // Game state
         this.currentMapId = '0-0';
         this.currentMap = null;
@@ -138,6 +141,9 @@ class GameEngine {
             
             // Load spirit templates
             await this.spiritRegistry.load();
+            
+            // Initialize template manager
+            await this.templateManager.initialize();
             
             this.maps = this.mapManager.maps;
             

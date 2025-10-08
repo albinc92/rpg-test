@@ -66,6 +66,7 @@ class EditorManager {
         this.ui = null;
         this.objectPalette = null;
         this.propertyPanel = null;
+        this.templateEditor = null;
         
         // History for undo/redo
         this.history = [];
@@ -278,6 +279,7 @@ class EditorManager {
             this.ui = new EditorUI(this);
             this.propertyPanel = new PropertyPanel(this);
             this.layerPanel = new LayerPanel(this);
+            this.templateEditor = new TemplateEditor(this);
         }
         
         // Show UI (but not layer panel by default - user can open it with F4)
