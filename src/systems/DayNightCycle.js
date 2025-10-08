@@ -40,18 +40,18 @@ class DayNightCycle {
             },
             dawn: {
                 start: 5,
-                end: 7,
-                color: { r: 255, g: 150, b: 80, a: 0.3 } // Orange/pink
+                end: 8,
+                color: { r: 255, g: 150, b: 80, a: 0.3 } // Orange/pink (3 hours)
             },
             day: {
-                start: 7,
+                start: 8,
                 end: 17,
                 color: { r: 255, g: 255, b: 255, a: 0 }  // No overlay (bright)
             },
             dusk: {
                 start: 17,
                 end: 20,
-                color: { r: 255, g: 100, b: 50, a: 0.3 }  // Orange/red
+                color: { r: 255, g: 100, b: 50, a: 0.3 }  // Orange/red (3 hours)
             },
             night2: {
                 start: 20,
@@ -201,9 +201,9 @@ class DayNightCycle {
             tintB = 150;      // Keep blue tint
             tintAlpha = 0.2 - t * 0.03;  // Was 0.4, now much subtler
         }
-        // Dawn (5-7): Gentle transition from night to day with warm colors
-        else if (time >= 5 && time < 7) {
-            const t = (time - 5) / 2;
+        // Dawn (5-8): Gentle transition from night to day with warm colors (3 hours like dusk)
+        else if (time >= 5 && time < 8) {
+            const t = (time - 5) / 3;
             // Smooth transition from night darkness (120/130/160) to day brightness (255/255/255)
             darknessR = Math.floor(120 + t * 135);  // 120 -> 255
             darknessG = Math.floor(130 + t * 125);  // 130 -> 255
@@ -214,8 +214,8 @@ class DayNightCycle {
             tintB = Math.floor(150 - t * 30);       // 150 -> 120 (keep some blue)
             tintAlpha = 0.17 - t * 0.12;            // 0.17 -> 0.05 (fade out gently)
         }
-        // Day (7-17): Full brightness, but apply weather darkening if raining/snowing
-        else if (time >= 7 && time < 17) {
+        // Day (8-17): Full brightness, but apply weather darkening if raining/snowing
+        else if (time >= 8 && time < 17) {
             if (weatherDarkening > 0) {
                 // Apply cloud darkening during daytime
                 darknessR = Math.floor(255 - weatherDarkening * 120);  // Darken based on weather
@@ -347,7 +347,8 @@ class DayNightCycle {
         
         for (const [phaseName, phase] of Object.entries(this.phases)) {
             if (time >= phase.start && time < phase.end) {
-                return phaseName;
+                // Return "night" for both night periods (0-5 and 20-24)
+                return phaseName === 'night2' ? 'night' : phaseName;
             }
         }
         

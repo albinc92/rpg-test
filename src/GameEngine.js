@@ -710,8 +710,8 @@ class GameEngine {
         // Sun rises at 6 AM (east), peaks at 12 PM (overhead), sets at 6 PM (west)
         
         // Shadow direction based on time of day (sun's east-west position)
-        // 5 AM - 7 AM (dawn): sun rising in east → shadows point LEFT (west) → skewX = -1.5
-        // 12 PM (noon): sun overhead → shadows directly below → skewX = 0
+        // 5 AM - 8 AM (dawn): sun rising in east → shadows point LEFT (west) → skewX = -1.5
+        // 12:30 PM: sun overhead → shadows directly below → skewX = 0
         // 5 PM - 8 PM (dusk): sun setting in west → shadows point RIGHT (east) → skewX = +1.5
         let shadowDirection = 0;
         let shadowOpacity = 0;
@@ -720,20 +720,20 @@ class GameEngine {
             // DAYTIME + DAWN/DUSK (5 AM - 8 PM): Calculate sun position
             // Map 5 AM → 8 PM to sun arc from east to west
             // At 5 AM: sun at far east → shadow skews MAX to left (-1)
-            // At 12 PM: sun overhead → no skew (0)
+            // At 12:30 PM: sun overhead → no skew (0)
             // At 8 PM: sun at far west → shadow skews MAX to right (+1)
             
             const dayProgress = (timeOfDay - 5) / 15; // 0 (5 AM) to 1 (8 PM)
             shadowDirection = (0.5 - dayProgress) * 2; // -1 to +1 (dawn left, dusk right)
             
             // Opacity based on time windows
-            if (timeOfDay >= 7 && timeOfDay < 17) {
-                // FULL DAYTIME (7 AM - 5 PM): Strong shadows
+            if (timeOfDay >= 8 && timeOfDay < 17) {
+                // FULL DAYTIME (8 AM - 5 PM): Strong shadows
                 shadowOpacity = 0.5;
                 
-            } else if (timeOfDay >= 5 && timeOfDay < 7) {
-                // DAWN (5 AM - 7 AM): Fade in from 0 to full
-                const dawnProgress = (timeOfDay - 5) / 2; // 0 to 1
+            } else if (timeOfDay >= 5 && timeOfDay < 8) {
+                // DAWN (5 AM - 8 AM): Fade in from 0 to full (3 hours like dusk)
+                const dawnProgress = (timeOfDay - 5) / 3; // 0 to 1
                 shadowOpacity = 0.5 * dawnProgress;
                 
             } else if (timeOfDay >= 17 && timeOfDay < 20) {

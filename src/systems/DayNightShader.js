@@ -280,15 +280,15 @@ class DayNightShader {
             this.uniforms.saturation = 0.4;
             this.uniforms.temperature = -0.6; // Cool moonlight
         }
-        // Dawn (5-7): Gradual brightening, warm orange/pink glow
-        else if (timeOfDay >= 5 && timeOfDay < 7) {
-            const t = (timeOfDay - 5) / 2;
-            this.uniforms.brightness = 0.30 + (t * 0.55); // 0.30 → 0.85
-            this.uniforms.saturation = 0.4 + (t * 0.5); // 0.4 → 0.9
-            this.uniforms.temperature = -0.6 + (t * 1.4); // -0.6 → 0.8
+        // Dawn (5-8): Gradual brightening, warm orange/pink glow (3 hours like dusk)
+        else if (timeOfDay >= 5 && timeOfDay < 8) {
+            const t = (timeOfDay - 5) / 3;
+            this.uniforms.brightness = 0.30 + (t * 0.65); // 0.30 → 0.95
+            this.uniforms.saturation = 0.4 + (t * 0.6); // 0.4 → 1.0
+            this.uniforms.temperature = -0.6 + (t * 0.7); // -0.6 → 0.1
         }
-        // Day (7-17): Full brightness, normal saturation
-        else if (timeOfDay >= 7 && timeOfDay < 17) {
+        // Day (8-17): Full brightness, normal saturation
+        else if (timeOfDay >= 8 && timeOfDay < 17) {
             const t = (timeOfDay - 7) / 10;
             // Peak at noon (12:00)
             const noonFactor = 1.0 - Math.abs((timeOfDay - 12) / 5) * 0.15;
