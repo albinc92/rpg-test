@@ -708,46 +708,42 @@ class GameEngine {
         
         // Calculate sun position throughout the day
         // Sun rises at 6 AM (east), peaks at 12 PM (overhead), sets at 6 PM (west)
-        // We need to track sun height AND sun angle separately
-        
-        // Sun height (0 = horizon, 1 = directly overhead at noon)
-        const sunHeight = Math.max(0, Math.sin((timeOfDay - 6) / 12 * Math.PI));
         
         // Shadow direction based on time of day (sun's east-west position)
-        // 4 AM - 6 AM (dawn): sun rising in east → shadows point LEFT (west) → skewX = -1.5
+        // 5 AM - 7 AM (dawn): sun rising in east → shadows point LEFT (west) → skewX = -1.5
         // 12 PM (noon): sun overhead → shadows directly below → skewX = 0
-        // 6 PM - 8 PM (dusk): sun setting in west → shadows point RIGHT (east) → skewX = +1.5
+        // 5 PM - 8 PM (dusk): sun setting in west → shadows point RIGHT (east) → skewX = +1.5
         let shadowDirection = 0;
         let shadowOpacity = 0;
         
-        if (timeOfDay >= 4 && timeOfDay < 20) {
-            // DAYTIME + DAWN/DUSK (4 AM - 8 PM): Calculate sun position
-            // Map 4 AM → 8 PM to sun arc from east to west
-            // At 4 AM: sun at far east → shadow skews MAX to left (-1)
+        if (timeOfDay >= 5 && timeOfDay < 20) {
+            // DAYTIME + DAWN/DUSK (5 AM - 8 PM): Calculate sun position
+            // Map 5 AM → 8 PM to sun arc from east to west
+            // At 5 AM: sun at far east → shadow skews MAX to left (-1)
             // At 12 PM: sun overhead → no skew (0)
             // At 8 PM: sun at far west → shadow skews MAX to right (+1)
             
-            const dayProgress = (timeOfDay - 4) / 16; // 0 (4 AM) to 1 (8 PM)
-            shadowDirection = (0.5 - dayProgress) * 2; // +1 to -1 (INVERTED: dawn left, dusk right)
+            const dayProgress = (timeOfDay - 5) / 15; // 0 (5 AM) to 1 (8 PM)
+            shadowDirection = (0.5 - dayProgress) * 2; // -1 to +1 (dawn left, dusk right)
             
             // Opacity based on time windows
-            if (timeOfDay >= 6 && timeOfDay < 18) {
-                // FULL DAYTIME (6 AM - 6 PM): Strong shadows
-                shadowOpacity = 0.5 * Math.max(0.3, sunHeight);
+            if (timeOfDay >= 7 && timeOfDay < 17) {
+                // FULL DAYTIME (7 AM - 5 PM): Strong shadows
+                shadowOpacity = 0.5;
                 
-            } else if (timeOfDay >= 4 && timeOfDay < 6) {
-                // DAWN (4 AM - 6 AM): Fade in from 0 to full
-                const dawnProgress = (timeOfDay - 4) / 2; // 0 to 1
-                shadowOpacity = 0.5 * dawnProgress * Math.max(0.3, sunHeight);
+            } else if (timeOfDay >= 5 && timeOfDay < 7) {
+                // DAWN (5 AM - 7 AM): Fade in from 0 to full
+                const dawnProgress = (timeOfDay - 5) / 2; // 0 to 1
+                shadowOpacity = 0.5 * dawnProgress;
                 
-            } else if (timeOfDay >= 18 && timeOfDay < 20) {
-                // DUSK (6 PM - 8 PM): Fade out from full to 0
-                const duskProgress = (timeOfDay - 18) / 2; // 0 to 1
-                shadowOpacity = 0.5 * (1 - duskProgress) * Math.max(0.3, sunHeight);
+            } else if (timeOfDay >= 17 && timeOfDay < 20) {
+                // DUSK (5 PM - 8 PM): Fade out from full to 0
+                const duskProgress = (timeOfDay - 17) / 3; // 0 to 1
+                shadowOpacity = 0.5 * (1 - duskProgress);
             }
             
         } else {
-            // NIGHT (8 PM - 4 AM): No shadows
+            // NIGHT (8 PM - 5 AM): No shadows
             shadowOpacity = 0;
             shadowDirection = 0;
         }
@@ -778,17 +774,14 @@ class GameEngine {
         }
         
         // Shadow skew amount (how much the TOP shifts horizontally)
-        // More skew when sun is lower (longer shadows)
-        // At noon (sunHeight = 1), skew = 0 (shadow hidden behind object)
-        // At dawn/dusk (sunHeight = 0), skew = max (long shadow)
+        // More skew at dawn/dusk, less skew at noon
         const maxSkew = 1.5; // Maximum skew factor
-        const skewX = shadowDirection * (1 - sunHeight) * maxSkew;
+        const skewX = shadowDirection * maxSkew;
         
         const props = {
             skewX,
             opacity: shadowOpacity,
-            sunHeight,
-            scaleY: 0.4 + sunHeight * 0.3 // Shadows flatter when sun is high, more visible when low
+            scaleY: 0.5 // Fixed scale for consistent shadow appearance
         };
         
         // Cache the result

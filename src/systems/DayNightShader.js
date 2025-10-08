@@ -273,19 +273,19 @@ class DayNightShader {
      * Update shader uniforms based on time of day
      */
     updateFromTimeOfDay(timeOfDay) {
-        // Night (0-5): Low brightness, low saturation, cool temperature
-        if (timeOfDay >= 0 && timeOfDay < 5) {
-            const t = timeOfDay / 5;
-            this.uniforms.brightness = 0.3 + (t * 0.05);
-            this.uniforms.saturation = 0.4 + (t * 0.1);
-            this.uniforms.temperature = -0.6 + (t * 0.2);
+        // Night (20-24 and 0-5): Complete darkness - stays constant from 8 PM to 5 AM
+        if ((timeOfDay >= 20 && timeOfDay < 24) || (timeOfDay >= 0 && timeOfDay < 5)) {
+            // Darkest settings - no gradual changes during night
+            this.uniforms.brightness = 0.30;
+            this.uniforms.saturation = 0.4;
+            this.uniforms.temperature = -0.6; // Cool moonlight
         }
         // Dawn (5-7): Gradual brightening, warm orange/pink glow
         else if (timeOfDay >= 5 && timeOfDay < 7) {
             const t = (timeOfDay - 5) / 2;
-            this.uniforms.brightness = 0.35 + (t * 0.5);
-            this.uniforms.saturation = 0.5 + (t * 0.4);
-            this.uniforms.temperature = -0.4 + (t * 1.2); // -0.4 to 0.8
+            this.uniforms.brightness = 0.30 + (t * 0.55); // 0.30 → 0.85
+            this.uniforms.saturation = 0.4 + (t * 0.5); // 0.4 → 0.9
+            this.uniforms.temperature = -0.6 + (t * 1.4); // -0.6 → 0.8
         }
         // Day (7-17): Full brightness, normal saturation
         else if (timeOfDay >= 7 && timeOfDay < 17) {
@@ -296,19 +296,13 @@ class DayNightShader {
             this.uniforms.saturation = 1.0;
             this.uniforms.temperature = 0.1; // Slight warm tint
         }
-        // Dusk (17-19): Golden hour, warm tones, increased saturation
-        else if (timeOfDay >= 17 && timeOfDay < 19) {
-            const t = (timeOfDay - 17) / 2;
-            this.uniforms.brightness = 0.85 - (t * 0.4);
-            this.uniforms.saturation = 1.0 + (t * 0.1); // Slightly boost saturation
-            this.uniforms.temperature = 0.8 - (t * 0.3); // Warm orange
-        }
-        // Nightfall (19-24): Transition to night
-        else if (timeOfDay >= 19) {
-            const t = (timeOfDay - 19) / 5;
-            this.uniforms.brightness = 0.45 - (t * 0.15);
-            this.uniforms.saturation = 1.0 - (t * 0.6);
-            this.uniforms.temperature = 0.5 - (t * 1.1); // Warm to cool
+        // Dusk (17-20): Golden hour transitioning to complete darkness by 8 PM
+        else if (timeOfDay >= 17 && timeOfDay < 20) {
+            const t = (timeOfDay - 17) / 3; // 0 (5 PM) to 1 (8 PM)
+            // Smooth transition to complete darkness by 8 PM (when shadows disappear)
+            this.uniforms.brightness = 0.85 - (t * 0.55); // 0.85 → 0.30 by 8 PM
+            this.uniforms.saturation = 1.0 - (t * 0.6); // 1.0 → 0.4 by 8 PM
+            this.uniforms.temperature = 0.8 - (t * 1.4); // Warm orange → cool blue
         }
     }
     

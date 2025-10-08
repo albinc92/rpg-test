@@ -50,13 +50,13 @@ class DayNightCycle {
             },
             dusk: {
                 start: 17,
-                end: 19,
+                end: 20,
                 color: { r: 255, g: 100, b: 50, a: 0.3 }  // Orange/red
             },
-            nightfall: {
-                start: 19,
+            night2: {
+                start: 20,
                 end: 24,
-                color: { r: 20, g: 20, b: 60, a: 0.6 }   // Dark blue overlay
+                color: { r: 20, g: 20, b: 60, a: 0.6 }   // Dark blue overlay - SAME AS NIGHT
             }
         };
         
@@ -229,31 +229,29 @@ class DayNightCycle {
                 return; // No overlay during clear daylight
             }
         }
-        // Dusk (17-19): Subtle warm glow with slight darkening (reduced intensity)
-        else if (time >= 17 && time < 19) {
-            const t = (time - 17) / 2;
-            // Very slight darkening begins
-            darknessR = Math.floor(255 - t * 20);   // 255 -> 235 (was 220)
-            darknessG = Math.floor(255 - t * 30);   // 255 -> 225 (was 200)
-            darknessB = Math.floor(255 - t * 50);   // 255 -> 205 (was 160)
-            // Subtle warm sunset colors (less saturated)
-            tintR = 255;      // Was 200, now full red
-            tintG = Math.floor(180 - t * 30);  // 180 -> 150 (was 100->80)
-            tintB = Math.floor(120 - t * 20);  // 120 -> 100 (was 30->20)
-            tintAlpha = 0.05 + t * 0.1;        // 0.05 -> 0.15 (was 0.1->0.3)
+        // Dusk (17-20): Transition from day to complete darkness by 8 PM
+        else if (time >= 17 && time < 20) {
+            const t = (time - 17) / 3; // 0 (5 PM) to 1 (8 PM)
+            // Smooth darkening from bright day to complete night
+            darknessR = Math.floor(255 - t * 135);  // 255 -> 120
+            darknessG = Math.floor(255 - t * 125);  // 255 -> 130
+            darknessB = Math.floor(255 - t * 95);   // 255 -> 160
+            // Transition from warm sunset to cool night
+            tintR = Math.floor(255 - t * 205);      // 255 -> 50
+            tintG = Math.floor(180 - t * 100);      // 180 -> 80
+            tintB = Math.floor(120 + t * 30);       // 120 -> 150
+            tintAlpha = 0.05 + t * 0.15;            // 0.05 -> 0.2
         }
-        // Nightfall (19-24): Gentle transition from warm to cool blue (reduced intensity)
-        else if (time >= 19) {
-            const t = (time - 19) / 5;
-            // Gentler progressive darkening to night
-            darknessR = Math.floor(235 - t * 115);  // 235 -> 120 (was 220->60)
-            darknessG = Math.floor(225 - t * 95);   // 225 -> 130 (was 200->70)
-            darknessB = Math.floor(205 - t * 45);   // 205 -> 160 (was 160->100)
-            // Gentler transition from warm to cool blue
-            tintR = Math.floor(255 - t * 205);      // 255 -> 50 (was 200->0)
-            tintG = Math.floor(150 - t * 70);       // 150 -> 80 (was 80->50)
-            tintB = Math.floor(100 + t * 50);       // 100 -> 150 (was 20->150)
-            tintAlpha = 0.15 + t * 0.05;            // 0.15 -> 0.2 (was 0.3->0.4)
+        // Night (20-24): Complete darkness - NO MORE TRANSITIONS
+        else if (time >= 20) {
+            // DARKEST settings - stays constant from 8 PM onwards
+            darknessR = 120;
+            darknessG = 130;
+            darknessB = 160;
+            tintR = 50;
+            tintG = 80;
+            tintB = 150;
+            tintAlpha = 0.2;
         }
         
         // Additional weather darkening (applied on top of time-of-day)
