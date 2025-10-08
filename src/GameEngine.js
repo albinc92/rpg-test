@@ -708,16 +708,18 @@ class GameEngine {
         
         // Calculate sun position throughout the day
         // Sun rises at 6 AM (east), peaks at 12 PM (overhead), sets at 6 PM (west)
+        // Moon rises at 6 PM (east), peaks at 12 AM (overhead), sets at 6 AM (west)
         
-        // Shadow direction based on time of day (sun's east-west position)
+        // Shadow direction based on time of day (sun/moon position)
         // 5 AM - 8 AM (dawn): sun rising in east → shadows point LEFT (west) → skewX = -1.5
         // 12:30 PM: sun overhead → shadows directly below → skewX = 0
         // 5 PM - 8 PM (dusk): sun setting in west → shadows point RIGHT (east) → skewX = +1.5
         let shadowDirection = 0;
         let shadowOpacity = 0;
+        let isMoonShadow = false;
         
         if (timeOfDay >= 5 && timeOfDay < 20) {
-            // DAYTIME + DAWN/DUSK (5 AM - 8 PM): Calculate sun position
+            // DAYTIME + DAWN/DUSK (5 AM - 8 PM): Sun shadows
             // Map 5 AM → 8 PM to sun arc from east to west
             // At 5 AM: sun at far east → shadow skews MAX to left (-1)
             // At 12:30 PM: sun overhead → no skew (0)
@@ -743,33 +745,63 @@ class GameEngine {
             }
             
         } else {
-            // NIGHT (8 PM - 5 AM): No shadows
-            shadowOpacity = 0;
-            shadowDirection = 0;
+            // NIGHT (8 PM - 5 AM): Moon shadows (only on clear nights)
+            // Check if weather is clear (no precipitation)
+            const hasWeather = this.currentMap && this.currentMap.weather && this.currentMap.weather.precipitation;
+            const precipitation = hasWeather ? this.currentMap.weather.precipitation : 'none';
+            const isClearNight = !hasWeather || precipitation === 'none' || precipitation === 'sun';
+            
+            if (isClearNight) {
+                isMoonShadow = true;
+                
+                // Moon cycle: mirrors sun but offset by 12 hours
+                // Moon rises at 5 PM (east), peaks at midnight (12:30 AM), sets at 5 AM (west)
+                // This creates seamless transition as sun sets
+                
+                // Need to handle wrap-around at midnight
+                let nightTime = timeOfDay >= 20 ? timeOfDay : timeOfDay + 24; // Convert 0-5 to 24-29
+                
+                // Map moon position similar to sun (5 PM/17:00 → 5 AM/5:00 + 24 = 29)
+                // Shift by 12 hours to make moon rise when sun sets
+                // At 8 PM (20): moon low in east → shadow skews right (+0.6)
+                // At 12:30 AM (24.5/0.5): moon overhead → no skew (0)
+                // At 5 AM (29/5): moon low in west → shadow skews left (-0.6)
+                
+                const nightProgress = (nightTime - 17) / 12; // 0 (5 PM) to 1 (5 AM) - 12 hour cycle
+                shadowDirection = (nightProgress - 0.5) * 2; // +1 to -1 (same direction pattern as sun)
+                
+                // Subtle moon shadows - much weaker than sun
+                // Fade in during evening (8-9 PM) and fade out before dawn (4-5 AM)
+                if (timeOfDay >= 20 && timeOfDay < 21) {
+                    // Evening fade in (8-9 PM)
+                    const fadeIn = timeOfDay - 20; // 0 to 1
+                    shadowOpacity = 0.15 * fadeIn;
+                } else if (timeOfDay >= 4 && timeOfDay < 5) {
+                    // Pre-dawn fade out (4-5 AM)
+                    const fadeOut = 1 - (timeOfDay - 4); // 1 to 0
+                    shadowOpacity = 0.15 * fadeOut;
+                } else {
+                    // Full moon shadows (9 PM - 4 AM)
+                    shadowOpacity = 0.15;
+                }
+            } else {
+                // Cloudy/rainy/snowy night: no moon visible, no shadows
+                shadowOpacity = 0;
+                shadowDirection = 0;
+            }
         }
         
-        // WEATHER EFFECTS on shadow intensity
-        if (this.currentMap && this.currentMap.weather) {
-            const weather = this.currentMap.weather;
+        // WEATHER EFFECTS on shadow intensity (only affects sun shadows, not moon)
+        if (!isMoonShadow && this.currentMap && this.currentMap.weather && this.currentMap.weather.precipitation) {
+            const precipitation = this.currentMap.weather.precipitation;
             
-            if (weather.rain && weather.rain.active) {
-                // Rain reduces shadow intensity (cloudy skies)
-                // Heavier rain = more shadow reduction
-                const rainIntensity = weather.rain.intensity || 0.5;
-                shadowOpacity *= (1 - rainIntensity * 0.7); // Up to 70% reduction
-            }
-            
-            if (weather.snow && weather.snow.active) {
-                // Snow reduces shadow intensity (overcast)
-                // Heavier snow = more shadow reduction
-                const snowIntensity = weather.snow.intensity || 0.5;
-                shadowOpacity *= (1 - snowIntensity * 0.6); // Up to 60% reduction
-            }
-            
-            if (weather.clouds && weather.clouds.active) {
-                // Clouds can reduce shadow intensity
-                const cloudDensity = weather.clouds.density || 0.5;
-                shadowOpacity *= (1 - cloudDensity * 0.5); // Up to 50% reduction
+            // Rain/snow blocks sunlight proportionally to intensity
+            if (precipitation === 'rain-light' || precipitation === 'snow-light') {
+                shadowOpacity *= 0.4; // 60% reduction - light clouds block most sun
+            } else if (precipitation === 'rain-medium' || precipitation === 'snow-medium') {
+                shadowOpacity *= 0.2; // 80% reduction - medium rain/snow heavily blocks sun
+            } else if (precipitation === 'rain-heavy' || precipitation === 'snow-heavy') {
+                shadowOpacity *= 0.05; // 95% reduction - heavy precipitation almost no shadows
             }
         }
         

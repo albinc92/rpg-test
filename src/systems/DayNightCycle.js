@@ -157,7 +157,7 @@ class DayNightCycle {
         // Use Canvas 2D filters for GPU-accelerated lighting
         // This applies effects without touching pixels or coordinates
         if (this.useShader && this.shader) {
-            this.shader.updateFromTimeOfDay(this.timeOfDay);
+            this.shader.updateFromTimeOfDay(this.timeOfDay, weatherState);
             this.renderWithFilters(ctx, width, height, weatherState);
         } else {
             // Fallback: Use simple 2D overlay
@@ -170,7 +170,7 @@ class DayNightCycle {
      * Smooth continuous transitions across all time periods
      */
     renderWithFilters(ctx, width, height, weatherState = null) {
-        this.shader.updateFromTimeOfDay(this.timeOfDay);
+        this.shader.updateFromTimeOfDay(this.timeOfDay, weatherState);
         
         const time = this.timeOfDay;
         

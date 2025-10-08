@@ -270,9 +270,25 @@ class DayNightShader {
     }
     
     /**
-     * Update shader uniforms based on time of day
+     * Update shader uniforms based on time of day and weather
      */
-    updateFromTimeOfDay(timeOfDay) {
+    updateFromTimeOfDay(timeOfDay, weatherState = null) {
+        // Calculate weather darkening factor
+        let weatherDarkening = 0;
+        let weatherDesaturation = 0;
+        if (weatherState && weatherState.precipitation) {
+            if (weatherState.precipitation === 'rain-light' || weatherState.precipitation === 'snow-light') {
+                weatherDarkening = 0.15;
+                weatherDesaturation = 0.2;
+            } else if (weatherState.precipitation === 'rain-medium' || weatherState.precipitation === 'snow-medium') {
+                weatherDarkening = 0.3;
+                weatherDesaturation = 0.35;
+            } else if (weatherState.precipitation === 'rain-heavy' || weatherState.precipitation === 'snow-heavy') {
+                weatherDarkening = 0.5;
+                weatherDesaturation = 0.5;
+            }
+        }
+        
         // Night (20-24 and 0-5): Complete darkness - stays constant from 8 PM to 5 AM
         if ((timeOfDay >= 20 && timeOfDay < 24) || (timeOfDay >= 0 && timeOfDay < 5)) {
             // Darkest settings - no gradual changes during night
@@ -283,8 +299,8 @@ class DayNightShader {
         // Dawn (5-8): Gradual brightening, warm orange/pink glow (3 hours like dusk)
         else if (timeOfDay >= 5 && timeOfDay < 8) {
             const t = (timeOfDay - 5) / 3;
-            this.uniforms.brightness = 0.30 + (t * 0.65); // 0.30 → 0.95
-            this.uniforms.saturation = 0.4 + (t * 0.6); // 0.4 → 1.0
+            this.uniforms.brightness = (0.30 + (t * 0.65)) * (1 - weatherDarkening); // Weather darkening
+            this.uniforms.saturation = (0.4 + (t * 0.6)) * (1 - weatherDesaturation); // Weather desaturation
             this.uniforms.temperature = -0.6 + (t * 0.7); // -0.6 → 0.1
         }
         // Day (8-17): Full brightness, normal saturation
@@ -292,16 +308,16 @@ class DayNightShader {
             const t = (timeOfDay - 7) / 10;
             // Peak at noon (12:00)
             const noonFactor = 1.0 - Math.abs((timeOfDay - 12) / 5) * 0.15;
-            this.uniforms.brightness = 0.95 + (noonFactor * 0.05);
-            this.uniforms.saturation = 1.0;
+            this.uniforms.brightness = (0.95 + (noonFactor * 0.05)) * (1 - weatherDarkening); // Weather darkening
+            this.uniforms.saturation = 1.0 * (1 - weatherDesaturation); // Weather desaturation
             this.uniforms.temperature = 0.1; // Slight warm tint
         }
         // Dusk (17-20): Golden hour transitioning to complete darkness by 8 PM
         else if (timeOfDay >= 17 && timeOfDay < 20) {
             const t = (timeOfDay - 17) / 3; // 0 (5 PM) to 1 (8 PM)
             // Smooth transition to complete darkness by 8 PM (when shadows disappear)
-            this.uniforms.brightness = 0.85 - (t * 0.55); // 0.85 → 0.30 by 8 PM
-            this.uniforms.saturation = 1.0 - (t * 0.6); // 1.0 → 0.4 by 8 PM
+            this.uniforms.brightness = (0.85 - (t * 0.55)) * (1 - weatherDarkening); // Weather darkening
+            this.uniforms.saturation = (1.0 - (t * 0.6)) * (1 - weatherDesaturation); // Weather desaturation
             this.uniforms.temperature = 0.8 - (t * 1.4); // Warm orange → cool blue
         }
     }
