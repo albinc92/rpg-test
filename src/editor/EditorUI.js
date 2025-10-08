@@ -251,16 +251,7 @@ class EditorUI {
             },
             { separator: true },
             {
-                label: '� Edit Templates',
-                action: () => {
-                    if (this.editor.templateEditor) {
-                        this.editor.templateEditor.show();
-                    }
-                }
-            },
-            { separator: true },
-            {
-                label: '�🔨 Select Tool',
+                label: '🔨 Select Tool',
                 action: () => this.editor.setTool('select')
             }
         ]);
@@ -365,6 +356,14 @@ class EditorUI {
                         action: () => this.showSpiritEditor(null) 
                     }
                 ]
+            },
+            {
+                label: '📝 Static Templates',
+                action: () => {
+                    if (this.editor.templateEditor) {
+                        this.editor.templateEditor.show();
+                    }
+                }
             },
             {
                 label: '🗺️ Maps',
