@@ -15,8 +15,9 @@ class DayNightCycle {
         this.timeOfDay = 12; // Start at noon
         
         // Time progression speed (1.0 = real-time, higher = faster)
-        // Default: 1 game hour = 2 real minutes (30x speed)
-        this.timeScale = 30.0;
+        // Default: 1 game hour = 1 real minute (60x speed)
+        // Full game day = 24 real minutes
+        this.timeScale = 60.0;
         
         // Enable/disable cycle progression
         this.enabled = true;

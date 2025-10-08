@@ -75,6 +75,7 @@ class SaveGameManager {
                 
                 // Game time/stats
                 playtime: game.playtime || 0,
+                timeOfDay: game.dayNightCycle ? game.dayNightCycle.timeOfDay : 12,
                 
                 // Interactive objects state (opened chests, etc.)
                 interactiveObjects: this.serializeInteractiveObjects(game),
@@ -146,6 +147,12 @@ class SaveGameManager {
             // Restore playtime
             if (saveData.playtime !== undefined) {
                 game.playtime = saveData.playtime;
+            }
+
+            // Restore time of day
+            if (saveData.timeOfDay !== undefined && game.dayNightCycle) {
+                game.dayNightCycle.timeOfDay = saveData.timeOfDay;
+                console.log('⏰ Restored time of day:', saveData.timeOfDay.toFixed(1), 'hours');
             }
 
             // Restore interactive objects state
