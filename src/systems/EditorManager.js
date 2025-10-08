@@ -11,9 +11,15 @@ class EditorManager {
         // Editor state
         this.selectedTool = 'select'; // 'select', 'place', 'paint'
         this.selectedObject = null; // Currently selected object on map
+        this.selectedObjects = []; // Multiple selected objects
         this.selectedPrefab = null; // Object type to place
         this.clipboard = null;
         this.previewSprite = null; // Cached sprite for placement preview
+        
+        // Multi-select state
+        this.isMultiSelecting = false;
+        this.multiSelectStart = { x: 0, y: 0 };
+        this.multiSelectEnd = { x: 0, y: 0 };
         
         // Paint tool state
         this.isPainting = false;
@@ -43,8 +49,10 @@ class EditorManager {
         
         // Placement preview
         this.previewObject = null;
-        this.mouseWorldX = 0;
+        this.mouseWorldX = 0; // Potentially grid-snapped
         this.mouseWorldY = 0;
+        this.mouseWorldXUnsnapped = 0; // Always unsnapped (for multi-select)
+        this.mouseWorldYUnsnapped = 0;
         this.rawMouseX = 0; // Raw screen mouse position
         this.rawMouseY = 0;
         
@@ -93,10 +101,22 @@ class EditorManager {
                 console.log('[EditorManager] Placement cancelled');
             }
             
-            // Delete selected object with 'D' or Delete key
-            else if ((e.key === 'd' || e.key === 'D' || e.key === 'Delete') && this.selectedObject) {
+            // Delete selected object(s) with 'D' or Delete key
+            else if ((e.key === 'd' || e.key === 'D' || e.key === 'Delete') && (this.selectedObject || this.selectedObjects.length > 0)) {
                 e.preventDefault();
-                this.deleteObject(this.selectedObject);
+                
+                // Delete multiple selected objects
+                if (this.selectedObjects.length > 0) {
+                    console.log(`[EditorManager] Deleting ${this.selectedObjects.length} objects`);
+                    for (const obj of this.selectedObjects) {
+                        this.deleteObject(obj);
+                    }
+                    this.selectedObjects = [];
+                } 
+                // Delete single selected object
+                else if (this.selectedObject) {
+                    this.deleteObject(this.selectedObject);
+                }
             }
             
             // Copy/paste
@@ -346,60 +366,31 @@ class EditorManager {
      */
     updateMousePosition() {
         const rect = this.game.canvas.getBoundingClientRect();
-        const canvas = this.game.canvas;
-        const ctx = this.game.ctx;
-        
-        // Get mouse position (use rawMouse to match preview rendering)
-        const mouseScreenX = this.rawMouseX;
-        const mouseScreenY = this.rawMouseY;
-        
-        // Calculate position relative to canvas element
-        const relativeX = mouseScreenX - rect.left;
-        const relativeY = mouseScreenY - rect.top;
-        
-        // Get the current context transform to see if there's additional scaling
-        const transform = ctx.getTransform();
-        const contextScaleX = transform.a; // X scale from context
-        const contextScaleY = transform.d; // Y scale from context
-        
-        // Account for both canvas size difference AND context scale
-        const canvasToDisplayX = canvas.width / rect.width;
-        const canvasToDisplayY = canvas.height / rect.height;
-        
-        // The actual scale we need is: canvas-to-display / context-scale
-        const finalScaleX = canvasToDisplayX / contextScaleX;
-        const finalScaleY = canvasToDisplayY / contextScaleY;
-        
-        const mouseCanvasX = relativeX * finalScaleX;
-        const mouseCanvasY = relativeY * finalScaleY;
-        
-        // Convert canvas to world coordinates (add camera offset)
-        // The mouse canvas position needs to account for zoom to get the correct world position
         const camera = this.game.camera;
-        const zoom = camera.zoom || 1.0;
         
-        // To get world position, we need to reverse the zoom transformation
-        let worldCanvasX = mouseCanvasX;
-        let worldCanvasY = mouseCanvasY;
+        // Simple screen to canvas coordinate conversion
+        // Screen coords → Canvas coords: account for canvas display size
+        const scaleX = this.game.canvas.width / rect.width;
+        const scaleY = this.game.canvas.height / rect.height;
         
-        if (zoom !== 1.0) {
-            const canvasWidth = canvas.width / (window.devicePixelRatio || 1);
-            const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
-            const centerX = canvasWidth / 2;
-            const centerY = canvasHeight / 2;
-            
-            // Reverse the zoom transformation: (point - center) / zoom + center
-            worldCanvasX = (mouseCanvasX - centerX) / zoom + centerX;
-            worldCanvasY = (mouseCanvasY - centerY) / zoom + centerY;
-        }
+        const canvasX = (this.rawMouseX - rect.left) * scaleX;
+        const canvasY = (this.rawMouseY - rect.top) * scaleY;
         
-        this.mouseWorldX = worldCanvasX + camera.x;
-        this.mouseWorldY = worldCanvasY + camera.y;
+        // Canvas coords → World coords: add camera offset
+        const worldX = canvasX + camera.x;
+        const worldY = canvasY + camera.y;
         
-        // Apply grid snap if enabled
+        // Store unsnapped coordinates (always available for multi-select)
+        this.mouseWorldXUnsnapped = worldX;
+        this.mouseWorldYUnsnapped = worldY;
+        
+        // Apply grid snap if enabled (for placement/painting)
         if (this.snapToGrid) {
-            this.mouseWorldX = Math.round(this.mouseWorldX / this.gridSize) * this.gridSize;
-            this.mouseWorldY = Math.round(this.mouseWorldY / this.gridSize) * this.gridSize;
+            this.mouseWorldX = Math.round(worldX / this.gridSize) * this.gridSize;
+            this.mouseWorldY = Math.round(worldY / this.gridSize) * this.gridSize;
+        } else {
+            this.mouseWorldX = worldX;
+            this.mouseWorldY = worldY;
         }
     }
 
@@ -424,6 +415,16 @@ class EditorManager {
         // Render selection highlight
         if (this.selectedObject) {
             this.renderSelection(ctx);
+        }
+        
+        // Render multi-select highlights
+        if (this.selectedObjects.length > 0) {
+            this.renderMultiSelection(ctx);
+        }
+        
+        // Render multi-select box while dragging
+        if (this.isMultiSelecting) {
+            this.renderMultiSelectBox(ctx);
         }
         
         // Render placement preview
@@ -495,6 +496,68 @@ class EditorManager {
             bounds.width,
             bounds.height
         );
+        
+        ctx.restore();
+    }
+
+    /**
+     * Render multi-selection highlights
+     */
+    renderMultiSelection(ctx) {
+        if (this.selectedObjects.length === 0) return;
+        
+        const camera = this.game.camera;
+        
+        ctx.save();
+        ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        
+        // Draw dashed outline around each selected object
+        for (const obj of this.selectedObjects) {
+            const bounds = obj.getCollisionBounds(this.game);
+            ctx.strokeRect(
+                bounds.x - camera.x,
+                bounds.y - camera.y,
+                bounds.width,
+                bounds.height
+            );
+        }
+        
+        ctx.restore();
+    }
+
+    /**
+     * Render multi-select drag box
+     */
+    renderMultiSelectBox(ctx) {
+        if (!this.isMultiSelecting || !this.multiSelectStart || !this.multiSelectEnd) return;
+        
+        const camera = this.game.camera;
+        
+        // Convert world coordinates to screen coordinates
+        const startScreenX = this.multiSelectStart.x - camera.x;
+        const startScreenY = this.multiSelectStart.y - camera.y;
+        const endScreenX = this.multiSelectEnd.x - camera.x;
+        const endScreenY = this.multiSelectEnd.y - camera.y;
+        
+        // Calculate box dimensions in screen space
+        const x = Math.min(startScreenX, endScreenX);
+        const y = Math.min(startScreenY, endScreenY);
+        const width = Math.abs(endScreenX - startScreenX);
+        const height = Math.abs(endScreenY - startScreenY);
+        
+        ctx.save();
+        
+        // Draw semi-transparent blue fill
+        ctx.fillStyle = 'rgba(0, 120, 255, 0.2)';
+        ctx.fillRect(x, y, width, height);
+        
+        // Draw blue border
+        ctx.strokeStyle = '#0078ff';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(x, y, width, height);
         
         ctx.restore();
     }
@@ -784,6 +847,11 @@ class EditorManager {
     onMouseDown(e) {
         if (!this.isActive) return;
         
+        // Update raw mouse position first
+        this.rawMouseX = e.clientX;
+        this.rawMouseY = e.clientY;
+        this.updateMousePosition();
+        
         const rect = this.game.canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
@@ -803,43 +871,55 @@ class EditorManager {
     onMouseMove(e) {
         if (!this.isActive) return;
         
+        // Update raw mouse position and calculate world coordinates
+        this.rawMouseX = e.clientX;
+        this.rawMouseY = e.clientY;
+        this.updateMousePosition();
+        
         // Handle paint tool dragging - paint continuously while dragging
         if (this.selectedTool === 'paint' && e.buttons === 1) {
-            // Mouse position is updated in the game loop via updateMousePosition
-            // But we need to ensure it's current for smooth painting
             if (this.isPainting) {
                 this.paintAt(this.mouseWorldX, this.mouseWorldY);
             }
             return;
         }
         
-        if (this.selectedTool === 'select' && this.selectedObject && e.buttons === 1) {
-            // Start dragging if not already
-            if (!this.isDragging) {
-                const dragThreshold = 5; // Pixels before starting drag
-                const dx = Math.abs(this.mouseWorldX - this.dragStartX);
-                const dy = Math.abs(this.mouseWorldY - this.dragStartY);
-                
-                if (dx > dragThreshold || dy > dragThreshold) {
-                    this.isDragging = true;
-                    this.game.canvas.style.cursor = 'move';
-                }
+        if (this.selectedTool === 'select' && e.buttons === 1) {
+            // Update multi-select box if dragging from empty space (use unsnapped coords)
+            if (this.isMultiSelecting) {
+                this.multiSelectEnd = { x: this.mouseWorldXUnsnapped, y: this.mouseWorldYUnsnapped };
+                return;
             }
             
-            // Update object position while dragging
-            if (this.isDragging) {
-                // Store old position for history
-                if (!this.dragOriginalX) {
-                    this.dragOriginalX = this.selectedObject.x;
-                    this.dragOriginalY = this.selectedObject.y;
+            // Handle single object dragging
+            if (this.selectedObject) {
+                // Start dragging if not already
+                if (!this.isDragging) {
+                    const dragThreshold = 5; // Pixels before starting drag
+                    const dx = Math.abs(this.mouseWorldX - this.dragStartX);
+                    const dy = Math.abs(this.mouseWorldY - this.dragStartY);
+                    
+                    if (dx > dragThreshold || dy > dragThreshold) {
+                        this.isDragging = true;
+                        this.game.canvas.style.cursor = 'move';
+                    }
                 }
                 
-                this.selectedObject.x = this.mouseWorldX - this.dragOffsetX;
-                this.selectedObject.y = this.mouseWorldY - this.dragOffsetY;
-                
-                // Update property panel if visible
-                if (this.propertyPanel) {
-                    this.propertyPanel.updatePosition(this.selectedObject);
+                // Update object position while dragging
+                if (this.isDragging) {
+                    // Store old position for history
+                    if (!this.dragOriginalX) {
+                        this.dragOriginalX = this.selectedObject.x;
+                        this.dragOriginalY = this.selectedObject.y;
+                    }
+                    
+                    this.selectedObject.x = this.mouseWorldX - this.dragOffsetX;
+                    this.selectedObject.y = this.mouseWorldY - this.dragOffsetY;
+                    
+                    // Update property panel if visible
+                    if (this.propertyPanel) {
+                        this.propertyPanel.updatePosition(this.selectedObject);
+                    }
                 }
             }
         }
@@ -854,6 +934,13 @@ class EditorManager {
         // Handle paint tool
         if (this.selectedTool === 'paint') {
             this.stopPainting();
+            return;
+        }
+        
+        // Handle multi-select completion
+        if (this.isMultiSelecting) {
+            this.isMultiSelecting = false;
+            this.performMultiSelect();
             return;
         }
         
@@ -880,6 +967,40 @@ class EditorManager {
     }
     
     /**
+     * Perform multi-select based on selection box
+     */
+    performMultiSelect() {
+        const minX = Math.min(this.multiSelectStart.x, this.multiSelectEnd.x);
+        const maxX = Math.max(this.multiSelectStart.x, this.multiSelectEnd.x);
+        const minY = Math.min(this.multiSelectStart.y, this.multiSelectEnd.y);
+        const maxY = Math.max(this.multiSelectStart.y, this.multiSelectEnd.y);
+        
+        // Find all objects within selection box
+        const objects = this.game.objectManager.getObjectsForMap(this.game.currentMapId);
+        this.selectedObjects = [];
+        
+        for (const obj of objects) {
+            // Check if object center is within selection box
+            if (obj.x >= minX && obj.x <= maxX && obj.y >= minY && obj.y <= maxY) {
+                this.selectedObjects.push(obj);
+            }
+        }
+        
+        console.log(`[EditorManager] Multi-selected ${this.selectedObjects.length} objects`);
+        
+        // If only one object selected, treat as single selection
+        if (this.selectedObjects.length === 1) {
+            this.selectObject(this.selectedObjects[0]);
+            this.selectedObjects = [];
+        } else if (this.selectedObjects.length > 1) {
+            this.selectedObject = null; // Clear single selection
+            if (this.propertyPanel) {
+                this.propertyPanel.hide();
+            }
+        }
+    }
+    
+    /**
      * Handle mouse click in editor
      */
     handleClick(x, y, button) {
@@ -899,12 +1020,45 @@ class EditorManager {
      * Handle select tool click
      */
     handleSelectClick(x, y) {
-        const worldX = x + this.game.camera.x;
-        const worldY = y + this.game.camera.y;
+        // Use unsnapped coordinates for accurate selection
+        const worldX = this.mouseWorldXUnsnapped;
+        const worldY = this.mouseWorldYUnsnapped;
+        
+        console.log('[SELECT] Click - screen:', x, y, 'world:', worldX, worldY, 'camera:', this.game.camera.x, this.game.camera.y);
         
         // Find object at click position
         const objects = this.game.objectManager.getObjectsForMap(this.game.currentMapId);
         
+        // Try sprite-based selection first (more accurate)
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i];
+            
+            // Check if click is within sprite bounds (visual)
+            if (obj.sprite && obj.sprite.width && obj.sprite.height) {
+                const spriteX = obj.x - (obj.sprite.width / 2);
+                const spriteY = obj.y - obj.sprite.height + (obj.altitude || 0);
+                const spriteWidth = obj.sprite.width;
+                const spriteHeight = obj.sprite.height;
+                
+                if (worldX >= spriteX && worldX <= spriteX + spriteWidth &&
+                    worldY >= spriteY && worldY <= spriteY + spriteHeight) {
+                    this.selectObject(obj);
+                    
+                    // Start drag preparation
+                    this.dragStartX = worldX;
+                    this.dragStartY = worldY;
+                    this.dragOffsetX = worldX - obj.x;
+                    this.dragOffsetY = worldY - obj.y;
+                    
+                    // Not multi-selecting when clicking an object
+                    this.isMultiSelecting = false;
+                    
+                    return true;
+                }
+            }
+        }
+        
+        // Fallback to collision bounds if sprite check didn't work
         for (let i = objects.length - 1; i >= 0; i--) {
             const obj = objects[i];
             const bounds = obj.getCollisionBounds(this.game);
@@ -919,11 +1073,18 @@ class EditorManager {
                 this.dragOffsetX = worldX - obj.x;
                 this.dragOffsetY = worldY - obj.y;
                 
+                // Not multi-selecting when clicking an object
+                this.isMultiSelecting = false;
+                
                 return true;
             }
         }
         
-        // Clicked empty space - deselect
+        // Clicked empty space - start multi-select or deselect
+        console.log('[MULTISELECT] Starting at world:', worldX, worldY);
+        this.multiSelectStart = { x: worldX, y: worldY };
+        this.multiSelectEnd = { x: worldX, y: worldY }; // Initialize to same position
+        this.isMultiSelecting = true;
         this.selectObject(null);
         return true;
     }

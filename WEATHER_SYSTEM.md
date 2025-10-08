@@ -6,10 +6,9 @@ A three-layer weather system that adds atmospheric effects to your game maps.
 
 ### Layer 1: Precipitation (Mutually Exclusive)
 Choose one weather type:
-- **☀️ Sun** - Lens flare/god rays during daytime
+- **☀️ Clear** - Clear skies, full brightness and shadows
 - **🌧️ Rain** - Light/Medium/Heavy rain particles
 - **❄️ Snow** - Light/Medium/Heavy snow particles
-- **🔄 Dynamic** - Automatically transitions between weather types (2-5 min cycles)
 
 ### Layer 2: Wind (Independent)
 Control wind strength:
@@ -17,7 +16,6 @@ Control wind strength:
 - **Light** - Gentle breeze
 - **Medium** - Moderate wind
 - **Heavy** - Strong wind
-- **🔄 Dynamic** - Oscillating wind strength
 
 Wind affects:
 - Particle drift angle
@@ -49,12 +47,12 @@ In the map configuration dialog, you'll find the **🌤️ Weather Configuration
 
 **Precipitation:**
 ```
-[Dropdown: none | dynamic | sun | rain-light | rain-medium | rain-heavy | snow-light | snow-medium | snow-heavy]
+[Dropdown: none | clear | rain-light | rain-medium | rain-heavy | snow-light | snow-medium | snow-heavy]
 ```
 
 **Wind:**
 ```
-[Dropdown: none | dynamic | light | medium | heavy]
+[Dropdown: none | light | medium | heavy]
 ```
 
 **Falling Particles:**
@@ -65,7 +63,7 @@ In the map configuration dialog, you'll find the **🌤️ Weather Configuration
 ## Examples
 
 ### Sunny Day
-- Precipitation: `sun`
+- Precipitation: `clear`
 - Wind: `light`
 - Particles: `none`
 
@@ -79,13 +77,8 @@ In the map configuration dialog, you'll find the **🌤️ Weather Configuration
 - Wind: `heavy`
 - Particles: `none`
 
-### Dynamic Forest
-- Precipitation: `dynamic` (changes over time)
-- Wind: `dynamic` (oscillating)
-- Particles: `leaf-green`
-
 ### Cherry Blossom Scene
-- Precipitation: `sun`
+- Precipitation: `clear`
 - Wind: `light`
 - Particles: `sakura`
 
@@ -115,13 +108,6 @@ Weather is stored in the map configuration:
 }
 ```
 
-### Dynamic Weather
-When `precipitation` is set to `dynamic`, the system:
-1. Randomly cycles between sun, light rain, and medium rain
-2. Each weather phase lasts 2-5 minutes (randomized)
-3. Smooth transitions between weather types
-4. Particles automatically adjust to current weather
-
 ### Rendering Order
 Weather effects render AFTER the game world but BEFORE UI:
 1. Game world (map, objects, player)
@@ -131,9 +117,9 @@ Weather effects render AFTER the game world but BEFORE UI:
 
 ## Tips
 
-- **Sun effects** only show during daytime (7am-5pm) when day/night cycle is enabled
+- **Clear weather** enables full brightness, shadows, and moon shadows at night
+- **Rain/Snow** reduces light levels and shadow intensity proportional to intensity (light/medium/heavy)
 - **Wind** affects all particle types (rain, snow, leaves)
-- **Dynamic weather** works great for outdoor areas
 - Indoor maps should use `none` for all weather settings
 - Combine with **day/night cycle** for maximum atmosphere
 

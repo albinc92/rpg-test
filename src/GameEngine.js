@@ -749,7 +749,7 @@ class GameEngine {
             // Check if weather is clear (no precipitation)
             const hasWeather = this.currentMap && this.currentMap.weather && this.currentMap.weather.precipitation;
             const precipitation = hasWeather ? this.currentMap.weather.precipitation : 'none';
-            const isClearNight = !hasWeather || precipitation === 'none' || precipitation === 'sun';
+            const isClearNight = !hasWeather || precipitation === 'none' || precipitation === 'clear' || precipitation === 'sun';
             
             if (isClearNight) {
                 isMoonShadow = true;

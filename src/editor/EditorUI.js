@@ -607,8 +607,7 @@ class EditorUI {
         // Precipitation
         const precipitationOptions = [
             'none',
-            'dynamic',
-            'sun',
+            'clear',
             'rain-light',
             'rain-medium',
             'rain-heavy',
@@ -621,7 +620,7 @@ class EditorUI {
         }));
 
         // Wind
-        const windOptions = ['none', 'dynamic', 'light', 'medium', 'heavy'];
+        const windOptions = ['none', 'light', 'medium', 'heavy'];
         form.appendChild(this.createConfigSelect('Wind', mapData.weather.wind || 'none', windOptions, (value) => {
             mapData.weather.wind = value;
         }));
@@ -1210,8 +1209,7 @@ class EditorUI {
         // Precipitation
         const precipitationOptions = [
             'none',
-            'dynamic',
-            'sun',
+            'clear',
             'rain-light',
             'rain-medium',
             'rain-heavy',
@@ -1224,7 +1222,7 @@ class EditorUI {
         }));
 
         // Wind
-        const windOptions = ['none', 'dynamic', 'light', 'medium', 'heavy'];
+        const windOptions = ['none', 'light', 'medium', 'heavy'];
         form.appendChild(this.createConfigSelect('Wind', 'none', windOptions, (value) => {
             formData.weather.wind = value;
         }));
