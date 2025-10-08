@@ -7,7 +7,7 @@ class InteractiveObject extends GameObject {
         super(options);
         
         // Interactive properties
-        this.id = options.id || `interactive_${Date.now()}`;
+        this.id = options.id || `interactive_${crypto.randomUUID()}`;
         this.name = options.name || 'Interactive Object';
         this.type = options.type || 'generic';
         this.mapId = options.mapId || null;

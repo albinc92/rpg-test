@@ -7,7 +7,7 @@ class StaticObject extends GameObject {
         super(options);
         
         // Static object properties
-        this.id = options.id || `static_${Date.now()}`;
+        this.id = options.id || `static_${crypto.randomUUID()}`;
         this.name = options.name || 'Static Object';
         this.objectCategory = options.objectCategory || 'decoration'; // 'tree', 'bush', 'rock', 'clutter', 'decoration', 'structure', 'flora'
         this.type = options.type || 'decoration'; // 'decoration', 'obstacle', 'interactive' (for legacy compatibility)

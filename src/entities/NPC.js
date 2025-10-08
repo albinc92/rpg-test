@@ -11,7 +11,7 @@ class NPC extends Actor {
         });
         
         // NPC-specific properties
-        this.id = options.id || `npc_${Date.now()}`;
+        this.id = options.id || `npc_${crypto.randomUUID()}`;
         this.name = options.name || 'Unknown NPC';
         this.npcType = options.npcType || options.type || 'dialogue'; // 'dialogue', 'merchant', 'guard', etc.
         this.mapId = options.mapId || null;

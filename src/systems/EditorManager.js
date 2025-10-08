@@ -1075,8 +1075,8 @@ class EditorManager {
                     this.selectedObject.y = newY;
                     
                     // Update property panel if visible
-                    if (this.propertyPanel) {
-                        this.propertyPanel.updatePosition(this.selectedObject);
+                    if (this.propertyPanel && this.propertyPanel.show) {
+                        this.propertyPanel.show(this.selectedObject);
                     }
                 }
             }
@@ -1203,8 +1203,15 @@ class EditorManager {
             const obj = objects[i];
             const bounds = obj.getCollisionBounds(this.game);
             
+            console.log(`[SELECT] Checking object ${i}: ${obj.name || obj.objectType} at unscaled (${obj.x}, ${obj.y})`);
+            console.log(`[SELECT]   Bounds (scaled): x=${bounds.x.toFixed(1)}, y=${bounds.y.toFixed(1)}, w=${bounds.width.toFixed(1)}, h=${bounds.height.toFixed(1)}`);
+            console.log(`[SELECT]   Mouse (scaled): x=${worldX.toFixed(1)}, y=${worldY.toFixed(1)}`);
+            console.log(`[SELECT]   Hit test: ${worldX >= bounds.x && worldX <= bounds.x + bounds.width && worldY >= bounds.y && worldY <= bounds.y + bounds.height}`);
+            
             if (worldX >= bounds.x && worldX <= bounds.x + bounds.width &&
                 worldY >= bounds.y && worldY <= bounds.y + bounds.height) {
+                
+                console.log('[SELECT] ✓ HIT! Selecting this object');
                 this.selectObject(obj);
                 
                 // For dragging, we need unscaled offset (obj.x/y are unscaled)
@@ -1315,6 +1322,16 @@ class EditorManager {
      * Delete an object
      */
     deleteObject(obj) {
+        console.log('[DELETE] deleteObject called with:', obj.constructor.name, 'ID:', obj.id, 'pos:', obj.x, obj.y);
+        
+        // DEBUG: Check all objects with same ID
+        const allObjects = this.game.objectManager.getObjectsForMap(this.game.currentMapId);
+        const duplicates = allObjects.filter(o => o.id === obj.id);
+        console.log('[DELETE] Found', duplicates.length, 'object(s) with ID:', obj.id);
+        duplicates.forEach((dup, idx) => {
+            console.log(`[DELETE]   Duplicate ${idx}: pos=(${dup.x}, ${dup.y}), same reference as selected? ${dup === obj}`);
+        });
+        
         // Add to history first
         this.addHistory({
             type: 'delete',
@@ -1322,6 +1339,7 @@ class EditorManager {
             mapId: this.game.currentMapId
         });
         
+        console.log('[DELETE] Calling removeObject with ID:', obj.id);
         this.game.objectManager.removeObject(this.game.currentMapId, obj.id);
         console.log('[EditorManager] Deleted:', obj.constructor.name, obj.id);
         

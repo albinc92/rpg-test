@@ -24,7 +24,7 @@ class Spirit extends Actor {
         
         // Spirit identity
         this.game = game;
-        this.id = options.id || `spirit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        this.id = options.id || `spirit_${crypto.randomUUID()}`;
         this.name = options.name || 'Unknown Spirit';
         this.spiritId = options.spiritId; // Template ID from spirits.json
         this.mapId = mapId;
