@@ -79,6 +79,39 @@ class EditorManager {
     }
 
     /**
+     * COORDINATE CONVERSION HELPERS
+     * These ensure consistency across all editor operations
+     */
+    
+    /**
+     * Convert scaled world coordinates to unscaled storage coordinates
+     * Use this when converting mouse position to object storage position
+     */
+    worldToUnscaled(worldX, worldY) {
+        const resolutionScale = this.game.resolutionScale || 1.0;
+        const mapScale = this.game.mapManager.maps[this.game.currentMapId]?.scale || 1.0;
+        const totalScale = mapScale * resolutionScale;
+        return {
+            x: worldX / totalScale,
+            y: worldY / totalScale
+        };
+    }
+    
+    /**
+     * Convert unscaled storage coordinates to scaled world coordinates
+     * Use this when converting object position to rendering position
+     */
+    unscaledToWorld(unscaledX, unscaledY) {
+        const resolutionScale = this.game.resolutionScale || 1.0;
+        const mapScale = this.game.mapManager.maps[this.game.currentMapId]?.scale || 1.0;
+        const totalScale = mapScale * resolutionScale;
+        return {
+            x: unscaledX * totalScale,
+            y: unscaledY * totalScale
+        };
+    }
+    
+    /**
      * Setup keyboard shortcuts for editor
      */
     setupKeyboardShortcuts() {
@@ -553,12 +586,25 @@ class EditorManager {
         if (!this.selectedObject) return;
         
         const camera = this.game.camera;
+        const zoom = camera.zoom || 1.0;
+        const canvas = this.game.canvas;
         const bounds = this.selectedObject.getCollisionBounds(this.game);
         
         ctx.save();
+        
+        // Apply zoom transformation (same as renderMultiSelectBox)
+        if (zoom !== 1.0) {
+            const canvasWidth = canvas.width / (window.devicePixelRatio || 1);
+            const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
+            
+            ctx.translate(canvasWidth / 2, canvasHeight / 2);
+            ctx.scale(zoom, zoom);
+            ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
+        }
+        
         ctx.strokeStyle = '#00ff00';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
+        ctx.lineWidth = 2 / zoom; // Adjust line width for zoom
+        ctx.setLineDash([5 / zoom, 5 / zoom]); // Adjust dash pattern for zoom
         
         ctx.strokeRect(
             bounds.x - camera.x,
@@ -577,11 +623,24 @@ class EditorManager {
         if (this.selectedObjects.length === 0) return;
         
         const camera = this.game.camera;
+        const zoom = camera.zoom || 1.0;
+        const canvas = this.game.canvas;
         
         ctx.save();
+        
+        // Apply zoom transformation (same as renderMultiSelectBox)
+        if (zoom !== 1.0) {
+            const canvasWidth = canvas.width / (window.devicePixelRatio || 1);
+            const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
+            
+            ctx.translate(canvasWidth / 2, canvasHeight / 2);
+            ctx.scale(zoom, zoom);
+            ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
+        }
+        
         ctx.strokeStyle = '#00ff00';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
+        ctx.lineWidth = 2 / zoom; // Adjust line width for zoom
+        ctx.setLineDash([5 / zoom, 5 / zoom]); // Adjust dash pattern for zoom
         
         // Draw dashed outline around each selected object
         for (const obj of this.selectedObjects) {
@@ -999,12 +1058,15 @@ class EditorManager {
                         this.dragOriginalY = this.selectedObject.y;
                     }
                     
-                    // Use unsnapped coordinates for smooth dragging
-                    const newX = this.mouseWorldXUnsnapped - this.dragOffsetX;
-                    const newY = this.mouseWorldYUnsnapped - this.dragOffsetY;
+                    // Convert scaled mouse to unscaled storage coordinates
+                    const unscaledMouse = this.worldToUnscaled(this.mouseWorldXUnsnapped, this.mouseWorldYUnsnapped);
+                    
+                    // Calculate new position (all in unscaled space: obj.x, dragOffset, unscaledMouse)
+                    const newX = unscaledMouse.x - this.dragOffsetX;
+                    const newY = unscaledMouse.y - this.dragOffsetY;
                     
                     if (Math.random() < 0.05) { // Log occasionally to avoid spam
-                        console.log('[DRAG] mouse:', this.mouseWorldXUnsnapped.toFixed(1), this.mouseWorldYUnsnapped.toFixed(1),
+                        console.log('[DRAG] mouse:', unscaledMouse.x.toFixed(1), unscaledMouse.y.toFixed(1),
                                     'offset:', this.dragOffsetX.toFixed(1), this.dragOffsetY.toFixed(1),
                                     'result:', newX.toFixed(1), newY.toFixed(1));
                     }
@@ -1066,12 +1128,16 @@ class EditorManager {
      * Perform multi-select based on selection box
      */
     performMultiSelect() {
-        const minX = Math.min(this.multiSelectStart.x, this.multiSelectEnd.x);
-        const maxX = Math.max(this.multiSelectStart.x, this.multiSelectEnd.x);
-        const minY = Math.min(this.multiSelectStart.y, this.multiSelectEnd.y);
-        const maxY = Math.max(this.multiSelectStart.y, this.multiSelectEnd.y);
+        // Selection box is in scaled coordinates, convert to unscaled
+        const startUnscaled = this.worldToUnscaled(this.multiSelectStart.x, this.multiSelectStart.y);
+        const endUnscaled = this.worldToUnscaled(this.multiSelectEnd.x, this.multiSelectEnd.y);
         
-        console.log('[MULTISELECT] Box:', minX.toFixed(1), minY.toFixed(1), 'to', maxX.toFixed(1), maxY.toFixed(1));
+        const minX = Math.min(startUnscaled.x, endUnscaled.x);
+        const maxX = Math.max(startUnscaled.x, endUnscaled.x);
+        const minY = Math.min(startUnscaled.y, endUnscaled.y);
+        const maxY = Math.max(startUnscaled.y, endUnscaled.y);
+        
+        console.log('[MULTISELECT] Box (unscaled):', minX.toFixed(1), minY.toFixed(1), 'to', maxX.toFixed(1), maxY.toFixed(1));
         console.log('[MULTISELECT] Size:', (maxX - minX).toFixed(1), 'x', (maxY - minY).toFixed(1));
         
         // Find all objects within selection box
@@ -1081,7 +1147,7 @@ class EditorManager {
         console.log('[MULTISELECT] Total objects on map:', objects.length);
         
         for (const obj of objects) {
-            // Check if object center is within selection box
+            // Check if object center is within selection box (both in unscaled coordinates)
             if (obj.x >= minX && obj.x <= maxX && obj.y >= minY && obj.y <= maxY) {
                 this.selectedObjects.push(obj);
                 console.log('[MULTISELECT] Selected:', obj.name || obj.objectType, 'at', obj.x.toFixed(1), obj.y.toFixed(1));
@@ -1122,45 +1188,17 @@ class EditorManager {
      * Handle select tool click
      */
     handleSelectClick(x, y) {
-        // Use unsnapped coordinates for accurate selection
+        // Mouse world coordinates are SCALED (for rendering)
         const worldX = this.mouseWorldXUnsnapped;
         const worldY = this.mouseWorldYUnsnapped;
         
-        console.log('[SELECT] Click - screen:', x, y, 'world:', worldX, worldY, 'camera:', this.game.camera.x, this.game.camera.y);
+        console.log('[SELECT] Click - screen:', x, y, 'world (scaled):', worldX, worldY);
         
         // Find object at click position
         const objects = this.game.objectManager.getObjectsForMap(this.game.currentMapId);
         
-        // Try sprite-based selection first (more accurate)
-        for (let i = objects.length - 1; i >= 0; i--) {
-            const obj = objects[i];
-            
-            // Check if click is within sprite bounds (visual)
-            if (obj.sprite && obj.sprite.width && obj.sprite.height) {
-                const spriteX = obj.x - (obj.sprite.width / 2);
-                const spriteY = obj.y - obj.sprite.height + (obj.altitude || 0);
-                const spriteWidth = obj.sprite.width;
-                const spriteHeight = obj.sprite.height;
-                
-                if (worldX >= spriteX && worldX <= spriteX + spriteWidth &&
-                    worldY >= spriteY && worldY <= spriteY + spriteHeight) {
-                    this.selectObject(obj);
-                    
-                    // Start drag preparation
-                    this.dragStartX = worldX;
-                    this.dragStartY = worldY;
-                    this.dragOffsetX = worldX - obj.x;
-                    this.dragOffsetY = worldY - obj.y;
-                    
-                    // Not multi-selecting when clicking an object
-                    this.isMultiSelecting = false;
-                    
-                    return true;
-                }
-            }
-        }
-        
-        // Fallback to collision bounds if sprite check didn't work
+        // Check collision bounds (which return SCALED coordinates)
+        // We compare SCALED mouse position with SCALED bounds
         for (let i = objects.length - 1; i >= 0; i--) {
             const obj = objects[i];
             const bounds = obj.getCollisionBounds(this.game);
@@ -1169,20 +1207,23 @@ class EditorManager {
                 worldY >= bounds.y && worldY <= bounds.y + bounds.height) {
                 this.selectObject(obj);
                 
-                // Start drag preparation
-                this.dragStartX = worldX;
-                this.dragStartY = worldY;
-                this.dragOffsetX = worldX - obj.x;
-                this.dragOffsetY = worldY - obj.y;
+                // For dragging, we need unscaled offset (obj.x/y are unscaled)
+                const unscaled = this.worldToUnscaled(worldX, worldY);
+                this.dragStartX = unscaled.x;
+                this.dragStartY = unscaled.y;
+                this.dragOffsetX = unscaled.x - obj.x;
+                this.dragOffsetY = unscaled.y - obj.y;
                 
                 // Not multi-selecting when clicking an object
                 this.isMultiSelecting = false;
+                
+                console.log('[SELECT] Selected:', obj.name || obj.objectType, 'at unscaled:', obj.x, obj.y);
                 
                 return true;
             }
         }
         
-        // Clicked empty space - start multi-select or deselect
+        // Clicked empty space - start multi-select or deselect (use scaled coordinates for visual box)
         console.log('[MULTISELECT] Starting at world:', worldX, worldY);
         this.multiSelectStart = { x: worldX, y: worldY };
         this.multiSelectEnd = { x: worldX, y: worldY }; // Initialize to same position
@@ -1204,19 +1245,16 @@ class EditorManager {
             return true;
         }
         
-        // Convert scaled world position back to unscaled position for storage
-        const resolutionScale = this.game.resolutionScale || 1.0;
-        const mapScale = this.game.mapManager.maps[this.game.currentMapId]?.scale || 1.0;
-        const unscaledX = this.mouseWorldX / (mapScale * resolutionScale);
-        const unscaledY = this.mouseWorldY / (mapScale * resolutionScale);
+        // Convert scaled world position to unscaled storage position
+        const unscaled = this.worldToUnscaled(this.mouseWorldX, this.mouseWorldY);
         
-        console.log('[EditorManager] Unscaled position:', unscaledX, unscaledY);
+        console.log('[EditorManager] Unscaled position:', unscaled.x, unscaled.y);
         
         // Create object at mouse position (using unscaled coordinates)
         const objectData = {
             ...this.selectedPrefab,
-            x: unscaledX,
-            y: unscaledY
+            x: unscaled.x,
+            y: unscaled.y
         };
         
         console.log('[EditorManager] Creating object with data:', objectData);

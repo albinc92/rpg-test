@@ -192,10 +192,15 @@ class ObjectManager {
         
         const index = this.objects[mapId].findIndex(obj => obj.id === objectId);
         if (index !== -1) {
+            const obj = this.objects[mapId][index];
+            console.log(`[ObjectManager] Removing object at index ${index}: ID=${objectId}, name=${obj.name || obj.objectType}, pos=(${obj.x?.toFixed(1)}, ${obj.y?.toFixed(1)})`);
+            console.log(`[ObjectManager] Total objects before: ${this.objects[mapId].length}`);
             this.objects[mapId].splice(index, 1);
+            console.log(`[ObjectManager] Total objects after: ${this.objects[mapId].length}`);
             this.objectRegistry.delete(objectId);
-            console.log(`[ObjectManager] Removed object: ${objectId}`);
             return true;
+        } else {
+            console.warn(`[ObjectManager] Object ${objectId} not found in map ${mapId}`);
         }
         return false;
     }
