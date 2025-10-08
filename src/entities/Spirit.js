@@ -254,12 +254,12 @@ class Spirit extends Actor {
         }
         
         // Draw shadow (very faint for spirits) at ground position
-        if (this.castsShadow) {
-            ctx.save();
-            ctx.globalAlpha = 0.15; // Very faint shadow
+        // Only render if map has day/night cycle enabled
+        const hasDayNightCycle = game?.currentMap?.dayNightCycle && game?.dayNightCycle;
+        if (this.castsShadow && hasDayNightCycle) {
             // Shadow stays at ground level, not affected by floating
-            game.drawShadow(scaledX, scaledY, scaledWidth, scaledHeight, 0);
-            ctx.restore();
+            // Pass sprite for pixel-perfect shadow, will use default opacity from time of day
+            game.drawShadow(scaledX, scaledY, scaledWidth, scaledHeight, 0, this.sprite);
         }
         
         // Draw sprite with ethereal effects

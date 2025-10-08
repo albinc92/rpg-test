@@ -153,8 +153,9 @@ class GameObject {
         // Calculate altitude offset (scaled with resolution only)
         const altitudeOffset = this.altitude * resolutionScale;
         
-        // Draw shadow first (if object casts shadows)
-        if (this.castsShadow) {
+        // Draw shadow first (if object casts shadows AND map has day/night cycle)
+        const hasDayNightCycle = game?.currentMap?.dayNightCycle && game?.dayNightCycle;
+        if (this.castsShadow && hasDayNightCycle) {
             this.renderShadow(ctx, game, scaledWidth, scaledHeight, altitudeOffset);
         }
         
@@ -168,7 +169,8 @@ class GameObject {
     renderShadow(ctx, game, width, height, altitudeOffset) {
         const scaledX = this.getScaledX(game);
         const scaledY = this.getScaledY(game);
-        game.drawShadow(scaledX, scaledY, width, height, altitudeOffset);
+        // Pass the sprite for pixel-perfect shadow projection
+        game.drawShadow(scaledX, scaledY, width, height, altitudeOffset, this.sprite);
     }
     
     /**

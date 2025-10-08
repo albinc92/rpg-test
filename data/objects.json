@@ -9,7 +9,7 @@
       "collisionExpandTopPercent": -0.9,
       "collisionExpandRightPercent": -0.25,
       "collisionExpandLeftPercent": -0.25,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -20,7 +20,7 @@
       "collisionExpandTopPercent": -0.9,
       "collisionExpandRightPercent": -0.25,
       "collisionExpandLeftPercent": -0.25,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -31,7 +31,7 @@
       "collisionExpandTopPercent": -0.9,
       "collisionExpandRightPercent": -0.25,
       "collisionExpandLeftPercent": -0.25,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -42,7 +42,7 @@
       "collisionExpandTopPercent": -0.9,
       "collisionExpandRightPercent": -0.25,
       "collisionExpandLeftPercent": -0.25,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -53,7 +53,7 @@
       "collisionExpandTopPercent": -0.9,
       "collisionExpandRightPercent": -0.25,
       "collisionExpandLeftPercent": -0.25,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -64,7 +64,7 @@
       "collisionExpandTopPercent": -0.9,
       "collisionExpandRightPercent": -0.25,
       "collisionExpandLeftPercent": -0.25,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -75,7 +75,7 @@
       "collisionExpandTopPercent": -0.9,
       "collisionExpandRightPercent": -0.25,
       "collisionExpandLeftPercent": -0.25,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -86,7 +86,7 @@
       "collisionExpandTopPercent": -0.9,
       "collisionExpandRightPercent": -0.25,
       "collisionExpandLeftPercent": -0.25,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -95,7 +95,7 @@
       "y": 350,
       "scale": 0.3,
       "collisionExpandTopPercent": -0.60,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -104,7 +104,7 @@
       "y": 680,
       "scale": 0.25,
       "collisionExpandTopPercent": -0.60,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -113,7 +113,7 @@
       "y": 550,
       "scale": 0.28,
       "collisionExpandTopPercent": -0.60,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -122,7 +122,7 @@
       "y": 250,
       "scale": 0.32,
       "collisionExpandTopPercent": -0.60,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -131,7 +131,7 @@
       "y": 700,
       "scale": 0.27,
       "collisionExpandTopPercent": -0.60,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -142,7 +142,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -153,7 +153,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -164,7 +164,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -175,7 +175,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -186,7 +186,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -197,7 +197,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -208,7 +208,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -219,7 +219,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -230,7 +230,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -241,7 +241,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -252,7 +252,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -263,7 +263,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -274,7 +274,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -285,7 +285,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -296,7 +296,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -307,7 +307,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -318,7 +318,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -329,7 +329,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -340,7 +340,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -351,7 +351,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -362,7 +362,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -373,7 +373,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -384,7 +384,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "StaticObject",
@@ -395,7 +395,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "Actor",
@@ -423,7 +423,7 @@
       "collisionExpandTopPercent": -0.7,
       "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": false
+      "castsShadow": true
     },
     {
       "category": "InteractiveObject",

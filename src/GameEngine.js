@@ -692,24 +692,166 @@ class GameEngine {
     }
     
     /**
-     * Draw shadow for game objects
+     * Calculate shadow properties based on time of day
+     * Cached and updated every 100ms for smoother transitions
      */
-    drawShadow(x, y, width, height, altitudeOffset = 0) {
-        // Draw an elliptical shadow proportional to character width
-        const shadowWidth = width * 0.6; // Shadow width based on character width
-        const shadowHeight = width * 0.2; // Shadow height much smaller for ground effect
-        const shadowX = x;
-        const shadowY = y + height * 0.4 + altitudeOffset; // Position shadow at feet level + altitude offset
+    getShadowProperties() {
+        const now = Date.now();
+        
+        // Cache shadow properties for 100ms (updates 10x per second)
+        if (this._shadowPropsCache && (now - this._shadowPropsCacheTime) < 100) {
+            return this._shadowPropsCache;
+        }
+        
+        // Get current time of day (0-24)
+        const timeOfDay = this.dayNightCycle?.timeOfDay || 12;
+        
+        // Calculate sun height (0 = horizon, 1 = directly overhead)
+        // Using sine wave: high at noon, low at midnight
+        const sunHeight = Math.max(0, Math.sin((timeOfDay - 6) / 12 * Math.PI));
+        
+        // Shadow skew direction based on sun position
+        // Dawn (6h): sun in east → shadow skews to west (left) → negative skew
+        // Noon (12h): sun overhead → no skew (shadow behind object)
+        // Dusk (18h): sun in west → shadow skews to east (right) → positive skew
+        let shadowDirection = 0;
+        if (timeOfDay >= 6 && timeOfDay <= 18) {
+            // Map time 6→18 to -1 (left) → +1 (right)
+            const timeProgress = (timeOfDay - 6) / 12; // 0 to 1
+            shadowDirection = (timeProgress - 0.5) * 2; // -1 to +1
+        }
+        
+        // Shadow opacity (stronger during day, weaker at night)
+        let shadowOpacity;
+        if (timeOfDay >= 5 && timeOfDay <= 19) {
+            // Daytime: shadow strength based on sun height
+            // At noon (sun high), shadow is strong but hidden behind object
+            // At dawn/dusk (sun low), shadow is long and visible
+            shadowOpacity = 0.5 * Math.max(0.3, sunHeight); // Always visible during day
+        } else {
+            // Nighttime: very faint
+            shadowOpacity = 0.05;
+        }
+        
+        // Shadow skew amount (how much the TOP shifts horizontally)
+        // More skew when sun is lower (longer shadows)
+        // At noon (sunHeight = 1), skew = 0 (shadow hidden behind object)
+        // At dawn/dusk (sunHeight = 0), skew = max (long shadow)
+        const maxSkew = 1.5; // Maximum skew factor
+        const skewX = shadowDirection * (1 - sunHeight) * maxSkew;
+        
+        const props = {
+            skewX,
+            opacity: shadowOpacity,
+            sunHeight,
+            scaleY: 0.4 + sunHeight * 0.3 // Shadows flatter when sun is high, more visible when low
+        };
+        
+        // Cache the result
+        this._shadowPropsCache = props;
+        this._shadowPropsCacheTime = now;
+        
+        return props;
+    }
+
+    /**
+     * Get cached sprite silhouette for shadows (performance optimization)
+     */
+    getSpriteCache(sprite, width, height) {
+        // Create cache key from sprite src
+        const cacheKey = `${sprite.src}_${Math.round(width)}_${Math.round(height)}`;
+        
+        // Return cached silhouette if available
+        if (this._spriteShadowCache && this._spriteShadowCache[cacheKey]) {
+            return this._spriteShadowCache[cacheKey];
+        }
+        
+        // Initialize cache if needed
+        if (!this._spriteShadowCache) {
+            this._spriteShadowCache = {};
+        }
+        
+        // Create silhouette canvas (only once per unique sprite/size)
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        // Draw sprite
+        tempCtx.drawImage(sprite, 0, 0, width, height);
+        
+        // Get image data and make it all black (preserve alpha)
+        const imageData = tempCtx.getImageData(0, 0, width, height);
+        const data = imageData.data;
+        for (let i = 0; i < data.length; i += 4) {
+            data[i] = 0;     // R = black
+            data[i + 1] = 0; // G = black
+            data[i + 2] = 0; // B = black
+            // data[i + 3] is alpha - keep as is for sprite shape
+        }
+        tempCtx.putImageData(imageData, 0, 0);
+        
+        // Cache the result
+        this._spriteShadowCache[cacheKey] = tempCanvas;
+        
+        return tempCanvas;
+    }
+
+    /**
+     * Draw shadow for game objects with dynamic direction based on time of day
+     * Uses sprite silhouettes with skew/stretch (not rotation) for performance
+     */
+    drawShadow(x, y, width, height, altitudeOffset = 0, sprite = null) {
+        const shadowProps = this.getShadowProperties();
+        
+        // Shadow opacity based on time of day and altitude
+        const altitudeFade = Math.max(0, 1 - (altitudeOffset / 300));
+        const finalOpacity = shadowProps.opacity * altitudeFade;
+        
+        if (finalOpacity <= 0.01) return; // Don't draw invisible shadows
         
         this.ctx.save();
-        // Make shadow fainter for higher altitude objects
-        this.ctx.globalAlpha = Math.max(0.15, 0.35 - (altitudeOffset / 300));
-        this.ctx.fillStyle = 'black';
+        this.ctx.globalAlpha = finalOpacity;
         
-        // Create elliptical shadow proportional to character width
-        this.ctx.beginPath();
-        this.ctx.ellipse(shadowX, shadowY, shadowWidth, shadowHeight, 0, 0, 2 * Math.PI);
-        this.ctx.fill();
+        // Calculate shadow position - ALWAYS at base of sprite (NO horizontal offset!)
+        // The shadow base NEVER moves - only the top skews based on sun position
+        // x, y is the CENTER of the sprite, so y + height/2 = bottom
+        const shadowX = x; // NO offsetX! Base stays put!
+        const shadowY = y + (height / 2) + altitudeOffset; // Exact bottom of sprite
+        
+        if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+            // SPRITE-BASED SHADOW: Use cached sprite silhouette
+            const silhouette = this.getSpriteCache(sprite, width, height);
+            
+            // Move to shadow position (base of sprite)
+            this.ctx.translate(shadowX, shadowY);
+            
+            // Apply vertical scale FIRST (flatten shadow)
+            this.ctx.scale(1, shadowProps.scaleY);
+            
+            // Apply shear transform for perspective skew
+            // We want the BASE (bottom) to stay fixed, and the TOP to skew
+            // Standard skew transforms the whole thing relative to origin
+            // To make ONLY the top move: DON'T translate! Just apply skew directly
+            // The bottom is at y=0 (our current position), so it stays put
+            // The top is at y=-height, so it shifts by skewX * height
+            this.ctx.transform(1, 0, shadowProps.skewX, 1, 0, 0); // Apply skew from base
+            
+            // Draw the cached silhouette anchored at bottom center
+            this.ctx.drawImage(silhouette, -width / 2, -height, width, height);
+        } else {
+            // FALLBACK: Simple elliptical shadow if sprite not ready
+            this.ctx.fillStyle = 'black';
+            const shadowWidth = width * 0.5;
+            const shadowHeight = height * 0.15;
+            
+            this.ctx.translate(shadowX, shadowY);
+            this.ctx.scale(1, shadowProps.scaleY);
+            
+            this.ctx.beginPath();
+            this.ctx.ellipse(0, 0, shadowWidth, shadowHeight, 0, 0, Math.PI * 2);
+            this.ctx.fill();
+        }
         
         this.ctx.restore();
     }
