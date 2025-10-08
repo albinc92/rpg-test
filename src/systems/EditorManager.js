@@ -1509,6 +1509,11 @@ class EditorManager {
         
         // Mark canvas as dirty so spawn zone cache gets updated
         canvas._dataDirty = true;
+        
+        // Invalidate spawn zone cache in spawn manager to force rebuild
+        if (this.game.spawnManager) {
+            this.game.spawnManager.invalidateSpawnZoneCache();
+        }
     }
 
     /**
@@ -1550,6 +1555,11 @@ class EditorManager {
             
             // Mark canvas as dirty so collision cache gets updated
             canvas._dataDirty = true;
+            
+            // Invalidate spawn zone cache if erasing spawn zones
+            if (this.paintMode === 'spawn' && this.game.spawnManager) {
+                this.game.spawnManager.invalidateSpawnZoneCache();
+            }
             
             return;
         }
@@ -1639,6 +1649,39 @@ class EditorManager {
             canvas._dataDirty = true;
             
             console.log(`[EditorManager] Filled collision layer for map ${mapId}`);
+        } else if (this.paintMode === 'spawn') {
+            // Initialize spawn zone canvas if needed
+            if (!this.spawnLayers[mapId]) {
+                const mapData = this.game.mapManager.maps[mapId];
+                if (!mapData) return;
+                
+                const mapScale = mapData.scale || 1.0;
+                const resolutionScale = this.game.resolutionScale || 1.0;
+                const scaledWidth = mapData.width * mapScale * resolutionScale;
+                const scaledHeight = mapData.height * mapScale * resolutionScale;
+                
+                canvas = document.createElement('canvas');
+                canvas.width = scaledWidth;
+                canvas.height = scaledHeight;
+                this.spawnLayers[mapId] = canvas;
+            } else {
+                canvas = this.spawnLayers[mapId];
+            }
+            
+            // Fill with solid blue spawn zone
+            const ctx = canvas.getContext('2d');
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 100, 255, 1.0)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.restore();
+            
+            // Mark canvas as dirty and invalidate spawn zone cache
+            canvas._dataDirty = true;
+            if (this.game.spawnManager) {
+                this.game.spawnManager.invalidateSpawnZoneCache();
+            }
+            
+            console.log(`[EditorManager] Filled spawn zone layer for map ${mapId}`);
         } else {
             // Texture mode - require texture
             if (!this.selectedTexture || !this.loadedTextures[this.selectedTexture]) {

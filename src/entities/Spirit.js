@@ -12,8 +12,8 @@ class Spirit extends Actor {
             movementSpeed: moveSpeed * 0.8, // Use for AI input (slightly slower for ethereal feel)
             behaviorType: 'roaming',
             altitude: 0, // No altitude offset - floating is visual only
-            blocksMovement: false, // Spirits are ethereal and don't block movement
-            canBeBlocked: false, // Spirits can phase through objects
+            blocksMovement: options.hasCollision !== false, // Block movement if collision enabled
+            canBeBlocked: true, // Spirits should collide with objects
             collisionPercent: 0.3, // Smaller collision area for spirits
             spriteSrc: options.spriteSrc,
             // Don't pre-set spriteWidth/spriteHeight - let GameObject auto-detect from image
@@ -54,6 +54,8 @@ class Spirit extends Actor {
         this.floatingSpeed = options.floatingSpeed || 0.002;
         this.floatingRange = options.floatingRange || 15;
         
+        console.log(`[Spirit] ${options.name || 'Unknown'} constructor: isFloating=${this.isFloating}, speed=${this.floatingSpeed}, range=${this.floatingRange}, from options=${options.isFloating}`);
+        
         // Spawn effect
         this.spawnEffect = {
             active: options.spawnEffect !== false, // Spawn effect enabled by default
@@ -62,7 +64,7 @@ class Spirit extends Actor {
         };
         
         // Ethereal properties
-        this.phasesThroughWalls = options.phasesThroughWalls !== false;
+        this.phasesThroughWalls = options.phasesThroughWalls === true; // Default: false (spirits use collision)
         this.roamingRadius = options.roamingRadius || 200;
         this.originalX = this.x;
         this.originalY = this.y;
@@ -222,13 +224,34 @@ class Spirit extends Actor {
         
         // Calculate floating animation (vertical bobbing effect) - only if floating is enabled
         let floatingOffset = 0;
+        let baseAltitude = 0;
         if (this.isFloating && this.floatingSpeed && this.floatingRange && game.gameTime !== undefined) {
+            // Base altitude to lift sprite off ground (using sprite height as reference)
+            baseAltitude = scaledHeight * 0.5; // Lift by 50% of sprite height (increased from 30%)
+            // Bobbing animation on top of base altitude
             floatingOffset = Math.sin(game.gameTime * this.floatingSpeed) * (this.floatingRange * resolutionScale);
+            
+            // Debug log once
+            if (!this._floatingLogged) {
+                console.log(`[Spirit] ${this.name} floating: altitude=${baseAltitude.toFixed(2)}, bobbing=${floatingOffset.toFixed(2)}, range=${this.floatingRange}, speed=${this.floatingSpeed}`);
+                this._floatingLogged = true;
+            }
+        } else if (!this._floatingCheckLogged) {
+            console.log(`[Spirit] ${this.name} NOT floating: isFloating=${this.isFloating}, speed=${this.floatingSpeed}, range=${this.floatingRange}, gameTime=${game.gameTime !== undefined}`);
+            this._floatingCheckLogged = true;
         }
         
         // Calculate pulsing alpha for ethereal effect
         const basePulse = game.gameTime !== undefined ? Math.sin(game.gameTime * this.pulseSpeed) * 0.2 : 0;
-        const spiritAlpha = Math.max(0.3, Math.min(1.0, this.baseAlpha + basePulse));
+        let spiritAlpha = Math.max(0.3, Math.min(1.0, this.baseAlpha + basePulse));
+        
+        // Apply fade-in effect during spawn
+        if (this.spawnEffect.active) {
+            const elapsed = Date.now() - this.spawnEffect.startTime;
+            const fadeInDuration = this.spawnEffect.duration * 0.5; // Fade in during first half of spawn effect
+            const fadeProgress = Math.min(1.0, elapsed / fadeInDuration);
+            spiritAlpha *= fadeProgress; // Multiply alpha by fade progress (0 to 1)
+        }
         
         // Draw shadow (very faint for spirits) at ground position
         if (this.castsShadow) {
@@ -253,7 +276,7 @@ class Spirit extends Actor {
         
         // Render sprite centered at scaled position with floating animation
         const screenX = scaledX - scaledWidth / 2;
-        const screenY = scaledY - scaledHeight / 2 - floatingOffset;
+        const screenY = scaledY - scaledHeight / 2 - baseAltitude - floatingOffset;
         
         // Debug: Log draw call once
         if (!this._drawLogged) {
@@ -262,7 +285,7 @@ class Spirit extends Actor {
         }
         
         if (this.direction === 'right') {
-            ctx.translate(scaledX, scaledY - floatingOffset);
+            ctx.translate(scaledX, scaledY - baseAltitude - floatingOffset);
             ctx.scale(-1, 1);
             ctx.drawImage(this.sprite, -scaledWidth / 2, -scaledHeight / 2, scaledWidth, scaledHeight);
         } else {
@@ -287,7 +310,16 @@ class Spirit extends Actor {
         ctx.save();
         
         // Pulsing ethereal circle
-        const pulseAlpha = game.gameTime !== undefined ? 0.3 + Math.sin(game.gameTime * 0.005) * 0.2 : 0.5;
+        let pulseAlpha = game.gameTime !== undefined ? 0.3 + Math.sin(game.gameTime * 0.005) * 0.2 : 0.5;
+        
+        // Apply fade-in effect during spawn
+        if (this.spawnEffect.active) {
+            const elapsed = Date.now() - this.spawnEffect.startTime;
+            const fadeInDuration = this.spawnEffect.duration * 0.5;
+            const fadeProgress = Math.min(1.0, elapsed / fadeInDuration);
+            pulseAlpha *= fadeProgress;
+        }
+        
         ctx.globalAlpha = pulseAlpha;
         ctx.fillStyle = '#87CEEB'; // Sky blue
         ctx.strokeStyle = '#FFFFFF';
@@ -323,15 +355,19 @@ class Spirit extends Actor {
         const effectAlpha = 1.0 - progress;
         
         if (effectAlpha > 0) {
+            // Use scaled coordinates (same as sprite rendering)
+            const scaledX = this.getScaledX(game);
+            const scaledY = this.getScaledY(game);
+            
             ctx.save();
             ctx.globalAlpha = effectAlpha * 0.5;
             ctx.strokeStyle = '#87CEEB';
             ctx.lineWidth = 3;
             
-            // Draw expanding circle
+            // Draw expanding circle at the correct scaled position
             const radius = progress * 50;
             ctx.beginPath();
-            ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+            ctx.arc(scaledX, scaledY, radius, 0, Math.PI * 2);
             ctx.stroke();
             
             ctx.restore();
@@ -377,8 +413,13 @@ class Spirit extends Actor {
         
         // Update collision
         this.hasCollision = template.hasCollision !== false; // Default true
+        this.blocksMovement = this.hasCollision; // Block movement if collision enabled
         this.collisionShape = template.collisionShape || 'circle';
         this.collisionPercent = template.collisionPercent || 0.3;
+        this.collisionExpandTopPercent = template.collisionExpandTopPercent || 0;
+        this.collisionExpandBottomPercent = template.collisionExpandBottomPercent || 0;
+        this.collisionExpandLeftPercent = template.collisionExpandLeftPercent || 0;
+        this.collisionExpandRightPercent = template.collisionExpandRightPercent || 0;
         
         // Update floating/hovering
         this.isFloating = template.isFloating || false;

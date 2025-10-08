@@ -323,6 +323,9 @@ class GameEngine {
             const deltaTime = (currentTime - this.lastTime) / 1000;
             this.lastTime = currentTime;
             
+            // Set gameTime for animations (in milliseconds)
+            this.gameTime = currentTime;
+            
             if (!this.isPaused) {
                 this.update(deltaTime);
                 this.render();

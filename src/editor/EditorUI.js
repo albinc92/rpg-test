@@ -2380,6 +2380,33 @@ class EditorUI {
         }, { min: 0.1, max: 2.0, step: 0.1 }));
         form.appendChild(collisionGrid);
         
+        // Collision Expansion Controls (like Static Objects)
+        const expansionHeader = document.createElement('div');
+        expansionHeader.textContent = '📏 Collision Box Adjustments';
+        expansionHeader.style.cssText = 'font-size: 12px; font-weight: bold; color: #888; margin-top: 8px;';
+        form.appendChild(expansionHeader);
+        
+        const expansionGrid = document.createElement('div');
+        expansionGrid.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 12px;';
+        
+        expansionGrid.appendChild(this.createConfigField('Top %', spiritData.collisionExpandTopPercent || 0, 'number', (value) => {
+            spiritData.collisionExpandTopPercent = parseFloat(value);
+        }, { min: -1.0, max: 1.0, step: 0.05 }));
+        
+        expansionGrid.appendChild(this.createConfigField('Bottom %', spiritData.collisionExpandBottomPercent || 0, 'number', (value) => {
+            spiritData.collisionExpandBottomPercent = parseFloat(value);
+        }, { min: -1.0, max: 1.0, step: 0.05 }));
+        
+        expansionGrid.appendChild(this.createConfigField('Left %', spiritData.collisionExpandLeftPercent || 0, 'number', (value) => {
+            spiritData.collisionExpandLeftPercent = parseFloat(value);
+        }, { min: -1.0, max: 1.0, step: 0.05 }));
+        
+        expansionGrid.appendChild(this.createConfigField('Right %', spiritData.collisionExpandRightPercent || 0, 'number', (value) => {
+            spiritData.collisionExpandRightPercent = parseFloat(value);
+        }, { min: -1.0, max: 1.0, step: 0.05 }));
+        
+        form.appendChild(expansionGrid);
+        
         // Visual Effects Section
         const visualHeader = document.createElement('div');
         visualHeader.textContent = '✨ Visual Effects';

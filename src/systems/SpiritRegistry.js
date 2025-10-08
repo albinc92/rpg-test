@@ -90,6 +90,10 @@ class SpiritRegistry {
             hasCollision: template.hasCollision !== false, // Default true
             collisionShape: template.collisionShape,
             collisionPercent: template.collisionPercent,
+            collisionExpandTopPercent: template.collisionExpandTopPercent,
+            collisionExpandBottomPercent: template.collisionExpandBottomPercent,
+            collisionExpandLeftPercent: template.collisionExpandLeftPercent,
+            collisionExpandRightPercent: template.collisionExpandRightPercent,
             isFloating: template.isFloating || false, // Default: not floating
             floatingSpeed: template.floatingSpeed,
             floatingRange: template.floatingRange,

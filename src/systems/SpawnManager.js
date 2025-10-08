@@ -521,4 +521,31 @@ class SpawnManager {
         console.log(`[SpawnManager] Force spawning: ${spiritId}`);
         this.spawnSpirit(spiritId);
     }
+
+    /**
+     * Invalidate spawn zone cache (call when spawn zones are modified)
+     */
+    invalidateSpawnZoneCache() {
+        console.log(`[SpawnManager] 🔄 Invalidating spawn zone cache`);
+        this.spawnZoneCacheValid = false;
+        this.spawnZoneCache = null;
+        
+        // If we have a current map, try to rebuild cache
+        if (this.currentMapId) {
+            const spawnLayer = this.game.editorManager.getSpawnLayer(this.currentMapId);
+            if (spawnLayer) {
+                this.buildSpawnZoneCache(this.currentMapId, spawnLayer);
+                
+                // If spawn zones now exist AND we have a spawn table, enable the system
+                if (!this.enabled && this.spawnZoneCache && this.spawnZoneCache.length > 0) {
+                    const mapData = this.game.mapManager.maps[this.currentMapId];
+                    if (mapData && mapData.spawnTable && mapData.spawnTable.length > 0) {
+                        console.log(`[SpawnManager] ✅ Spawn zones now available - enabling spawn system`);
+                        this.enabled = true;
+                        this.lastSpawnCheck = 0; // Force immediate spawn check
+                    }
+                }
+            }
+        }
+    }
 }
