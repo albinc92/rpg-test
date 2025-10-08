@@ -544,6 +544,17 @@ class MainMenuState extends GameState {
             // Add a semi-transparent overlay for better text readability
             ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
             ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+            
+            // Add inset shadow effect (vignette) - fades to black at edges
+            const gradient = ctx.createRadialGradient(
+                canvasWidth / 2, canvasHeight / 2, 0,
+                canvasWidth / 2, canvasHeight / 2, canvasWidth * 0.7
+            );
+            gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+            gradient.addColorStop(0.7, 'rgba(0, 0, 0, 0.3)');
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0.9)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         } else {
             // Fallback background
             ctx.fillStyle = '#000';
@@ -584,6 +595,11 @@ class PlayingState extends GameState {
         
         // Bind event handler so we can add/remove it properly
         this.handleCanvasClick = this.handleCanvasClick.bind(this);
+        
+        // Fade-in effect for new games
+        this.fadeInAlpha = 1; // 1 = fully visible (no fade by default)
+        this.fadeInDuration = 1.5; // seconds - long enough for camera to settle
+        this.fadeInTimer = 0;
     }
     
     async enter(data = {}) {
@@ -612,6 +628,22 @@ class PlayingState extends GameState {
             console.log('💾 Loaded game - player position already restored, map already loaded');
             // Everything is already loaded by SaveGameManager, don't do anything
         } else if (isNewGame || !isResumingFromPause) {
+            // For new games, set camera BEFORE loading map to prevent panning
+            if (isNewGame) {
+                const camera = this.game.camera;
+                const player = this.game.player;
+                const canvasWidth = this.game.CANVAS_WIDTH;
+                const canvasHeight = this.game.CANVAS_HEIGHT;
+                
+                // Set camera to snap instantly to target (no smoothing)
+                camera.snapToTarget = true;
+                
+                // Start with black screen for fade-in
+                this.fadeInAlpha = 0;
+                this.fadeInTimer = 0;
+                console.log('📷 Camera will snap to player instantly, starting fade-in');
+            }
+            
             console.log('🆕 Fresh entry to gameplay - loading map');
             // Load the initial map and start BGM (player position already set in initializePlayer)
             await this.game.loadMap(this.game.currentMapId);
@@ -697,6 +729,12 @@ class PlayingState extends GameState {
     }
     
     update(deltaTime) {
+        // Update fade-in effect
+        if (this.fadeInAlpha < 1) {
+            this.fadeInTimer += deltaTime;
+            this.fadeInAlpha = Math.min(1, this.fadeInTimer / this.fadeInDuration);
+        }
+        
         // Update game world
         this.game.updateGameplay(deltaTime);
     }
@@ -708,6 +746,14 @@ class PlayingState extends GameState {
         // Render Menu button in top-right corner (mobile only)
         if (this.game.inputManager.isMobile) {
             this.renderMenuButton(ctx);
+        }
+        
+        // Render fade-in overlay if needed
+        if (this.fadeInAlpha < 1) {
+            ctx.save();
+            ctx.fillStyle = `rgba(0, 0, 0, ${1 - this.fadeInAlpha})`;
+            ctx.fillRect(0, 0, this.game.CANVAS_WIDTH, this.game.CANVAS_HEIGHT);
+            ctx.restore();
         }
     }
     

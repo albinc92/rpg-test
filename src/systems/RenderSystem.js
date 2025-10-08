@@ -16,7 +16,8 @@ class RenderSystem {
             smoothing: 0.1,
             zoom: 1.0,  // Zoom level (1.0 = 100%, 0.5 = 50%, 2.0 = 200%)
             minZoom: 0.25,
-            maxZoom: 3.0
+            maxZoom: 3.0,
+            snapToTarget: false  // Set to true to instantly snap to target (no smoothing)
         };
     }
     
@@ -43,9 +44,15 @@ class RenderSystem {
             this.camera.targetY = Math.max(0, Math.min(this.camera.targetY, mapHeight - canvasHeight));
         }
         
-        // Smooth camera movement
-        this.camera.x += (this.camera.targetX - this.camera.x) * this.camera.smoothing;
-        this.camera.y += (this.camera.targetY - this.camera.y) * this.camera.smoothing;
+        // Smooth camera movement (or snap instantly if flag is set)
+        if (this.camera.snapToTarget) {
+            this.camera.x = this.camera.targetX;
+            this.camera.y = this.camera.targetY;
+            this.camera.snapToTarget = false; // Reset flag after snapping
+        } else {
+            this.camera.x += (this.camera.targetX - this.camera.x) * this.camera.smoothing;
+            this.camera.y += (this.camera.targetY - this.camera.y) * this.camera.smoothing;
+        }
         
         // IMPORTANT: Also clamp the actual camera position after smoothing
         // This ensures the camera never goes outside map bounds, even during smooth movement

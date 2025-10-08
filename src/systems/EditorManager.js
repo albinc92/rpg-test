@@ -107,14 +107,16 @@ class EditorManager {
                 
                 // Delete multiple selected objects
                 if (this.selectedObjects.length > 0) {
-                    console.log(`[EditorManager] Deleting ${this.selectedObjects.length} objects`);
+                    console.log(`[EditorManager] Deleting ${this.selectedObjects.length} selected objects`);
                     for (const obj of this.selectedObjects) {
+                        console.log('[DELETE] Multi-delete:', obj.name || obj.objectType, 'at', obj.x, obj.y);
                         this.deleteObject(obj);
                     }
                     this.selectedObjects = [];
                 } 
                 // Delete single selected object
                 else if (this.selectedObject) {
+                    console.log('[DELETE] Single delete:', this.selectedObject.name || this.selectedObject.objectType, 'at', this.selectedObject.x, this.selectedObject.y);
                     this.deleteObject(this.selectedObject);
                 }
             }
@@ -997,8 +999,18 @@ class EditorManager {
                         this.dragOriginalY = this.selectedObject.y;
                     }
                     
-                    this.selectedObject.x = this.mouseWorldX - this.dragOffsetX;
-                    this.selectedObject.y = this.mouseWorldY - this.dragOffsetY;
+                    // Use unsnapped coordinates for smooth dragging
+                    const newX = this.mouseWorldXUnsnapped - this.dragOffsetX;
+                    const newY = this.mouseWorldYUnsnapped - this.dragOffsetY;
+                    
+                    if (Math.random() < 0.05) { // Log occasionally to avoid spam
+                        console.log('[DRAG] mouse:', this.mouseWorldXUnsnapped.toFixed(1), this.mouseWorldYUnsnapped.toFixed(1),
+                                    'offset:', this.dragOffsetX.toFixed(1), this.dragOffsetY.toFixed(1),
+                                    'result:', newX.toFixed(1), newY.toFixed(1));
+                    }
+                    
+                    this.selectedObject.x = newX;
+                    this.selectedObject.y = newY;
                     
                     // Update property panel if visible
                     if (this.propertyPanel) {
@@ -1059,14 +1071,20 @@ class EditorManager {
         const minY = Math.min(this.multiSelectStart.y, this.multiSelectEnd.y);
         const maxY = Math.max(this.multiSelectStart.y, this.multiSelectEnd.y);
         
+        console.log('[MULTISELECT] Box:', minX.toFixed(1), minY.toFixed(1), 'to', maxX.toFixed(1), maxY.toFixed(1));
+        console.log('[MULTISELECT] Size:', (maxX - minX).toFixed(1), 'x', (maxY - minY).toFixed(1));
+        
         // Find all objects within selection box
         const objects = this.game.objectManager.getObjectsForMap(this.game.currentMapId);
         this.selectedObjects = [];
+        
+        console.log('[MULTISELECT] Total objects on map:', objects.length);
         
         for (const obj of objects) {
             // Check if object center is within selection box
             if (obj.x >= minX && obj.x <= maxX && obj.y >= minY && obj.y <= maxY) {
                 this.selectedObjects.push(obj);
+                console.log('[MULTISELECT] Selected:', obj.name || obj.objectType, 'at', obj.x.toFixed(1), obj.y.toFixed(1));
             }
         }
         

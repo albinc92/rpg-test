@@ -267,7 +267,7 @@ class EditorUI {
     createDataMenu(toolbar) {
         const dataMenu = new DropdownMenu('Data', [
             {
-                label: '� Game Object',
+                label: '🎮 Game Object',
                 items: [
                     { 
                         label: '📚 Browse Templates', 
@@ -305,7 +305,7 @@ class EditorUI {
                     },
                     { separator: true },
                     { 
-                        label: '� Chest', 
+                        label: '📦 Chest', 
                         action: () => this.selectObjectToPlace({
                             category: 'InteractiveObject', 
                             objectType: 'chest',
@@ -341,7 +341,7 @@ class EditorUI {
                 ]
             },
             {
-                label: '� Spirit Templates',
+                label: '👻 Spirit Templates',
                 items: [
                     { 
                         label: '📝 Browse Spirits', 
@@ -358,7 +358,7 @@ class EditorUI {
                 ]
             },
             {
-                label: '�🗺️ Maps',
+                label: '🗺️ Maps',
                 items: [
                     { 
                         label: '⚙️ Current Map Config', 
