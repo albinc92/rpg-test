@@ -280,7 +280,7 @@ class GameEngine {
         if (this.dayNightCycle && this.currentMap?.dayNightCycle) {
             // F6 - Increase time scale by 10x (in addition to audio debug)
             if (e.code === 'F6') {
-                const newScale = Math.min(1000, this.dayNightCycle.timeScale + 10);
+                const newScale = Math.min(2000, this.dayNightCycle.timeScale + 10);
                 this.dayNightCycle.setTimeScale(newScale);
                 console.log(`⏩ Time scale increased to ${newScale}x`);
                 e.preventDefault();
@@ -706,49 +706,75 @@ class GameEngine {
         // Get current time of day (0-24)
         const timeOfDay = this.dayNightCycle?.timeOfDay || 12;
         
-        // Calculate sun height (0 = horizon, 1 = directly overhead)
-        // Using sine wave: high at noon, low at midnight
+        // Calculate sun position throughout the day
+        // Sun rises at 6 AM (east), peaks at 12 PM (overhead), sets at 6 PM (west)
+        // We need to track sun height AND sun angle separately
+        
+        // Sun height (0 = horizon, 1 = directly overhead at noon)
         const sunHeight = Math.max(0, Math.sin((timeOfDay - 6) / 12 * Math.PI));
         
-        // Shadow skew direction based on sun position
-        // Dawn (6h): sun in east (right) → shadow skews to west (left) → negative skew
-        // Noon (12h): sun overhead → no skew (shadow behind object)
-        // Dusk (18h): sun in west (left) → shadow skews to east (right) → positive skew
+        // Shadow direction based on time of day (sun's east-west position)
+        // 4 AM - 6 AM (dawn): sun rising in east → shadows point LEFT (west) → skewX = -1.5
+        // 12 PM (noon): sun overhead → shadows directly below → skewX = 0
+        // 6 PM - 8 PM (dusk): sun setting in west → shadows point RIGHT (east) → skewX = +1.5
         let shadowDirection = 0;
-        if (timeOfDay >= 6 && timeOfDay <= 18) {
-            // Map time 6→18 to +1 (right) → -1 (left)
-            // INVERTED: We want dawn=right, dusk=left (opposite of time progress)
-            const timeProgress = (timeOfDay - 6) / 12; // 0 to 1
-            shadowDirection = (0.5 - timeProgress) * 2; // +1 to -1 (inverted!)
-        }
+        let shadowOpacity = 0;
         
-        // Shadow opacity (stronger during day, weaker/none at night)
-        let shadowOpacity;
-        let useMoonShadows = true; // Set to false to disable moon shadows completely
-        
-        if (timeOfDay >= 6 && timeOfDay < 18) {
-            // DAYTIME (6 AM - 6 PM): Sun shadows
-            // Shadow strength based on sun height
-            shadowOpacity = 0.5 * Math.max(0.3, sunHeight);
+        if (timeOfDay >= 4 && timeOfDay < 20) {
+            // DAYTIME + DAWN/DUSK (4 AM - 8 PM): Calculate sun position
+            // Map 4 AM → 8 PM to sun arc from east to west
+            // At 4 AM: sun at far east → shadow skews MAX to left (-1)
+            // At 12 PM: sun overhead → no skew (0)
+            // At 8 PM: sun at far west → shadow skews MAX to right (+1)
             
-        } else if (timeOfDay >= 18 && timeOfDay < 20) {
-            // DUSK (6 PM - 8 PM): Shadows fade out as sun sets
-            const duskProgress = (timeOfDay - 18) / 2; // 0 to 1
-            shadowOpacity = 0.5 * (1 - duskProgress); // Fade from 0.5 to 0
+            const dayProgress = (timeOfDay - 4) / 16; // 0 (4 AM) to 1 (8 PM)
+            shadowDirection = (0.5 - dayProgress) * 2; // +1 to -1 (INVERTED: dawn left, dusk right)
             
-        } else if (timeOfDay >= 4 && timeOfDay < 6) {
-            // DAWN (4 AM - 6 AM): Shadows fade in as sun rises
-            const dawnProgress = (timeOfDay - 4) / 2; // 0 to 1
-            shadowOpacity = 0.5 * dawnProgress; // Fade from 0 to 0.5
-            
-        } else if (useMoonShadows && (timeOfDay >= 20 || timeOfDay < 4)) {
-            // NIGHT (8 PM - 4 AM): Optional moon shadows (very faint, opposite direction)
-            shadowOpacity = 0.15; // Faint moon shadows
-            shadowDirection = -shadowDirection; // Moon casts shadows opposite to sun
+            // Opacity based on time windows
+            if (timeOfDay >= 6 && timeOfDay < 18) {
+                // FULL DAYTIME (6 AM - 6 PM): Strong shadows
+                shadowOpacity = 0.5 * Math.max(0.3, sunHeight);
+                
+            } else if (timeOfDay >= 4 && timeOfDay < 6) {
+                // DAWN (4 AM - 6 AM): Fade in from 0 to full
+                const dawnProgress = (timeOfDay - 4) / 2; // 0 to 1
+                shadowOpacity = 0.5 * dawnProgress * Math.max(0.3, sunHeight);
+                
+            } else if (timeOfDay >= 18 && timeOfDay < 20) {
+                // DUSK (6 PM - 8 PM): Fade out from full to 0
+                const duskProgress = (timeOfDay - 18) / 2; // 0 to 1
+                shadowOpacity = 0.5 * (1 - duskProgress) * Math.max(0.3, sunHeight);
+            }
             
         } else {
-            // NO SHADOWS at night if moon shadows disabled
+            // NIGHT (8 PM - 4 AM): No shadows
             shadowOpacity = 0;
+            shadowDirection = 0;
+        }
+        
+        // WEATHER EFFECTS on shadow intensity
+        if (this.currentMap && this.currentMap.weather) {
+            const weather = this.currentMap.weather;
+            
+            if (weather.rain && weather.rain.active) {
+                // Rain reduces shadow intensity (cloudy skies)
+                // Heavier rain = more shadow reduction
+                const rainIntensity = weather.rain.intensity || 0.5;
+                shadowOpacity *= (1 - rainIntensity * 0.7); // Up to 70% reduction
+            }
+            
+            if (weather.snow && weather.snow.active) {
+                // Snow reduces shadow intensity (overcast)
+                // Heavier snow = more shadow reduction
+                const snowIntensity = weather.snow.intensity || 0.5;
+                shadowOpacity *= (1 - snowIntensity * 0.6); // Up to 60% reduction
+            }
+            
+            if (weather.clouds && weather.clouds.active) {
+                // Clouds can reduce shadow intensity
+                const cloudDensity = weather.clouds.density || 0.5;
+                shadowOpacity *= (1 - cloudDensity * 0.5); // Up to 50% reduction
+            }
         }
         
         // Shadow skew amount (how much the TOP shifts horizontally)
