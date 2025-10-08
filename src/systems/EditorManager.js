@@ -377,37 +377,53 @@ class EditorManager {
         let relativeX = mouseScreenX - rect.left;
         let relativeY = mouseScreenY - rect.top;
         
-        // Account for object-fit: contain letterboxing
-        // The canvas maintains aspect ratio, so there might be black bars
+        // Handle different CSS object-fit modes:
+        // - object-fit: contain (letterboxing) - canvas maintains aspect ratio with black bars
+        // - object-fit: fill (stretched) - canvas stretches to fill entire rect
+        // - Dynamic canvas size - canvas dimensions match window dimensions
+        
         const canvasAspect = canvas.width / canvas.height;
         const rectAspect = rect.width / rect.height;
+        const aspectDiff = Math.abs(canvasAspect - rectAspect);
         
-        let renderWidth = rect.width;
-        let renderHeight = rect.height;
-        let offsetX = 0;
-        let offsetY = 0;
+        let renderWidth, renderHeight, offsetX, offsetY;
         
-        if (rectAspect > canvasAspect) {
-            // Window is wider - vertical bars on sides
-            renderWidth = rect.height * canvasAspect;
-            offsetX = (rect.width - renderWidth) / 2;
+        // Check CSS object-fit mode by testing if canvas fills entire rect
+        const computedStyle = window.getComputedStyle(canvas);
+        const objectFit = computedStyle.objectFit || 'fill';
+        
+        if (objectFit === 'fill' || aspectDiff < 0.01) {
+            // Mode 1: Fill mode (stretched) OR dynamic canvas (aspects match)
+            // Canvas fills entire rect - no letterboxing
+            renderWidth = rect.width;
+            renderHeight = rect.height;
+            offsetX = 0;
+            offsetY = 0;
         } else {
-            // Window is taller - horizontal bars on top/bottom
-            renderHeight = rect.width / canvasAspect;
-            offsetY = (rect.height - renderHeight) / 2;
+            // Mode 2: Contain mode (letterboxed) - maintain aspect ratio
+            // Calculate actual rendered area and letterbox offsets
+            if (rectAspect > canvasAspect) {
+                // Window is wider than canvas - vertical black bars on sides
+                renderWidth = rect.height * canvasAspect;
+                renderHeight = rect.height;
+                offsetX = (rect.width - renderWidth) / 2;
+                offsetY = 0;
+            } else {
+                // Window is taller than canvas - horizontal black bars on top/bottom
+                renderWidth = rect.width;
+                renderHeight = rect.width / canvasAspect;
+                offsetX = 0;
+                offsetY = (rect.height - renderHeight) / 2;
+            }
         }
         
-        // Adjust for letterboxing
+        // Adjust for letterboxing offset (if any)
         relativeX = relativeX - offsetX;
         relativeY = relativeY - offsetY;
         
-        // Scale to actual render area
-        relativeX = (relativeX / renderWidth) * canvas.width;
-        relativeY = (relativeY / renderHeight) * canvas.height;
-        
-        // Now relativeX/Y are in canvas coordinates (0 to canvas.width/height)
-        const mouseCanvasX = relativeX;
-        const mouseCanvasY = relativeY;
+        // Scale from render area to canvas coordinates
+        const mouseCanvasX = (relativeX / renderWidth) * canvas.width;
+        const mouseCanvasY = (relativeY / renderHeight) * canvas.height;
 
         // Convert canvas to world coordinates (add camera offset)
         // The mouse canvas position needs to account for zoom to get the correct world position
@@ -587,13 +603,13 @@ class EditorManager {
         
         const camera = this.game.camera;
         
-        // Convert world coordinates to screen coordinates
+        // Convert world coordinates to canvas coordinates (subtract camera position)
         const startScreenX = this.multiSelectStart.x - camera.x;
         const startScreenY = this.multiSelectStart.y - camera.y;
         const endScreenX = this.multiSelectEnd.x - camera.x;
         const endScreenY = this.multiSelectEnd.y - camera.y;
         
-        // Calculate box dimensions in screen space
+        // Calculate box dimensions in canvas space
         const x = Math.min(startScreenX, endScreenX);
         const y = Math.min(startScreenY, endScreenY);
         const width = Math.abs(endScreenX - startScreenX);
