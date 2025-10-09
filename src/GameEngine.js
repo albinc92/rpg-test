@@ -228,7 +228,8 @@ class GameEngine {
             
             // Scale context back to logical pixels
             this.ctx.scale(devicePixelRatio, devicePixelRatio);
-            this.ctx.imageSmoothingEnabled = false;
+            this.ctx.imageSmoothingEnabled = true;
+            this.ctx.imageSmoothingQuality = 'high';
             
             // Handle mobile resize/orientation change
             this.handleResize = () => {
@@ -255,7 +256,8 @@ class GameEngine {
                 this.canvas.width = this.CANVAS_WIDTH * dpr;
                 this.canvas.height = this.CANVAS_HEIGHT * dpr;
                 this.ctx.scale(dpr, dpr);
-                this.ctx.imageSmoothingEnabled = false;
+                this.ctx.imageSmoothingEnabled = true;
+                this.ctx.imageSmoothingQuality = 'high';
             };
             
             window.addEventListener('resize', this.handleResize);
