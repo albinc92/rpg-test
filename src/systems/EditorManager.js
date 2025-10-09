@@ -404,7 +404,11 @@ class EditorManager {
     updateMousePosition() {
         const rect = this.game.canvas.getBoundingClientRect();
         const canvas = this.game.canvas;
-        const ctx = this.game.ctx;
+        
+        // Get LOGICAL canvas dimensions (not physical pixels)
+        // Physical pixels = logical * devicePixelRatio
+        const canvasLogicalWidth = this.game.CANVAS_WIDTH;
+        const canvasLogicalHeight = this.game.CANVAS_HEIGHT;
 
         // Get mouse position (use rawMouse to match preview rendering)
         const mouseScreenX = this.rawMouseX;
@@ -414,30 +418,29 @@ class EditorManager {
         let relativeX = mouseScreenX - rect.left;
         let relativeY = mouseScreenY - rect.top;
         
-        // Handle different CSS object-fit modes:
-        // - object-fit: contain (letterboxing) - canvas maintains aspect ratio with black bars
-        // - object-fit: fill (stretched) - canvas stretches to fill entire rect
-        // - Dynamic canvas size - canvas dimensions match window dimensions
+        // Handle different rendering modes:
+        // Mode 1: Small screens (≤1920x1080) - Canvas uses actual window size, CSS stretches to 100vw/vh
+        // Mode 2: Large screens (>1920x1080) - Canvas capped at 1920x1080, CSS scales up with object-fit:contain
         
-        const canvasAspect = canvas.width / canvas.height;
+        const canvasAspect = canvasLogicalWidth / canvasLogicalHeight;
         const rectAspect = rect.width / rect.height;
         const aspectDiff = Math.abs(canvasAspect - rectAspect);
         
         let renderWidth, renderHeight, offsetX, offsetY;
         
-        // Check CSS object-fit mode by testing if canvas fills entire rect
+        // Check CSS object-fit mode
         const computedStyle = window.getComputedStyle(canvas);
         const objectFit = computedStyle.objectFit || 'fill';
         
         if (objectFit === 'fill' || aspectDiff < 0.01) {
-            // Mode 1: Fill mode (stretched) OR dynamic canvas (aspects match)
+            // Mode 1: Fill mode (small screens use actual dimensions)
             // Canvas fills entire rect - no letterboxing
             renderWidth = rect.width;
             renderHeight = rect.height;
             offsetX = 0;
             offsetY = 0;
         } else {
-            // Mode 2: Contain mode (letterboxed) - maintain aspect ratio
+            // Mode 2: Contain mode (large screens capped at 1920x1080)
             // Calculate actual rendered area and letterbox offsets
             if (rectAspect > canvasAspect) {
                 // Window is wider than canvas - vertical black bars on sides
@@ -458,9 +461,9 @@ class EditorManager {
         relativeX = relativeX - offsetX;
         relativeY = relativeY - offsetY;
         
-        // Scale from render area to canvas coordinates
-        const mouseCanvasX = (relativeX / renderWidth) * canvas.width;
-        const mouseCanvasY = (relativeY / renderHeight) * canvas.height;
+        // Scale from render area to LOGICAL canvas coordinates
+        const mouseCanvasX = (relativeX / renderWidth) * canvasLogicalWidth;
+        const mouseCanvasY = (relativeY / renderHeight) * canvasLogicalHeight;
 
         // Convert canvas to world coordinates (add camera offset)
         // The mouse canvas position needs to account for zoom to get the correct world position
@@ -472,10 +475,9 @@ class EditorManager {
         let worldCanvasY = mouseCanvasY;
 
         if (zoom !== 1.0) {
-            const canvasWidth = canvas.width / (window.devicePixelRatio || 1);
-            const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
-            const centerX = canvasWidth / 2;
-            const centerY = canvasHeight / 2;
+            // Use logical canvas dimensions for zoom calculations
+            const centerX = canvasLogicalWidth / 2;
+            const centerY = canvasLogicalHeight / 2;
 
             // Reverse the zoom transformation: (point - center) / zoom + center
             worldCanvasX = (mouseCanvasX - centerX) / zoom + centerX;
@@ -596,8 +598,8 @@ class EditorManager {
         
         // Apply zoom transformation (same as renderMultiSelectBox)
         if (zoom !== 1.0) {
-            const canvasWidth = canvas.width / (window.devicePixelRatio || 1);
-            const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
+            const canvasWidth = this.game.CANVAS_WIDTH;
+            const canvasHeight = this.game.CANVAS_HEIGHT;
             
             ctx.translate(canvasWidth / 2, canvasHeight / 2);
             ctx.scale(zoom, zoom);
@@ -632,8 +634,8 @@ class EditorManager {
         
         // Apply zoom transformation (same as renderMultiSelectBox)
         if (zoom !== 1.0) {
-            const canvasWidth = canvas.width / (window.devicePixelRatio || 1);
-            const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
+            const canvasWidth = this.game.CANVAS_WIDTH;
+            const canvasHeight = this.game.CANVAS_HEIGHT;
             
             ctx.translate(canvasWidth / 2, canvasHeight / 2);
             ctx.scale(zoom, zoom);
@@ -672,8 +674,8 @@ class EditorManager {
         
         // Apply the same transformation that RenderSystem uses for the world
         if (zoom !== 1.0) {
-            const canvasWidth = canvas.width / (window.devicePixelRatio || 1);
-            const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
+            const canvasWidth = this.game.CANVAS_WIDTH;
+            const canvasHeight = this.game.CANVAS_HEIGHT;
             
             // Scale around center point (same as RenderSystem)
             ctx.translate(canvasWidth / 2, canvasHeight / 2);
@@ -729,8 +731,10 @@ class EditorManager {
         const contextScaleY = transform.d; // Y scale from context
         
         // Account for both canvas size difference AND context scale
-        const canvasToDisplayX = canvas.width / rect.width;
-        const canvasToDisplayY = canvas.height / rect.height;
+        const canvasLogicalWidth = this.game.CANVAS_WIDTH;
+        const canvasLogicalHeight = this.game.CANVAS_HEIGHT;
+        const canvasToDisplayX = canvasLogicalWidth / rect.width;
+        const canvasToDisplayY = canvasLogicalHeight / rect.height;
         
         // The actual scale we need is: canvas-to-display / context-scale
         const finalScaleX = canvasToDisplayX / contextScaleX;
@@ -746,8 +750,8 @@ class EditorManager {
         const zoom = camera.zoom || 1.0;
         
         if (zoom !== 1.0) {
-            const canvasWidth = canvas.width / (window.devicePixelRatio || 1);
-            const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
+            const canvasWidth = this.game.CANVAS_WIDTH;
+            const canvasHeight = this.game.CANVAS_HEIGHT;
             
             // Scale around center point (same as RenderSystem)
             ctx.translate(canvasWidth / 2, canvasHeight / 2);
@@ -923,9 +927,9 @@ class EditorManager {
         const boxWidth = maxWidth + (boxPadding * 2);
         const boxHeight = (lines.length * lineHeight) + (boxPadding * 2);
         
-        // Position in bottom-right corner
-        const x = canvas.width - boxWidth - padding;
-        const y = canvas.height - boxHeight - padding;
+        // Position in bottom-right corner (use logical dimensions)
+        const x = this.game.CANVAS_WIDTH - boxWidth - padding;
+        const y = this.game.CANVAS_HEIGHT - boxHeight - padding;
         
         ctx.save();
         

@@ -139,8 +139,8 @@ class WeatherSystem {
      */
     getCameraViewport() {
         const camera = this.game.camera;
-        const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
-        const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
+        const canvasWidth = this.game.CANVAS_WIDTH;
+        const canvasHeight = this.game.CANVAS_HEIGHT;
         const zoom = camera.zoom || 1.0;
         
         // Calculate viewport size in world coordinates

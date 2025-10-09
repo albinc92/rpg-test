@@ -79,9 +79,9 @@ class RenderSystem {
         // Apply zoom (scale around canvas center for editor)
         const zoom = this.camera.zoom || 1.0;
         if (zoom !== 1.0) {
-            // Get canvas dimensions
-            const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
-            const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
+            // Get logical canvas dimensions
+            const canvasWidth = game.CANVAS_WIDTH;
+            const canvasHeight = game.CANVAS_HEIGHT;
             
             // Scale around center point
             this.ctx.translate(canvasWidth / 2, canvasHeight / 2);
@@ -153,9 +153,9 @@ class RenderSystem {
         // Restore camera transform
         this.ctx.restore();
         
-        // Get actual canvas dimensions (not scaled by devicePixelRatio)
-        const canvasWidth = this.canvas.width / (window.devicePixelRatio || 1);
-        const canvasHeight = this.canvas.height / (window.devicePixelRatio || 1);
+        // Get logical canvas dimensions
+        const canvasWidth = game.CANVAS_WIDTH;
+        const canvasHeight = game.CANVAS_HEIGHT;
         
         // Render day/night cycle overlay on top (affects weather particles and everything)
         if (game?.currentMap?.dayNightCycle && game?.dayNightCycle) {
