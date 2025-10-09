@@ -185,15 +185,41 @@ class GameEngine {
     }
 
     /**
-     * Setup canvas with responsive resolution
+     * Setup canvas with smart scaling
+     * - Small screens: Use actual dimensions (fill mode)
+     * - Large screens: Cap at base resolution, CSS scales up
      */
     setupCanvas() {
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        const maxWidth = this.BASE_WIDTH;  // 1920
+        const maxHeight = this.BASE_HEIGHT; // 1080
+        
+        // Determine canvas logical size
+        if (screenWidth <= maxWidth && screenHeight <= maxHeight) {
+            // Small screen: use actual dimensions
+            this.CANVAS_WIDTH = screenWidth;
+            this.CANVAS_HEIGHT = screenHeight;
+        } else {
+            // Large screen: cap at base resolution
+            this.CANVAS_WIDTH = maxWidth;
+            this.CANVAS_HEIGHT = maxHeight;
+        }
+        
+        // Recalculate resolution scale
+        this.resolutionScale = Math.min(
+            this.CANVAS_WIDTH / this.BASE_WIDTH,
+            this.CANVAS_HEIGHT / this.BASE_HEIGHT
+        );
+        
+        console.log(`[GameEngine] Canvas: ${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT}, Scale: ${this.resolutionScale.toFixed(3)}`);
+        
         if (this.isMobile) {
-            // Mobile: Native resolution with resize handling
+            // Mobile: Dynamic resize handling
             const devicePixelRatio = window.devicePixelRatio || 1;
             
-            this.canvas.style.width = this.CANVAS_WIDTH + 'px';
-            this.canvas.style.height = this.CANVAS_HEIGHT + 'px';
+            this.canvas.style.width = '100vw';
+            this.canvas.style.height = '100vh';
             this.canvas.style.cursor = 'none';
             
             // Set actual canvas size (scaled for high DPI)
@@ -206,19 +232,26 @@ class GameEngine {
             
             // Handle mobile resize/orientation change
             this.handleResize = () => {
-                this.CANVAS_WIDTH = window.innerWidth;
-                this.CANVAS_HEIGHT = window.innerHeight;
+                const newWidth = window.innerWidth;
+                const newHeight = window.innerHeight;
                 
-                // Recalculate resolution scale when canvas size changes
+                // Apply same logic: cap at base resolution for large screens
+                if (newWidth <= maxWidth && newHeight <= maxHeight) {
+                    this.CANVAS_WIDTH = newWidth;
+                    this.CANVAS_HEIGHT = newHeight;
+                } else {
+                    this.CANVAS_WIDTH = maxWidth;
+                    this.CANVAS_HEIGHT = maxHeight;
+                }
+                
+                // Recalculate resolution scale
                 this.resolutionScale = Math.min(
                     this.CANVAS_WIDTH / this.BASE_WIDTH,
                     this.CANVAS_HEIGHT / this.BASE_HEIGHT
                 );
-                console.log(`[GameEngine] Resolution scale updated: ${this.resolutionScale.toFixed(3)} (${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT})`);
+                console.log(`[GameEngine] Resize: ${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT}, Scale: ${this.resolutionScale.toFixed(3)}`);
                 
                 const dpr = window.devicePixelRatio || 1;
-                this.canvas.style.width = this.CANVAS_WIDTH + 'px';
-                this.canvas.style.height = this.CANVAS_HEIGHT + 'px';
                 this.canvas.width = this.CANVAS_WIDTH * dpr;
                 this.canvas.height = this.CANVAS_HEIGHT * dpr;
                 this.ctx.scale(dpr, dpr);
@@ -230,10 +263,16 @@ class GameEngine {
             this.eventListeners.push({ target: window, type: 'resize', handler: this.handleResize });
             this.eventListeners.push({ target: window, type: 'orientationchange', handler: this.handleResize });
         } else {
-            // Desktop: Fixed resolution, CSS scales
-            this.canvas.width = this.CANVAS_WIDTH;
-            this.canvas.height = this.CANVAS_HEIGHT;
+            // Desktop: Same logic, but with CSS scaling
+            const devicePixelRatio = window.devicePixelRatio || 1;
+            
+            this.canvas.style.width = '100vw';
+            this.canvas.style.height = '100vh';
             this.canvas.style.cursor = 'none';
+            
+            this.canvas.width = this.CANVAS_WIDTH * devicePixelRatio;
+            this.canvas.height = this.CANVAS_HEIGHT * devicePixelRatio;
+            this.ctx.scale(devicePixelRatio, devicePixelRatio);
             
             // Enable smooth scaling for better quality on desktop
             this.ctx.imageSmoothingEnabled = true;
