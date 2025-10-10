@@ -50,6 +50,11 @@ class GameEngine {
         // Spirit registry for spirit templates
         this.spiritRegistry = new SpiritRegistry(this);
         
+        // NPC, Chest, and Portal registries
+        this.npcRegistry = new NPCRegistry();
+        this.chestRegistry = new ChestRegistry();
+        this.portalRegistry = new PortalRegistry();
+        
         // Core systems
         this.audioManager = new AudioManager();
         this.inputManager = new InputManager();

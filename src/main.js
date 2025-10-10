@@ -38,6 +38,11 @@ async function loadGameScripts() {
         // Load spirit registry for spirit templates
         await loadScript('/src/systems/SpiritRegistry.js');
         
+        // Load NPC, Chest, and Portal registries
+        await loadScript('/src/systems/NPCRegistry.js');
+        await loadScript('/src/systems/ChestRegistry.js');
+        await loadScript('/src/systems/PortalRegistry.js');
+        
         // Load light system for dynamic lighting
         await loadScript('/src/systems/LightRegistry.js');
         await loadScript('/src/systems/LightManager.js');
@@ -75,6 +80,9 @@ async function loadGameScripts() {
         await loadScript('/src/editor/LayerPanel.js'); // NEW: Layer management panel
         await loadScript('/src/editor/TemplateEditor.js'); // NEW: Template editor
         await loadScript('/src/editor/LightEditor.js'); // NEW: Light editor
+        await loadScript('/src/editor/NPCEditor.js'); // NEW: NPC template editor
+        await loadScript('/src/editor/ChestEditor.js'); // NEW: Chest template editor
+        await loadScript('/src/editor/PortalEditor.js'); // NEW: Portal template editor
         await loadScript('/src/editor/ObjectPlacementPanel.js'); // NEW: Unified placement panel
         await loadScript('/src/systems/EditorManager.js');
         

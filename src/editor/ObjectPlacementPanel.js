@@ -129,13 +129,13 @@ class ObjectPlacementPanel {
                     .map(item => ({ ...item.template, name: item.name, id: item.name }));
                 break;
             case 'npcs':
-                templates = this.getNPCTemplates();
+                templates = this.game.npcRegistry.getAllTemplates();
                 break;
             case 'chests':
-                templates = this.getChestTemplates();
+                templates = this.game.chestRegistry.getAllTemplates();
                 break;
             case 'portals':
-                templates = this.getPortalTemplates();
+                templates = this.game.portalRegistry.getAllTemplates();
                 break;
         }
         
@@ -238,38 +238,7 @@ class ObjectPlacementPanel {
         }
     }
     
-    /**
-     * Get NPC templates (placeholder until we create NPC registry)
-     */
-    getNPCTemplates() {
-        return [
-            { id: 'npc-merchant', name: 'Merchant', npcType: 'merchant' },
-            { id: 'npc-sage', name: 'Sage', npcType: 'sage' },
-            { id: 'npc-guard', name: 'Guard', npcType: 'guard' }
-        ];
-    }
-    
-    /**
-     * Get chest templates (placeholder until we create chest registry)
-     */
-    getChestTemplates() {
-        return [
-            { id: 'chest-wooden', name: 'Wooden Chest', chestType: 'wooden' },
-            { id: 'chest-iron', name: 'Iron Chest', chestType: 'iron' },
-            { id: 'chest-golden', name: 'Golden Chest', chestType: 'golden' }
-        ];
-    }
-    
-    /**
-     * Get portal templates (placeholder until we create portal registry)
-     */
-    getPortalTemplates() {
-        return [
-            { id: 'portal-door', name: 'Door', portalType: 'door' },
-            { id: 'portal-teleport', name: 'Teleport', portalType: 'teleport' },
-            { id: 'portal-stairs', name: 'Stairs', portalType: 'stairs' }
-        ];
-    }
+    // No longer needed - using real registries now!
     
     /**
      * Select a template

@@ -7,7 +7,21 @@ class EditorUI {
         this.game = editor.game; // Reference to game instance
         this.container = null;
         this.dropdowns = [];
+        
+        // Initialize editor panels
+        this.npcEditor = null;
+        this.chestEditor = null;
+        this.portalEditor = null;
+        
         this.createUI();
+        this.initializeEditors();
+    }
+    
+    initializeEditors() {
+        // Create editor instances
+        this.npcEditor = new NPCEditor(this.game);
+        this.chestEditor = new ChestEditor(this.game);
+        this.portalEditor = new PortalEditor(this.game);
     }
 
     /**
@@ -312,15 +326,15 @@ class EditorUI {
             },
             {
                 label: '🧙 NPCs',
-                action: () => this.showNPCBrowser()
+                action: () => this.npcEditor.show()
             },
             {
                 label: '📦 Chests',
-                action: () => this.showChestBrowser()
+                action: () => this.chestEditor.show()
             },
             {
                 label: '� Portals',
-                action: () => this.showPortalBrowser()
+                action: () => this.portalEditor.show()
             },
             { separator: true },
             {
@@ -4071,9 +4085,10 @@ class EditorUI {
         const info = document.createElement('div');
         info.style.cssText = 'margin-bottom: 20px; padding: 12px; background: rgba(155, 89, 182, 0.2); border-radius: 6px; font-size: 14px;';
         info.innerHTML = `
-            <strong>NPC Templates</strong><br>
-            These are predefined NPC types that can be placed in the world.<br>
-            Click on an NPC type to use it in the placement tool.
+            <strong>NPC Template Browser</strong><br>
+            Templates from NPCRegistry (${this.editor.game.npcRegistry.getCount()} total)<br>
+            Click on an NPC type to place it in the world.<br>
+            <em>Full editor UI with Create/Edit/Delete coming soon!</em>
         `;
         modal.appendChild(info);
 
@@ -4207,9 +4222,10 @@ class EditorUI {
         const info = document.createElement('div');
         info.style.cssText = 'margin-bottom: 20px; padding: 12px; background: rgba(243, 156, 18, 0.2); border-radius: 6px; font-size: 14px;';
         info.innerHTML = `
-            <strong>Chest Templates</strong><br>
-            Interactive containers that can store items and gold.<br>
-            Click on a chest type to use it in the placement tool.
+            <strong>Chest Template Browser</strong><br>
+            Templates from ChestRegistry (${this.editor.game.chestRegistry.getCount()} total)<br>
+            Click on a chest type to place it in the world.<br>
+            <em>Full editor UI with Create/Edit/Delete coming soon!</em>
         `;
         modal.appendChild(info);
 
@@ -4349,11 +4365,12 @@ class EditorUI {
 
         // Info text
         const info = document.createElement('div');
-        info.style.cssText = 'margin-bottom: 20px; padding: 12px; background: rgba(231, 76, 60, 0.2); border-radius: 6px; font-size: 14px;';
+        info.style.cssText = 'margin-bottom: 20px; padding: 12px; background: rgba(155, 89, 182, 0.2); border-radius: 6px; font-size: 14px;';
         info.innerHTML = `
-            <strong>Portal Templates</strong><br>
-            Interactive portals that transport players between maps.<br>
-            Click on a portal type to use it in the placement tool.
+            <strong>Portal Template Browser</strong><br>
+            Templates from PortalRegistry (${this.editor.game.portalRegistry.getCount()} total)<br>
+            Click on a portal type to place it in the world.<br>
+            <em>Full editor UI with Create/Edit/Delete coming soon!</em>
         `;
         modal.appendChild(info);
 
