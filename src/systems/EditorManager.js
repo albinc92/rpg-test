@@ -960,7 +960,8 @@ class EditorManager {
         const lines = [
             `Grid: ${this.gridEnabled ? 'ON' : 'OFF'} (G)`,
             `Snap: ${this.snapToGrid ? 'ON' : 'OFF'} (Shift)`,
-            `Collision: ${this.showCollisionBoxes ? 'ON' : 'OFF'} (C)`
+            `Collision: ${this.showCollisionBoxes ? 'ON' : 'OFF'} (C)`,
+            `Lights: ${this.showLightPreviews ? 'ON' : 'OFF'}`
         ];
         
         if (this.selectedObject) {
