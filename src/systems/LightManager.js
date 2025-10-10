@@ -217,6 +217,7 @@ class LightManager {
     
     /**
      * Render editor preview sprites (only in editor mode)
+     * NOTE: Camera transform is ALREADY applied by RenderSystem, so we render at world coordinates
      */
     renderEditorPreviews(ctx, cameraX, cameraY, showPreviews = true) {
         if (!showPreviews || !this.previewSpriteLoaded) return;
@@ -224,7 +225,7 @@ class LightManager {
         ctx.save();
         
         this.lights.forEach(light => {
-            // COMMON BEHAVIOR: Scale storage coordinates to world coordinates
+            // COMMON BEHAVIOR: Scale storage coordinates to world coordinates (same as GameObject)
             const game = this.game;
             const resolutionScale = game?.resolutionScale || 1.0;
             const mapScale = game?.currentMap?.scale || 1.0;
@@ -232,15 +233,16 @@ class LightManager {
             
             const worldX = light.x * totalScale;
             const worldY = light.y * totalScale;
-            const screenX = worldX - cameraX;
-            const screenY = worldY - cameraY;
+            
+            // Camera transform is ALREADY applied, so use world coordinates directly
+            // (RenderSystem calls ctx.translate(-camera.x, -camera.y) before this)
             
             // Draw preview sprite centered on light position
             const spriteSize = 32; // Fixed size for editor preview
             ctx.drawImage(
                 this.previewSprite,
-                screenX - spriteSize / 2,
-                screenY - spriteSize / 2,
+                worldX - spriteSize / 2,
+                worldY - spriteSize / 2,
                 spriteSize,
                 spriteSize
             );
@@ -251,8 +253,8 @@ class LightManager {
             ctx.font = '12px Arial';
             ctx.textAlign = 'center';
             ctx.lineWidth = 3;
-            ctx.strokeText(light.templateName, screenX, screenY + 24);
-            ctx.fillText(light.templateName, screenX, screenY + 24);
+            ctx.strokeText(light.templateName, worldX, worldY + 24);
+            ctx.fillText(light.templateName, worldX, worldY + 24);
         });
         
         ctx.restore();
