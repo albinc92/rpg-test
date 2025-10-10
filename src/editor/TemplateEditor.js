@@ -31,7 +31,9 @@ class TemplateEditor {
             border: 3px solid #4a9eff;
             border-radius: 12px;
             overflow-y: auto;
+            overflow-x: hidden;
             box-shadow: 0 10px 50px rgba(0,0,0,0.8);
+            box-sizing: border-box;
         `;
 
         document.body.appendChild(this.container);
@@ -207,26 +209,29 @@ class TemplateEditor {
 
         this.container.appendChild(header);
 
-        // Form
-        const form = document.createElement('div');
-        form.style.cssText = `
+        // Form container with proper scrolling
+        const formContainer = document.createElement('div');
+        formContainer.style.cssText = `
             display: flex;
             flex-direction: column;
             gap: 15px;
+            margin-bottom: 15px;
+            overflow-y: visible;
         `;
 
         // Add editable fields
-        this.addField(form, 'Cast Shadow', 'castsShadow', template.castsShadow, 'checkbox');
-        this.addField(form, 'Animation Type', 'animationType', template.animationType || 'none', 'select', ['none', 'sway', 'pulse', 'rotate']);
-        this.addField(form, 'Sways in Wind', 'swaysInWind', template.swaysInWind || false, 'checkbox');
-        this.addField(form, 'Animation Speed', 'animationSpeed', template.animationSpeed || 0.001, 'number', null, 0.0001, 0.01, 0.0001);
-        this.addField(form, 'Animation Intensity', 'animationIntensity', template.animationIntensity || 1.0, 'number', null, 0.1, 5.0, 0.1);
-        this.addField(form, 'Scale', 'scale', template.scale || 1.0, 'number', null, 0.1, 5.0, 0.1);
-        this.addField(form, 'Collision Top %', 'collisionExpandTopPercent', template.collisionExpandTopPercent || 0, 'number', null, -1, 1, 0.05);
-        this.addField(form, 'Collision Right %', 'collisionExpandRightPercent', template.collisionExpandRightPercent || 0, 'number', null, -1, 1, 0.05);
-        this.addField(form, 'Collision Left %', 'collisionExpandLeftPercent', template.collisionExpandLeftPercent || 0, 'number', null, -1, 1, 0.05);
+        this.addField(formContainer, 'Cast Shadow', 'castsShadow', template.castsShadow, 'checkbox');
+        this.addField(formContainer, 'Animation Type', 'animationType', template.animationType || 'none', 'select', ['none', 'sway', 'pulse', 'rotate']);
+        this.addField(formContainer, 'Sways in Wind', 'swaysInWind', template.swaysInWind || false, 'checkbox');
+        this.addField(formContainer, 'Animation Speed', 'animationSpeed', template.animationSpeed || 0.001, 'number', null, 0.0001, 0.01, 0.0001);
+        this.addField(formContainer, 'Animation Intensity', 'animationIntensity', template.animationIntensity || 1.0, 'number', null, 0.1, 5.0, 0.1);
+        this.addField(formContainer, 'Scale', 'scale', template.scale || 1.0, 'number', null, 0.1, 5.0, 0.1);
+        this.addField(formContainer, 'Collision Top %', 'collisionExpandTopPercent', template.collisionExpandTopPercent || 0, 'number', null, -1, 1, 0.05);
+        this.addField(formContainer, 'Collision Bottom %', 'collisionExpandBottomPercent', template.collisionExpandBottomPercent || 0, 'number', null, -1, 1, 0.05);
+        this.addField(formContainer, 'Collision Right %', 'collisionExpandRightPercent', template.collisionExpandRightPercent || 0, 'number', null, -1, 1, 0.05);
+        this.addField(formContainer, 'Collision Left %', 'collisionExpandLeftPercent', template.collisionExpandLeftPercent || 0, 'number', null, -1, 1, 0.05);
 
-        this.container.appendChild(form);
+        this.container.appendChild(formContainer);
 
         // Save button
         const saveBtn = document.createElement('button');

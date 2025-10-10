@@ -967,7 +967,8 @@ class EditorManager {
             lines.push(`Selected: Drag to move, D to delete`);
         }
         
-        // Calculate box dimensions
+        // Calculate box dimensions with proper text measurement
+        ctx.save();
         ctx.font = '14px monospace';
         const maxWidth = Math.max(...lines.map(line => ctx.measureText(line).width));
         const boxWidth = maxWidth + (boxPadding * 2);
@@ -977,10 +978,8 @@ class EditorManager {
         const x = this.game.CANVAS_WIDTH - boxWidth - padding;
         const y = this.game.CANVAS_HEIGHT - boxHeight - padding;
         
-        ctx.save();
-        
         // Draw background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
         ctx.fillRect(x, y, boxWidth, boxHeight);
         
         // Draw border
@@ -988,9 +987,15 @@ class EditorManager {
         ctx.lineWidth = 2;
         ctx.strokeRect(x, y, boxWidth, boxHeight);
         
-        // Draw text
+        // Draw text with proper clipping
         ctx.fillStyle = '#ffffff';
         ctx.font = '14px monospace';
+        
+        // Set clipping region to prevent text overflow
+        ctx.beginPath();
+        ctx.rect(x, y, boxWidth, boxHeight);
+        ctx.clip();
+        
         lines.forEach((line, index) => {
             ctx.fillText(line, x + boxPadding, y + boxPadding + (index + 1) * lineHeight - 5);
         });
