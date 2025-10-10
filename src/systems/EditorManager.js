@@ -825,13 +825,15 @@ class EditorManager {
             spriteHeight = sprite.naturalHeight;
         }
         
-        // Calculate final dimensions with scaling (same as GameObject)
+        // COMMON BEHAVIOR: Calculate sprite dimensions (same as GameObject.getFinalScale)
+        // Sprite size = base size × object scale × resolutionScale (NO mapScale)
         const resolutionScale = this.game.resolutionScale || 1;
         const finalScale = scale * resolutionScale;
         const scaledWidth = spriteWidth * finalScale;
         const scaledHeight = spriteHeight * finalScale;
         
-        // Calculate position in world space (GameObjects are rendered from center)
+        // COMMON BEHAVIOR: Position uses worldX/worldY (already scaled with mapScale × resolutionScale)
+        // GameObjects render from center, so subtract half width/height
         const drawX = worldX - scaledWidth / 2;
         const drawY = worldY - scaledHeight / 2;
         

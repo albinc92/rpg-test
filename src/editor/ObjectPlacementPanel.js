@@ -375,7 +375,8 @@ class ObjectPlacementPanel {
                     spriteSrc: '/assets/npc/chest-0.png',
                     chestType: template.chestType,
                     gold: 0,
-                    loot: []
+                    loot: [],
+                    scale: 0.15  // COMMON BEHAVIOR: Set default scale for visual consistency
                 };
                 
             case 'portals':
@@ -385,7 +386,8 @@ class ObjectPlacementPanel {
                     spriteSrc: '/assets/npc/door-0.png',
                     portalType: template.portalType,
                     targetMap: '0-0',
-                    spawnPoint: 'default'
+                    spawnPoint: 'default',
+                    scale: 0.15  // COMMON BEHAVIOR: Set default scale for visual consistency
                 };
                 
             default:
