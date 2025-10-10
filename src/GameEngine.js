@@ -298,7 +298,8 @@ class GameEngine {
      * Handle debug key presses
      */
     handleDebugKeys = (e) => {
-        if (e.code === 'KeyP') {
+        // Don't pause game with 'P' key if editor is active (P = Place in editor)
+        if (e.code === 'KeyP' && !this.editorManager?.isActive) {
             this.isPaused = !this.isPaused;
             console.log(`Game ${this.isPaused ? 'PAUSED' : 'UNPAUSED'}`);
             

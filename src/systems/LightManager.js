@@ -264,14 +264,27 @@ class LightManager {
      * Check if a point is inside a light (for selection in editor)
      */
     isPointInLight(x, y, light, threshold = 20) {
-        const dx = x - light.x;
-        const dy = y - light.y;
+        // COMMON BEHAVIOR: Scale storage coordinates to world coordinates
+        const game = this.game;
+        const resolutionScale = game?.resolutionScale || 1.0;
+        const mapScale = game?.currentMap?.scale || 1.0;
+        const totalScale = mapScale * resolutionScale;
+        
+        // Convert light's stored coordinates to world coordinates
+        const lightWorldX = light.x * totalScale;
+        const lightWorldY = light.y * totalScale;
+        
+        // Compare world coordinates (x, y are already scaled world coordinates from mouse)
+        const dx = x - lightWorldX;
+        const dy = y - lightWorldY;
         const distance = Math.sqrt(dx * dx + dy * dy);
         return distance <= threshold;
     }
     
     /**
      * Find light at position (for editor selection)
+     * @param {number} x - World X coordinate (scaled)
+     * @param {number} y - World Y coordinate (scaled)
      */
     findLightAtPosition(x, y) {
         // Search in reverse order (top to bottom in render order)
@@ -281,6 +294,19 @@ class LightManager {
             }
         }
         return null;
+    }
+    
+    /**
+     * Remove a light by ID
+     */
+    removeLight(lightId) {
+        const index = this.lights.findIndex(light => light.id === lightId);
+        if (index !== -1) {
+            this.lights.splice(index, 1);
+            console.log('[LightManager] Removed light:', lightId);
+            return true;
+        }
+        return false;
     }
     
     /**

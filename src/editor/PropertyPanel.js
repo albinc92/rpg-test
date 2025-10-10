@@ -60,8 +60,11 @@ class PropertyPanel {
         // Clear previous properties
         this.propertiesContainer.innerHTML = '';
 
+        // Check if this is a light (has templateName and doesn't have constructor.name like GameObject)
+        const isLight = obj.templateName && !obj.constructor?.name?.includes('Object');
+        
         // Object type
-        this.addLabel('Type: ' + obj.constructor.name);
+        this.addLabel('Type: ' + (isLight ? 'Light' : obj.constructor.name));
 
         // Common properties
         this.addNumberInput('X', obj.x, (value) => {
@@ -72,28 +75,67 @@ class PropertyPanel {
             obj.y = value;
         });
 
-        this.addNumberInput('Scale', obj.scale, (value) => {
-            obj.scale = value;
-        }, 0.1, 0.01);
-
-        if (obj.rotation !== undefined) {
-            this.addNumberInput('Rotation', obj.rotation, (value) => {
-                obj.rotation = value;
+        // Light-specific properties
+        if (isLight) {
+            this.addLabel('Template: ' + obj.templateName);
+            
+            this.addNumberInput('Radius', obj.radius, (value) => {
+                obj.radius = value;
+            }, 10, 0);
+            
+            // Color inputs
+            this.addLabel('Color:');
+            this.addNumberInput('  Red', obj.color.r, (value) => {
+                obj.color.r = Math.max(0, Math.min(255, value));
             }, 1, 0);
-        }
+            this.addNumberInput('  Green', obj.color.g, (value) => {
+                obj.color.g = Math.max(0, Math.min(255, value));
+            }, 1, 0);
+            this.addNumberInput('  Blue', obj.color.b, (value) => {
+                obj.color.b = Math.max(0, Math.min(255, value));
+            }, 1, 0);
+            this.addNumberInput('  Alpha', obj.color.a, (value) => {
+                obj.color.a = Math.max(0, Math.min(1, value));
+            }, 0.1, 0);
+            
+            // Flicker properties
+            this.addLabel('Flicker:');
+            this.addCheckbox('  Enabled', obj.flicker.enabled, (value) => {
+                obj.flicker.enabled = value;
+            });
+            if (obj.flicker.enabled) {
+                this.addNumberInput('  Speed', obj.flicker.speed, (value) => {
+                    obj.flicker.speed = value;
+                }, 0.1, 0);
+                this.addNumberInput('  Intensity', obj.flicker.intensity, (value) => {
+                    obj.flicker.intensity = Math.max(0, Math.min(1, value));
+                }, 0.05, 0);
+            }
+        } else {
+            // Non-light object properties
+            this.addNumberInput('Scale', obj.scale, (value) => {
+                obj.scale = value;
+            }, 0.1, 0.01);
 
-        // Reverse facing checkbox (for all objects with sprites)
-        // Initialize reverseFacing if it doesn't exist
-        if (obj.reverseFacing === undefined) {
-            obj.reverseFacing = false;
-        }
-        this.addCheckbox('Reverse Facing', obj.reverseFacing, (value) => {
-            obj.reverseFacing = value;
-        });
+            if (obj.rotation !== undefined) {
+                this.addNumberInput('Rotation', obj.rotation, (value) => {
+                    obj.rotation = value;
+                }, 1, 0);
+            }
 
-        // Sprite selector for objects that have sprites
-        if (obj.spriteSrc !== undefined) {
-            this.addSpriteSelector(obj);
+            // Reverse facing checkbox (for all objects with sprites)
+            // Initialize reverseFacing if it doesn't exist
+            if (obj.reverseFacing === undefined) {
+                obj.reverseFacing = false;
+            }
+            this.addCheckbox('Reverse Facing', obj.reverseFacing, (value) => {
+                obj.reverseFacing = value;
+            });
+
+            // Sprite selector for objects that have sprites
+            if (obj.spriteSrc !== undefined) {
+                this.addSpriteSelector(obj);
+            }
         }
 
         // Conditional properties

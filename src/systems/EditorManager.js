@@ -638,7 +638,9 @@ class EditorManager {
         const camera = this.game.camera;
         const zoom = camera.zoom || 1.0;
         const canvas = this.game.canvas;
-        const bounds = this.selectedObject.getCollisionBounds(this.game);
+        
+        // Check if selected object is a light
+        const isLight = this.selectedObject.templateName && this.game.lightManager.lights.includes(this.selectedObject);
         
         ctx.save();
         
@@ -652,16 +654,62 @@ class EditorManager {
             ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
         }
         
-        ctx.strokeStyle = '#00ff00';
-        ctx.lineWidth = 2 / zoom; // Adjust line width for zoom
-        ctx.setLineDash([5 / zoom, 5 / zoom]); // Adjust dash pattern for zoom
-        
-        ctx.strokeRect(
-            bounds.x - camera.x,
-            bounds.y - camera.y,
-            bounds.width,
-            bounds.height
-        );
+        if (isLight) {
+            // Draw selection indicator for lights (circle around light position)
+            const light = this.selectedObject;
+            
+            // COMMON BEHAVIOR: Scale storage coordinates to world coordinates
+            const resolutionScale = this.game?.resolutionScale || 1.0;
+            const mapScale = this.game?.currentMap?.scale || 1.0;
+            const totalScale = mapScale * resolutionScale;
+            
+            const worldX = light.x * totalScale;
+            const worldY = light.y * totalScale;
+            const screenX = worldX - camera.x;
+            const screenY = worldY - camera.y;
+            
+            // Draw pulsing circle around light
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 3 / zoom;
+            ctx.setLineDash([8 / zoom, 4 / zoom]);
+            
+            // Draw outer circle (at light radius)
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, light.radius, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Draw inner circle (selection marker)
+            ctx.strokeStyle = '#ffff00';
+            ctx.lineWidth = 2 / zoom;
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, 30, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Draw crosshair at center
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 2 / zoom;
+            ctx.beginPath();
+            ctx.moveTo(screenX - 15, screenY);
+            ctx.lineTo(screenX + 15, screenY);
+            ctx.moveTo(screenX, screenY - 15);
+            ctx.lineTo(screenX, screenY + 15);
+            ctx.stroke();
+        } else {
+            // Draw selection box for regular game objects
+            const bounds = this.selectedObject.getCollisionBounds(this.game);
+            
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 2 / zoom;
+            ctx.setLineDash([5 / zoom, 5 / zoom]);
+            
+            ctx.strokeRect(
+                bounds.x - camera.x,
+                bounds.y - camera.y,
+                bounds.width,
+                bounds.height
+            );
+        }
         
         ctx.restore();
     }
@@ -694,13 +742,33 @@ class EditorManager {
         
         // Draw dashed outline around each selected object
         for (const obj of this.selectedObjects) {
-            const bounds = obj.getCollisionBounds(this.game);
-            ctx.strokeRect(
-                bounds.x - camera.x,
-                bounds.y - camera.y,
-                bounds.width,
-                bounds.height
-            );
+            // Check if this is a light
+            const isLight = obj.templateName && this.game.lightManager.lights.includes(obj);
+            
+            if (isLight) {
+                // Draw circle for lights
+                const resolutionScale = this.game?.resolutionScale || 1.0;
+                const mapScale = this.game?.currentMap?.scale || 1.0;
+                const totalScale = mapScale * resolutionScale;
+                
+                const worldX = obj.x * totalScale;
+                const worldY = obj.y * totalScale;
+                const screenX = worldX - camera.x;
+                const screenY = worldY - camera.y;
+                
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, 30, 0, Math.PI * 2);
+                ctx.stroke();
+            } else {
+                // Draw box for regular objects
+                const bounds = obj.getCollisionBounds(this.game);
+                ctx.strokeRect(
+                    bounds.x - camera.x,
+                    bounds.y - camera.y,
+                    bounds.width,
+                    bounds.height
+                );
+            }
         }
         
         ctx.restore();
@@ -1269,13 +1337,26 @@ class EditorManager {
             }
         }
         
-        // Check for light selection
+        // Check for light selection (check lights BEFORE regular objects)
         const selectedLight = this.game.lightManager.findLightAtPosition(worldX, worldY);
         if (selectedLight) {
             console.log('[SELECT] Selected light:', selectedLight.id);
-            if (this.lightEditor) {
-                this.lightEditor.selectLight(selectedLight);
-            }
+            
+            // Treat light as selected object
+            this.selectObject(selectedLight);
+            
+            // Setup drag offsets (lights store coordinates in unscaled format)
+            const unscaled = this.worldToUnscaled(worldX, worldY);
+            this.dragStartX = unscaled.x;
+            this.dragStartY = unscaled.y;
+            this.dragOffsetX = unscaled.x - selectedLight.x;
+            this.dragOffsetY = unscaled.y - selectedLight.y;
+            
+            // Not multi-selecting when clicking a light
+            this.isMultiSelecting = false;
+            
+            console.log('[SELECT] Selected light:', selectedLight.templateName, 'at unscaled:', selectedLight.x, selectedLight.y);
+            
             return true;
         }
         
@@ -1444,26 +1525,38 @@ class EditorManager {
      * Delete an object
      */
     deleteObject(obj) {
-        console.log('[DELETE] deleteObject called with:', obj.constructor.name, 'ID:', obj.id, 'pos:', obj.x, obj.y);
+        // Check if this is a light (has templateName and is in lightManager)
+        const isLight = obj.templateName && this.game.lightManager.lights.includes(obj);
+        const objType = isLight ? 'Light' : obj.constructor.name;
         
-        // DEBUG: Check all objects with same ID
-        const allObjects = this.game.objectManager.getObjectsForMap(this.game.currentMapId);
-        const duplicates = allObjects.filter(o => o.id === obj.id);
-        console.log('[DELETE] Found', duplicates.length, 'object(s) with ID:', obj.id);
-        duplicates.forEach((dup, idx) => {
-            console.log(`[DELETE]   Duplicate ${idx}: pos=(${dup.x}, ${dup.y}), same reference as selected? ${dup === obj}`);
-        });
+        console.log('[DELETE] deleteObject called with:', objType, 'ID:', obj.id, 'pos:', obj.x, obj.y);
         
-        // Add to history first
+        if (isLight) {
+            // Delete light from LightManager
+            this.game.lightManager.removeLight(obj.id);
+            console.log('[EditorManager] Deleted light:', obj.templateName, obj.id);
+        } else {
+            // DEBUG: Check all objects with same ID
+            const allObjects = this.game.objectManager.getObjectsForMap(this.game.currentMapId);
+            const duplicates = allObjects.filter(o => o.id === obj.id);
+            console.log('[DELETE] Found', duplicates.length, 'object(s) with ID:', obj.id);
+            duplicates.forEach((dup, idx) => {
+                console.log(`[DELETE]   Duplicate ${idx}: pos=(${dup.x}, ${dup.y}), same reference as selected? ${dup === obj}`);
+            });
+            
+            // Delete regular game object
+            console.log('[DELETE] Calling removeObject with ID:', obj.id);
+            this.game.objectManager.removeObject(this.game.currentMapId, obj.id);
+            console.log('[EditorManager] Deleted:', obj.constructor.name, obj.id);
+        }
+        
+        // Add to history
         this.addHistory({
             type: 'delete',
             object: obj,
+            objectType: objType,
             mapId: this.game.currentMapId
         });
-        
-        console.log('[DELETE] Calling removeObject with ID:', obj.id);
-        this.game.objectManager.removeObject(this.game.currentMapId, obj.id);
-        console.log('[EditorManager] Deleted:', obj.constructor.name, obj.id);
         
         if (this.selectedObject === obj) {
             this.selectObject(null);
