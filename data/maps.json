@@ -1,10 +1,10 @@
 {
   "0-0": {
     "name": "Starting Village",
-    "imageSrc": "assets/maps/0-0.png",
+    "imageSrc": "/assets/maps/0-0.png",
     "scale": 3.0,
-    "music": "assets/audio/bgm/01.mp3",
-    "ambience": "assets/audio/ambience/forest-0.mp3",
+    "music": "/assets/audio/bgm/01.mp3",
+    "ambience": "/assets/audio/ambience/forest-0.mp3",
     "dayNightCycle": true,
     "spawnDensity": 10,
     "spawnTable": [
@@ -22,17 +22,17 @@
   },
   "0-1": {
     "name": "Village Square",
-    "imageSrc": "assets/maps/0-1.png",
+    "imageSrc": "/assets/maps/0-1.png",
     "scale": 3.0,
-    "music": "assets/audio/bgm/01.mp3",
-    "ambience": "assets/audio/ambience/forest-0.mp3",
+    "music": "/assets/audio/bgm/01.mp3",
+    "ambience": "/assets/audio/ambience/forest-0.mp3",
     "dayNightCycle": true
   },
   "0-1-shop": {
     "name": "Village Shop",
-    "imageSrc": "assets/maps/0-1-shop.png",
+    "imageSrc": "/assets/maps/0-1-shop.png",
     "scale": 3.0,
-    "music": "assets/audio/bgm/02.mp3",
+    "music": "/assets/audio/bgm/02.mp3",
     "ambience": null,
     "dayNightCycle": false
   }

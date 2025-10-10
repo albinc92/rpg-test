@@ -31,7 +31,11 @@ class ObjectManager {
         this.subtypeFactories = {
             'Actor': {
                 'npc': (data) => new NPC(data),
-                'spirit': (data) => new Spirit(data),
+                'spirit': (data) => {
+                    // Spirit expects (game, x, y, mapId, options)
+                    const { x, y, mapId, ...options } = data;
+                    return new Spirit(this.game, x || 0, y || 0, mapId, options);
+                },
                 'merchant': (data) => new NPC({ ...data, npcType: 'merchant' })
             },
             'InteractiveObject': {

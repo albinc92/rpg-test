@@ -38,6 +38,10 @@ async function loadGameScripts() {
         // Load spirit registry for spirit templates
         await loadScript('/src/systems/SpiritRegistry.js');
         
+        // Load light system for dynamic lighting
+        await loadScript('/src/systems/LightRegistry.js');
+        await loadScript('/src/systems/LightManager.js');
+        
         // Load manager systems
         await loadScript('/src/systems/AudioManager.js');
         await loadScript('/src/systems/InputManager.js');
@@ -70,6 +74,8 @@ async function loadGameScripts() {
         await loadScript('/src/editor/PropertyPanel.js');
         await loadScript('/src/editor/LayerPanel.js'); // NEW: Layer management panel
         await loadScript('/src/editor/TemplateEditor.js'); // NEW: Template editor
+        await loadScript('/src/editor/LightEditor.js'); // NEW: Light editor
+        await loadScript('/src/editor/ObjectPlacementPanel.js'); // NEW: Unified placement panel
         await loadScript('/src/systems/EditorManager.js');
         
         // Load game engine

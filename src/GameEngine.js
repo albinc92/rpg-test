@@ -81,10 +81,13 @@ class GameEngine {
         this.editorManager = new EditorManager(this);
         
         // Day/Night cycle system with shader support
-        this.dayNightCycle = new DayNightCycle(this.canvas);
+        this.dayNightCycle = new DayNightCycle(this.canvas, this);
         
         // Weather system
         this.weatherSystem = new WeatherSystem(this);
+        
+        // Light system for dynamic lighting
+        this.lightManager = new LightManager(this);
         
         // Spawn system for spirits
         this.spawnManager = new SpawnManager(this);
@@ -456,6 +459,11 @@ class GameEngine {
             this.weatherSystem.update(deltaTime);
         }
         
+        // Update light system (flicker animation)
+        if (this.lightManager) {
+            this.lightManager.update(deltaTime);
+        }
+        
         // Update spawn manager for spirit spawning
         if (this.spawnManager) {
             this.spawnManager.update(deltaTime);
@@ -636,6 +644,14 @@ class GameEngine {
         
         // Load all objects for this map (NPCs, trees, chests, portals, etc.)
         this.objectManager.loadObjectsForMap(mapId);
+        
+        // Load lights for this map
+        if (this.lightManager && mapData.lights) {
+            this.lightManager.loadLights(mapData.lights);
+            console.log(`[GameEngine] Loaded ${mapData.lights.length} lights for map ${mapId}`);
+        } else if (this.lightManager) {
+            this.lightManager.clearLights();
+        }
         
         // Handle BGM - extract just the filename from the full path
         let bgmFilename = null;

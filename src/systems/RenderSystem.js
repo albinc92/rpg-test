@@ -150,7 +150,33 @@ class RenderSystem {
             game.weatherSystem.render();
         }
         
-        // Restore camera transform
+        // Restore camera transform TEMPORARILY for light rendering
+        this.ctx.restore();
+        
+        // Render lights (additive blending, before day/night overlay)
+        if (game?.lightManager) {
+            game.lightManager.render(this.ctx, this.camera.x, this.camera.y);
+        }
+        
+        // Re-apply camera transform for editor previews
+        this.ctx.save();
+        const editorZoom = this.camera.zoom || 1.0;
+        if (editorZoom !== 1.0) {
+            const canvasWidth = game.CANVAS_WIDTH;
+            const canvasHeight = game.CANVAS_HEIGHT;
+            this.ctx.translate(canvasWidth / 2, canvasHeight / 2);
+            this.ctx.scale(editorZoom, editorZoom);
+            this.ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
+        }
+        this.ctx.translate(-this.camera.x, -this.camera.y);
+        
+        // Render light editor previews (only in editor mode)
+        if (game?.editorManager?.isActive && game?.lightManager) {
+            const showPreviews = game.editorManager.showLightPreviews !== false; // Default true
+            game.lightManager.renderEditorPreviews(this.ctx, this.camera.x, this.camera.y, showPreviews);
+        }
+        
+        // Restore camera transform for real
         this.ctx.restore();
         
         // Get logical canvas dimensions

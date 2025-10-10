@@ -168,7 +168,16 @@ class EditorUI {
                 }
             },
             {
-                label: '📚 Layers',
+                label: '� Light Previews',
+                checked: this.editor.showLightPreviews,
+                action: () => {
+                    this.editor.showLightPreviews = !this.editor.showLightPreviews;
+                    console.log('[Editor] Light Previews:', this.editor.showLightPreviews ? 'ON' : 'OFF');
+                    this.updateViewMenu();
+                }
+            },
+            {
+                label: '�📚 Layers',
                 shortcut: 'L',
                 action: () => {
                     if (this.editor.layerPanel) {
@@ -228,6 +237,10 @@ class EditorUI {
         this.viewMenu.items[1].checked = this.editor.snapToGrid;
         this.viewMenu.items[2].checked = this.editor.showCollisionBoxes;
         this.viewMenu.items[3].checked = this.editor.showSpawnZones;
+        this.viewMenu.items[4].checked = this.editor.showLightPreviews;
+        this.viewMenu.items[1].checked = this.editor.snapToGrid;
+        this.viewMenu.items[2].checked = this.editor.showCollisionBoxes;
+        this.viewMenu.items[3].checked = this.editor.showSpawnZones;
         
         // Update visual checkmarks
         this.viewMenu.updateCheckmarks();
@@ -239,20 +252,31 @@ class EditorUI {
     createToolsMenu(toolbar) {
         const toolsMenu = new DropdownMenu('Tools', [
             {
+                label: '🎯 Select Tool',
+                shortcut: 'V',
+                action: () => this.editor.setTool('select')
+            },
+            {
+                label: '📍 Place Objects',
+                shortcut: 'P',
+                action: () => {
+                    if (this.editor.placementPanel) {
+                        this.editor.placementPanel.show();
+                    }
+                }
+            },
+            {
                 label: '🖌️ Paint Tool',
+                shortcut: 'B',
                 action: () => {
                     this.editor.setTool('paint');
                     this.showPaintToolPanel();
                 }
             },
+            { separator: true },
             {
                 label: '🎨 Manage Textures',
                 action: () => this.showTextureManager()
-            },
-            { separator: true },
-            {
-                label: '🔨 Select Tool',
-                action: () => this.editor.setTool('select')
             }
         ]);
         
@@ -262,103 +286,24 @@ class EditorUI {
     }
 
     /**
-     * Create Data dropdown menu with object placement integration
+     * Create Data dropdown menu - Template management only (placement is in Tools menu)
      */
     createDataMenu(toolbar) {
         const dataMenu = new DropdownMenu('Data', [
             {
-                label: '🎮 Game Object',
-                items: [
-                    { 
-                        label: '📚 Browse Templates', 
-                        action: () => this.showStaticObjectBrowser(),
-                        get disabled() {
-                            const count = window.game?.staticObjectRegistry?.templates?.size || 0;
-                            return count === 0;
-                        }
-                    },
-                    { 
-                        label: '➕ Create New', 
-                        action: () => this.showStaticObjectCreator()
-                    },
-                    { separator: true },
-                    { 
-                        label: '🧙 NPC', 
-                        action: () => this.selectObjectToPlace({
-                            category: 'Actor', 
-                            actorType: 'npc',
-                            spriteSrc: 'assets/npc/main-0.png',
-                            name: 'NPC',
-                            dialogue: 'Hello!',
-                            scale: 0.15
-                        }, 'NPC')
-                    },
-                    { 
-                        label: '👻 Spirit', 
-                        action: () => this.selectObjectToPlace({
-                            category: 'Actor', 
-                            actorType: 'spirit',
-                            spriteSrc: 'assets/npc/Spirits/Sylphie00.png',
-                            name: 'Spirit',
-                            scale: 0.2
-                        }, 'Spirit')
-                    },
-                    { separator: true },
-                    { 
-                        label: '📦 Chest', 
-                        action: () => this.selectObjectToPlace({
-                            category: 'InteractiveObject', 
-                            objectType: 'chest',
-                            chestType: 'wooden',
-                            gold: 0,
-                            loot: []
-                        }, 'Chest')
-                    },
-                    { 
-                        label: '🚪 Portal', 
-                        action: () => this.selectObjectToPlace({
-                            category: 'InteractiveObject', 
-                            objectType: 'portal',
-                            spriteSrc: 'assets/npc/door-0.png',
-                            portalType: 'door',
-                            targetMap: '0-0',
-                            spawnPoint: 'default'
-                        }, 'Portal')
+                label: '💡 Lights',
+                action: () => {
+                    if (this.editor.lightEditor) {
+                        this.editor.lightEditor.show();
                     }
-                ]
+                }
             },
             {
-                label: '🎒 Items',
-                items: [
-                    { 
-                        label: '📝 Item Browser', 
-                        action: () => this.showItemBrowser() 
-                    },
-                    { 
-                        label: '➕ New Item', 
-                        action: () => this.showItemEditor(null) 
-                    }
-                ]
+                label: '👻 Spirits',
+                action: () => this.showSpiritBrowser()
             },
             {
-                label: '👻 Spirit Templates',
-                items: [
-                    { 
-                        label: '📝 Browse Spirits', 
-                        action: () => this.showSpiritBrowser(),
-                        get disabled() {
-                            const count = window.game?.spiritRegistry?.templates?.size || 0;
-                            return count === 0;
-                        }
-                    },
-                    { 
-                        label: '➕ New Spirit', 
-                        action: () => this.showSpiritEditor(null) 
-                    }
-                ]
-            },
-            {
-                label: '📝 Static Templates',
+                label: '🎨 Doodads',
                 action: () => {
                     if (this.editor.templateEditor) {
                         this.editor.templateEditor.show();
@@ -366,22 +311,26 @@ class EditorUI {
                 }
             },
             {
+                label: '🧙 NPCs',
+                action: () => this.showNPCBrowser()
+            },
+            {
+                label: '📦 Chests',
+                action: () => this.showChestBrowser()
+            },
+            {
+                label: '� Portals',
+                action: () => this.showPortalBrowser()
+            },
+            { separator: true },
+            {
+                label: '🎒 Items',
+                action: () => this.showItemBrowser()
+            },
+            { separator: true },
+            {
                 label: '🗺️ Maps',
-                items: [
-                    { 
-                        label: '⚙️ Current Map Config', 
-                        action: () => this.showMapConfig() 
-                    },
-                    { 
-                        label: '➕ New Map', 
-                        action: () => this.showMapCreator() 
-                    },
-                    { separator: true },
-                    { 
-                        label: '📋 All Maps', 
-                        action: () => this.showMapBrowser() 
-                    }
-                ]
+                action: () => this.showMapBrowser()
             }
         ]);
         
@@ -952,18 +901,54 @@ class EditorUI {
             font-family: Arial, sans-serif;
         `;
 
-        // Title
+        // Header with title and new button
+        const header = document.createElement('div');
+        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;';
+        
         const title = document.createElement('h2');
-        title.textContent = '📋 All Maps';
-        title.style.cssText = 'margin-top: 0; color: #4a9eff;';
-        modal.appendChild(title);
+        title.textContent = '�️ Map Browser';
+        title.style.cssText = 'margin: 0; color: #4a9eff;';
+        
+        const newMapBtn = document.createElement('button');
+        newMapBtn.textContent = '➕ New Map';
+        newMapBtn.style.cssText = `
+            padding: 8px 16px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        `;
+        newMapBtn.onclick = () => {
+            backdrop.remove();
+            this.showMapCreator();
+        };
+        
+        header.appendChild(title);
+        header.appendChild(newMapBtn);
+        modal.appendChild(header);
 
         // Map list container
         const mapList = document.createElement('div');
-        mapList.style.cssText = 'display: flex; flex-direction: column; gap: 12px;';
+        mapList.style.cssText = 'display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;';
 
         const maps = this.editor.game.mapManager.maps;
         const currentMapId = this.editor.game.currentMapId;
+
+        // Show empty state if no maps
+        if (Object.keys(maps).length === 0) {
+            const emptyState = document.createElement('div');
+            emptyState.innerHTML = `
+                <div style="text-align: center; padding: 40px 20px; color: #888; font-size: 14px; line-height: 1.8;">
+                    <div style="font-size: 48px; margin-bottom: 16px;">🗺️</div>
+                    <strong style="font-size: 16px; display: block; margin-bottom: 8px;">No maps exist yet</strong>
+                    Click "➕ New Map" above to create your first map!
+                </div>
+            `;
+            mapList.appendChild(emptyState);
+        }
 
         Object.entries(maps).forEach(([mapId, mapData]) => {
             const mapCard = document.createElement('div');
@@ -1003,8 +988,9 @@ class EditorUI {
 
             // Go To button
             const goToBtn = document.createElement('button');
-            goToBtn.textContent = mapId === currentMapId ? '✓ Here' : '🚀 Go';
+            goToBtn.textContent = mapId === currentMapId ? '✓ Current' : '🚀 Go';
             goToBtn.disabled = mapId === currentMapId;
+            goToBtn.title = mapId === currentMapId ? 'Already on this map' : 'Teleport to this map';
             goToBtn.style.cssText = `
                 padding: 6px 12px;
                 background: ${mapId === currentMapId ? '#555' : '#4a9eff'};
@@ -1023,7 +1009,8 @@ class EditorUI {
 
             // Edit button
             const editBtn = document.createElement('button');
-            editBtn.textContent = '⚙️';
+            editBtn.textContent = '🖊️ Edit';
+            editBtn.title = 'Edit map properties';
             editBtn.style.cssText = `
                 padding: 6px 12px;
                 background: #666;
@@ -1032,18 +1019,51 @@ class EditorUI {
                 border-radius: 4px;
                 cursor: pointer;
                 font-size: 12px;
+                font-weight: bold;
             `;
             editBtn.onclick = () => {
                 backdrop.remove();
                 // Load the map first if not current
                 if (mapId !== currentMapId) {
                     this.editor.game.loadMap(mapId);
+                    // Wait a bit for map to load before showing config
+                    setTimeout(() => this.showMapConfig(), 100);
+                } else {
+                    this.showMapConfig();
                 }
-                this.showMapConfig();
+            };
+
+            // Delete button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = '🗑️';
+            deleteBtn.title = 'Delete map';
+            deleteBtn.style.cssText = `
+                padding: 6px 12px;
+                background: #c0392b;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 12px;
+            `;
+            deleteBtn.onclick = () => {
+                if (mapId === currentMapId) {
+                    alert('Cannot delete the currently active map!\nSwitch to a different map first.');
+                    return;
+                }
+                
+                if (confirm(`Delete map "${mapData.name}" (${mapId})?\n\nThis cannot be undone!`)) {
+                    this.editor.game.mapManager.removeMap(mapId);
+                    backdrop.remove();
+                    this.showNotification(`🗑️ Deleted map: ${mapData.name}`);
+                    // Reopen browser to show updated list
+                    setTimeout(() => this.showMapBrowser(), 100);
+                }
             };
 
             actions.appendChild(goToBtn);
             actions.appendChild(editBtn);
+            actions.appendChild(deleteBtn);
 
             mapCard.appendChild(info);
             mapCard.appendChild(actions);
@@ -1444,12 +1464,7 @@ class EditorUI {
      * Show Item Browser Modal
      */
     showItemBrowser() {
-        const items = this.editor.game.itemManager.items;
-        
-        if (!items || Object.keys(items).length === 0) {
-            alert('No items found!');
-            return;
-        }
+        const items = this.editor.game.itemManager.items || {};
 
         // Create modal backdrop
         const backdrop = document.createElement('div');
@@ -1584,12 +1599,17 @@ class EditorUI {
 
             if (itemGrid.children.length === 0) {
                 const noResults = document.createElement('div');
-                noResults.textContent = 'No items found';
+                const hasNoItems = Object.keys(items).length === 0;
+                noResults.innerHTML = hasNoItems 
+                    ? '<strong>No items exist yet</strong><br><br>Click "➕ New Item" below to create your first item!'
+                    : 'No items match your search';
                 noResults.style.cssText = `
                     grid-column: 1 / -1;
                     text-align: center;
                     color: #888;
-                    padding: 20px;
+                    padding: 40px 20px;
+                    font-size: 14px;
+                    line-height: 1.6;
                 `;
                 itemGrid.appendChild(noResults);
             }
@@ -4006,6 +4026,423 @@ class EditorUI {
                 overlay.remove();
             }
         };
+    }
+    
+    /**
+     * Show NPC template browser (placeholder until full implementation)
+     */
+    showNPCBrowser() {
+        // Create modal backdrop
+        const backdrop = document.createElement('div');
+        backdrop.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: #1a1a1a;
+            border: 2px solid #9b59b6;
+            border-radius: 12px;
+            padding: 24px;
+            width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            color: white;
+            font-family: Arial, sans-serif;
+        `;
+
+        // Title
+        const title = document.createElement('h2');
+        title.textContent = '🧙 NPC Template Browser';
+        title.style.cssText = 'margin-top: 0; color: #9b59b6;';
+        modal.appendChild(title);
+
+        // Info text
+        const info = document.createElement('div');
+        info.style.cssText = 'margin-bottom: 20px; padding: 12px; background: rgba(155, 89, 182, 0.2); border-radius: 6px; font-size: 14px;';
+        info.innerHTML = `
+            <strong>NPC Templates</strong><br>
+            These are predefined NPC types that can be placed in the world.<br>
+            Click on an NPC type to use it in the placement tool.
+        `;
+        modal.appendChild(info);
+
+        // NPC templates (hardcoded for now - can be moved to registry later)
+        const npcTemplates = [
+            { id: 'npc-merchant', name: 'Merchant', npcType: 'merchant', icon: '🏪', description: 'Buys and sells items' },
+            { id: 'npc-sage', name: 'Sage', npcType: 'sage', icon: '🔮', description: 'Provides wisdom and quests' },
+            { id: 'npc-guard', name: 'Guard', npcType: 'guard', icon: '🛡️', description: 'Protects an area' },
+            { id: 'npc-villager', name: 'Villager', npcType: 'villager', icon: '🧑', description: 'Generic townsperson' }
+        ];
+
+        // Template grid
+        const grid = document.createElement('div');
+        grid.style.cssText = `
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        `;
+
+        npcTemplates.forEach(template => {
+            const card = document.createElement('div');
+            card.style.cssText = `
+                background: #2a2a2a;
+                border: 2px solid #444;
+                border-radius: 8px;
+                padding: 16px;
+                cursor: pointer;
+                transition: all 0.2s;
+            `;
+
+            card.innerHTML = `
+                <div style="font-size: 32px; text-align: center; margin-bottom: 8px;">${template.icon}</div>
+                <div style="font-weight: bold; text-align: center; margin-bottom: 4px; color: #9b59b6;">${template.name}</div>
+                <div style="font-size: 12px; color: #aaa; text-align: center;">${template.description}</div>
+            `;
+
+            card.addEventListener('mouseenter', () => {
+                card.style.borderColor = '#9b59b6';
+                card.style.background = '#333';
+            });
+
+            card.addEventListener('mouseleave', () => {
+                card.style.borderColor = '#444';
+                card.style.background = '#2a2a2a';
+            });
+
+            card.addEventListener('click', () => {
+                backdrop.remove();
+                // Open placement panel and select NPCs
+                if (this.editor.placementPanel) {
+                    this.editor.placementPanel.show();
+                    document.getElementById('placement-type-select').value = 'npcs';
+                    this.editor.placementPanel.selectedType = 'npcs';
+                    this.editor.placementPanel.populateTemplates();
+                }
+            });
+
+            grid.appendChild(card);
+        });
+
+        modal.appendChild(grid);
+
+        // Close button
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Close';
+        closeBtn.style.cssText = `
+            width: 100%;
+            padding: 12px;
+            background: #444;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        `;
+        closeBtn.addEventListener('mouseenter', () => closeBtn.style.background = '#555');
+        closeBtn.addEventListener('mouseleave', () => closeBtn.style.background = '#444');
+        closeBtn.addEventListener('click', () => backdrop.remove());
+        modal.appendChild(closeBtn);
+
+        backdrop.appendChild(modal);
+        backdrop.addEventListener('click', (e) => {
+            if (e.target === backdrop) backdrop.remove();
+        });
+
+        document.body.appendChild(backdrop);
+    }
+    
+    /**
+     * Show Chest template browser
+     */
+    showChestBrowser() {
+        // Create modal backdrop
+        const backdrop = document.createElement('div');
+        backdrop.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: #1a1a1a;
+            border: 2px solid #f39c12;
+            border-radius: 12px;
+            padding: 24px;
+            width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            color: white;
+            font-family: Arial, sans-serif;
+        `;
+
+        // Title
+        const title = document.createElement('h2');
+        title.textContent = '📦 Chest Template Browser';
+        title.style.cssText = 'margin-top: 0; color: #f39c12;';
+        modal.appendChild(title);
+
+        // Info text
+        const info = document.createElement('div');
+        info.style.cssText = 'margin-bottom: 20px; padding: 12px; background: rgba(243, 156, 18, 0.2); border-radius: 6px; font-size: 14px;';
+        info.innerHTML = `
+            <strong>Chest Templates</strong><br>
+            Interactive containers that can store items and gold.<br>
+            Click on a chest type to use it in the placement tool.
+        `;
+        modal.appendChild(info);
+
+        // Chest templates
+        const chestTemplates = [
+            { id: 'chest-wooden', name: 'Wooden Chest', chestType: 'wooden', icon: '📦', description: 'Basic wooden chest', rarity: 'Common' },
+            { id: 'chest-iron', name: 'Iron Chest', chestType: 'iron', icon: '🗃️', description: 'Sturdy iron chest', rarity: 'Uncommon' },
+            { id: 'chest-golden', name: 'Golden Chest', chestType: 'golden', icon: '✨', description: 'Valuable golden chest', rarity: 'Rare' },
+            { id: 'chest-mystical', name: 'Mystical Chest', chestType: 'mystical', icon: '🎁', description: 'Enchanted chest', rarity: 'Epic' }
+        ];
+
+        // Template grid
+        const grid = document.createElement('div');
+        grid.style.cssText = `
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        `;
+
+        chestTemplates.forEach(template => {
+            const card = document.createElement('div');
+            card.style.cssText = `
+                background: #2a2a2a;
+                border: 2px solid #444;
+                border-radius: 8px;
+                padding: 16px;
+                cursor: pointer;
+                transition: all 0.2s;
+            `;
+
+            const rarityColors = {
+                'Common': '#95a5a6',
+                'Uncommon': '#2ecc71',
+                'Rare': '#3498db',
+                'Epic': '#9b59b6'
+            };
+
+            card.innerHTML = `
+                <div style="font-size: 32px; text-align: center; margin-bottom: 8px;">${template.icon}</div>
+                <div style="font-weight: bold; text-align: center; margin-bottom: 4px; color: #f39c12;">${template.name}</div>
+                <div style="font-size: 11px; color: ${rarityColors[template.rarity]}; text-align: center; margin-bottom: 4px;">${template.rarity}</div>
+                <div style="font-size: 12px; color: #aaa; text-align: center;">${template.description}</div>
+            `;
+
+            card.addEventListener('mouseenter', () => {
+                card.style.borderColor = '#f39c12';
+                card.style.background = '#333';
+            });
+
+            card.addEventListener('mouseleave', () => {
+                card.style.borderColor = '#444';
+                card.style.background = '#2a2a2a';
+            });
+
+            card.addEventListener('click', () => {
+                backdrop.remove();
+                // Open placement panel and select Chests
+                if (this.editor.placementPanel) {
+                    this.editor.placementPanel.show();
+                    document.getElementById('placement-type-select').value = 'chests';
+                    this.editor.placementPanel.selectedType = 'chests';
+                    this.editor.placementPanel.populateTemplates();
+                }
+            });
+
+            grid.appendChild(card);
+        });
+
+        modal.appendChild(grid);
+
+        // Close button
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Close';
+        closeBtn.style.cssText = `
+            width: 100%;
+            padding: 12px;
+            background: #444;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        `;
+        closeBtn.addEventListener('mouseenter', () => closeBtn.style.background = '#555');
+        closeBtn.addEventListener('mouseleave', () => closeBtn.style.background = '#444');
+        closeBtn.addEventListener('click', () => backdrop.remove());
+        modal.appendChild(closeBtn);
+
+        backdrop.appendChild(modal);
+        backdrop.addEventListener('click', (e) => {
+            if (e.target === backdrop) backdrop.remove();
+        });
+
+        document.body.appendChild(backdrop);
+    }
+    
+    /**
+     * Show Portal template browser
+     */
+    showPortalBrowser() {
+        // Create modal backdrop
+        const backdrop = document.createElement('div');
+        backdrop.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: #1a1a1a;
+            border: 2px solid #e74c3c;
+            border-radius: 12px;
+            padding: 24px;
+            width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            color: white;
+            font-family: Arial, sans-serif;
+        `;
+
+        // Title
+        const title = document.createElement('h2');
+        title.textContent = '🚪 Portal Template Browser';
+        title.style.cssText = 'margin-top: 0; color: #e74c3c;';
+        modal.appendChild(title);
+
+        // Info text
+        const info = document.createElement('div');
+        info.style.cssText = 'margin-bottom: 20px; padding: 12px; background: rgba(231, 76, 60, 0.2); border-radius: 6px; font-size: 14px;';
+        info.innerHTML = `
+            <strong>Portal Templates</strong><br>
+            Interactive portals that transport players between maps.<br>
+            Click on a portal type to use it in the placement tool.
+        `;
+        modal.appendChild(info);
+
+        // Portal templates
+        const portalTemplates = [
+            { id: 'portal-door', name: 'Door', portalType: 'door', icon: '🚪', description: 'Standard door entrance' },
+            { id: 'portal-teleport', name: 'Teleport Pad', portalType: 'teleport', icon: '🌀', description: 'Magic teleportation circle' },
+            { id: 'portal-stairs', name: 'Stairs', portalType: 'stairs', icon: '🪜', description: 'Stairway to another floor' },
+            { id: 'portal-cave', name: 'Cave Entrance', portalType: 'cave', icon: '⛰️', description: 'Entrance to a cave' },
+            { id: 'portal-warp', name: 'Warp Gate', portalType: 'warp', icon: '⭐', description: 'Advanced warp portal' }
+        ];
+
+        // Template grid
+        const grid = document.createElement('div');
+        grid.style.cssText = `
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        `;
+
+        portalTemplates.forEach(template => {
+            const card = document.createElement('div');
+            card.style.cssText = `
+                background: #2a2a2a;
+                border: 2px solid #444;
+                border-radius: 8px;
+                padding: 16px;
+                cursor: pointer;
+                transition: all 0.2s;
+            `;
+
+            card.innerHTML = `
+                <div style="font-size: 32px; text-align: center; margin-bottom: 8px;">${template.icon}</div>
+                <div style="font-weight: bold; text-align: center; margin-bottom: 4px; color: #e74c3c;">${template.name}</div>
+                <div style="font-size: 12px; color: #aaa; text-align: center;">${template.description}</div>
+            `;
+
+            card.addEventListener('mouseenter', () => {
+                card.style.borderColor = '#e74c3c';
+                card.style.background = '#333';
+            });
+
+            card.addEventListener('mouseleave', () => {
+                card.style.borderColor = '#444';
+                card.style.background = '#2a2a2a';
+            });
+
+            card.addEventListener('click', () => {
+                backdrop.remove();
+                // Open placement panel and select Portals
+                if (this.editor.placementPanel) {
+                    this.editor.placementPanel.show();
+                    document.getElementById('placement-type-select').value = 'portals';
+                    this.editor.placementPanel.selectedType = 'portals';
+                    this.editor.placementPanel.populateTemplates();
+                }
+            });
+
+            grid.appendChild(card);
+        });
+
+        modal.appendChild(grid);
+
+        // Close button
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Close';
+        closeBtn.style.cssText = `
+            width: 100%;
+            padding: 12px;
+            background: #444;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        `;
+        closeBtn.addEventListener('mouseenter', () => closeBtn.style.background = '#555');
+        closeBtn.addEventListener('mouseleave', () => closeBtn.style.background = '#444');
+        closeBtn.addEventListener('click', () => backdrop.remove());
+        modal.appendChild(closeBtn);
+
+        backdrop.appendChild(modal);
+        backdrop.addEventListener('click', (e) => {
+            if (e.target === backdrop) backdrop.remove();
+        });
+
+        document.body.appendChild(backdrop);
     }
 }
 

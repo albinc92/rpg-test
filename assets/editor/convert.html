@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SVG to PNG Converter</title>
+</head>
+<body>
+    <h2>SVG to PNG Converter</h2>
+    <p>Converting light.svg to light.png...</p>
+    <canvas id="canvas" width="32" height="32"></canvas>
+    <div id="status"></div>
+    <a id="download" download="light.png" style="display:none;">Download PNG</a>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const status = document.getElementById('status');
+        
+        const img = new Image();
+        img.onload = function() {
+            ctx.drawImage(img, 0, 0);
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const link = document.getElementById('download');
+                link.href = url;
+                link.style.display = 'block';
+                status.innerHTML = '✅ Conversion complete! Click download link above or copy the image from canvas.';
+                
+                // Auto-download
+                link.click();
+            });
+        };
+        img.src = 'light.svg';
+    </script>
+</body>
+</html>

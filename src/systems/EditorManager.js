@@ -61,12 +61,15 @@ class EditorManager {
         this.gridSize = 32;
         this.snapToGrid = false;
         this.showCollisionBoxes = true;
+        this.showLightPreviews = true; // Show light preview sprites in editor
         
         // UI components
         this.ui = null;
         this.objectPalette = null;
         this.propertyPanel = null;
         this.templateEditor = null;
+        this.lightEditor = null;
+        this.placementPanel = null;
         
         // History for undo/redo
         this.history = [];
@@ -127,12 +130,27 @@ class EditorManager {
             // Only process other shortcuts when editor is active
             if (!this.isActive) return;
             
-            // Escape cancels placement mode
-            if (e.key === 'Escape' && this.selectedTool === 'place') {
+            // Escape cancels placement mode or light placement mode
+            if (e.key === 'Escape') {
                 e.preventDefault();
-                this.selectedPrefab = null;
-                this.setTool('select');
-                console.log('[EditorManager] Placement cancelled');
+                
+                // Cancel placement mode through ObjectPlacementPanel if it's open
+                if (this.placementPanel && this.placementPanel.isVisible() && this.placementPanel.placementMode) {
+                    this.placementPanel.deactivatePlacementMode();
+                    console.log('[EditorManager] Placement cancelled via panel');
+                }
+                // Cancel light placement mode if active
+                else if (this.lightEditor && this.lightEditor.placementMode) {
+                    this.lightEditor.placementMode = false;
+                    this.setTool('select');
+                    console.log('[EditorManager] Light placement cancelled');
+                }
+                // Cancel object placement mode
+                else if (this.selectedTool === 'place') {
+                    this.selectedPrefab = null;
+                    this.setTool('select');
+                    console.log('[EditorManager] Placement cancelled');
+                }
             }
             
             // Delete selected object(s) with 'D' or Delete key
@@ -199,6 +217,24 @@ class EditorManager {
                     this.layerPanel.toggle();
                     console.log('[EditorManager] Layer Panel:', this.layerPanel.isVisible() ? 'SHOWN' : 'HIDDEN');
                 }
+            }
+            
+            // Open placement panel
+            else if (e.key === 'p' || e.key === 'P') {
+                if (this.placementPanel) {
+                    this.placementPanel.show();
+                    console.log('[EditorManager] Placement Panel: SHOWN');
+                }
+            }
+            
+            // Quick tool shortcuts
+            else if (e.key === 'v' || e.key === 'V') {
+                this.setTool('select');
+                console.log('[EditorManager] Tool: SELECT');
+            }
+            else if (e.key === 'b' || e.key === 'B') {
+                this.setTool('paint');
+                console.log('[EditorManager] Tool: PAINT');
             }
             
             // Toggle snap to grid
@@ -280,6 +316,8 @@ class EditorManager {
             this.propertyPanel = new PropertyPanel(this);
             this.layerPanel = new LayerPanel(this);
             this.templateEditor = new TemplateEditor(this);
+            this.lightEditor = new LightEditor(this.game);
+            this.placementPanel = new ObjectPlacementPanel(this);
         }
         
         // Show UI (but not layer panel by default - user can open it with F4)
@@ -1200,6 +1238,24 @@ class EditorManager {
         
         console.log('[SELECT] Click - screen:', x, y, 'world (scaled):', worldX, worldY);
         
+        // Check if light editor is in placement mode
+        if (this.lightEditor && this.lightEditor.placementMode) {
+            const handled = this.lightEditor.handleMapClick(worldX, worldY);
+            if (handled) {
+                return true;
+            }
+        }
+        
+        // Check for light selection
+        const selectedLight = this.game.lightManager.findLightAtPosition(worldX, worldY);
+        if (selectedLight) {
+            console.log('[SELECT] Selected light:', selectedLight.id);
+            if (this.lightEditor) {
+                this.lightEditor.selectLight(selectedLight);
+            }
+            return true;
+        }
+        
         // Find object at click position
         const objects = this.game.objectManager.getObjectsForMap(this.game.currentMapId);
         
@@ -1253,6 +1309,16 @@ class EditorManager {
         console.log('[EditorManager] Mouse world pos:', this.mouseWorldX, this.mouseWorldY);
         console.log('[EditorManager] Selected prefab:', this.selectedPrefab);
         
+        // Check if light editor is in placement mode (lights use special placement)
+        if (this.lightEditor && this.lightEditor.placementMode) {
+            const worldX = this.mouseWorldXUnsnapped;
+            const worldY = this.mouseWorldYUnsnapped;
+            const handled = this.lightEditor.handleMapClick(worldX, worldY);
+            if (handled) {
+                return true;
+            }
+        }
+        
         if (!this.selectedPrefab) {
             console.log('[EditorManager] No prefab selected');
             return true;
@@ -1302,7 +1368,14 @@ class EditorManager {
         console.log('[EditorManager] Attempting to place object:', objectData);
         console.log('[EditorManager] World position:', this.mouseWorldX, this.mouseWorldY);
         console.log('[EditorManager] Camera position:', this.game.camera.x, this.game.camera.y);
-        const obj = this.game.objectManager.createObjectFromData(objectData);
+        
+        // Add mapId to object data (needed for some constructors like Spirit)
+        const dataWithMap = {
+            ...objectData,
+            mapId: this.game.currentMapId
+        };
+        
+        const obj = this.game.objectManager.createObjectFromData(dataWithMap);
         if (obj) {
             console.log('[EditorManager] Object created with position:', obj.x, obj.y);
             this.game.objectManager.addObject(this.game.currentMapId, obj);
@@ -1523,11 +1596,20 @@ class EditorManager {
             return data;
         });
         
+        // Get lights data for current map
+        const lightsData = this.game.lightManager.exportLights();
+        
+        // Combine into full map data
+        const mapData = {
+            objects: objectsData,
+            lights: lightsData
+        };
+        
         // Display JSON for now (later we'll save to file)
-        const json = JSON.stringify(objectsData, null, 2);
+        const json = JSON.stringify(mapData, null, 2);
         console.log('[EditorManager] Map data:', json);
         
-        alert('Map data saved to console. Check browser console (F12) to copy JSON.');
+        alert('Map data (objects + lights) saved to console. Check browser console (F12) to copy JSON.');
     }
 
     /**
