@@ -348,6 +348,14 @@ class EditorManager {
             this.ui.hide();
             this.propertyPanel.hide();
             this.layerPanel.hide();
+            
+            // Close all template editors
+            this.ui.closeAllEditors();
+        }
+        
+        // Close placement panel if open
+        if (this.placementPanel) {
+            this.placementPanel.hide();
         }
         
         // Close paint tool panel if open
