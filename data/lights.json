@@ -1,0 +1,84 @@
+{
+  "lights": [
+    {
+      "name": "Torch",
+      "radius": 150,
+      "color": { "r": 255, "g": 200, "b": 100, "a": 0.8 },
+      "flicker": {
+        "enabled": true,
+        "intensity": 0.3,
+        "speed": 0.1
+      }
+    },
+    {
+      "name": "Campfire",
+      "radius": 200,
+      "color": { "r": 255, "g": 150, "b": 50, "a": 0.9 },
+      "flicker": {
+        "enabled": true,
+        "intensity": 0.4,
+        "speed": 0.15
+      }
+    },
+    {
+      "name": "Lantern",
+      "radius": 120,
+      "color": { "r": 255, "g": 240, "b": 200, "a": 0.7 },
+      "flicker": {
+        "enabled": true,
+        "intensity": 0.1,
+        "speed": 0.05
+      }
+    },
+    {
+      "name": "Magic Crystal",
+      "radius": 180,
+      "color": { "r": 100, "g": 150, "b": 255, "a": 0.8 },
+      "flicker": {
+        "enabled": true,
+        "intensity": 0.2,
+        "speed": 0.08
+      }
+    },
+    {
+      "name": "Candle",
+      "radius": 80,
+      "color": { "r": 255, "g": 220, "b": 150, "a": 0.6 },
+      "flicker": {
+        "enabled": true,
+        "intensity": 0.35,
+        "speed": 0.12
+      }
+    },
+    {
+      "name": "Street Lamp",
+      "radius": 250,
+      "color": { "r": 255, "g": 255, "b": 230, "a": 0.7 },
+      "flicker": {
+        "enabled": false,
+        "intensity": 0,
+        "speed": 0
+      }
+    },
+    {
+      "name": "Moonlight",
+      "radius": 300,
+      "color": { "r": 200, "g": 220, "b": 255, "a": 0.4 },
+      "flicker": {
+        "enabled": false,
+        "intensity": 0,
+        "speed": 0
+      }
+    },
+    {
+      "name": "Fire Pit",
+      "radius": 220,
+      "color": { "r": 255, "g": 120, "b": 30, "a": 0.85 },
+      "flicker": {
+        "enabled": true,
+        "intensity": 0.5,
+        "speed": 0.18
+      }
+    }
+  ]
+}

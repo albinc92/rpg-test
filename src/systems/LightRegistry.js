@@ -6,114 +6,40 @@ class LightRegistry {
     constructor() {
         // Light templates (available in editor)
         this.templates = new Map();
+        this.dataLoaded = false;
         
-        // Initialize default light templates
-        this.initializeDefaultTemplates();
-        
-        console.log('[LightRegistry] Initialized with default templates');
+        console.log('[LightRegistry] Initialized');
     }
     
     /**
-     * Initialize default light templates
+     * Load templates from JSON data
      */
-    initializeDefaultTemplates() {
-        // Warm torch light
-        this.addTemplate({
-            name: 'Torch',
-            radius: 150,
-            color: { r: 255, g: 200, b: 100, a: 0.8 },
-            flicker: {
-                enabled: true,
-                intensity: 0.3,  // 0-1, how much brightness varies
-                speed: 0.1       // How fast it flickers
-            }
-        });
+    async loadTemplates() {
+        if (this.dataLoaded) return; // Already loaded
         
-        // Campfire
-        this.addTemplate({
-            name: 'Campfire',
-            radius: 200,
-            color: { r: 255, g: 150, b: 50, a: 0.9 },
-            flicker: {
-                enabled: true,
-                intensity: 0.4,
-                speed: 0.15
+        try {
+            const response = await fetch('/data/lights.json');
+            const data = await response.json();
+            
+            if (data.lights && Array.isArray(data.lights)) {
+                // Clear any existing templates first
+                this.templates.clear();
+                
+                data.lights.forEach(template => {
+                    this.addTemplate(template);
+                });
+                console.log(`[LightRegistry] ✅ Loaded ${data.lights.length} templates from lights.json`);
             }
-        });
-        
-        // Lantern - steady light
-        this.addTemplate({
-            name: 'Lantern',
-            radius: 120,
-            color: { r: 255, g: 240, b: 200, a: 0.7 },
-            flicker: {
-                enabled: true,
-                intensity: 0.1,
-                speed: 0.05
-            }
-        });
-        
-        // Magic crystal - blue light
-        this.addTemplate({
-            name: 'Magic Crystal',
-            radius: 180,
-            color: { r: 100, g: 150, b: 255, a: 0.8 },
-            flicker: {
-                enabled: true,
-                intensity: 0.2,
-                speed: 0.08
-            }
-        });
-        
-        // Candle - small, warm
-        this.addTemplate({
-            name: 'Candle',
-            radius: 80,
-            color: { r: 255, g: 220, b: 150, a: 0.6 },
-            flicker: {
-                enabled: true,
-                intensity: 0.35,
-                speed: 0.12
-            }
-        });
-        
-        // Street lamp - cool, steady
-        this.addTemplate({
-            name: 'Street Lamp',
-            radius: 250,
-            color: { r: 255, g: 255, b: 230, a: 0.7 },
-            flicker: {
-                enabled: false,
-                intensity: 0,
-                speed: 0
-            }
-        });
-        
-        // Moonlight - soft, blue-white
-        this.addTemplate({
-            name: 'Moonlight',
-            radius: 300,
-            color: { r: 200, g: 220, b: 255, a: 0.4 },
-            flicker: {
-                enabled: false,
-                intensity: 0,
-                speed: 0
-            }
-        });
-        
-        // Fire pit
-        this.addTemplate({
-            name: 'Fire Pit',
-            radius: 220,
-            color: { r: 255, g: 120, b: 30, a: 0.85 },
-            flicker: {
-                enabled: true,
-                intensity: 0.5,
-                speed: 0.18
-            }
-        });
+            
+            this.dataLoaded = true;
+        } catch (error) {
+            console.error('[LightRegistry] ❌ Failed to load lights.json:', error);
+            console.error('[LightRegistry] Create templates in the Light Template Editor and export them to data/lights.json');
+            this.dataLoaded = true; // Mark as loaded even if failed, so we don't retry
+        }
     }
     
+
     /**
      * Add or update a light template
      */
@@ -194,7 +120,7 @@ class LightRegistry {
     }
     
     /**
-     * Export templates for saving
+     * Export templates for saving to lights.json
      */
     exportTemplates() {
         const templates = [];
@@ -207,6 +133,15 @@ class LightRegistry {
             });
         });
         return templates;
+    }
+    
+    /**
+     * Export templates as JSON format (for lights.json file)
+     */
+    exportToJSON() {
+        return {
+            lights: this.exportTemplates()
+        };
     }
     
     /**

@@ -110,14 +110,18 @@ class ObjectPlacementPanel {
     /**
      * Populate template list based on selected type
      */
-    populateTemplates() {
+    async populateTemplates() {
         const container = document.getElementById('placement-template-list');
-        container.innerHTML = '';
+        container.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">Loading...</div>';
         
         let templates = [];
         
         switch(this.selectedType) {
             case 'lights':
+                // Ensure lights are loaded from JSON first
+                if (!this.game.lightManager.lightRegistry.dataLoaded) {
+                    await this.game.lightManager.lightRegistry.loadTemplates();
+                }
                 templates = this.game.lightManager.lightRegistry.getAllTemplates();
                 break;
             case 'spirits':

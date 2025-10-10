@@ -13,7 +13,14 @@ class LightEditor {
         this.currentEditingTemplate = null;
     }
 
-    show() {
+    async show() {
+        // Ensure templates are loaded first
+        if (this.game.lightManager && this.game.lightManager.lightRegistry) {
+            if (!this.game.lightManager.lightRegistry.dataLoaded) {
+                await this.game.lightManager.lightRegistry.loadTemplates();
+            }
+        }
+        
         if (this.panel) {
             this.panel.style.display = 'block';
             this.refresh();
@@ -83,7 +90,7 @@ class LightEditor {
 
         this.listContainer.innerHTML = '';
 
-        const templates = this.game.lightRegistry.getAllTemplates();
+        const templates = this.game.lightManager.lightRegistry.getAllTemplates();
 
         if (templates.length === 0) {
             this.listContainer.innerHTML = `
@@ -347,11 +354,11 @@ class LightEditor {
         try {
             if (this.currentEditingTemplate) {
                 // Update existing
-                this.game.lightRegistry.updateTemplate(this.currentEditingTemplate.name, templateData);
+                this.game.lightManager.lightRegistry.addTemplate(templateData);
                 console.log(`[LightEditor] Updated template: ${this.currentEditingTemplate.name}`);
             } else {
                 // Create new
-                this.game.lightRegistry.addTemplate(templateData.name, templateData);
+                this.game.lightManager.lightRegistry.addTemplate(templateData);
                 console.log(`[LightEditor] Created template: ${templateData.name}`);
             }
 
@@ -366,7 +373,7 @@ class LightEditor {
         if (!confirm(`Delete light template "${name}"?`)) return;
 
         try {
-            this.game.lightRegistry.removeTemplate(name);
+            this.game.lightManager.lightRegistry.removeTemplate(name);
             console.log(`[LightEditor] Deleted template: ${name}`);
             this.refresh();
         } catch (error) {

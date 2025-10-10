@@ -8,6 +8,9 @@ class LightManager {
         this.lights = []; // Light instances for current map
         this.lightRegistry = new LightRegistry();
         
+        // Load templates from JSON
+        this.lightRegistry.loadTemplates();
+        
         // Preview sprite for editor (only visible in editor mode)
         this.previewSprite = new Image();
         this.previewSprite.src = 'assets/editor/light.svg';
