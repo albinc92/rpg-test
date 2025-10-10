@@ -292,10 +292,6 @@ class ObjectPlacementPanel {
         
         // Clear any previous placement state first
         this.editor.selectedPrefab = null;
-        if (this.editor.lightEditor) {
-            this.editor.lightEditor.placementMode = false;
-            this.editor.lightEditor.selectedTemplate = null;
-        }
         
         this.placementMode = true;
         
@@ -315,7 +311,6 @@ class ObjectPlacementPanel {
         console.log('[ObjectPlacementPanel] Template:', this.selectedTemplate);
         console.log('[ObjectPlacementPanel] Prefab data:', prefabData);
         console.log('[ObjectPlacementPanel] Editor tool:', this.editor.selectedTool);
-        console.log('[ObjectPlacementPanel] Light editor mode:', this.editor.lightEditor?.placementMode || false);
         console.log('[ObjectPlacementPanel] Preview sprite loading:', prefabData?.spriteSrc || 'none');
         
         this.updateUI();
@@ -329,12 +324,6 @@ class ObjectPlacementPanel {
         this.editor.setTool('select');
         this.editor.selectedPrefab = null;
         
-        // Clear light editor placement mode if it was active
-        if (this.editor.lightEditor) {
-            this.editor.lightEditor.placementMode = false;
-            this.editor.lightEditor.selectedTemplate = null;
-        }
-        
         console.log('[ObjectPlacementPanel] Deactivated placement mode');
         this.updateUI();
     }
@@ -345,12 +334,13 @@ class ObjectPlacementPanel {
     createPrefabData(template) {
         switch(this.selectedType) {
             case 'lights':
-                // Lights use special placement through LightEditor
-                if (this.editor.lightEditor) {
-                    this.editor.lightEditor.selectedTemplate = template;
-                    this.editor.lightEditor.placementMode = true;
-                }
-                return null;
+                // Lights placed the same as other objects
+                return {
+                    category: 'Light',
+                    objectType: 'light',
+                    ...template,  // Include ALL template properties (radius, color, flicker)
+                    templateName: template.name
+                };
                 
             case 'spirits':
                 return {

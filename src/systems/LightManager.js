@@ -159,9 +159,20 @@ class LightManager {
      * Render a single light source
      */
     renderLight(ctx, light, cameraX, cameraY) {
+        // COMMON BEHAVIOR: Scale storage coordinates to world coordinates (same as GameObject.getScaledX/Y)
+        // Lights store coordinates in unscaled format, just like all other game objects
+        const game = this.game;
+        const resolutionScale = game?.resolutionScale || 1.0;
+        const mapScale = game?.currentMap?.scale || 1.0;
+        const totalScale = mapScale * resolutionScale;
+        
+        // Scale the stored coordinates to world coordinates
+        const worldX = light.x * totalScale;
+        const worldY = light.y * totalScale;
+        
         // Convert world coordinates to screen coordinates
-        const screenX = light.x - cameraX;
-        const screenY = light.y - cameraY;
+        const screenX = worldX - cameraX;
+        const screenY = worldY - cameraY;
         
         // Calculate effective radius and alpha based on flicker
         const effectiveRadius = light.radius * light._currentIntensity;
@@ -201,8 +212,16 @@ class LightManager {
         ctx.save();
         
         this.lights.forEach(light => {
-            const screenX = light.x - cameraX;
-            const screenY = light.y - cameraY;
+            // COMMON BEHAVIOR: Scale storage coordinates to world coordinates
+            const game = this.game;
+            const resolutionScale = game?.resolutionScale || 1.0;
+            const mapScale = game?.currentMap?.scale || 1.0;
+            const totalScale = mapScale * resolutionScale;
+            
+            const worldX = light.x * totalScale;
+            const worldY = light.y * totalScale;
+            const screenX = worldX - cameraX;
+            const screenY = worldY - cameraY;
             
             // Draw preview sprite centered on light position
             const spriteSize = 32; // Fixed size for editor preview

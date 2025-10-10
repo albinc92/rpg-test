@@ -1330,31 +1330,22 @@ class EditorManager {
         console.log('[EditorManager] Mouse world pos:', this.mouseWorldX, this.mouseWorldY);
         console.log('[EditorManager] Selected prefab:', this.selectedPrefab);
         
-        // Check if light editor is in placement mode (lights use special placement)
-        if (this.lightEditor && this.lightEditor.placementMode) {
-            const worldX = this.mouseWorldXUnsnapped;
-            const worldY = this.mouseWorldYUnsnapped;
-            const handled = this.lightEditor.handleMapClick(worldX, worldY);
-            if (handled) {
-                return true;
-            }
-        }
-        
         if (!this.selectedPrefab) {
             console.log('[EditorManager] No prefab selected');
             return true;
         }
         
-        // Convert scaled world position to unscaled storage position
-        const unscaled = this.worldToUnscaled(this.mouseWorldX, this.mouseWorldY);
+        // COMMON BEHAVIOR: Convert world coordinates to storage coordinates
+        // This works the same for ALL object types (NPCs, Doodads, Spirits, Lights, etc.)
+        const storageCoords = this.convertWorldToStorageCoordinates(this.mouseWorldX, this.mouseWorldY);
         
-        console.log('[EditorManager] Unscaled position:', unscaled.x, unscaled.y);
+        console.log('[EditorManager] Storage position:', storageCoords.x, storageCoords.y);
         
-        // Create object at mouse position (using unscaled coordinates)
+        // Create object at mouse position (using storage coordinates)
         const objectData = {
             ...this.selectedPrefab,
-            x: unscaled.x,
-            y: unscaled.y
+            x: storageCoords.x,
+            y: storageCoords.y
         };
         
         console.log('[EditorManager] Creating object with data:', objectData);
@@ -1383,38 +1374,67 @@ class EditorManager {
     }
 
     /**
+     * Convert world coordinates to storage coordinates (UNSCALED format)
+     * ALL game objects store coordinates in unscaled format, then scale them during rendering.
+     * This ensures consistent behavior across all object types.
+     */
+    convertWorldToStorageCoordinates(worldX, worldY) {
+        const resolutionScale = this.game?.resolutionScale || 1.0;
+        const mapScale = this.game?.currentMap?.scale || 1.0;
+        const totalScale = mapScale * resolutionScale;
+        
+        return {
+            x: worldX / totalScale,
+            y: worldY / totalScale
+        };
+    }
+
+    /**
      * Place a new object
      */
     placeObject(objectData) {
-        console.log('[EditorManager] Attempting to place object:', objectData);
-        console.log('[EditorManager] World position:', this.mouseWorldX, this.mouseWorldY);
-        console.log('[EditorManager] Camera position:', this.game.camera.x, this.game.camera.y);
+        console.log('[EditorManager] Placing object at:', objectData.x, objectData.y);
         
-        // Add mapId to object data (needed for some constructors like Spirit)
-        const dataWithMap = {
-            ...objectData,
-            mapId: this.game.currentMapId
-        };
+        let placedObject = null;
         
-        const obj = this.game.objectManager.createObjectFromData(dataWithMap);
-        if (obj) {
-            console.log('[EditorManager] Object created with position:', obj.x, obj.y);
-            this.game.objectManager.addObject(this.game.currentMapId, obj);
-            console.log('[EditorManager] Successfully placed:', obj.constructor.name, 'at', obj.x, obj.y);
-            console.log('[EditorManager] Object in map objects array:', this.game.objectManager.objects[this.game.currentMapId].includes(obj));
+        // Handle lights - they're not GameObject instances, managed by LightManager
+        if (objectData.category === 'Light' || objectData.objectType === 'light') {
+            placedObject = this.game.lightManager.lightRegistry.createLightFromTemplate(
+                objectData.templateName,
+                objectData.x,
+                objectData.y
+            );
             
-            // Add to history
+            if (placedObject) {
+                this.game.lightManager.addLight(placedObject);
+                console.log('[EditorManager] ✅ Placed light:', placedObject.templateName);
+            }
+        } 
+        // Handle regular GameObjects
+        else {
+            const dataWithMap = {
+                ...objectData,
+                mapId: this.game.currentMapId
+            };
+            
+            placedObject = this.game.objectManager.createObjectFromData(dataWithMap);
+            
+            if (placedObject) {
+                this.game.objectManager.addObject(this.game.currentMapId, placedObject);
+                console.log('[EditorManager] ✅ Placed:', placedObject.constructor.name);
+            }
+        }
+        
+        // Common success handling
+        if (placedObject) {
             this.addHistory({
                 type: 'place',
-                object: obj,
+                object: placedObject,
                 mapId: this.game.currentMapId
             });
-            
-            // Stay in placement mode to allow placing multiple objects
-            // User can press Escape to exit placement mode
-            console.log('[EditorManager] Staying in placement mode - press Escape to exit');
+            console.log('[EditorManager] Press Escape to exit placement mode');
         } else {
-            console.error('[EditorManager] Failed to create object from data:', objectData);
+            console.error('[EditorManager] ❌ Failed to create object');
         }
     }
 
