@@ -73,16 +73,19 @@ async function loadGameScripts() {
         await loadScript('/src/systems/TemplateManager.js'); // NEW: Object template system
         
         // Load editor components
+        await loadScript('/src/editor/EditorStyles.js'); // NEW: Standardized editor styling
         await loadScript('/src/editor/DropdownMenu.js'); // NEW: Dropdown menu component
         await loadScript('/src/editor/EditorUI.js');
         await loadScript('/src/editor/ObjectPalette.js');
         await loadScript('/src/editor/PropertyPanel.js');
         await loadScript('/src/editor/LayerPanel.js'); // NEW: Layer management panel
-        await loadScript('/src/editor/TemplateEditor.js'); // NEW: Template editor
-        await loadScript('/src/editor/LightEditor.js'); // NEW: Light editor
-        await loadScript('/src/editor/NPCEditor.js'); // NEW: NPC template editor
-        await loadScript('/src/editor/ChestEditor.js'); // NEW: Chest template editor
-        await loadScript('/src/editor/PortalEditor.js'); // NEW: Portal template editor
+        await loadScript('/src/editor/TemplateEditor.js'); // NEW: Template editor (legacy)
+        await loadScript('/src/editor/LightEditor.js'); // NEW: Light template editor (standardized)
+        await loadScript('/src/editor/NPCEditor.js'); // NEW: NPC template editor (standardized)
+        await loadScript('/src/editor/ChestEditor.js'); // NEW: Chest template editor (standardized)
+        await loadScript('/src/editor/PortalEditor.js'); // NEW: Portal template editor (standardized)
+        await loadScript('/src/editor/DoodadEditor.js'); // NEW: Doodad template editor (standardized)
+        await loadScript('/src/editor/SpiritEditor.js'); // NEW: Spirit template editor (standardized)
         await loadScript('/src/editor/ObjectPlacementPanel.js'); // NEW: Unified placement panel
         await loadScript('/src/systems/EditorManager.js');
         

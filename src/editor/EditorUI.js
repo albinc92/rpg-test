@@ -18,10 +18,25 @@ class EditorUI {
     }
     
     initializeEditors() {
-        // Create editor instances
+        // Create standardized editor instances
+        this.lightEditor = new LightEditor(this.game);
         this.npcEditor = new NPCEditor(this.game);
         this.chestEditor = new ChestEditor(this.game);
         this.portalEditor = new PortalEditor(this.game);
+        this.doodadEditor = new DoodadEditor(this.game);
+        this.spiritEditor = new SpiritEditor(this.game);
+    }
+
+    /**
+     * Close all template editors (makes editors mutually exclusive)
+     */
+    closeAllEditors() {
+        if (this.lightEditor) this.lightEditor.hide();
+        if (this.npcEditor) this.npcEditor.hide();
+        if (this.chestEditor) this.chestEditor.hide();
+        if (this.portalEditor) this.portalEditor.hide();
+        if (this.doodadEditor) this.doodadEditor.hide();
+        if (this.spiritEditor) this.spiritEditor.hide();
     }
 
     /**
@@ -307,34 +322,44 @@ class EditorUI {
             {
                 label: '💡 Lights',
                 action: () => {
-                    if (this.editor.lightEditor) {
-                        this.editor.lightEditor.show();
-                    }
+                    this.closeAllEditors();
+                    this.lightEditor.show();
                 }
             },
             {
                 label: '👻 Spirits',
-                action: () => this.showSpiritBrowser()
+                action: () => {
+                    this.closeAllEditors();
+                    this.spiritEditor.show();
+                }
             },
             {
                 label: '🎨 Doodads',
                 action: () => {
-                    if (this.editor.templateEditor) {
-                        this.editor.templateEditor.show();
-                    }
+                    this.closeAllEditors();
+                    this.doodadEditor.show();
                 }
             },
             {
                 label: '🧙 NPCs',
-                action: () => this.npcEditor.show()
+                action: () => {
+                    this.closeAllEditors();
+                    this.npcEditor.show();
+                }
             },
             {
                 label: '📦 Chests',
-                action: () => this.chestEditor.show()
+                action: () => {
+                    this.closeAllEditors();
+                    this.chestEditor.show();
+                }
             },
             {
-                label: '� Portals',
-                action: () => this.portalEditor.show()
+                label: '🚪 Portals',
+                action: () => {
+                    this.closeAllEditors();
+                    this.portalEditor.show();
+                }
             },
             { separator: true },
             {

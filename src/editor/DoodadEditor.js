@@ -1,10 +1,10 @@
 /**
- * PortalEditor.js
- * Full-featured Portal template editor with Create/Edit/Delete functionality
- * Includes portal type system and destination configuration
+ * DoodadEditor.js
+ * Full-featured Doodad (Static Object) template editor with Create/Edit/Delete functionality
+ * Standardized design matching other template editors
  */
 
-class PortalEditor {
+class DoodadEditor {
     constructor(game) {
         this.game = game;
         this.panel = null;
@@ -30,7 +30,7 @@ class PortalEditor {
     }
 
     createPanel() {
-        const theme = EditorStyles.THEMES.portal;
+        const theme = EditorStyles.THEMES.doodad;
         
         this.panel = document.createElement('div');
         this.panel.className = 'editor-panel';
@@ -39,7 +39,7 @@ class PortalEditor {
         // Header
         const header = document.createElement('div');
         header.style.cssText = EditorStyles.getHeaderStyle(theme);
-        header.innerHTML = EditorStyles.createHeader(theme, 'Portal Template Editor', 'Create, Edit, and Delete Portal Templates');
+        header.innerHTML = EditorStyles.createHeader(theme, 'Doodad Template Editor', 'Create, Edit, and Delete Doodad Templates');
 
         // Close button
         const closeBtn = document.createElement('button');
@@ -57,7 +57,7 @@ class PortalEditor {
 
         // New Template Button
         const newBtn = document.createElement('button');
-        newBtn.textContent = '+ Create New Portal Template';
+        newBtn.textContent = '+ Create New Doodad Template';
         newBtn.style.cssText = EditorStyles.getNewButtonStyle(theme);
         EditorStyles.applyNewButtonHover(newBtn, theme);
         newBtn.onclick = () => this.showForm();
@@ -83,12 +83,12 @@ class PortalEditor {
 
         this.listContainer.innerHTML = '';
 
-        const templates = this.game.portalRegistry.getAllTemplates();
+        const templates = this.game.staticObjectRegistry.getAllTemplates();
 
         if (templates.length === 0) {
             this.listContainer.innerHTML = `
                 <div style="${EditorStyles.getEmptyStateStyle()}">
-                    No portal templates yet. Click "Create New" to add one!
+                    No doodad templates yet. Click "Create New" to add one!
                 </div>
             `;
             return;
@@ -101,11 +101,9 @@ class PortalEditor {
             item.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
-                        <div style="font-weight: bold; color: #9b59b6;">
-                            ${template.name} <span style="font-size: 11px; opacity: 0.7;">[${template.portalType}]</span>
-                        </div>
-                        <div style="font-size: 11px; color: #95a5a6; margin-top: 2px;">
-                            Sprite: ${template.spritePath} | Dest: ${template.targetMapId || 'Not Set'}
+                        <div style="font-weight: bold; color: #95a5a6;">${template.name}</div>
+                        <div style="font-size: 11px; color: #7f8c8d; margin-top: 2px;">
+                            Sprite: ${template.spritePath} | Scale: ${template.scale || 1.0}
                         </div>
                     </div>
                     <div style="display: flex; gap: 8px;">
@@ -136,7 +134,7 @@ class PortalEditor {
     }
 
     showForm(template = null) {
-        const theme = EditorStyles.THEMES.portal;
+        const theme = EditorStyles.THEMES.doodad;
         this.currentEditingTemplate = template;
 
         // Hide list, show form
@@ -147,7 +145,7 @@ class PortalEditor {
 
         // Form Title
         const title = document.createElement('h4');
-        title.textContent = template ? `Edit: ${template.name}` : 'Create New Portal Template';
+        title.textContent = template ? `Edit: ${template.name}` : 'Create New Doodad Template';
         title.style.cssText = `margin: 0 0 15px 0; color: ${theme.accent}; font-size: 16px;`;
         this.formContainer.appendChild(title);
 
@@ -156,83 +154,94 @@ class PortalEditor {
         form.style.cssText = 'display: flex; flex-direction: column; gap: 12px;';
 
         // Name field
-        form.appendChild(this.createField('Name', 'text', 'name', template?.name || '', 'dungeon-door'));
+        form.appendChild(this.createField('Name', 'text', 'name', template?.name || '', 'oak-tree'));
 
         // Sprite Path field
-        form.appendChild(this.createField('Sprite Path', 'text', 'spritePath', template?.spritePath || '', '/assets/npc/door-0.png'));
+        form.appendChild(this.createField('Sprite Path', 'text', 'spritePath', template?.spritePath || '', '/assets/objects/trees/oak-0.png'));
 
-        // Portal Type dropdown
-        const typeContainer = document.createElement('div');
-        typeContainer.style.cssText = 'display: flex; flex-direction: column; gap: 4px;';
-        const typeLabel = document.createElement('label');
-        typeLabel.textContent = 'Portal Type';
-        typeLabel.style.cssText = 'font-size: 12px; color: #bdc3c7; font-weight: 500;';
-        typeContainer.appendChild(typeLabel);
-        const typeSelect = document.createElement('select');
-        typeSelect.name = 'portalType';
-        typeSelect.style.cssText = `
-            padding: 8px;
-            background: rgba(52, 73, 94, 0.5);
-            border: 1px solid rgba(149, 165, 166, 0.3);
-            border-radius: 4px;
-            color: #ecf0f1;
-            font-size: 13px;
-        `;
-        ['Door', 'Teleporter', 'Stairs', 'Cave', 'Magic'].forEach(type => {
-            const option = document.createElement('option');
-            option.value = type;
-            option.textContent = type;
-            if (template?.portalType === type) option.selected = true;
-            typeSelect.appendChild(option);
-        });
-        typeContainer.appendChild(typeSelect);
-        form.appendChild(typeContainer);
+        // Scale field
+        form.appendChild(this.createField('Scale', 'number', 'scale', template?.scale || 1.0, null, 0.1));
 
-        // Destination section
-        const destTitle = document.createElement('div');
-        destTitle.textContent = 'Destination';
-        destTitle.style.cssText = EditorStyles.getSectionTitleStyle();
-        form.appendChild(destTitle);
-
-        // Target Map ID field
-        form.appendChild(this.createField('Target Map ID', 'text', 'targetMapId', template?.targetMapId || '', '0-1'));
-
-        // Target Position
-        const posRow = document.createElement('div');
-        posRow.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 8px;';
-        posRow.appendChild(this.createField('Target X', 'number', 'targetX', template?.targetX || 0, null, 1));
-        posRow.appendChild(this.createField('Target Y', 'number', 'targetY', template?.targetY || 0, null, 1));
-        form.appendChild(posRow);
-
-        // Requires Item field
-        form.appendChild(this.createField('Requires Item', 'text', 'requiresItem', template?.requiresItem || '', 'key_001 (optional)'));
-
-        // Is Interactive checkbox
-        const interactiveContainer = document.createElement('div');
-        interactiveContainer.style.cssText = 'display: flex; align-items: center; gap: 8px;';
-        const interactiveCheckbox = document.createElement('input');
-        interactiveCheckbox.type = 'checkbox';
-        interactiveCheckbox.id = 'isInteractive';
-        interactiveCheckbox.checked = template?.isInteractive !== false;
-        const interactiveLabel = document.createElement('label');
-        interactiveLabel.htmlFor = 'isInteractive';
-        interactiveLabel.textContent = 'Is Interactive (Requires Activation)';
-        interactiveLabel.style.color = '#ecf0f1';
-        interactiveContainer.appendChild(interactiveCheckbox);
-        interactiveContainer.appendChild(interactiveLabel);
-        form.appendChild(interactiveContainer);
-
-        // Collision dimensions
+        // Collision section
         const collisionTitle = document.createElement('div');
-        collisionTitle.textContent = 'Collision Box';
+        collisionTitle.textContent = 'Collision Settings';
         collisionTitle.style.cssText = EditorStyles.getSectionTitleStyle();
         form.appendChild(collisionTitle);
+
+        // Has Collision checkbox
+        const collisionContainer = document.createElement('div');
+        collisionContainer.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-bottom: 8px;';
+        const collisionCheckbox = document.createElement('input');
+        collisionCheckbox.type = 'checkbox';
+        collisionCheckbox.id = 'hasCollision';
+        collisionCheckbox.checked = template?.hasCollision !== false;
+        const collisionLabel = document.createElement('label');
+        collisionLabel.htmlFor = 'hasCollision';
+        collisionLabel.textContent = 'Has Collision';
+        collisionLabel.style.color = '#ecf0f1';
+        collisionContainer.appendChild(collisionCheckbox);
+        collisionContainer.appendChild(collisionLabel);
+        form.appendChild(collisionContainer);
+
+        // Collision Shape dropdown
+        const shapeContainer = document.createElement('div');
+        shapeContainer.style.cssText = EditorStyles.getFieldContainerStyle();
+        const shapeLabel = document.createElement('label');
+        shapeLabel.textContent = 'Collision Shape';
+        shapeLabel.style.cssText = EditorStyles.getLabelStyle();
+        shapeContainer.appendChild(shapeLabel);
+        const shapeSelect = document.createElement('select');
+        shapeSelect.name = 'collisionShape';
+        shapeSelect.style.cssText = EditorStyles.getInputStyle();
+        ['rectangle', 'circle', 'none'].forEach(shape => {
+            const option = document.createElement('option');
+            option.value = shape;
+            option.textContent = shape.charAt(0).toUpperCase() + shape.slice(1);
+            if (template?.collisionShape === shape) option.selected = true;
+            shapeSelect.appendChild(option);
+        });
+        shapeContainer.appendChild(shapeSelect);
+        form.appendChild(shapeContainer);
+
+        // Collision Box dimensions
+        const collisionBoxTitle = document.createElement('div');
+        collisionBoxTitle.textContent = 'Collision Box';
+        collisionBoxTitle.style.cssText = EditorStyles.getSectionTitleStyle();
+        form.appendChild(collisionBoxTitle);
 
         const collisionRow = document.createElement('div');
         collisionRow.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 8px;';
         collisionRow.appendChild(this.createField('Width', 'number', 'collisionWidth', template?.collision?.width || 32, null, 1));
         collisionRow.appendChild(this.createField('Height', 'number', 'collisionHeight', template?.collision?.height || 32, null, 1));
         form.appendChild(collisionRow);
+
+        // Offset
+        const offsetRow = document.createElement('div');
+        offsetRow.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 8px;';
+        offsetRow.appendChild(this.createField('Offset X', 'number', 'collisionOffsetX', template?.collision?.offsetX || 0, null, 1));
+        offsetRow.appendChild(this.createField('Offset Y', 'number', 'collisionOffsetY', template?.collision?.offsetY || 0, null, 1));
+        form.appendChild(offsetRow);
+
+        // Shadow section
+        const shadowTitle = document.createElement('div');
+        shadowTitle.textContent = 'Shadow Settings';
+        shadowTitle.style.cssText = EditorStyles.getSectionTitleStyle();
+        form.appendChild(shadowTitle);
+
+        // Has Shadow checkbox
+        const shadowContainer = document.createElement('div');
+        shadowContainer.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+        const shadowCheckbox = document.createElement('input');
+        shadowCheckbox.type = 'checkbox';
+        shadowCheckbox.id = 'hasShadow';
+        shadowCheckbox.checked = template?.hasShadow !== false;
+        const shadowLabel = document.createElement('label');
+        shadowLabel.htmlFor = 'hasShadow';
+        shadowLabel.textContent = 'Cast Shadow';
+        shadowLabel.style.color = '#ecf0f1';
+        shadowContainer.appendChild(shadowCheckbox);
+        shadowContainer.appendChild(shadowLabel);
+        form.appendChild(shadowContainer);
 
         // Buttons
         const buttonRow = document.createElement('div');
@@ -291,16 +300,16 @@ class PortalEditor {
         const templateData = {
             name: formData.get('name'),
             spritePath: formData.get('spritePath'),
-            portalType: formData.get('portalType'),
-            targetMapId: formData.get('targetMapId') || null,
-            targetX: parseFloat(formData.get('targetX')),
-            targetY: parseFloat(formData.get('targetY')),
-            requiresItem: formData.get('requiresItem') || null,
-            isInteractive: form.querySelector('#isInteractive').checked,
+            scale: parseFloat(formData.get('scale')),
+            hasCollision: form.querySelector('#hasCollision').checked,
+            collisionShape: formData.get('collisionShape'),
             collision: {
                 width: parseFloat(formData.get('collisionWidth')),
-                height: parseFloat(formData.get('collisionHeight'))
-            }
+                height: parseFloat(formData.get('collisionHeight')),
+                offsetX: parseFloat(formData.get('collisionOffsetX')),
+                offsetY: parseFloat(formData.get('collisionOffsetY'))
+            },
+            hasShadow: form.querySelector('#hasShadow').checked
         };
 
         // Validate
@@ -317,12 +326,12 @@ class PortalEditor {
         try {
             if (this.currentEditingTemplate) {
                 // Update existing
-                this.game.portalRegistry.updateTemplate(this.currentEditingTemplate.name, templateData);
-                console.log(`[PortalEditor] Updated template: ${this.currentEditingTemplate.name}`);
+                this.game.staticObjectRegistry.updateTemplate(this.currentEditingTemplate.name, templateData);
+                console.log(`[DoodadEditor] Updated template: ${this.currentEditingTemplate.name}`);
             } else {
                 // Create new
-                this.game.portalRegistry.addTemplate(templateData.name, templateData);
-                console.log(`[PortalEditor] Created template: ${templateData.name}`);
+                this.game.staticObjectRegistry.addTemplate(templateData.name, templateData);
+                console.log(`[DoodadEditor] Created template: ${templateData.name}`);
             }
 
             this.hideForm();
@@ -333,11 +342,11 @@ class PortalEditor {
     }
 
     deleteTemplate(name) {
-        if (!confirm(`Delete portal template "${name}"?`)) return;
+        if (!confirm(`Delete doodad template "${name}"?`)) return;
 
         try {
-            this.game.portalRegistry.removeTemplate(name);
-            console.log(`[PortalEditor] Deleted template: ${name}`);
+            this.game.staticObjectRegistry.removeTemplate(name);
+            console.log(`[DoodadEditor] Deleted template: ${name}`);
             this.refresh();
         } catch (error) {
             alert(`Error deleting template: ${error.message}`);
@@ -352,4 +361,4 @@ class PortalEditor {
 }
 
 // Make globally available
-window.PortalEditor = PortalEditor;
+window.DoodadEditor = DoodadEditor;
