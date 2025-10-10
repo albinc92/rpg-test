@@ -153,7 +153,18 @@ class RenderSystem {
         // Restore camera transform TEMPORARILY for light rendering
         this.ctx.restore();
         
-        // Render lights (additive blending, before day/night overlay)
+        // Get logical canvas dimensions
+        const canvasWidth = game.CANVAS_WIDTH;
+        const canvasHeight = game.CANVAS_HEIGHT;
+        
+        // Render day/night cycle overlay BEFORE lights (so lights can dispel darkness)
+        if (game?.currentMap?.dayNightCycle && game?.dayNightCycle) {
+            const weatherState = game?.currentMap?.weather || null;
+            game.dayNightCycle.render(this.ctx, canvasWidth, canvasHeight, weatherState);
+        }
+        
+        // Render lights AFTER darkness overlay (using 'screen' blend mode to dispel darkness)
+        // This makes lights brighten the darkened areas, creating realistic light sources
         if (game?.lightManager) {
             game.lightManager.render(this.ctx, this.camera.x, this.camera.y);
         }
@@ -162,8 +173,6 @@ class RenderSystem {
         this.ctx.save();
         const editorZoom = this.camera.zoom || 1.0;
         if (editorZoom !== 1.0) {
-            const canvasWidth = game.CANVAS_WIDTH;
-            const canvasHeight = game.CANVAS_HEIGHT;
             this.ctx.translate(canvasWidth / 2, canvasHeight / 2);
             this.ctx.scale(editorZoom, editorZoom);
             this.ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
@@ -178,16 +187,6 @@ class RenderSystem {
         
         // Restore camera transform for real
         this.ctx.restore();
-        
-        // Get logical canvas dimensions
-        const canvasWidth = game.CANVAS_WIDTH;
-        const canvasHeight = game.CANVAS_HEIGHT;
-        
-        // Render day/night cycle overlay on top (affects weather particles and everything)
-        if (game?.currentMap?.dayNightCycle && game?.dayNightCycle) {
-            const weatherState = game?.currentMap?.weather || null;
-            game.dayNightCycle.render(this.ctx, canvasWidth, canvasHeight, weatherState);
-        }
     }
     
     /**

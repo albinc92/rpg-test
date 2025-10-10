@@ -33,8 +33,8 @@ class DayNightShader {
             // Since the main canvas is already 2D, we create a separate WebGL canvas
             
             // Get logical canvas dimensions (not physical pixels)
-            const canvasWidth = this.game.CANVAS_WIDTH;
-            const canvasHeight = this.game.CANVAS_HEIGHT;
+            const canvasWidth = this.canvas ? this.canvas.width : 800;
+            const canvasHeight = this.canvas ? this.canvas.height : 600;
             
             // Create offscreen canvas for capturing 2D rendered content
             this.offscreenCanvas = document.createElement('canvas');
@@ -368,8 +368,8 @@ class DayNightShader {
         
         try {
             // Get logical canvas dimensions
-            const displayWidth = this.game.CANVAS_WIDTH;
-            const displayHeight = this.game.CANVAS_HEIGHT;
+            const displayWidth = this.canvas.width;
+            const displayHeight = this.canvas.height;
             
             // 1. Copy the 2D canvas content to offscreen canvas
             this.offscreenCtx.clearRect(0, 0, displayWidth, displayHeight);

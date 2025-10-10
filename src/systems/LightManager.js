@@ -135,8 +135,8 @@ class LightManager {
     }
     
     /**
-     * Render lights (called before day/night overlay)
-     * Uses additive blending for realistic light accumulation
+     * Render lights (called AFTER day/night overlay to dispel darkness)
+     * Uses 'screen' or 'lighter' blend mode to brighten darkened areas
      */
     render(ctx, cameraX, cameraY) {
         if (this.lights.length === 0) return;
@@ -144,8 +144,10 @@ class LightManager {
         // Save context state
         ctx.save();
         
-        // Use 'lighter' blend mode for additive light blending
-        ctx.globalCompositeOperation = 'lighter';
+        // Use 'screen' blend mode - brightens underlying pixels (perfect for dispelling darkness)
+        // 'screen' is like projecting light onto a dark screen - dark areas become brighter
+        // Formula: 1 - (1 - backdrop) * (1 - source)
+        ctx.globalCompositeOperation = 'screen';
         
         this.lights.forEach(light => {
             this.renderLight(ctx, light, cameraX, cameraY);
@@ -179,19 +181,29 @@ class LightManager {
         const effectiveAlpha = light.color.a * light._currentIntensity;
         
         // Create radial gradient from center to edge
+        // Using 'screen' blend mode, brighter colors = more dispelling of darkness
         const gradient = ctx.createRadialGradient(
             screenX, screenY, 0,                    // Inner circle (center)
             screenX, screenY, effectiveRadius       // Outer circle (edge)
         );
         
-        // Inner glow (brightest at center)
-        gradient.addColorStop(0, `rgba(${light.color.r}, ${light.color.g}, ${light.color.b}, ${effectiveAlpha})`);
+        // Brighten the colors for better darkness dispelling with 'screen' blend mode
+        // Screen blend works best with bright colors (closer to 255)
+        const brightR = Math.min(255, light.color.r * 1.5);
+        const brightG = Math.min(255, light.color.g * 1.5);
+        const brightB = Math.min(255, light.color.b * 1.5);
         
-        // Mid-range falloff
-        gradient.addColorStop(0.5, `rgba(${light.color.r}, ${light.color.g}, ${light.color.b}, ${effectiveAlpha * 0.5})`);
+        // Inner glow (brightest at center) - increased brightness for darkness dispelling
+        gradient.addColorStop(0, `rgba(${brightR}, ${brightG}, ${brightB}, ${effectiveAlpha})`);
+        
+        // Mid-range falloff - still quite bright
+        gradient.addColorStop(0.4, `rgba(${brightR}, ${brightG}, ${brightB}, ${effectiveAlpha * 0.7})`);
+        
+        // Outer falloff
+        gradient.addColorStop(0.7, `rgba(${brightR}, ${brightG}, ${brightB}, ${effectiveAlpha * 0.3})`);
         
         // Edge (completely transparent)
-        gradient.addColorStop(1, `rgba(${light.color.r}, ${light.color.g}, ${light.color.b}, 0)`);
+        gradient.addColorStop(1, `rgba(${brightR}, ${brightG}, ${brightB}, 0)`);
         
         // Draw the light
         ctx.fillStyle = gradient;
