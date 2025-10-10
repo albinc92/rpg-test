@@ -952,9 +952,9 @@ class EditorManager {
      */
     renderOverlays(ctx) {
         const canvas = this.game.canvas;
-        const padding = 10;
-        const lineHeight = 20;
-        const boxPadding = 10;
+        const padding = 15;
+        const lineHeight = 28;
+        const boxPadding = 15;
         
         // Build info lines
         const lines = [
@@ -967,39 +967,46 @@ class EditorManager {
             lines.push(`Selected: Drag to move, D to delete`);
         }
         
-        // Calculate box dimensions with proper text measurement
-        ctx.save();
-        ctx.font = '14px monospace';
+        // Calculate box dimensions
+        ctx.font = '18px monospace';
         const maxWidth = Math.max(...lines.map(line => ctx.measureText(line).width));
         const boxWidth = maxWidth + (boxPadding * 2);
         const boxHeight = (lines.length * lineHeight) + (boxPadding * 2);
         
-        // Position in bottom-right corner (use logical dimensions)
-        const x = this.game.CANVAS_WIDTH - boxWidth - padding;
-        const y = this.game.CANVAS_HEIGHT - boxHeight - padding;
+        ctx.save();
+        
+        // Reset transform to screen coordinates for UI overlay
+        const currentTransform = ctx.getTransform();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        
+        // Get actual canvas pixel dimensions
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        
+        // Position in bottom-right corner (use actual canvas dimensions)
+        const boxX = canvasWidth - boxWidth - padding;
+        const boxY = canvasHeight - boxHeight - padding;
         
         // Draw background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
-        ctx.fillRect(x, y, boxWidth, boxHeight);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
         
         // Draw border
         ctx.strokeStyle = 'rgba(74, 158, 255, 0.5)';
         ctx.lineWidth = 2;
-        ctx.strokeRect(x, y, boxWidth, boxHeight);
+        ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
         
-        // Draw text with proper clipping
+        // Draw text
         ctx.fillStyle = '#ffffff';
-        ctx.font = '14px monospace';
-        
-        // Set clipping region to prevent text overflow
-        ctx.beginPath();
-        ctx.rect(x, y, boxWidth, boxHeight);
-        ctx.clip();
-        
+        ctx.font = '18px monospace';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
         lines.forEach((line, index) => {
-            ctx.fillText(line, x + boxPadding, y + boxPadding + (index + 1) * lineHeight - 5);
+            ctx.fillText(line, boxX + boxPadding, boxY + boxPadding + (index * lineHeight));
         });
         
+        // Restore original transform
+        ctx.setTransform(currentTransform);
         ctx.restore();
     }
 
