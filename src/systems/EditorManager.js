@@ -219,11 +219,16 @@ class EditorManager {
                 }
             }
             
-            // Open placement panel
+            // Toggle placement panel
             else if (e.key === 'p' || e.key === 'P') {
                 if (this.placementPanel) {
-                    this.placementPanel.show();
-                    console.log('[EditorManager] Placement Panel: SHOWN');
+                    if (this.placementPanel.isVisible()) {
+                        this.placementPanel.hide();
+                        console.log('[EditorManager] Placement Panel: HIDDEN');
+                    } else {
+                        this.placementPanel.show();
+                        console.log('[EditorManager] Placement Panel: SHOWN');
+                    }
                 }
             }
             
