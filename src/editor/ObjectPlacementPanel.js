@@ -153,6 +153,9 @@ class ObjectPlacementPanel {
             return;
         }
         
+        // Clear loading message
+        container.innerHTML = '';
+        
         // Create template list
         const list = document.createElement('div');
         list.style.cssText = `
