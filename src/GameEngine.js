@@ -94,6 +94,9 @@ class GameEngine {
         // Light system for dynamic lighting
         this.lightManager = new LightManager(this);
         
+        // Connect light manager to render system (for mask invalidation on camera movement)
+        this.renderSystem.setLightManager(this.lightManager);
+        
         // Spawn system for spirits
         this.spawnManager = new SpawnManager(this);
         

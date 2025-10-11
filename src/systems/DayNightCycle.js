@@ -148,29 +148,30 @@ class DayNightCycle {
     }
     
     /**
-     * Render day/night overlay on canvas
+     * Render day/night overlay on canvas with light mask support
      * @param {CanvasRenderingContext2D} ctx - Canvas context
      * @param {number} width - Canvas width
      * @param {number} height - Canvas height
      * @param {Object} weatherState - Optional weather state for cloud darkening
+     * @param {HTMLCanvasElement} lightMask - Optional light mask (white = lit, black = dark)
      */
-    render(ctx, width, height, weatherState = null) {
+    render(ctx, width, height, weatherState = null, lightMask = null) {
         // Use Canvas 2D filters for GPU-accelerated lighting
         // This applies effects without touching pixels or coordinates
         if (this.useShader && this.shader) {
             this.shader.updateFromTimeOfDay(this.timeOfDay, weatherState);
-            this.renderWithFilters(ctx, width, height, weatherState);
+            this.renderWithFilters(ctx, width, height, weatherState, lightMask);
         } else {
-            // Fallback: Use simple 2D overlay
-            this.renderOverlay(ctx, width, height);
+            // Fallback: Use simple 2D overlay with mask
+            this.renderOverlay(ctx, width, height, lightMask);
         }
     }
     
     /**
-     * Render using layered approach: darkening + blue tint
+     * Render using layered approach: darkening + blue tint with light mask
      * Smooth continuous transitions across all time periods
      */
-    renderWithFilters(ctx, width, height, weatherState = null) {
+    renderWithFilters(ctx, width, height, weatherState = null, lightMask = null) {
         this.shader.updateFromTimeOfDay(this.timeOfDay, weatherState);
         
         const time = this.timeOfDay;
@@ -266,35 +267,102 @@ class DayNightCycle {
             darknessB = Math.max(40, darknessB - extraDark);
         }
         
-        // Apply darkening layer (multiply blend)
-        ctx.save();
-        ctx.globalCompositeOperation = 'multiply';
-        ctx.fillStyle = `rgb(${darknessR}, ${darknessG}, ${darknessB})`;
-        ctx.fillRect(0, 0, width, height);
-        ctx.restore();
-        
-        // Apply color tint layer (screen blend for glow effect)
-        if (tintAlpha > 0) {
+        // If we have a light mask, modulate darkness by light intensity per pixel
+        if (lightMask) {
+            // Get the light mask pixel data (grayscale: white=lit, black=dark)
+            const maskCanvas = document.createElement('canvas');
+            maskCanvas.width = width;
+            maskCanvas.height = height;
+            const maskCtx = maskCanvas.getContext('2d');
+            maskCtx.drawImage(lightMask, 0, 0);
+            const maskData = maskCtx.getImageData(0, 0, width, height);
+            
+            // Create darkness overlay with per-pixel alpha based on light mask
+            const darknessCanvas = document.createElement('canvas');
+            darknessCanvas.width = width;
+            darknessCanvas.height = height;
+            const darknessCtx = darknessCanvas.getContext('2d');
+            const darknessData = darknessCtx.createImageData(width, height);
+            
+            // For each pixel: darkness alpha = inverted light brightness
+            // White (255) in mask = 0% darkness, Black (0) in mask = 100% darkness
+            for (let i = 0; i < maskData.data.length; i += 4) {
+                const lightIntensity = maskData.data[i] / 255; // 0=dark, 1=lit
+                const darknessAlpha = 1 - lightIntensity; // Invert: 1=dark, 0=lit
+                
+                darknessData.data[i] = darknessR;
+                darknessData.data[i + 1] = darknessG;
+                darknessData.data[i + 2] = darknessB;
+                darknessData.data[i + 3] = darknessAlpha * 255;
+            }
+            
+            darknessCtx.putImageData(darknessData, 0, 0);
+            
+            // Apply the per-pixel modulated darkness
             ctx.save();
-            ctx.globalCompositeOperation = 'screen';
-            ctx.fillStyle = `rgba(${tintR}, ${tintG}, ${tintB}, ${tintAlpha})`;
+            ctx.globalCompositeOperation = 'multiply';
+            ctx.drawImage(darknessCanvas, 0, 0);
+            
+            // Apply tint if needed
+            if (tintAlpha > 0) {
+                ctx.globalCompositeOperation = 'screen';
+                ctx.fillStyle = `rgba(${tintR}, ${tintG}, ${tintB}, ${tintAlpha})`;
+                ctx.fillRect(0, 0, width, height);
+            }
+            ctx.restore();
+        } else {
+            // No light mask - apply darkness normally
+            ctx.save();
+            ctx.globalCompositeOperation = 'multiply';
+            ctx.fillStyle = `rgb(${darknessR}, ${darknessG}, ${darknessB})`;
             ctx.fillRect(0, 0, width, height);
             ctx.restore();
+            
+            // Apply color tint layer (screen blend for glow effect)
+            if (tintAlpha > 0) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'screen';
+                ctx.fillStyle = `rgba(${tintR}, ${tintG}, ${tintB}, ${tintAlpha})`;
+                ctx.fillRect(0, 0, width, height);
+                ctx.restore();
+            }
         }
     }
     
     /**
-     * Fallback render using 2D overlay (when shader unavailable)
+     * Fallback render using 2D overlay (when shader unavailable) with light mask
      */
-    renderOverlay(ctx, width, height) {
+    renderOverlay(ctx, width, height, lightMask = null) {
         const lighting = this.getCurrentLighting();
         
         // Only render if there's an overlay (alpha > 0)
         if (lighting.a > 0) {
-            ctx.save();
-            ctx.fillStyle = `rgba(${lighting.r}, ${lighting.g}, ${lighting.b}, ${lighting.a})`;
-            ctx.fillRect(0, 0, width, height);
-            ctx.restore();
+            if (lightMask) {
+                // Create temp canvas for overlay
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = width;
+                tempCanvas.height = height;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                // Draw overlay to temp
+                tempCtx.fillStyle = `rgba(${lighting.r}, ${lighting.g}, ${lighting.b}, ${lighting.a})`;
+                tempCtx.fillRect(0, 0, width, height);
+                
+                // Cut out lit areas using mask (destination-out removes where mask is white)
+                tempCtx.globalCompositeOperation = 'destination-out';
+                tempCtx.drawImage(lightMask, 0, 0);
+                
+                // Draw masked overlay to main canvas
+                ctx.save();
+                ctx.drawImage(tempCanvas, 0, 0);
+                ctx.restore();
+            } else {
+                // No mask - simple overlay
+                ctx.save();
+                ctx.fillStyle = `rgba(${lighting.r}, ${lighting.g}, ${lighting.b}, ${lighting.a})`;
+                ctx.fillRect(0, 0, width, height);
+                ctx.restore();
+            }
         }
     }
     

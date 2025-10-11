@@ -1760,6 +1760,11 @@ class EditorManager {
         const camera = this.game.camera;
         camera.zoom = Math.min(camera.maxZoom, camera.zoom + 0.25);
         console.log(`[EditorManager] Zoom: ${(camera.zoom * 100).toFixed(0)}%`);
+        
+        // Invalidate light mask when zoom changes
+        if (this.game.lightManager) {
+            this.game.lightManager.invalidateMask();
+        }
     }
 
     /**
@@ -1769,6 +1774,11 @@ class EditorManager {
         const camera = this.game.camera;
         camera.zoom = Math.max(camera.minZoom, camera.zoom - 0.25);
         console.log(`[EditorManager] Zoom: ${(camera.zoom * 100).toFixed(0)}%`);
+        
+        // Invalidate light mask when zoom changes
+        if (this.game.lightManager) {
+            this.game.lightManager.invalidateMask();
+        }
     }
 
     /**
@@ -1777,6 +1787,11 @@ class EditorManager {
     resetZoom() {
         this.game.camera.zoom = 1.0;
         console.log('[EditorManager] Zoom reset to 100%');
+        
+        // Invalidate light mask when zoom changes
+        if (this.game.lightManager) {
+            this.game.lightManager.invalidateMask();
+        }
     }
 
     // ==================== PAINT TOOL METHODS ====================

@@ -25,7 +25,12 @@ class LightManager {
             console.warn('[LightManager] ⚠️ Preview sprite not found at assets/editor/light.svg');
         };
         
-        console.log('[LightManager] Initialized');
+        // Light mask system - used to dispel darkness
+        this.lightMaskCanvas = null;
+        this.lightMaskCtx = null;
+        this.maskNeedsUpdate = true;
+        
+        console.log('[LightManager] ✅ Initialized with light mask system');
     }
     
     /**
@@ -72,6 +77,7 @@ class LightManager {
      */
     addLight(light) {
         this.lights.push(light);
+        this.maskNeedsUpdate = true; // Mark mask for regeneration
         console.log(`[LightManager] Added light: ${light.id}`);
     }
     
@@ -82,6 +88,7 @@ class LightManager {
         const index = this.lights.findIndex(l => l.id === lightId);
         if (index !== -1) {
             this.lights.splice(index, 1);
+            this.maskNeedsUpdate = true; // Mark mask for regeneration
             console.log(`[LightManager] Removed light: ${lightId}`);
             return true;
         }
@@ -103,6 +110,7 @@ class LightManager {
         if (!light) return false;
         
         Object.assign(light, properties);
+        this.maskNeedsUpdate = true; // Mark mask for regeneration
         console.log(`[LightManager] Updated light: ${lightId}`);
         return true;
     }
@@ -135,8 +143,128 @@ class LightManager {
     }
     
     /**
-     * Render lights (called AFTER day/night overlay to dispel darkness)
-     * Uses 'screen' or 'lighter' blend mode to brighten darkened areas
+     * Initialize or resize light mask canvas
+     */
+    initializeLightMask(width, height) {
+        if (!this.lightMaskCanvas || 
+            this.lightMaskCanvas.width !== width || 
+            this.lightMaskCanvas.height !== height) {
+            
+            this.lightMaskCanvas = document.createElement('canvas');
+            this.lightMaskCanvas.width = width;
+            this.lightMaskCanvas.height = height;
+            this.lightMaskCtx = this.lightMaskCanvas.getContext('2d');
+            this.maskNeedsUpdate = true;
+            
+            console.log(`[LightManager] ✅ Light mask initialized: ${width}x${height}`);
+        }
+    }
+    
+    /**
+     * Generate light mask from all light sources
+     * The mask is grayscale: white = fully lit (no darkness), black = fully dark
+     */
+    generateLightMask(cameraX, cameraY, width, height) {
+        if (!this.lightMaskCtx) return;
+        
+        const ctx = this.lightMaskCtx;
+        
+        // Clear to black (fully dark by default)
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = 'black';
+        ctx.fillRect(0, 0, width, height);
+        
+        // Use 'lighter' blend mode so overlapping lights accumulate brightness
+        ctx.globalCompositeOperation = 'lighter';
+        
+        // Render each light as a white radial gradient (mask intensity)
+        let lightsRendered = 0;
+        this.lights.forEach(light => {
+            this.renderLightMask(ctx, light, cameraX, cameraY);
+            lightsRendered++;
+        });
+        
+        // Reset blend mode
+        ctx.globalCompositeOperation = 'source-over';
+        
+        console.log(`[LightManager] Generated mask with ${lightsRendered} lights at camera(${cameraX.toFixed(0)}, ${cameraY.toFixed(0)})`);
+        
+        this.maskNeedsUpdate = false;
+    }
+    
+    /**
+     * Render a single light to the mask (as white gradient)
+     */
+    renderLightMask(ctx, light, cameraX, cameraY) {
+        const game = this.game;
+        const resolutionScale = game?.resolutionScale || 1.0;
+        const mapScale = game?.currentMap?.scale || 1.0;
+        const totalScale = mapScale * resolutionScale;
+        
+        // Scale the stored coordinates to world coordinates
+        const worldX = light.x * totalScale;
+        const worldY = light.y * totalScale;
+        
+        // Convert world coordinates to screen coordinates
+        const screenX = worldX - cameraX;
+        const screenY = worldY - cameraY;
+        
+        // Calculate effective radius based on flicker
+        const effectiveRadius = light.radius * light._currentIntensity;
+        
+        // Create radial gradient (white = light, transparent = no light)
+        const gradient = ctx.createRadialGradient(
+            screenX, screenY, 0,
+            screenX, screenY, effectiveRadius
+        );
+        
+        // White at center (full light intensity)
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+        gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.9)');
+        gradient.addColorStop(0.6, 'rgba(255, 255, 255, 0.5)');
+        gradient.addColorStop(0.8, 'rgba(255, 255, 255, 0.2)');
+        gradient.addColorStop(1.0, 'rgba(255, 255, 255, 0)');
+        
+        // Draw the light mask
+        ctx.fillStyle = gradient;
+        ctx.fillRect(
+            screenX - effectiveRadius,
+            screenY - effectiveRadius,
+            effectiveRadius * 2,
+            effectiveRadius * 2
+        );
+    }
+    
+    /**
+     * Get the current light mask canvas
+     * Used by DayNightCycle to apply darkness only where there's no light
+     */
+    getLightMask(cameraX, cameraY, width, height) {
+        // Initialize mask if needed
+        this.initializeLightMask(width, height);
+        
+        // Regenerate mask if lights changed or not yet generated
+        if (this.maskNeedsUpdate) {
+            console.log(`[LightManager] Regenerating light mask (${this.lights.length} lights)`);
+            this.generateLightMask(cameraX, cameraY, width, height);
+            
+            // DEBUG: Check if mask is all white (would explain no darkness)
+            const imageData = this.lightMaskCtx.getImageData(width/2, height/2, 1, 1);
+            const centerPixel = imageData.data;
+            console.log(`[LightManager] Mask center pixel: R=${centerPixel[0]} G=${centerPixel[1]} B=${centerPixel[2]} A=${centerPixel[3]}`);
+            
+            // Check a corner (should be black if lights are small)
+            const cornerData = this.lightMaskCtx.getImageData(10, 10, 1, 1);
+            const cornerPixel = cornerData.data;
+            console.log(`[LightManager] Mask corner pixel: R=${cornerPixel[0]} G=${cornerPixel[1]} B=${cornerPixel[2]} A=${cornerPixel[3]}`);
+        }
+        
+        return this.lightMaskCanvas;
+    }
+    
+    /**
+     * Render lights (now renders colored light glows on top of masked darkness)
+     * This adds the colored light effect after darkness has been properly masked
      */
     render(ctx, cameraX, cameraY) {
         if (this.lights.length === 0) return;
@@ -144,9 +272,7 @@ class LightManager {
         // Save context state
         ctx.save();
         
-        // Use 'screen' blend mode - brightens underlying pixels (perfect for dispelling darkness)
-        // 'screen' is like projecting light onto a dark screen - dark areas become brighter
-        // Formula: 1 - (1 - backdrop) * (1 - source)
+        // Use 'screen' blend mode to add colored light glow on top
         ctx.globalCompositeOperation = 'screen';
         
         this.lights.forEach(light => {
@@ -329,6 +455,14 @@ class LightManager {
      */
     clear() {
         this.lights = [];
+        this.maskNeedsUpdate = true;
+    }
+    
+    /**
+     * Force light mask regeneration (call after camera moves or zoom changes)
+     */
+    invalidateMask() {
+        this.maskNeedsUpdate = true;
     }
 }
 

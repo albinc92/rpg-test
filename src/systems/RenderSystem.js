@@ -25,6 +25,10 @@ class RenderSystem {
      * Update camera position to follow target
      */
     updateCamera(targetX, targetY, canvasWidth, canvasHeight, mapWidth, mapHeight) {
+        // Store old camera position to detect changes
+        const oldCameraX = this.camera.x;
+        const oldCameraY = this.camera.y;
+        
         // Set camera target to center on player
         this.camera.targetX = targetX - canvasWidth / 2;
         this.camera.targetY = targetY - canvasHeight / 2;
@@ -67,6 +71,20 @@ class RenderSystem {
         } else {
             this.camera.y = Math.max(0, Math.min(this.camera.y, mapHeight - canvasHeight));
         }
+        
+        // Invalidate light mask if camera moved at all
+        const cameraMoved = Math.abs(this.camera.x - oldCameraX) > 0.1 || 
+                           Math.abs(this.camera.y - oldCameraY) > 0.1;
+        if (cameraMoved && this.lightManager) {
+            this.lightManager.invalidateMask();
+        }
+    }
+    
+    /**
+     * Set light manager reference (for mask invalidation)
+     */
+    setLightManager(lightManager) {
+        this.lightManager = lightManager;
     }
     
     /**
@@ -157,15 +175,24 @@ class RenderSystem {
         const canvasWidth = game.CANVAS_WIDTH;
         const canvasHeight = game.CANVAS_HEIGHT;
         
-        // Render day/night cycle overlay BEFORE lights (so lights can dispel darkness)
-        if (game?.currentMap?.dayNightCycle && game?.dayNightCycle) {
-            const weatherState = game?.currentMap?.weather || null;
-            game.dayNightCycle.render(this.ctx, canvasWidth, canvasHeight, weatherState);
+        // Get light mask from light manager (if lights exist)
+        let lightMask = null;
+        if (game?.lightManager && game.lightManager.lights.length > 0) {
+            lightMask = game.lightManager.getLightMask(this.camera.x, this.camera.y, canvasWidth, canvasHeight);
+            console.log(`[RenderSystem] Got light mask: ${lightMask ? 'YES' : 'NO'}, Lights: ${game.lightManager.lights.length}`);
         }
         
-        // Render lights AFTER darkness overlay (using 'screen' blend mode to dispel darkness)
-        // This makes lights brighten the darkened areas, creating realistic light sources
-        if (game?.lightManager) {
+        // Render day/night cycle overlay with light mask
+        // The mask ensures darkness is NOT applied where lights exist (perfect darkness dispelling)
+        if (game?.currentMap?.dayNightCycle && game?.dayNightCycle) {
+            const weatherState = game?.currentMap?.weather || null;
+            console.log(`[RenderSystem] Rendering day/night with mask: ${lightMask ? 'YES' : 'NO'}`);
+            game.dayNightCycle.render(this.ctx, canvasWidth, canvasHeight, weatherState, lightMask);
+        }
+        
+        // Render colored light glows on top (optional visual enhancement)
+        // This adds the colored light effect after darkness has been properly masked
+        if (game?.lightManager && game.lightManager.lights.length > 0) {
             game.lightManager.render(this.ctx, this.camera.x, this.camera.y);
         }
         

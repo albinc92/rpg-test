@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Light Mask System - Visual Explanation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #4ec9b0;
+            margin-bottom: 40px;
+        }
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 60px;
+        }
+        .method {
+            background: #252526;
+            border: 2px solid #3e3e42;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .method h2 {
+            color: #569cd6;
+            margin-top: 0;
+            text-align: center;
+        }
+        .method.old h2 {
+            color: #ce9178;
+        }
+        .method.new h2 {
+            color: #4ec9b0;
+        }
+        canvas {
+            display: block;
+            border: 2px solid #3e3e42;
+            border-radius: 4px;
+            margin: 20px auto;
+            background: #1e1e1e;
+        }
+        .steps {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2d2d30;
+            border-left: 4px solid #569cd6;
+            border-radius: 4px;
+        }
+        .steps.old {
+            border-left-color: #ce9178;
+        }
+        .steps.new {
+            border-left-color: #4ec9b0;
+        }
+        .step {
+            padding: 8px 0;
+            font-size: 14px;
+        }
+        .step::before {
+            content: "→ ";
+            color: #569cd6;
+            font-weight: bold;
+        }
+        .result {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            background: #2d2d30;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .result.bad {
+            color: #f48771;
+            border: 2px solid #f48771;
+        }
+        .result.good {
+            color: #4ec9b0;
+            border: 2px solid #4ec9b0;
+        }
+        .demo-section {
+            margin-top: 60px;
+            padding: 30px;
+            background: #252526;
+            border: 2px solid #3e3e42;
+            border-radius: 8px;
+        }
+        .demo-section h2 {
+            color: #4ec9b0;
+            text-align: center;
+            margin-top: 0;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            margin: 0 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #1177bb;
+        }
+        button:active {
+            background: #0d5a8f;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .legend-color {
+            width: 30px;
+            height: 30px;
+            border: 2px solid #3e3e42;
+            border-radius: 4px;
+        }
+        .info-box {
+            background: #2d2d30;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border-left: 4px solid #4ec9b0;
+        }
+        .info-box h3 {
+            margin-top: 0;
+            color: #4ec9b0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌟 Light Mask System - Visual Explanation</h1>
+        
+        <div class="comparison">
+            <!-- Old System -->
+            <div class="method old">
+                <h2>❌ Old System (Screen Blend Only)</h2>
+                <canvas id="oldCanvas" width="500" height="400"></canvas>
+                <div class="steps old">
+                    <div class="step">Render game world</div>
+                    <div class="step">Apply darkness (multiply blend)</div>
+                    <div class="step">Apply lights (screen blend)</div>
+                </div>
+                <div class="result bad">
+                    ❌ Lights brighten but can't fully remove darkness
+                </div>
+            </div>
+            
+            <!-- New System -->
+            <div class="method new">
+                <h2>✅ New System (Light Mask)</h2>
+                <canvas id="newCanvas" width="500" height="400"></canvas>
+                <div class="steps new">
+                    <div class="step">Render game world</div>
+                    <div class="step">Generate light mask (white = lit)</div>
+                    <div class="step">Apply darkness ONLY where mask is black</div>
+                    <div class="step">Add colored light glows (optional)</div>
+                </div>
+                <div class="result good">
+                    ✅ Lights completely remove darkness
+                </div>
+            </div>
+        </div>
+        
+        <!-- Interactive Demo -->
+        <div class="demo-section">
+            <h2>🎮 Interactive Demo</h2>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #87ceeb;"></div>
+                    <span>Game World (Daytime)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #1a1a3e;"></div>
+                    <span>Night Darkness</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ffaa00;"></div>
+                    <span>Light Source</span>
+                </div>
+            </div>
+            
+            <canvas id="demoCanvas" width="1200" height="500"></canvas>
+            
+            <div class="controls">
+                <button onclick="demo.toggleTime()">🌙 Toggle Day/Night</button>
+                <button onclick="demo.addLight()">💡 Add Light</button>
+                <button onclick="demo.removeLight()">❌ Remove Light</button>
+                <button onclick="demo.toggleFlicker()">✨ Toggle Flicker</button>
+            </div>
+            
+            <div class="info-box">
+                <h3>How It Works</h3>
+                <p><strong>Left Side:</strong> Shows the old system where lights use screen blend mode to try brightening dark areas. Notice how the lit areas are still quite dark.</p>
+                <p><strong>Right Side:</strong> Shows the new light mask system where darkness is prevented from being applied in lit areas. Notice how lit areas are completely bright!</p>
+                <p><strong>Click</strong> on the demo canvas to add lights at that position. Toggle day/night to see the difference clearly.</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Old system rendering
+        function renderOldSystem() {
+            const canvas = document.getElementById('oldCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // 1. Clear
+            ctx.fillStyle = '#87ceeb';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 2. Apply darkness (multiply blend simulation)
+            ctx.globalCompositeOperation = 'multiply';
+            ctx.fillStyle = 'rgb(60, 60, 100)'; // Dark blue
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 3. Apply lights (screen blend)
+            ctx.globalCompositeOperation = 'screen';
+            
+            // Light 1
+            const gradient1 = ctx.createRadialGradient(150, 200, 0, 150, 200, 120);
+            gradient1.addColorStop(0, 'rgba(255, 200, 100, 0.8)');
+            gradient1.addColorStop(1, 'rgba(255, 200, 100, 0)');
+            ctx.fillStyle = gradient1;
+            ctx.fillRect(30, 80, 240, 240);
+            
+            // Light 2
+            const gradient2 = ctx.createRadialGradient(350, 200, 0, 350, 200, 100);
+            gradient2.addColorStop(0, 'rgba(255, 200, 100, 0.8)');
+            gradient2.addColorStop(1, 'rgba(255, 200, 100, 0)');
+            ctx.fillStyle = gradient2;
+            ctx.fillRect(250, 100, 200, 200);
+            
+            ctx.globalCompositeOperation = 'source-over';
+        }
+        
+        // New system rendering
+        function renderNewSystem() {
+            const canvas = document.getElementById('newCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Create light mask
+            const maskCanvas = document.createElement('canvas');
+            maskCanvas.width = canvas.width;
+            maskCanvas.height = canvas.height;
+            const maskCtx = maskCanvas.getContext('2d');
+            
+            // 1. Clear to black (fully dark)
+            maskCtx.fillStyle = 'black';
+            maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+            
+            // 2. Add white gradients for lights
+            maskCtx.globalCompositeOperation = 'lighter';
+            
+            const maskGrad1 = maskCtx.createRadialGradient(150, 200, 0, 150, 200, 120);
+            maskGrad1.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            maskGrad1.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            maskCtx.fillStyle = maskGrad1;
+            maskCtx.fillRect(30, 80, 240, 240);
+            
+            const maskGrad2 = maskCtx.createRadialGradient(350, 200, 0, 350, 200, 100);
+            maskGrad2.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            maskGrad2.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            maskCtx.fillStyle = maskGrad2;
+            maskCtx.fillRect(250, 100, 200, 200);
+            
+            // 3. Render world
+            ctx.fillStyle = '#87ceeb';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 4. Create darkness on temp canvas
+            const darkCanvas = document.createElement('canvas');
+            darkCanvas.width = canvas.width;
+            darkCanvas.height = canvas.height;
+            const darkCtx = darkCanvas.getContext('2d');
+            
+            darkCtx.fillStyle = 'rgba(20, 20, 60, 0.7)';
+            darkCtx.fillRect(0, 0, darkCanvas.width, darkCanvas.height);
+            
+            // 5. Cut out lit areas
+            darkCtx.globalCompositeOperation = 'destination-out';
+            darkCtx.drawImage(maskCanvas, 0, 0);
+            
+            // 6. Composite masked darkness
+            ctx.drawImage(darkCanvas, 0, 0);
+            
+            // 7. Add colored light glows (optional)
+            ctx.globalCompositeOperation = 'screen';
+            const glowGrad1 = ctx.createRadialGradient(150, 200, 0, 150, 200, 120);
+            glowGrad1.addColorStop(0, 'rgba(255, 200, 100, 0.3)');
+            glowGrad1.addColorStop(1, 'rgba(255, 200, 100, 0)');
+            ctx.fillStyle = glowGrad1;
+            ctx.fillRect(30, 80, 240, 240);
+            
+            const glowGrad2 = ctx.createRadialGradient(350, 200, 0, 350, 200, 100);
+            glowGrad2.addColorStop(0, 'rgba(255, 200, 100, 0.3)');
+            glowGrad2.addColorStop(1, 'rgba(255, 200, 100, 0)');
+            ctx.fillStyle = glowGrad2;
+            ctx.fillRect(250, 100, 200, 200);
+            
+            ctx.globalCompositeOperation = 'source-over';
+        }
+        
+        // Interactive demo
+        const demo = {
+            lights: [
+                { x: 200, y: 250, radius: 120 },
+                { x: 500, y: 250, radius: 150 }
+            ],
+            isNight: true,
+            flickerEnabled: false,
+            flickerTime: 0,
+            
+            render() {
+                const canvas = document.getElementById('demoCanvas');
+                const ctx = canvas.getContext('2d');
+                
+                const leftWidth = canvas.width / 2;
+                
+                // Update flicker
+                if (this.flickerEnabled) {
+                    this.flickerTime += 0.05;
+                }
+                
+                // Render old system (left half)
+                ctx.save();
+                ctx.fillStyle = this.isNight ? '#1a1a3e' : '#87ceeb';
+                ctx.fillRect(0, 0, leftWidth, canvas.height);
+                
+                if (this.isNight) {
+                    ctx.globalCompositeOperation = 'screen';
+                    this.lights.forEach(light => {
+                        const flicker = this.flickerEnabled ? 0.8 + Math.sin(this.flickerTime + light.x) * 0.2 : 1.0;
+                        const grad = ctx.createRadialGradient(light.x, light.y, 0, light.x, light.y, light.radius * flicker);
+                        grad.addColorStop(0, 'rgba(255, 200, 100, 0.6)');
+                        grad.addColorStop(1, 'rgba(255, 200, 100, 0)');
+                        ctx.fillStyle = grad;
+                        ctx.fillRect(light.x - light.radius, light.y - light.radius, light.radius * 2, light.radius * 2);
+                    });
+                }
+                ctx.restore();
+                
+                // Render new system (right half)
+                ctx.save();
+                ctx.translate(leftWidth, 0);
+                
+                // Create mask
+                const maskCanvas = document.createElement('canvas');
+                maskCanvas.width = leftWidth;
+                maskCanvas.height = canvas.height;
+                const maskCtx = maskCanvas.getContext('2d');
+                
+                maskCtx.fillStyle = 'black';
+                maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+                maskCtx.globalCompositeOperation = 'lighter';
+                
+                this.lights.forEach(light => {
+                    const flicker = this.flickerEnabled ? 0.8 + Math.sin(this.flickerTime + light.x) * 0.2 : 1.0;
+                    const grad = maskCtx.createRadialGradient(light.x, light.y, 0, light.x, light.y, light.radius * flicker);
+                    grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+                    grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                    maskCtx.fillStyle = grad;
+                    maskCtx.fillRect(light.x - light.radius, light.y - light.radius, light.radius * 2, light.radius * 2);
+                });
+                
+                // World
+                ctx.fillStyle = this.isNight ? '#1a1a3e' : '#87ceeb';
+                ctx.fillRect(0, 0, leftWidth, canvas.height);
+                
+                if (this.isNight) {
+                    // Darkness on temp
+                    const darkCanvas = document.createElement('canvas');
+                    darkCanvas.width = leftWidth;
+                    darkCanvas.height = canvas.height;
+                    const darkCtx = darkCanvas.getContext('2d');
+                    
+                    darkCtx.fillStyle = '#1a1a3e';
+                    darkCtx.fillRect(0, 0, darkCanvas.width, darkCanvas.height);
+                    
+                    darkCtx.globalCompositeOperation = 'destination-out';
+                    darkCtx.drawImage(maskCanvas, 0, 0);
+                    
+                    ctx.drawImage(darkCanvas, 0, 0);
+                    
+                    // Colored glows
+                    ctx.globalCompositeOperation = 'screen';
+                    this.lights.forEach(light => {
+                        const flicker = this.flickerEnabled ? 0.8 + Math.sin(this.flickerTime + light.x) * 0.2 : 1.0;
+                        const grad = ctx.createRadialGradient(light.x, light.y, 0, light.x, light.y, light.radius * flicker);
+                        grad.addColorStop(0, 'rgba(255, 200, 100, 0.3)');
+                        grad.addColorStop(1, 'rgba(255, 200, 100, 0)');
+                        ctx.fillStyle = grad;
+                        ctx.fillRect(light.x - light.radius, light.y - light.radius, light.radius * 2, light.radius * 2);
+                    });
+                }
+                
+                ctx.restore();
+                
+                // Draw separator
+                ctx.fillStyle = '#3e3e42';
+                ctx.fillRect(leftWidth - 2, 0, 4, canvas.height);
+                
+                // Labels
+                ctx.fillStyle = '#d4d4d4';
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('OLD SYSTEM (Screen Blend)', leftWidth / 2, 30);
+                ctx.fillText('NEW SYSTEM (Light Mask)', leftWidth + leftWidth / 2, 30);
+                
+                // Light markers
+                this.lights.forEach(light => {
+                    // Old system
+                    ctx.fillStyle = 'rgba(255, 200, 100, 0.5)';
+                    ctx.beginPath();
+                    ctx.arc(light.x, light.y, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffaa00';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    // New system
+                    ctx.beginPath();
+                    ctx.arc(light.x + leftWidth, light.y, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                });
+            },
+            
+            toggleTime() {
+                this.isNight = !this.isNight;
+                this.render();
+            },
+            
+            addLight() {
+                const canvas = document.getElementById('demoCanvas');
+                this.lights.push({
+                    x: Math.random() * (canvas.width / 2 - 200) + 100,
+                    y: Math.random() * (canvas.height - 200) + 100,
+                    radius: 80 + Math.random() * 80
+                });
+                this.render();
+            },
+            
+            removeLight() {
+                if (this.lights.length > 0) {
+                    this.lights.pop();
+                    this.render();
+                }
+            },
+            
+            toggleFlicker() {
+                this.flickerEnabled = !this.flickerEnabled;
+            }
+        };
+        
+        // Click to add light
+        document.getElementById('demoCanvas').addEventListener('click', (e) => {
+            const rect = e.target.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const leftWidth = e.target.width / 2;
+            const adjustedX = x > leftWidth ? x - leftWidth : x;
+            
+            demo.lights.push({
+                x: adjustedX,
+                y: y,
+                radius: 100
+            });
+            demo.render();
+        });
+        
+        // Animation loop
+        function animate() {
+            demo.render();
+            requestAnimationFrame(animate);
+        }
+        
+        // Initialize
+        renderOldSystem();
+        renderNewSystem();
+        animate();
+    </script>
+</body>
+</html>
