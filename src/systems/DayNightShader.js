@@ -32,15 +32,27 @@ class DayNightShader {
             // IMPORTANT: Canvas can only have ONE context type (2D OR WebGL, not both)
             // Since the main canvas is already 2D, we create a separate WebGL canvas
             
+            if (!this.canvas) {
+                console.error('❌ No canvas provided to DayNightShader');
+                return;
+            }
+            
             // Get logical canvas dimensions (not physical pixels)
-            const canvasWidth = this.canvas ? this.canvas.width : 800;
-            const canvasHeight = this.canvas ? this.canvas.height : 600;
+            const canvasWidth = this.canvas.width;
+            const canvasHeight = this.canvas.height;
+            
+            console.log(`[DayNightShader] Initializing WebGL for ${canvasWidth}x${canvasHeight} canvas`);
             
             // Create offscreen canvas for capturing 2D rendered content
             this.offscreenCanvas = document.createElement('canvas');
             this.offscreenCanvas.width = canvasWidth;
             this.offscreenCanvas.height = canvasHeight;
             this.offscreenCtx = this.offscreenCanvas.getContext('2d');
+            
+            if (!this.offscreenCtx) {
+                console.error('❌ Failed to create offscreen 2D context');
+                return;
+            }
             
             // Create separate WebGL canvas for shader processing
             this.webglCanvas = document.createElement('canvas');
@@ -52,9 +64,12 @@ class DayNightShader {
                      this.webglCanvas.getContext('webgl', { premultipliedAlpha: false });
             
             if (!this.gl) {
-                console.warn('WebGL not supported, falling back to 2D overlay');
+                console.error('❌ WebGL not supported by browser - day/night cycle will not work');
                 return;
             }
+            
+            console.log(`[DayNightShader] WebGL context created: ${this.gl.constructor.name}`);
+
             
             // Vertex shader (simple pass-through for full-screen quad)
             const vertexShaderSource = `
@@ -68,11 +83,14 @@ class DayNightShader {
                 }
             `;
             
-            // Fragment shader (applies lighting effects)
+            // Fragment shader (applies lighting effects WITH light mask)
             const fragmentShaderSource = `
                 precision mediump float;
                 
                 uniform sampler2D u_texture;
+                uniform sampler2D u_lightMask;
+                uniform bool u_hasLightMask;
+                uniform vec3 u_darknessColor;
                 uniform float u_brightness;
                 uniform float u_saturation;
                 uniform float u_temperature;
@@ -146,6 +164,21 @@ class DayNightShader {
                     
                     vec3 color = texColor.rgb;
                     
+                    // APPLY DARKNESS WITH LIGHT MASK (GPU-accelerated multiply blend)
+                    if (u_hasLightMask) {
+                        // Sample light mask (white = lit, black = dark)
+                        vec4 lightMaskColor = texture2D(u_lightMask, v_texCoord);
+                        float lightIntensity = lightMaskColor.r; // Use red channel (grayscale)
+                        
+                        // Where light = 1.0 (white), keep original color
+                        // Where light = 0.0 (black), apply full darkness
+                        vec3 darkenedColor = color * u_darknessColor;
+                        color = mix(darkenedColor, color, lightIntensity);
+                    } else {
+                        // No light mask - apply darkness uniformly
+                        color *= u_darknessColor;
+                    }
+                    
                     // 1. Apply brightness adjustment
                     color *= u_brightness;
                     
@@ -183,14 +216,17 @@ class DayNightShader {
             `;
             
             // Compile shaders
+            console.log('[DayNightShader] Compiling vertex shader...');
             const vertexShader = this.compileShader(vertexShaderSource, this.gl.VERTEX_SHADER);
+            console.log('[DayNightShader] Compiling fragment shader...');
             const fragmentShader = this.compileShader(fragmentShaderSource, this.gl.FRAGMENT_SHADER);
             
             if (!vertexShader || !fragmentShader) {
-                console.warn('Failed to compile shaders, falling back to 2D overlay');
+                console.error('❌ Failed to compile shaders');
                 return;
             }
             
+            console.log('[DayNightShader] Linking shader program...');
             // Create program
             this.program = this.gl.createProgram();
             this.gl.attachShader(this.program, vertexShader);
@@ -198,9 +234,12 @@ class DayNightShader {
             this.gl.linkProgram(this.program);
             
             if (!this.gl.getProgramParameter(this.program, this.gl.LINK_STATUS)) {
-                console.error('Failed to link shader program:', this.gl.getProgramInfoLog(this.program));
+                console.error('❌ Failed to link shader program:', this.gl.getProgramInfoLog(this.program));
                 return;
             }
+            
+            console.log('[DayNightShader] Shader program linked successfully');
+
             
             // Set up geometry (full-screen quad)
             this.setupGeometry();
@@ -208,11 +247,15 @@ class DayNightShader {
             // Create texture for holding the 2D canvas content
             this.texture = this.gl.createTexture();
             
+            // Create texture for light mask
+            this.lightMaskTexture = this.gl.createTexture();
+            
             this.initialized = true;
-            console.log('✅ Day/Night shader initialized successfully');
+            console.log('✅ Day/Night shader initialized successfully (WITH LIGHT MASK SUPPORT)');
             
         } catch (error) {
-            console.warn('WebGL initialization failed, falling back to 2D overlay:', error);
+            console.error('❌ WebGL initialization failed:', error);
+            console.error('Stack trace:', error.stack);
             this.initialized = false;
         }
     }
@@ -357,12 +400,15 @@ class DayNightShader {
     }
     
     /**
-     * Apply shader to the canvas
+     * Apply shader to the canvas with light mask integration
      * Call this AFTER all 2D rendering is complete
+     * @param {CanvasRenderingContext2D} sourceCtx - Source canvas context
+     * @param {HTMLCanvasElement} lightMask - Optional light mask (white = lit, black = dark)
+     * @param {Array} darknessColor - RGB darkness multiplier [r, g, b] (0-1 range)
      */
-    apply(sourceCtx) {
+    apply(sourceCtx, lightMask = null, darknessColor = [1, 1, 1]) {
         if (!this.initialized || !this.gl) {
-            // Fallback: No shader available
+            console.warn('WebGL shader not initialized - skipping day/night rendering');
             return false;
         }
         
@@ -375,7 +421,8 @@ class DayNightShader {
             this.offscreenCtx.clearRect(0, 0, displayWidth, displayHeight);
             this.offscreenCtx.drawImage(this.canvas, 0, 0, displayWidth, displayHeight);
             
-            // 2. Upload offscreen canvas as texture to WebGL
+            // 2. Upload offscreen canvas as texture to WebGL (texture unit 0)
+            this.gl.activeTexture(this.gl.TEXTURE0);
             this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
             this.gl.texImage2D(
                 this.gl.TEXTURE_2D,
@@ -392,39 +439,70 @@ class DayNightShader {
             this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
             this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
             
-            // 3. Set up WebGL state (render to separate WebGL canvas)
+            // 3. Upload light mask as texture to WebGL (texture unit 1) if provided
+            if (lightMask) {
+                this.gl.activeTexture(this.gl.TEXTURE1);
+                this.gl.bindTexture(this.gl.TEXTURE_2D, this.lightMaskTexture);
+                this.gl.texImage2D(
+                    this.gl.TEXTURE_2D,
+                    0,
+                    this.gl.RGBA,
+                    this.gl.RGBA,
+                    this.gl.UNSIGNED_BYTE,
+                    lightMask
+                );
+                
+                // Set texture parameters
+                this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+                this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+                this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+                this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+            }
+            
+            // 4. Set up WebGL state (render to separate WebGL canvas)
             this.gl.viewport(0, 0, displayWidth, displayHeight);
             this.gl.clearColor(0, 0, 0, 0);
             this.gl.clear(this.gl.COLOR_BUFFER_BIT);
             
-            // 4. Use shader program
+            // 5. Use shader program
             this.gl.useProgram(this.program);
             
-            // 5. Set uniforms
+            // 6. Set uniforms
             const brightnessLocation = this.gl.getUniformLocation(this.program, 'u_brightness');
             const saturationLocation = this.gl.getUniformLocation(this.program, 'u_saturation');
             const temperatureLocation = this.gl.getUniformLocation(this.program, 'u_temperature');
             const tintLocation = this.gl.getUniformLocation(this.program, 'u_tint');
             const textureLocation = this.gl.getUniformLocation(this.program, 'u_texture');
+            const lightMaskLocation = this.gl.getUniformLocation(this.program, 'u_lightMask');
+            const hasLightMaskLocation = this.gl.getUniformLocation(this.program, 'u_hasLightMask');
+            const darknessColorLocation = this.gl.getUniformLocation(this.program, 'u_darknessColor');
             
             this.gl.uniform1f(brightnessLocation, this.uniforms.brightness);
             this.gl.uniform1f(saturationLocation, this.uniforms.saturation);
             this.gl.uniform1f(temperatureLocation, this.uniforms.temperature);
             this.gl.uniform4fv(tintLocation, this.uniforms.tint);
-            this.gl.uniform1i(textureLocation, 0);
+            this.gl.uniform1i(textureLocation, 0); // Texture unit 0
+            this.gl.uniform1i(lightMaskLocation, 1); // Texture unit 1
+            this.gl.uniform1i(hasLightMaskLocation, lightMask ? 1 : 0);
+            this.gl.uniform3fv(darknessColorLocation, darknessColor);
             
-            // 6. Draw the quad (applies shader to entire screen on WebGL canvas)
+            // 7. Draw the quad (applies shader to entire screen on WebGL canvas)
             this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
             
-            // 7. Copy the shader result back to the main 2D canvas
+            // 8. Copy the shader result back to the main 2D canvas
+            // IMPORTANT: Don't clear the canvas, just draw over it
+            // The shader has already processed the entire image including transforms
+            sourceCtx.save();
+            sourceCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform to identity
             sourceCtx.clearRect(0, 0, displayWidth, displayHeight);
             sourceCtx.drawImage(this.webglCanvas, 0, 0, displayWidth, displayHeight);
+            sourceCtx.restore();
             
             return true;
             
         } catch (error) {
             console.error('Shader application failed:', error);
-            return false;
+            return false; // Don't crash the game
         }
     }
     

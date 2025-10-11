@@ -22,46 +22,15 @@ class DayNightCycle {
         // Enable/disable cycle progression
         this.enabled = true;
         
-        // Initialize shader for realistic lighting (will fallback if WebGL unavailable)
+        // Initialize shader for realistic lighting
         this.shader = canvas ? new DayNightShader(canvas) : null;
-        this.useShader = this.shader && this.shader.initialized;
         
-        if (this.useShader) {
-            console.log('🌓 Day/Night cycle using WebGL shader for realistic lighting');
+        if (!this.shader || !this.shader.initialized) {
+            console.error('❌ WebGL not available - day/night cycle requires WebGL with light mask support');
+            console.error('Please use a browser that supports WebGL (Chrome, Firefox, Edge, Safari)');
         } else {
-            console.log('🌓 Day/Night cycle using 2D overlay (WebGL unavailable)');
+            console.log('✅ Day/Night cycle using WebGL shader with light mask integration');
         }
-        
-        // Lighting phases with colors (RGBA)
-        this.phases = {
-            night: {
-                start: 0,
-                end: 5,
-                color: { r: 20, g: 20, b: 60, a: 0.6 }  // Dark blue overlay
-            },
-            dawn: {
-                start: 5,
-                end: 8,
-                color: { r: 255, g: 150, b: 80, a: 0.3 } // Orange/pink (3 hours)
-            },
-            day: {
-                start: 8,
-                end: 17,
-                color: { r: 255, g: 255, b: 255, a: 0 }  // No overlay (bright)
-            },
-            dusk: {
-                start: 17,
-                end: 20,
-                color: { r: 255, g: 100, b: 50, a: 0.3 }  // Orange/red (3 hours)
-            },
-            night2: {
-                start: 20,
-                end: 24,
-                color: { r: 20, g: 20, b: 60, a: 0.6 }   // Dark blue overlay - SAME AS NIGHT
-            }
-        };
-        
-        console.log('[DayNightCycle] Initialized');
     }
     
     /**
@@ -84,101 +53,17 @@ class DayNightCycle {
     }
     
     /**
-     * Get current lighting color based on time of day
-     * @returns {Object} RGBA color object
-     */
-    getCurrentLighting() {
-        const time = this.timeOfDay;
-        
-        // Find which phase we're in
-        for (const [phaseName, phase] of Object.entries(this.phases)) {
-            if (time >= phase.start && time < phase.end) {
-                // Check if we need to interpolate with next phase
-                const nextPhase = this.getNextPhase(phaseName);
-                if (nextPhase) {
-                    // Calculate interpolation factor (0 = start of phase, 1 = end of phase)
-                    const phaseProgress = (time - phase.start) / (phase.end - phase.start);
-                    
-                    // Smooth interpolation using smoothstep
-                    const t = this.smoothstep(phaseProgress);
-                    
-                    // Interpolate between current and next phase colors
-                    return this.interpolateColors(phase.color, nextPhase.color, t);
-                }
-                
-                return phase.color;
-            }
-        }
-        
-        // Fallback to night if something goes wrong
-        return this.phases.night.color;
-    }
-    
-    /**
-     * Get the next phase after the given phase
-     */
-    getNextPhase(currentPhaseName) {
-        const phaseOrder = ['night', 'dawn', 'day', 'dusk', 'nightfall'];
-        const currentIndex = phaseOrder.indexOf(currentPhaseName);
-        
-        if (currentIndex === -1 || currentIndex === phaseOrder.length - 1) {
-            return this.phases.night; // Wrap to night
-        }
-        
-        return this.phases[phaseOrder[currentIndex + 1]];
-    }
-    
-    /**
-     * Interpolate between two colors
-     */
-    interpolateColors(color1, color2, t) {
-        return {
-            r: Math.round(color1.r + (color2.r - color1.r) * t),
-            g: Math.round(color1.g + (color2.g - color1.g) * t),
-            b: Math.round(color1.b + (color2.b - color1.b) * t),
-            a: color1.a + (color2.a - color1.a) * t
-        };
-    }
-    
-    /**
-     * Smoothstep function for smooth interpolation
-     */
-    smoothstep(t) {
-        return t * t * (3 - 2 * t);
-    }
-    
-    /**
-     * Render day/night overlay on canvas with light mask support
-     * @param {CanvasRenderingContext2D} ctx - Canvas context
-     * @param {number} width - Canvas width
-     * @param {number} height - Canvas height
+     * Calculate darkness color multiplier based on time of day
+     * Returns RGB values in 0-1 range for WebGL shader
      * @param {Object} weatherState - Optional weather state for cloud darkening
-     * @param {HTMLCanvasElement} lightMask - Optional light mask (white = lit, black = dark)
+     * @returns {Array} [r, g, b] darkness multiplier (0-1 range)
      */
-    render(ctx, width, height, weatherState = null, lightMask = null) {
-        // Use Canvas 2D filters for GPU-accelerated lighting
-        // This applies effects without touching pixels or coordinates
-        if (this.useShader && this.shader) {
-            this.shader.updateFromTimeOfDay(this.timeOfDay, weatherState);
-            this.renderWithFilters(ctx, width, height, weatherState, lightMask);
-        } else {
-            // Fallback: Use simple 2D overlay with mask
-            this.renderOverlay(ctx, width, height, lightMask);
-        }
-    }
-    
-    /**
-     * Render using layered approach: darkening + blue tint with light mask
-     * Smooth continuous transitions across all time periods
-     */
-    renderWithFilters(ctx, width, height, weatherState = null, lightMask = null) {
-        this.shader.updateFromTimeOfDay(this.timeOfDay, weatherState);
-        
+    calculateDarknessColor(weatherState = null) {
         const time = this.timeOfDay;
         
         // Calculate weather darkening factor
         let weatherDarkening = 0;
-        if (weatherState) {
+        if (weatherState && weatherState.precipitation) {
             if (weatherState.precipitation === 'rain-light' || weatherState.precipitation === 'snow-light') {
                 weatherDarkening = 0.15;
             } else if (weatherState.precipitation === 'rain-medium' || weatherState.precipitation === 'snow-medium') {
@@ -188,183 +73,77 @@ class DayNightCycle {
             }
         }
         
-        // Calculate lighting values with smooth interpolation
-        let darknessR, darknessG, darknessB;
-        let tintR, tintG, tintB, tintAlpha;
+        let r, g, b;
         
-        // Night (0-5): Dark with subtle blue tint (reduced intensity)
-        if (time >= 0 && time < 5) {
-            const t = time / 5;
-            darknessR = 120;  // Was 60, now much lighter
-            darknessG = 130;  // Was 70, now much lighter
-            darknessB = 160;  // Was 100, now lighter
-            tintR = 50;       // Was 0, now slightly warm
-            tintG = 80;       // Was 50, lighter
-            tintB = 150;      // Keep blue tint
-            tintAlpha = 0.2 - t * 0.03;  // Was 0.4, now much subtler
+        // Night (0-5 and 20-24): Dark with blue tint
+        if ((time >= 0 && time < 5) || (time >= 20 && time < 24)) {
+            r = 0.47; // 120/255
+            g = 0.51; // 130/255
+            b = 0.63; // 160/255
         }
-        // Dawn (5-8): Gentle transition from night to day with warm colors (3 hours like dusk)
+        // Dawn (5-8): Transition from night to day
         else if (time >= 5 && time < 8) {
             const t = (time - 5) / 3;
-            // Smooth transition from night darkness (120/130/160) to day brightness (255/255/255)
-            darknessR = Math.floor(120 + t * 135);  // 120 -> 255
-            darknessG = Math.floor(130 + t * 125);  // 130 -> 255
-            darknessB = Math.floor(160 + t * 95);   // 160 -> 255
-            // Smooth transition from blue to warm orange/pink
-            tintR = Math.floor(50 + t * 205);       // 50 -> 255 (warm dawn)
-            tintG = Math.floor(80 + t * 100);       // 80 -> 180
-            tintB = Math.floor(150 - t * 30);       // 150 -> 120 (keep some blue)
-            tintAlpha = 0.17 - t * 0.12;            // 0.17 -> 0.05 (fade out gently)
+            r = 0.47 + t * 0.53; // 0.47 -> 1.0
+            g = 0.51 + t * 0.49; // 0.51 -> 1.0
+            b = 0.63 + t * 0.37; // 0.63 -> 1.0
         }
-        // Day (8-17): Full brightness, but apply weather darkening if raining/snowing
+        // Day (8-17): Full brightness (unless weather)
         else if (time >= 8 && time < 17) {
             if (weatherDarkening > 0) {
-                // Apply cloud darkening during daytime
-                darknessR = Math.floor(255 - weatherDarkening * 120);  // Darken based on weather
-                darknessG = Math.floor(255 - weatherDarkening * 120);
-                darknessB = Math.floor(255 - weatherDarkening * 100);  // Slightly less blue reduction
-                tintR = 180;
-                tintG = 190;
-                tintB = 200;  // Slight cool/gray tint for clouds
-                tintAlpha = weatherDarkening * 0.3;  // Subtle cloud color
+                r = 1.0 - weatherDarkening * 0.47;
+                g = 1.0 - weatherDarkening * 0.47;
+                b = 1.0 - weatherDarkening * 0.39;
             } else {
-                return; // No overlay during clear daylight
+                return [1.0, 1.0, 1.0]; // No darkening during day
             }
         }
-        // Dusk (17-20): Transition from day to complete darkness by 8 PM
+        // Dusk (17-20): Transition from day to night
         else if (time >= 17 && time < 20) {
-            const t = (time - 17) / 3; // 0 (5 PM) to 1 (8 PM)
-            // Smooth darkening from bright day to complete night
-            darknessR = Math.floor(255 - t * 135);  // 255 -> 120
-            darknessG = Math.floor(255 - t * 125);  // 255 -> 130
-            darknessB = Math.floor(255 - t * 95);   // 255 -> 160
-            // Transition from warm sunset to cool night
-            tintR = Math.floor(255 - t * 205);      // 255 -> 50
-            tintG = Math.floor(180 - t * 100);      // 180 -> 80
-            tintB = Math.floor(120 + t * 30);       // 120 -> 150
-            tintAlpha = 0.05 + t * 0.15;            // 0.05 -> 0.2
-        }
-        // Night (20-24): Complete darkness - NO MORE TRANSITIONS
-        else if (time >= 20) {
-            // DARKEST settings - stays constant from 8 PM onwards
-            darknessR = 120;
-            darknessG = 130;
-            darknessB = 160;
-            tintR = 50;
-            tintG = 80;
-            tintB = 150;
-            tintAlpha = 0.2;
+            const t = (time - 17) / 3;
+            r = 1.0 - t * 0.53; // 1.0 -> 0.47
+            g = 1.0 - t * 0.49; // 1.0 -> 0.51
+            b = 1.0 - t * 0.37; // 1.0 -> 0.63
         }
         
-        // Additional weather darkening (applied on top of time-of-day)
-        if (weatherDarkening > 0 && time >= 7 && time < 17) {
-            // During day, weather provides the main darkening
-        } else if (weatherDarkening > 0) {
-            // During non-day hours, darken even more with weather
-            const extraDark = Math.floor(weatherDarkening * 50);
-            darknessR = Math.max(40, darknessR - extraDark);
-            darknessG = Math.max(40, darknessG - extraDark);
-            darknessB = Math.max(40, darknessB - extraDark);
+        // Apply additional weather darkening for non-day hours
+        if (weatherDarkening > 0 && (time < 8 || time >= 17)) {
+            const extraDark = weatherDarkening * 0.2;
+            r = Math.max(0.16, r - extraDark);
+            g = Math.max(0.16, g - extraDark);
+            b = Math.max(0.16, b - extraDark);
         }
         
-        // If we have a light mask, modulate darkness by light intensity per pixel
-        if (lightMask) {
-            // Get the light mask pixel data (grayscale: white=lit, black=dark)
-            const maskCanvas = document.createElement('canvas');
-            maskCanvas.width = width;
-            maskCanvas.height = height;
-            const maskCtx = maskCanvas.getContext('2d');
-            maskCtx.drawImage(lightMask, 0, 0);
-            const maskData = maskCtx.getImageData(0, 0, width, height);
-            
-            // Create darkness overlay with per-pixel alpha based on light mask
-            const darknessCanvas = document.createElement('canvas');
-            darknessCanvas.width = width;
-            darknessCanvas.height = height;
-            const darknessCtx = darknessCanvas.getContext('2d');
-            const darknessData = darknessCtx.createImageData(width, height);
-            
-            // For each pixel: darkness alpha = inverted light brightness
-            // White (255) in mask = 0% darkness, Black (0) in mask = 100% darkness
-            for (let i = 0; i < maskData.data.length; i += 4) {
-                const lightIntensity = maskData.data[i] / 255; // 0=dark, 1=lit
-                const darknessAlpha = 1 - lightIntensity; // Invert: 1=dark, 0=lit
-                
-                darknessData.data[i] = darknessR;
-                darknessData.data[i + 1] = darknessG;
-                darknessData.data[i + 2] = darknessB;
-                darknessData.data[i + 3] = darknessAlpha * 255;
-            }
-            
-            darknessCtx.putImageData(darknessData, 0, 0);
-            
-            // Apply the per-pixel modulated darkness
-            ctx.save();
-            ctx.globalCompositeOperation = 'multiply';
-            ctx.drawImage(darknessCanvas, 0, 0);
-            
-            // Apply tint if needed
-            if (tintAlpha > 0) {
-                ctx.globalCompositeOperation = 'screen';
-                ctx.fillStyle = `rgba(${tintR}, ${tintG}, ${tintB}, ${tintAlpha})`;
-                ctx.fillRect(0, 0, width, height);
-            }
-            ctx.restore();
-        } else {
-            // No light mask - apply darkness normally
-            ctx.save();
-            ctx.globalCompositeOperation = 'multiply';
-            ctx.fillStyle = `rgb(${darknessR}, ${darknessG}, ${darknessB})`;
-            ctx.fillRect(0, 0, width, height);
-            ctx.restore();
-            
-            // Apply color tint layer (screen blend for glow effect)
-            if (tintAlpha > 0) {
-                ctx.save();
-                ctx.globalCompositeOperation = 'screen';
-                ctx.fillStyle = `rgba(${tintR}, ${tintG}, ${tintB}, ${tintAlpha})`;
-                ctx.fillRect(0, 0, width, height);
-                ctx.restore();
-            }
-        }
+        return [r, g, b];
     }
     
     /**
-     * Fallback render using 2D overlay (when shader unavailable) with light mask
+     * Render day/night overlay on canvas with light mask support
+     * WebGL rendering with proper light source integration
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} width - Canvas width
+     * @param {number} height - Canvas height
+     * @param {Object} weatherState - Optional weather state for cloud darkening
+     * @param {HTMLCanvasElement} lightMask - Optional light mask (white = lit, black = dark)
      */
-    renderOverlay(ctx, width, height, lightMask = null) {
-        const lighting = this.getCurrentLighting();
-        
-        // Only render if there's an overlay (alpha > 0)
-        if (lighting.a > 0) {
-            if (lightMask) {
-                // Create temp canvas for overlay
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = width;
-                tempCanvas.height = height;
-                const tempCtx = tempCanvas.getContext('2d');
-                
-                // Draw overlay to temp
-                tempCtx.fillStyle = `rgba(${lighting.r}, ${lighting.g}, ${lighting.b}, ${lighting.a})`;
-                tempCtx.fillRect(0, 0, width, height);
-                
-                // Cut out lit areas using mask (destination-out removes where mask is white)
-                tempCtx.globalCompositeOperation = 'destination-out';
-                tempCtx.drawImage(lightMask, 0, 0);
-                
-                // Draw masked overlay to main canvas
-                ctx.save();
-                ctx.drawImage(tempCanvas, 0, 0);
-                ctx.restore();
-            } else {
-                // No mask - simple overlay
-                ctx.save();
-                ctx.fillStyle = `rgba(${lighting.r}, ${lighting.g}, ${lighting.b}, ${lighting.a})`;
-                ctx.fillRect(0, 0, width, height);
-                ctx.restore();
-            }
+    render(ctx, width, height, weatherState = null, lightMask = null) {
+        // Check if shader is available
+        if (!this.shader || !this.shader.initialized) {
+            // Skip rendering if WebGL not available
+            return;
         }
+        
+        // WebGL rendering - calculate darkness color for shader
+        this.shader.updateFromTimeOfDay(this.timeOfDay, weatherState);
+        
+        // Calculate darkness multiplier based on time of day
+        const darknessColor = this.calculateDarknessColor(weatherState);
+        
+        // Apply shader with light mask integration
+        this.shader.apply(ctx, lightMask, darknessColor);
     }
+    
+
     
     /**
      * Resize handler (call when canvas size changes)
@@ -379,10 +158,10 @@ class DayNightCycle {
      * Get shader debug info
      */
     getShaderInfo() {
-        if (this.shader && this.useShader) {
+        if (this.shader) {
             return this.shader.getDebugInfo();
         }
-        return { mode: '2D overlay' };
+        return { mode: 'ERROR - No shader' };
     }
     
     /**
@@ -414,11 +193,14 @@ class DayNightCycle {
     getCurrentPhase() {
         const time = this.timeOfDay;
         
-        for (const [phaseName, phase] of Object.entries(this.phases)) {
-            if (time >= phase.start && time < phase.end) {
-                // Return "night" for both night periods (0-5 and 20-24)
-                return phaseName === 'night2' ? 'night' : phaseName;
-            }
+        if ((time >= 0 && time < 5) || (time >= 20 && time < 24)) {
+            return 'night';
+        } else if (time >= 5 && time < 8) {
+            return 'dawn';
+        } else if (time >= 8 && time < 17) {
+            return 'day';
+        } else if (time >= 17 && time < 20) {
+            return 'dusk';
         }
         
         return 'night';
