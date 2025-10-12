@@ -141,26 +141,20 @@ class DayNightShader {
                     }
                     
                     vec3 color = texColor.rgb;
+                    vec3 originalColor = color; // Save original for light areas
                     
-                    // APPLY DARKNESS WITH LIGHT MASK
-                    if (u_hasLightMask) {
-                        vec4 lightMaskColor = texture2D(u_lightMask, v_texCoord);
-                        float lightIntensity = lightMaskColor.r;
-                        vec3 darkenedColor = color * u_darknessColor;
-                        color = mix(darkenedColor, color, lightIntensity);
-                    } else {
-                        color *= u_darknessColor;
-                    }
+                    // Apply darkness color multiplier
+                    color *= u_darknessColor;
                     
-                    // Brightness
+                    // Apply brightness reduction
                     color *= u_brightness;
                     
-                    // Saturation
+                    // Apply saturation reduction
                     vec3 hsl = rgb2hsl(color);
                     hsl.y *= u_saturation;
                     color = hsl2rgb(hsl);
                     
-                    // Temperature
+                    // Apply temperature shift
                     if (u_temperature > 0.0) {
                         color.r = mix(color.r, 1.0, u_temperature * 0.15);
                         color.g = mix(color.g, color.g * 0.95, u_temperature * 0.1);
@@ -170,6 +164,14 @@ class DayNightShader {
                         color.r = mix(color.r, color.r * 0.8, coolness * 0.15);
                         color.g = mix(color.g, color.g * 0.9, coolness * 0.1);
                         color.b = mix(color.b, 1.0, coolness * 0.2);
+                    }
+                    
+                    // APPLY LIGHT MASK LAST - lights completely bypass night effects
+                    if (u_hasLightMask) {
+                        vec4 lightMaskColor = texture2D(u_lightMask, v_texCoord);
+                        float lightIntensity = lightMaskColor.r;
+                        // Mix between night-affected color and original daylight color
+                        color = mix(color, originalColor, lightIntensity);
                     }
                     
                     // Tint
@@ -296,15 +298,16 @@ class DayNightShader {
         }
         
         if ((timeOfDay >= 20 && timeOfDay < 24) || (timeOfDay >= 0 && timeOfDay < 5)) {
-            this.uniforms.brightness = 0.30;
-            this.uniforms.saturation = 0.4;
-            this.uniforms.temperature = -0.6;
+            // Lighter night - you can actually see now
+            this.uniforms.brightness = 0.55;
+            this.uniforms.saturation = 0.6;
+            this.uniforms.temperature = -0.5;
         }
         else if (timeOfDay >= 5 && timeOfDay < 8) {
             const t = (timeOfDay - 5) / 3;
-            this.uniforms.brightness = (0.30 + (t * 0.65)) * (1 - weatherDarkening);
-            this.uniforms.saturation = (0.4 + (t * 0.6)) * (1 - weatherDesaturation);
-            this.uniforms.temperature = -0.6 + (t * 0.7);
+            this.uniforms.brightness = (0.55 + (t * 0.40)) * (1 - weatherDarkening);
+            this.uniforms.saturation = (0.6 + (t * 0.4)) * (1 - weatherDesaturation);
+            this.uniforms.temperature = -0.5 + (t * 0.6);
         }
         else if (timeOfDay >= 8 && timeOfDay < 17) {
             const noonFactor = 1.0 - Math.abs((timeOfDay - 12) / 5) * 0.15;
@@ -314,9 +317,9 @@ class DayNightShader {
         }
         else if (timeOfDay >= 17 && timeOfDay < 20) {
             const t = (timeOfDay - 17) / 3;
-            this.uniforms.brightness = (0.85 - (t * 0.55)) * (1 - weatherDarkening);
-            this.uniforms.saturation = (1.0 - (t * 0.6)) * (1 - weatherDesaturation);
-            this.uniforms.temperature = 0.8 - (t * 1.4);
+            this.uniforms.brightness = (0.90 - (t * 0.35)) * (1 - weatherDarkening);
+            this.uniforms.saturation = (1.0 - (t * 0.4)) * (1 - weatherDesaturation);
+            this.uniforms.temperature = 0.6 - (t * 1.1);
         }
     }
     

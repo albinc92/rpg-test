@@ -74,6 +74,7 @@ class EditorStyles {
             display: flex;
             flex-direction: column;
             z-index: 9999;
+            pointer-events: auto;
         `;
     }
 
@@ -100,6 +101,8 @@ class EditorStyles {
             overflow-y: auto;
             flex: 1;
             padding: 15px;
+            pointer-events: auto;
+            overscroll-behavior: contain;
         `;
     }
 

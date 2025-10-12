@@ -358,19 +358,47 @@ class GameEngine {
             this.debugAudioAssignments();
         }
         
-        // F6/F7 - Day/Night cycle time scale controls (when available and enabled for map)
+        // Day/Night cycle controls (when available and enabled for map)
         if (this.dayNightCycle && this.currentMap?.dayNightCycle) {
-            // F6 - Increase time scale by 10x (in addition to audio debug)
+            // F2 - Jump to Dawn (6:00)
+            if (e.code === 'F2') {
+                this.dayNightCycle.setTime(6);
+                console.log('🌅 Time set to Dawn (6:00)');
+                e.preventDefault();
+            }
+            
+            // F3 - Jump to Noon (12:00)
+            if (e.code === 'F3') {
+                this.dayNightCycle.setTime(12);
+                console.log('☀️ Time set to Noon (12:00)');
+                e.preventDefault();
+            }
+            
+            // F4 - Jump to Dusk (18:00)
+            if (e.code === 'F4') {
+                this.dayNightCycle.setTime(18);
+                console.log('🌆 Time set to Dusk (18:00)');
+                e.preventDefault();
+            }
+            
+            // F9 - Jump to Night (midnight)
+            if (e.code === 'F9') {
+                this.dayNightCycle.setTime(0);
+                console.log('🌙 Time set to Night (00:00)');
+                e.preventDefault();
+            }
+            
+            // F6 - Increase time scale by 100x
             if (e.code === 'F6') {
-                const newScale = Math.min(2000, this.dayNightCycle.timeScale + 10);
+                const newScale = Math.min(2000, this.dayNightCycle.timeScale + 100);
                 this.dayNightCycle.setTimeScale(newScale);
                 console.log(`⏩ Time scale increased to ${newScale}x`);
                 e.preventDefault();
             }
             
-            // F7 - Decrease time scale by 10x
+            // F7 - Decrease time scale by 100x
             if (e.code === 'F7') {
-                const newScale = Math.max(0, this.dayNightCycle.timeScale - 10);
+                const newScale = Math.max(0, this.dayNightCycle.timeScale - 100);
                 this.dayNightCycle.setTimeScale(newScale);
                 console.log(`⏪ Time scale decreased to ${newScale}x`);
                 e.preventDefault();
@@ -870,14 +898,14 @@ class GameEngine {
                 if (timeOfDay >= 20 && timeOfDay < 21) {
                     // Evening fade in (8-9 PM)
                     const fadeIn = timeOfDay - 20; // 0 to 1
-                    shadowOpacity = 0.15 * fadeIn;
+                    shadowOpacity = 0.08 * fadeIn; // Dimmer moon shadows
                 } else if (timeOfDay >= 4 && timeOfDay < 5) {
                     // Pre-dawn fade out (4-5 AM)
                     const fadeOut = 1 - (timeOfDay - 4); // 1 to 0
-                    shadowOpacity = 0.15 * fadeOut;
+                    shadowOpacity = 0.08 * fadeOut; // Dimmer moon shadows
                 } else {
                     // Full moon shadows (9 PM - 4 AM)
-                    shadowOpacity = 0.15;
+                    shadowOpacity = 0.08; // Reduced from 0.15 - subtler moon shadows
                 }
             } else {
                 // Cloudy/rainy/snowy night: no moon visible, no shadows

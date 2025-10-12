@@ -188,13 +188,14 @@ class DayNightCycle {
         let r, g, b;
         
         if ((time >= 0 && time < 5) || (time >= 20 && time < 24)) {
-            r = 0.47; g = 0.51; b = 0.63;
+            // Lighter night - still atmospheric but you can see
+            r = 0.65; g = 0.68; b = 0.80;
         }
         else if (time >= 5 && time < 8) {
             const t = (time - 5) / 3;
-            r = 0.47 + t * 0.53;
-            g = 0.51 + t * 0.49;
-            b = 0.63 + t * 0.37;
+            r = 0.65 + t * 0.35;
+            g = 0.68 + t * 0.32;
+            b = 0.80 + t * 0.20;
         }
         else if (time >= 8 && time < 17) {
             if (weatherDarkening > 0) {
@@ -207,9 +208,9 @@ class DayNightCycle {
         }
         else if (time >= 17 && time < 20) {
             const t = (time - 17) / 3;
-            r = 1.0 - t * 0.53;
-            g = 1.0 - t * 0.49;
-            b = 1.0 - t * 0.37;
+            r = 1.0 - t * 0.35;
+            g = 1.0 - t * 0.32;
+            b = 1.0 - t * 0.20;
         }
         
         if (weatherDarkening > 0 && (time < 8 || time >= 17)) {
