@@ -22,14 +22,13 @@ class DayNightCycle {
         // Enable/disable cycle progression
         this.enabled = true;
         
-        // Initialize shader for realistic lighting (will fallback if WebGL unavailable)
+        // Initialize shader for realistic lighting WITH LIGHT MASK SUPPORT
         this.shader = canvas ? new DayNightShader(canvas) : null;
-        this.useShader = this.shader && this.shader.initialized;
         
-        if (this.useShader) {
-            console.log('🌓 Day/Night cycle using WebGL shader for realistic lighting');
+        if (!this.shader || !this.shader.initialized) {
+            console.error('❌ WebGL not available - day/night cycle will not work');
         } else {
-            console.log('🌓 Day/Night cycle using 2D overlay (WebGL unavailable)');
+            console.log('✅ Day/Night cycle using WebGL shader with light mask support');
         }
         
         // Lighting phases with colors (RGBA)
@@ -149,22 +148,78 @@ class DayNightCycle {
     
     /**
      * Render day/night overlay on canvas with light mask support
-     * @param {CanvasRenderingContext2D} ctx - Canvas context
-     * @param {number} width - Canvas width
-     * @param {number} height - Canvas height
-     * @param {Object} weatherState - Optional weather state for cloud darkening
-     * @param {HTMLCanvasElement} lightMask - Optional light mask (white = lit, black = dark)
+     * WebGL-ONLY rendering with light mask integration
      */
     render(ctx, width, height, weatherState = null, lightMask = null) {
-        // Use Canvas 2D filters for GPU-accelerated lighting
-        // This applies effects without touching pixels or coordinates
-        if (this.useShader && this.shader) {
-            this.shader.updateFromTimeOfDay(this.timeOfDay, weatherState);
-            this.renderWithFilters(ctx, width, height, weatherState, lightMask);
-        } else {
-            // Fallback: Use simple 2D overlay with mask
-            this.renderOverlay(ctx, width, height, lightMask);
+        if (!this.shader || !this.shader.initialized) {
+            return; // Skip if WebGL not available
         }
+        
+        // Performance optimization: Skip shader during peak noon (10-14) with no weather
+        // The shader barely changes the image during these times
+        const time = this.timeOfDay;
+        const hasWeather = weatherState && weatherState.precipitation;
+        if (!hasWeather && time >= 10 && time < 14) {
+            return; // Skip shader - it's bright noon, minimal effect
+        }
+        
+        this.shader.updateFromTimeOfDay(this.timeOfDay, weatherState);
+        const darknessColor = this.calculateDarknessColor(weatherState);
+        this.shader.apply(ctx, lightMask, darknessColor);
+    }
+    
+    /**
+     * Calculate darkness color multiplier for WebGL shader
+     */
+    calculateDarknessColor(weatherState = null) {
+        const time = this.timeOfDay;
+        
+        let weatherDarkening = 0;
+        if (weatherState && weatherState.precipitation) {
+            if (weatherState.precipitation.includes('light')) {
+                weatherDarkening = 0.15;
+            } else if (weatherState.precipitation.includes('medium')) {
+                weatherDarkening = 0.3;
+            } else if (weatherState.precipitation.includes('heavy')) {
+                weatherDarkening = 0.5;
+            }
+        }
+        
+        let r, g, b;
+        
+        if ((time >= 0 && time < 5) || (time >= 20 && time < 24)) {
+            r = 0.47; g = 0.51; b = 0.63;
+        }
+        else if (time >= 5 && time < 8) {
+            const t = (time - 5) / 3;
+            r = 0.47 + t * 0.53;
+            g = 0.51 + t * 0.49;
+            b = 0.63 + t * 0.37;
+        }
+        else if (time >= 8 && time < 17) {
+            if (weatherDarkening > 0) {
+                r = 1.0 - weatherDarkening * 0.47;
+                g = 1.0 - weatherDarkening * 0.47;
+                b = 1.0 - weatherDarkening * 0.39;
+            } else {
+                return [1.0, 1.0, 1.0];
+            }
+        }
+        else if (time >= 17 && time < 20) {
+            const t = (time - 17) / 3;
+            r = 1.0 - t * 0.53;
+            g = 1.0 - t * 0.49;
+            b = 1.0 - t * 0.37;
+        }
+        
+        if (weatherDarkening > 0 && (time < 8 || time >= 17)) {
+            const extra = weatherDarkening * 0.2;
+            r = Math.max(0.16, r - extra);
+            g = Math.max(0.16, g - extra);
+            b = Math.max(0.16, b - extra);
+        }
+        
+        return [r, g, b];
     }
     
     /**
@@ -436,3 +491,4 @@ class DayNightCycle {
 
 // Export
 window.DayNightCycle = DayNightCycle;
+

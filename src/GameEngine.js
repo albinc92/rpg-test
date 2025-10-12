@@ -269,6 +269,11 @@ class GameEngine {
                 this.ctx.scale(dpr, dpr);
                 this.ctx.imageSmoothingEnabled = true;
                 this.ctx.imageSmoothingQuality = 'high';
+                
+                // Resize day/night shader canvases
+                if (this.dayNightCycle?.shader) {
+                    this.dayNightCycle.shader.resize(this.canvas.width, this.canvas.height);
+                }
             };
             
             window.addEventListener('resize', this.handleResize);
@@ -290,6 +295,24 @@ class GameEngine {
             // Enable smooth scaling for better quality on desktop
             this.ctx.imageSmoothingEnabled = true;
             this.ctx.imageSmoothingQuality = 'high';
+            
+            // Desktop resize handler (for when dev tools open/close)
+            this.handleResize = () => {
+                const dpr = window.devicePixelRatio || 1;
+                this.canvas.width = this.CANVAS_WIDTH * dpr;
+                this.canvas.height = this.CANVAS_HEIGHT * dpr;
+                this.ctx.scale(dpr, dpr);
+                this.ctx.imageSmoothingEnabled = true;
+                this.ctx.imageSmoothingQuality = 'high';
+                
+                // Resize day/night shader canvases
+                if (this.dayNightCycle?.shader) {
+                    this.dayNightCycle.shader.resize(this.canvas.width, this.canvas.height);
+                }
+            };
+            
+            window.addEventListener('resize', this.handleResize);
+            this.eventListeners.push({ target: window, type: 'resize', handler: this.handleResize });
         }
         
         // Common settings

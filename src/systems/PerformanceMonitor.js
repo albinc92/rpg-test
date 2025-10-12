@@ -133,15 +133,15 @@ class PerformanceMonitor {
             ctx.fillText(`Speed: ${timeScale.toFixed(1)}x`, 20, y);
             y += lineHeight;
             
-            // Show shader info if using shader
-            if (game.dayNightCycle.useShader) {
-                const shaderInfo = game.dayNightCycle.getShaderInfo();
-                ctx.fillStyle = '#ffaa00';
-                ctx.fillText(`Shader: B:${shaderInfo.brightness} S:${shaderInfo.saturation} T:${shaderInfo.temperature}`, 20, y);
+            // Show shader info (WebGL-only now)
+            if (game.dayNightCycle.shader && game.dayNightCycle.shader.initialized) {
+                const shaderInfo = game.dayNightCycle.shader.getDebugInfo();
+                ctx.fillStyle = '#00ff00';
+                ctx.fillText(`WebGL Shader: B:${shaderInfo.brightness} S:${shaderInfo.saturation} T:${shaderInfo.temperature}`, 20, y);
                 y += lineHeight;
             } else {
-                ctx.fillStyle = '#ffaa00';
-                ctx.fillText('Mode: 2D Overlay (no shader)', 20, y);
+                ctx.fillStyle = '#ff0000';
+                ctx.fillText('❌ WebGL shader failed to initialize', 20, y);
                 y += lineHeight;
             }
             
