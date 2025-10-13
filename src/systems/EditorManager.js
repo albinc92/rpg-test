@@ -1971,15 +1971,17 @@ class EditorManager {
      * Load a texture for painting
      */
     loadTexture(texturePath, textureName) {
+        // Always select the texture immediately (even if it's still loading)
+        this.selectedTexture = texturePath;
+        
         if (this.loadedTextures[texturePath]) {
-            this.selectedTexture = texturePath;
+            // Already loaded
             return;
         }
         
         const img = new Image();
         img.onload = () => {
             this.loadedTextures[texturePath] = img;
-            this.selectedTexture = texturePath;
             console.log(`[EditorManager] Loaded texture: ${textureName}`);
         };
         img.onerror = () => {
@@ -2108,6 +2110,16 @@ class EditorManager {
         ctx.globalCompositeOperation = 'source-over'; // Accumulate paint
         ctx.drawImage(tempCanvas, worldX - brushSize, worldY - brushSize);
         ctx.restore();
+        
+        // Invalidate WebGL texture cache so the updated canvas renders immediately
+        // This ensures the paint stroke is visible while painting
+        if (this.game?.renderSystem?.webglRenderer) {
+            const activeLayerId = this.game.layerManager?.activeLayerId;
+            if (activeLayerId) {
+                const paintCanvasKey = `paint_canvas_${activeLayerId}`;
+                this.game.renderSystem.webglRenderer.invalidateTexture(paintCanvasKey);
+            }
+        }
     }
 
     /**
