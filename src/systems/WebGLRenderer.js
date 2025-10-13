@@ -208,8 +208,8 @@ class WebGLRenderer {
         const texture = this.gl.createTexture();
         this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
         
-        // CRITICAL FIX: Flip Y to match Canvas2D
-        this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, true);
+        // DON'T flip Y - images are already in correct orientation
+        this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, false);
         
         this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, image);
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);

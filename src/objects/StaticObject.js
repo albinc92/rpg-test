@@ -126,7 +126,7 @@ class StaticObject extends GameObject {
     /**
      * Render sprite with animation support
      */
-    renderSprite(ctx, game, width, height, altitudeOffset) {
+    renderSprite(ctx, game, width, height, altitudeOffset, webglRenderer = null) {
         const scaledX = this.getScaledX(game);
         const scaledY = this.getScaledY(game);
         const screenX = scaledX - width / 2;
@@ -135,6 +135,29 @@ class StaticObject extends GameObject {
         // Determine if we should flip horizontally
         const shouldFlip = this.reverseFacing === true || this.direction === 'right';
         
+        // Complex animations (rotate, sway) need Canvas2D for now
+        // TODO: Implement rotation/sway in WebGL shader or pre-render to canvas
+        const hasComplexAnimation = (this.animationType === 'rotate' && this.rotation) ||
+                                   (this.animationType === 'sway' && this.swayOffset);
+        
+        // Use WebGL for simple static objects
+        if (webglRenderer && webglRenderer.initialized && !hasComplexAnimation) {
+            const imageUrl = this.sprite.src || `sprite_${this.id}`;
+            webglRenderer.drawSprite(
+                screenX, 
+                screenY, 
+                width, 
+                height, 
+                this.sprite, 
+                imageUrl,
+                1.0,        // alpha
+                shouldFlip, // flipX
+                false       // flipY
+            );
+            return;
+        }
+        
+        // Fallback to Canvas2D for complex animations or when WebGL unavailable
         ctx.save();
         
         // Apply rotation if needed

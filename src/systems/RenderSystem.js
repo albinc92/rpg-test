@@ -196,7 +196,7 @@ class RenderSystem {
         
         // Render all objects in sorted order
         renderables.forEach(({ obj }) => {
-            obj.render(this.ctx, game);
+            obj.render(this.ctx, game, this.webglRenderer);
         });
         
         // Render debug collision boxes if debug mode OR editor collision mode is enabled
@@ -411,7 +411,7 @@ class RenderSystem {
         }
         
         renderables.forEach(({ obj }) => {
-            obj.render(this.ctx, game);
+            obj.render(this.ctx, game, this.webglRenderer);
         });
         
         this.ctx.restore();
@@ -512,7 +512,7 @@ class RenderSystem {
         renderables.sort((a, b) => a.depth - b.depth);
         
         renderables.forEach(({ obj }) => {
-            obj.render(this.ctx, game);
+            obj.render(this.ctx, game, this.webglRenderer);
         });
         
         // Render debug collision boxes if enabled

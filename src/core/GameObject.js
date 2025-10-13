@@ -139,7 +139,7 @@ class GameObject {
     /**
      * Render the object
      */
-    render(ctx, game) {
+    render(ctx, game, webglRenderer = null) {
         if (!this.spriteLoaded || !this.sprite) return;
         
         // Calculate final scale: object scale × resolution scale (NO mapScale for objects)
@@ -159,8 +159,8 @@ class GameObject {
             this.renderShadow(ctx, game, scaledWidth, scaledHeight, altitudeOffset);
         }
         
-        // Draw sprite
-        this.renderSprite(ctx, game, scaledWidth, scaledHeight, altitudeOffset);
+        // Draw sprite - use WebGL if available, otherwise Canvas2D
+        this.renderSprite(ctx, game, scaledWidth, scaledHeight, altitudeOffset, webglRenderer);
     }
     
     /**
@@ -176,29 +176,46 @@ class GameObject {
     /**
      * Render object's sprite with direction support
      */
-    renderSprite(ctx, game, width, height, altitudeOffset) {
+    renderSprite(ctx, game, width, height, altitudeOffset, webglRenderer = null) {
         const scaledX = this.getScaledX(game);
         const scaledY = this.getScaledY(game);
         const screenX = scaledX - width / 2;
         const screenY = scaledY - height / 2 - altitudeOffset;
         
-        ctx.save();
-        
         // Determine if we should flip horizontally
         // reverseFacing takes priority and forces a flip
         const shouldFlip = this.reverseFacing === true || this.direction === 'right';
         
-        if (shouldFlip) {
-            // Flip sprite horizontally
-            ctx.translate(scaledX, scaledY - altitudeOffset);
-            ctx.scale(-1, 1);
-            ctx.drawImage(this.sprite, -width / 2, -height / 2, width, height);
+        // Use WebGL if available
+        if (webglRenderer && webglRenderer.initialized) {
+            const imageUrl = this.sprite.src || `sprite_${this.id}`;
+            webglRenderer.drawSprite(
+                screenX, 
+                screenY, 
+                width, 
+                height, 
+                this.sprite, 
+                imageUrl,
+                1.0,        // alpha
+                shouldFlip, // flipX
+                false       // flipY
+            );
         } else {
-            // Default rendering (no flip)
-            ctx.drawImage(this.sprite, screenX, screenY, width, height);
+            // Fallback to Canvas2D
+            ctx.save();
+            
+            if (shouldFlip) {
+                // Flip sprite horizontally
+                ctx.translate(scaledX, scaledY - altitudeOffset);
+                ctx.scale(-1, 1);
+                ctx.drawImage(this.sprite, -width / 2, -height / 2, width, height);
+            } else {
+                // Default rendering (no flip)
+                ctx.drawImage(this.sprite, screenX, screenY, width, height);
+            }
+            
+            ctx.restore();
         }
-        
-        ctx.restore();
     }
     
     /**
