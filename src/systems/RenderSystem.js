@@ -8,7 +8,9 @@ class RenderSystem {
         this.ctx = ctx;
         
         // WebGL renderer - incremental migration from Canvas2D
-        this.useWebGL = true; // Toggle to enable/disable WebGL
+        // NOTE: Disabled because you can't have both 2D and WebGL contexts on the same canvas
+        // TODO: Create separate WebGL canvas or fully migrate to WebGL
+        this.useWebGL = false; // Toggle to enable/disable WebGL
         this.webglRenderer = null;
         
         if (this.useWebGL) {
@@ -302,9 +304,25 @@ class RenderSystem {
             
             // 2. Render paint canvas (prefer baked image for performance)
             if (layer.paintImageReady && layer.paintImage) {
-                this.ctx.drawImage(layer.paintImage, 0, 0);
+                // Use WebGL or Canvas2D for paint image
+                if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+                    const imageUrl = layer.paintImage.src || `layer_${layer.id}_paint`;
+                    const width = layer.paintImage.width || this.canvas.width;
+                    const height = layer.paintImage.height || this.canvas.height;
+                    this.webglRenderer.drawSprite(0, 0, width, height, layer.paintImage, imageUrl);
+                } else {
+                    this.ctx.drawImage(layer.paintImage, 0, 0);
+                }
             } else if (layer.paintCanvas) {
-                this.ctx.drawImage(layer.paintCanvas, 0, 0);
+                // Use WebGL or Canvas2D for paint canvas
+                if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+                    const imageUrl = `layer_${layer.id}_paint_canvas`;
+                    const width = layer.paintCanvas.width;
+                    const height = layer.paintCanvas.height;
+                    this.webglRenderer.drawSprite(0, 0, width, height, layer.paintCanvas, imageUrl);
+                } else {
+                    this.ctx.drawImage(layer.paintCanvas, 0, 0);
+                }
             }
             
             this.ctx.restore();
