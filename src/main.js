@@ -60,6 +60,7 @@ async function loadGameScripts() {
         
         // Load new subsystems for better architecture
         await loadScript('/src/systems/LayerManager.js'); // NEW: Multi-layer map system
+        await loadScript('/src/systems/WebGLRenderer.js'); // NEW: GPU-accelerated rendering
         await loadScript('/src/systems/RenderSystem.js');
         await loadScript('/src/systems/CollisionSystem.js');
         await loadScript('/src/systems/InteractionSystem.js');

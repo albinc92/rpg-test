@@ -7,6 +7,29 @@ class RenderSystem {
         this.canvas = canvas;
         this.ctx = ctx;
         
+        // WebGL renderer - incremental migration from Canvas2D
+        this.useWebGL = true; // Toggle to enable/disable WebGL
+        this.webglRenderer = null;
+        
+        if (this.useWebGL) {
+            try {
+                // Get logical dimensions from canvas
+                const logicalWidth = canvas.width;
+                const logicalHeight = canvas.height;
+                this.webglRenderer = new WebGLRenderer(canvas, logicalWidth, logicalHeight);
+                
+                if (this.webglRenderer.initialized) {
+                    console.log('✅ WebGL rendering enabled');
+                } else {
+                    console.warn('⚠️ WebGL init failed, falling back to Canvas2D');
+                    this.useWebGL = false;
+                }
+            } catch (error) {
+                console.error('❌ WebGL error, using Canvas2D:', error);
+                this.useWebGL = false;
+            }
+        }
+        
         // Camera system
         this.camera = {
             x: 0,
@@ -91,7 +114,13 @@ class RenderSystem {
      * Render the game world
      */
     renderWorld(map, objects, npcs, player, game) {
-        // Set camera transform
+        // Initialize WebGL frame (if using WebGL)
+        if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+            this.webglRenderer.beginFrame([0, 0, 0, 0]); // Clear to transparent
+            this.webglRenderer.setCamera(this.camera.x, this.camera.y, this.camera.zoom);
+        }
+        
+        // Set camera transform for Canvas2D
         this.ctx.save();
         
         // Apply zoom (scale around canvas center for editor)
@@ -214,6 +243,11 @@ class RenderSystem {
         
         // Restore camera transform for real
         this.ctx.restore();
+        
+        // Finalize WebGL frame (if using WebGL)
+        if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+            this.webglRenderer.endFrame();
+        }
     }
     
     /**
@@ -249,7 +283,21 @@ class RenderSystem {
                 const resolutionScale = game?.resolutionScale || 1.0;
                 const scaledWidth = map.width * mapScale * resolutionScale;
                 const scaledHeight = map.height * mapScale * resolutionScale;
-                this.ctx.drawImage(layer.backgroundImage, 0, 0, scaledWidth, scaledHeight);
+                
+                // Use WebGL or Canvas2D based on availability
+                if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+                    // WebGL path - batched GPU rendering
+                    const imageUrl = layer.backgroundImage.src || `layer_${layer.id}_bg`;
+                    this.webglRenderer.drawSprite(
+                        0, 0, 
+                        scaledWidth, scaledHeight,
+                        layer.backgroundImage,
+                        imageUrl
+                    );
+                } else {
+                    // Canvas2D fallback
+                    this.ctx.drawImage(layer.backgroundImage, 0, 0, scaledWidth, scaledHeight);
+                }
             }
             
             // 2. Render paint canvas (prefer baked image for performance)

@@ -260,5 +260,3 @@ class WebGLRenderer {
         this.updateProjection(logicalWidth, logicalHeight);
     }
 }
-
-export default WebGLRenderer;
