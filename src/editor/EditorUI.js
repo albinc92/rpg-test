@@ -3670,12 +3670,18 @@ class EditorUI {
             font-size: 12px;
         `;
         
-        if (this.editor.selectedTexture && this.editor.loadedTextures[this.editor.selectedTexture]) {
+        if (this.editor.selectedTexture) {
             const img = document.createElement('img');
             img.src = this.editor.selectedTexture;
             img.style.cssText = 'max-width: 100%; max-height: 100%; image-rendering: pixelated;';
             texturePreview.innerHTML = '';
             texturePreview.appendChild(img);
+            
+            // Show loading indicator if texture isn't loaded yet
+            if (!this.editor.loadedTextures[this.editor.selectedTexture]) {
+                img.style.opacity = '0.5';
+                img.title = 'Loading...';
+            }
         } else {
             texturePreview.textContent = 'No texture selected';
         }
@@ -3827,11 +3833,14 @@ class EditorUI {
                 this.editor.loadTexture(texture.path, texture.name);
                 this.showNotification(`✅ Selected: ${texture.name}`);
                 backdrop.remove();
-                // Update paint panel if open
+                // Update paint panel if open - use a small delay to ensure texture is selected
                 const panel = document.getElementById('paint-tool-panel');
                 if (panel) {
-                    panel.remove();
-                    this.showPaintToolPanel();
+                    // Small delay to allow texture to be fully selected
+                    setTimeout(() => {
+                        panel.remove();
+                        this.showPaintToolPanel();
+                    }, 10);
                 }
             };
             
