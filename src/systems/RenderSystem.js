@@ -255,6 +255,11 @@ class RenderSystem {
             game.lightManager.renderEditorPreviews(this.ctx, this.camera.x, this.camera.y, showPreviews);
         }
         
+        // Render object placement preview to WebGL (before endFrame)
+        if (game?.editorManager?.isActive && this.useWebGL && this.webglRenderer?.initialized) {
+            game.editorManager.renderPreviewToWebGL(this.webglRenderer, this.camera.x, this.camera.y);
+        }
+        
         // Restore camera transform for real
         this.ctx.restore();
         

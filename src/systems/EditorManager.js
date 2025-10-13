@@ -560,7 +560,49 @@ class EditorManager {
     }
 
     /**
-     * Render editor overlay
+     * Render preview sprite to WebGL (called from RenderSystem before endFrame)
+     */
+    renderPreviewToWebGL(webglRenderer, cameraX, cameraY) {
+        if (!this.isActive) return;
+        if (this.selectedTool !== 'place' || !this.selectedPrefab) return;
+
+        const sprite = this.previewSprite;
+        if (!sprite || !sprite.complete) return;
+
+        // Get world coordinates (already computed and grid-snapped in updateMousePosition)
+        const worldX = this.mouseWorldX;
+        const worldY = this.mouseWorldY;
+        
+        // Get sprite and dimensions
+        const scale = this.selectedPrefab.scale || 1;
+        let spriteWidth = this.selectedPrefab.width || sprite.naturalWidth || sprite.width || 64;
+        let spriteHeight = this.selectedPrefab.height || sprite.naturalHeight || sprite.height || 64;
+        
+        // Calculate sprite dimensions (matching GameObject.getFinalScale)
+        const resolutionScale = this.game.resolutionScale || 1;
+        const finalScale = scale * resolutionScale;
+        const scaledWidth = spriteWidth * finalScale;
+        const scaledHeight = spriteHeight * finalScale;
+        
+        // Position from center
+        const drawX = worldX - scaledWidth / 2;
+        const drawY = worldY - scaledHeight / 2;
+        
+        // Draw semi-transparent sprite to WebGL
+        const imageUrl = sprite.src || 'preview_sprite';
+        webglRenderer.drawSprite(
+            drawX,
+            drawY,
+            scaledWidth,
+            scaledHeight,
+            sprite,
+            imageUrl,
+            0.5 // semi-transparent
+        );
+    }
+
+    /**
+     * Render editor overlay (Canvas2D UI only - preview sprite rendered via WebGL)
      */
     render(ctx) {
         if (!this.isActive) return;
@@ -585,9 +627,9 @@ class EditorManager {
             this.renderMultiSelectBox(ctx);
         }
         
-        // Render placement preview
+        // Render placement preview (CANVAS2D ONLY - collision box, no sprite)
         if (this.selectedTool === 'place' && this.selectedPrefab) {
-            this.renderPlacementPreview(ctx);
+            this.renderPlacementPreviewUI(ctx);
         }
         
         // Render brush preview for paint tool
@@ -825,7 +867,97 @@ class EditorManager {
     }
 
     /**
-     * Render placement preview
+     * Render placement preview UI (collision box only - sprite rendered via WebGL)
+     */
+    renderPlacementPreviewUI(ctx) {
+        if (!this.selectedPrefab) return;
+        if (!this.showCollisionBoxes) return; // Only draw if collision boxes enabled
+
+        ctx.save();
+        
+        // Apply the same transformation that RenderSystem uses for the world
+        const camera = this.game.camera;
+        const zoom = camera.zoom || 1.0;
+        
+        if (zoom !== 1.0) {
+            const canvasWidth = this.game.CANVAS_WIDTH;
+            const canvasHeight = this.game.CANVAS_HEIGHT;
+            
+            // Scale around center point (same as RenderSystem)
+            ctx.translate(canvasWidth / 2, canvasHeight / 2);
+            ctx.scale(zoom, zoom);
+            ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
+        }
+        
+        // Apply camera translation (same as RenderSystem)
+        ctx.translate(-camera.x, -camera.y);
+        
+        // Get world coordinates
+        const worldX = this.mouseWorldX;
+        const worldY = this.mouseWorldY;
+        
+        // Get sprite and dimensions
+        let sprite = this.previewSprite;
+        let spriteWidth = 64;
+        let spriteHeight = 64;
+        let scale = this.selectedPrefab.scale || 1;
+        
+        // Use loaded preview sprite if available
+        if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+            spriteWidth = sprite.naturalWidth;
+            spriteHeight = sprite.naturalHeight;
+        }
+        
+        // Calculate sprite dimensions
+        const resolutionScale = this.game.resolutionScale || 1;
+        const finalScale = scale * resolutionScale;
+        const scaledWidth = spriteWidth * finalScale;
+        const scaledHeight = spriteHeight * finalScale;
+        
+        // Calculate collision bounds
+        const expandTop = (this.selectedPrefab.collisionExpandTopPercent || 0) * scaledHeight;
+        const expandBottom = (this.selectedPrefab.collisionExpandBottomPercent || 0) * scaledHeight;
+        const expandLeft = (this.selectedPrefab.collisionExpandLeftPercent || 0) * scaledWidth;
+        const expandRight = (this.selectedPrefab.collisionExpandRightPercent || 0) * scaledWidth;
+        
+        let collisionWidth = scaledWidth + expandLeft + expandRight;
+        let collisionHeight = scaledHeight + expandTop + expandBottom;
+        
+        // Calculate base position (centered on sprite) in world space
+        let collisionX = worldX - collisionWidth / 2;
+        let collisionY = worldY - collisionHeight / 2;
+        
+        // Adjust for asymmetric expansion
+        collisionX += (expandRight - expandLeft) / 2;
+        collisionY += (expandBottom - expandTop) / 2;
+        
+        // Get collision shape
+        const collisionShape = this.selectedPrefab.collisionShape || 'circle';
+        
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+        
+        // Draw collision box based on shape
+        if (collisionShape === 'circle') {
+            const centerX = collisionX + collisionWidth / 2;
+            const centerY = collisionY + collisionHeight / 2;
+            const radiusX = collisionWidth / 2;
+            const radiusY = collisionHeight / 2;
+            
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        } else {
+            // Rectangle collision box
+            ctx.strokeRect(collisionX, collisionY, collisionWidth, collisionHeight);
+        }
+        
+        ctx.restore();
+    }
+
+    /**
+     * Render placement preview (LEGACY - now split into WebGL + Canvas2D methods)
      */
     renderPlacementPreview(ctx) {
         if (!this.selectedPrefab) return;
@@ -910,8 +1042,21 @@ class EditorManager {
         const drawX = worldX - scaledWidth / 2;
         const drawY = worldY - scaledHeight / 2;
         
-        // Draw semi-transparent sprite
-        if (sprite) {
+        // Draw semi-transparent sprite using WebGL (to avoid trailing on Canvas2D)
+        const webglRenderer = this.game.renderSystem.webglRenderer;
+        if (sprite && webglRenderer && webglRenderer.initialized) {
+            const imageUrl = sprite.src || 'preview_sprite';
+            webglRenderer.drawSprite(
+                drawX,
+                drawY,
+                scaledWidth,
+                scaledHeight,
+                sprite,
+                imageUrl,
+                0.5 // semi-transparent
+            );
+        } else if (sprite) {
+            // Fallback to Canvas2D if WebGL not available
             ctx.globalAlpha = 0.5;
             ctx.drawImage(
                 sprite,

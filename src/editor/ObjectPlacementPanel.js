@@ -357,7 +357,8 @@ class ObjectPlacementPanel {
                 return {
                     category: 'StaticObject',
                     ...template,  // Include ALL template properties (collision, sway, shadow, etc.)
-                    templateId: template.id
+                    templateId: template.id,
+                    castsShadow: template.castsShadow !== false // Enable shadows by default
                 };
                 
             case 'npcs':
@@ -368,7 +369,8 @@ class ObjectPlacementPanel {
                     name: template.name,
                     npcType: template.npcType,
                     dialogue: 'Hello!',
-                    scale: 0.15
+                    scale: 0.15,
+                    castsShadow: true // Enable shadows for NPCs
                 };
                 
             case 'chests':
@@ -379,7 +381,8 @@ class ObjectPlacementPanel {
                     chestType: template.chestType,
                     gold: 0,
                     loot: [],
-                    scale: 0.15  // COMMON BEHAVIOR: Set default scale for visual consistency
+                    scale: 0.15,  // COMMON BEHAVIOR: Set default scale for visual consistency
+                    castsShadow: true // Enable shadows for chests
                 };
                 
             case 'portals':
@@ -390,7 +393,8 @@ class ObjectPlacementPanel {
                     portalType: template.portalType,
                     targetMap: '0-0',
                     spawnPoint: 'default',
-                    scale: 0.15  // COMMON BEHAVIOR: Set default scale for visual consistency
+                    scale: 0.15,  // COMMON BEHAVIOR: Set default scale for visual consistency
+                    castsShadow: true // Enable shadows for portals
                 };
                 
             default:
