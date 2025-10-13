@@ -222,7 +222,6 @@ class RenderSystem {
         let lightMask = null;
         if (game?.lightManager && game.lightManager.lights.length > 0) {
             lightMask = game.lightManager.getLightMask(this.camera.x, this.camera.y, canvasWidth, canvasHeight);
-            console.log(`[RenderSystem] Got light mask: ${lightMask ? 'YES' : 'NO'}, Lights: ${game.lightManager.lights.length}`);
         }
         
         // TODO: Render day/night cycle overlay with light mask on WEBGL, not Canvas2D
@@ -323,10 +322,21 @@ class RenderSystem {
             }
             
             // 2. Render paint canvas (prefer baked image for performance)
-            // NOTE: Paint canvases use Canvas2D only for precise coordinate alignment during editing
             if (layer.paintImageReady && layer.paintImage) {
-                this.ctx.drawImage(layer.paintImage, 0, 0);
+                // Use WebGL if available for better performance
+                if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+                    const imageUrl = `paint_layer_${layer.id}`;
+                    const mapScale = map.scale || 1.0;
+                    const resolutionScale = game?.resolutionScale || 1.0;
+                    const scaledWidth = map.width * mapScale * resolutionScale;
+                    const scaledHeight = map.height * mapScale * resolutionScale;
+                    this.webglRenderer.drawSprite(0, 0, scaledWidth, scaledHeight, layer.paintImage, imageUrl);
+                } else {
+                    this.ctx.drawImage(layer.paintImage, 0, 0);
+                }
             } else if (layer.paintCanvas) {
+                // Paint canvas is being actively edited - use Canvas2D for precision
+                // TODO: Could convert to texture and use WebGL, but Canvas2D is fine for editing
                 this.ctx.drawImage(layer.paintCanvas, 0, 0);
             }
             
@@ -419,9 +429,6 @@ class RenderSystem {
         }
         
         renderables.forEach(({ obj }) => {
-            if (!this.webglRenderer || !this.webglRenderer.initialized) {
-                console.error('[RenderSystem] NO WEBGL RENDERER when rendering:', obj.id);
-            }
             obj.render(this.ctx, game, this.webglRenderer);
         });
         
@@ -438,17 +445,34 @@ class RenderSystem {
             const resolutionScale = game?.resolutionScale || 1.0;
             const scaledWidth = map.width * mapScale * resolutionScale;
             const scaledHeight = map.height * mapScale * resolutionScale;
-            this.ctx.drawImage(map.image, 0, 0, scaledWidth, scaledHeight);
+            
+            // Use WebGL if available for better performance
+            if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+                const imageUrl = map.image.src || `map_bg_${game.currentMapId}`;
+                this.webglRenderer.drawSprite(0, 0, scaledWidth, scaledHeight, map.image, imageUrl);
+            } else {
+                this.ctx.drawImage(map.image, 0, 0, scaledWidth, scaledHeight);
+            }
         }
         
         // Render paint layer (if editor has painted textures on this map)
         if (game?.editorManager) {
             const paintLayer = game.editorManager.getPaintLayer(game.currentMapId);
             if (paintLayer) {
-                this.ctx.save();
-                this.ctx.globalAlpha = 1.0;
-                this.ctx.drawImage(paintLayer, 0, 0);
-                this.ctx.restore();
+                // Use WebGL if available for better performance
+                if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+                    const imageUrl = `paint_legacy_${game.currentMapId}`;
+                    const mapScale = map.scale || 1.0;
+                    const resolutionScale = game?.resolutionScale || 1.0;
+                    const scaledWidth = map.width * mapScale * resolutionScale;
+                    const scaledHeight = map.height * mapScale * resolutionScale;
+                    this.webglRenderer.drawSprite(0, 0, scaledWidth, scaledHeight, paintLayer, imageUrl);
+                } else {
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 1.0;
+                    this.ctx.drawImage(paintLayer, 0, 0);
+                    this.ctx.restore();
+                }
             }
             
             // Render collision layer (if editor has painted collision areas)
