@@ -15,13 +15,10 @@ class RenderSystem {
         
         if (this.useWebGL && this.webglCanvas) {
             try {
-                // Wait for canvas to be properly sized, then get logical dimensions
-                // WebGL canvas should match the main canvas dimensions
-                const logicalWidth = this.webglCanvas.width || canvas.width;
-                const logicalHeight = this.webglCanvas.height || canvas.height;
-                
-                console.log(`[RenderSystem] Initializing WebGL: ${logicalWidth}x${logicalHeight}`);
-                this.webglRenderer = new WebGLRenderer(this.webglCanvas, logicalWidth, logicalHeight);
+                // Create WebGLRenderer with temporary dimensions
+                // The correct logical dimensions will be set via resize() call after construction
+                console.log(`[RenderSystem] Initializing WebGL renderer...`);
+                this.webglRenderer = new WebGLRenderer(this.webglCanvas, 1920, 1080);
                 
                 if (this.webglRenderer.initialized) {
                     console.log('✅ WebGL rendering enabled on separate canvas');
@@ -298,13 +295,13 @@ class RenderSystem {
                 this.ctx.globalAlpha = layer.opacity;
             }
             
+            const mapScale = map.scale || 1.0;
+            const resolutionScale = game?.resolutionScale || 1.0;
+            const scaledWidth = map.width * mapScale * resolutionScale;
+            const scaledHeight = map.height * mapScale * resolutionScale;
+            
             // 1. Render layer background
             if (layer.backgroundImage && layer.backgroundImage.complete) {
-                const mapScale = map.scale || 1.0;
-                const resolutionScale = game?.resolutionScale || 1.0;
-                const scaledWidth = map.width * mapScale * resolutionScale;
-                const scaledHeight = map.height * mapScale * resolutionScale;
-                
                 // Use WebGL or Canvas2D based on availability
                 if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
                     // WebGL path - batched GPU rendering
@@ -322,22 +319,26 @@ class RenderSystem {
             }
             
             // 2. Render paint canvas (prefer baked image for performance)
+            // Paint layer should always be UNDER objects on the same layer
             if (layer.paintImageReady && layer.paintImage) {
                 // Use WebGL if available for better performance
                 if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
                     const imageUrl = `paint_layer_${layer.id}`;
-                    const mapScale = map.scale || 1.0;
-                    const resolutionScale = game?.resolutionScale || 1.0;
-                    const scaledWidth = map.width * mapScale * resolutionScale;
-                    const scaledHeight = map.height * mapScale * resolutionScale;
                     this.webglRenderer.drawSprite(0, 0, scaledWidth, scaledHeight, layer.paintImage, imageUrl);
                 } else {
                     this.ctx.drawImage(layer.paintImage, 0, 0);
                 }
             } else if (layer.paintCanvas) {
-                // Paint canvas is being actively edited - use Canvas2D for precision
-                // TODO: Could convert to texture and use WebGL, but Canvas2D is fine for editing
-                this.ctx.drawImage(layer.paintCanvas, 0, 0);
+                // Paint canvas is being actively edited
+                // MUST render to WebGL canvas (background layer) so it stays UNDER sprites
+                if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+                    // Use a temporary cache key for the live paint canvas
+                    const imageUrl = `paint_canvas_${layer.id}`;
+                    this.webglRenderer.drawSprite(0, 0, scaledWidth, scaledHeight, layer.paintCanvas, imageUrl);
+                } else {
+                    // Canvas2D fallback
+                    this.ctx.drawImage(layer.paintCanvas, 0, 0);
+                }
             }
             
             this.ctx.restore();

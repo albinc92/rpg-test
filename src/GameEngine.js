@@ -74,6 +74,13 @@ class GameEngine {
         // NEW: Specialized subsystems for better architecture
         this.layerManager = new LayerManager(); // Multi-layer map system
         this.renderSystem = new RenderSystem(this.canvas, this.ctx, this.webglCanvas);
+        
+        // CRITICAL: Initialize WebGL renderer with correct logical dimensions
+        // Must be called immediately after RenderSystem creation for correct projection matrix
+        if (this.renderSystem.webglRenderer) {
+            this.renderSystem.webglRenderer.resize(this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+        }
+        
         this.collisionSystem = new CollisionSystem();
         this.interactionSystem = new InteractionSystem();
         this.settingsManager = new SettingsManager();
@@ -201,7 +208,8 @@ class GameEngine {
     detectMobile() {
         // Check for touch support and small screen size
         const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-        const isSmallScreen = window.innerWidth < 1024 || window.innerHeight < 768;
+        // Use screen.width instead of window.innerWidth to avoid false positives when DevTools is open
+        const isSmallScreen = screen.width < 1024 || screen.height < 768;
         return isTouchDevice && isSmallScreen;
     }
 
@@ -339,9 +347,17 @@ class GameEngine {
                 this.ctx.imageSmoothingEnabled = true;
                 this.ctx.imageSmoothingQuality = 'high';
                 
+                // Sync WebGL canvas dimensions
+                syncWebGLCanvas();
+                
                 // Resize day/night shader canvases
                 if (this.dayNightCycle?.shader) {
                     this.dayNightCycle.shader.resize(this.canvas.width, this.canvas.height);
+                }
+                
+                // Resize WebGL renderer to match logical canvas size
+                if (this.renderSystem?.webglRenderer) {
+                    this.renderSystem.webglRenderer.resize(this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
                 }
             };
             

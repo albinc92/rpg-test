@@ -579,8 +579,10 @@ class WebGLRenderer {
     }
     
     resize(logicalWidth, logicalHeight) {
+        console.log(`[WebGLRenderer] resize() called: ${logicalWidth}x${logicalHeight}`);
         this.logicalWidth = logicalWidth;
         this.logicalHeight = logicalHeight;
         this.updateProjection(logicalWidth, logicalHeight);
+        console.log(`[WebGLRenderer] Projection updated to: ${logicalWidth}x${logicalHeight}`);
     }
 }
