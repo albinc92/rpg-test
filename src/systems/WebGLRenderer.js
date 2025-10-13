@@ -49,7 +49,8 @@ class WebGLRenderer {
             
             this.gl.disable(this.gl.DEPTH_TEST);
             this.gl.enable(this.gl.BLEND);
-            this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+            // Use premultiplied alpha blending to avoid dark edges on painted textures
+            this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
             
             if (!this.createSpriteShader()) {
                 return;
@@ -218,6 +219,9 @@ class WebGLRenderer {
         // DON'T flip Y - images are already in correct orientation
         this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, false);
         
+        // Use premultiplied alpha for paint textures to avoid dark edges
+        this.gl.pixelStorei(this.gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+        
         this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, image);
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
@@ -226,6 +230,14 @@ class WebGLRenderer {
         
         this.textures.set(url, texture);
         return texture;
+    }
+    
+    invalidateTexture(url) {
+        const texture = this.textures.get(url);
+        if (texture) {
+            this.gl.deleteTexture(texture);
+            this.textures.delete(url);
+        }
     }
     
     drawSprite(x, y, width, height, image, imageUrl, alpha = 1.0, flipX = false, flipY = false) {

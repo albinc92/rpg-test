@@ -148,7 +148,7 @@ class PerformanceMonitor {
             // Quick time buttons hint
             ctx.fillStyle = '#666666';
             ctx.font = '11px Courier New, monospace';
-            ctx.fillText('F2: Dawn  F3: Noon  F4: Dusk  F9: Night', 20, y);
+            ctx.fillText('Shift+F6: Dawn  Shift+F7: Noon  Shift+F8: Dusk  Shift+F9: Night', 20, y);
             y += 14;
             ctx.fillText('F6: Speed +10x  F7: Speed -10x', 20, y);
             y += lineHeight;

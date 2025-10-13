@@ -393,30 +393,31 @@ class GameEngine {
         }
         
         // Day/Night cycle controls (when available and enabled for map)
+        // Changed to Shift+F keys to avoid conflict with F2 editor toggle
         if (this.dayNightCycle && this.currentMap?.dayNightCycle) {
-            // F2 - Jump to Dawn (6:00)
-            if (e.code === 'F2') {
+            // Shift+F6 - Jump to Dawn (6:00)
+            if (e.shiftKey && e.code === 'F6') {
                 this.dayNightCycle.setTime(6);
                 console.log('🌅 Time set to Dawn (6:00)');
                 e.preventDefault();
             }
             
-            // F3 - Jump to Noon (12:00)
-            if (e.code === 'F3') {
+            // Shift+F7 - Jump to Noon (12:00)
+            if (e.shiftKey && e.code === 'F7') {
                 this.dayNightCycle.setTime(12);
                 console.log('☀️ Time set to Noon (12:00)');
                 e.preventDefault();
             }
             
-            // F4 - Jump to Dusk (18:00)
-            if (e.code === 'F4') {
+            // Shift+F8 - Jump to Dusk (18:00)
+            if (e.shiftKey && e.code === 'F8') {
                 this.dayNightCycle.setTime(18);
                 console.log('🌆 Time set to Dusk (18:00)');
                 e.preventDefault();
             }
             
-            // F9 - Jump to Night (midnight)
-            if (e.code === 'F9') {
+            // Shift+F9 - Jump to Night (midnight)
+            if (e.shiftKey && e.code === 'F9') {
                 this.dayNightCycle.setTime(0);
                 console.log('🌙 Time set to Night (00:00)');
                 e.preventDefault();

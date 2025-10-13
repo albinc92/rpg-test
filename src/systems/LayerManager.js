@@ -266,7 +266,15 @@ class LayerManager {
         
         // Create an image from the canvas
         const img = new Image();
+        
+        // Generate a consistent cache key that matches what RenderSystem uses
+        const paintTextureKey = `paint_layer_${layer.id}`;
+        
         img.onload = () => {
+            // Invalidate old cached texture before setting new image
+            if (window.game?.renderSystem?.webglRenderer) {
+                window.game.renderSystem.webglRenderer.invalidateTexture(paintTextureKey);
+            }
             layer.paintImage = img;
             layer.paintImageReady = true;
             console.log(`[LayerManager] Baked paint layer "${layer.name}" to image for better performance`);
