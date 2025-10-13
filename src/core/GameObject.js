@@ -157,6 +157,9 @@ class GameObject {
         const hasDayNightCycle = game?.currentMap?.dayNightCycle && game?.dayNightCycle;
         if (this.castsShadow && hasDayNightCycle) {
             this.renderShadow(ctx, game, scaledWidth, scaledHeight, altitudeOffset, webglRenderer);
+        } else if (!this.castsShadow && this._loggedNoShadow !== true) {
+            console.log('[GameObject] No shadow for:', this.id, 'castsShadow:', this.castsShadow);
+            this._loggedNoShadow = true; // Only log once per object
         }
         
         // Draw sprite - use WebGL if available, otherwise Canvas2D
@@ -236,6 +239,7 @@ class GameObject {
             );
         } else {
             // Fallback to Canvas2D
+            console.error('[GameObject] CANVAS2D FALLBACK for:', this.id, 'webglRenderer exists?', !!webglRenderer, 'initialized?', webglRenderer?.initialized);
             ctx.save();
             
             if (shouldFlip) {

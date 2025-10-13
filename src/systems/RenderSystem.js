@@ -225,13 +225,16 @@ class RenderSystem {
             console.log(`[RenderSystem] Got light mask: ${lightMask ? 'YES' : 'NO'}, Lights: ${game.lightManager.lights.length}`);
         }
         
-        // Render day/night cycle overlay with light mask
-        // The mask ensures darkness is NOT applied where lights exist (perfect darkness dispelling)
+        // TODO: Render day/night cycle overlay with light mask on WEBGL, not Canvas2D
+        // DISABLED: Canvas2D day/night overlay causes placed objects to appear dark and trail
+        // The shader needs to be implemented properly on the WebGL canvas instead
+        /*
         if (game?.currentMap?.dayNightCycle && game?.dayNightCycle) {
             const weatherState = game?.currentMap?.weather || null;
             console.log(`[RenderSystem] Rendering day/night with mask: ${lightMask ? 'YES' : 'NO'}`);
             game.dayNightCycle.render(this.ctx, canvasWidth, canvasHeight, weatherState, lightMask);
         }
+        */
         
         // Render colored light glows on top (optional visual enhancement)
         // This adds the colored light effect after darkness has been properly masked
@@ -416,6 +419,9 @@ class RenderSystem {
         }
         
         renderables.forEach(({ obj }) => {
+            if (!this.webglRenderer || !this.webglRenderer.initialized) {
+                console.error('[RenderSystem] NO WEBGL RENDERER when rendering:', obj.id);
+            }
             obj.render(this.ctx, game, this.webglRenderer);
         });
         

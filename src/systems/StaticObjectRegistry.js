@@ -34,7 +34,7 @@ class StaticObjectRegistry {
             collisionExpandBottomPercent: 0,
             collisionExpandRightPercent: -0.25,
             collisionExpandLeftPercent: -0.25,
-            castsShadow: false,
+            castsShadow: true,
             swaysInWind: true
         });
 
@@ -47,7 +47,7 @@ class StaticObjectRegistry {
             collisionExpandBottomPercent: 0,
             collisionExpandRightPercent: -0.05,
             collisionExpandLeftPercent: -0.05,
-            castsShadow: false,
+            castsShadow: true,
             swaysInWind: true
         });
 
@@ -60,7 +60,7 @@ class StaticObjectRegistry {
             collisionExpandBottomPercent: 0,
             collisionExpandRightPercent: 0,
             collisionExpandLeftPercent: 0,
-            castsShadow: false,
+            castsShadow: true,
             swaysInWind: false
         });
 

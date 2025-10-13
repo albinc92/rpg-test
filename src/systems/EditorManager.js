@@ -1627,6 +1627,8 @@ class EditorManager {
      */
     placeObject(objectData) {
         console.log('[EditorManager] Placing object at:', objectData.x, objectData.y);
+        console.log('[EditorManager] Object data:', objectData);
+        console.log('[EditorManager] castsShadow:', objectData.castsShadow);
         
         let placedObject = null;
         

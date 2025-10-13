@@ -33,7 +33,14 @@ class WebGLRenderer {
     
     initialize() {
         try {
-            this.gl = this.canvas.getContext('webgl2') || this.canvas.getContext('webgl');
+            // Request WebGL context with alpha channel enabled (required for transparency)
+            const contextOptions = {
+                alpha: true,
+                premultipliedAlpha: false,
+                antialias: true
+            };
+            this.gl = this.canvas.getContext('webgl2', contextOptions) || 
+                      this.canvas.getContext('webgl', contextOptions);
             
             if (!this.gl) {
                 console.error('WebGL not supported');
