@@ -2150,8 +2150,10 @@ class EditorManager {
         const ctx = canvas.getContext('2d');
         const brushSize = this.brushSize;
         
+        // EXACT SAME BEHAVIOR AS TEXTURE PAINTING: Use worldX/worldY directly
+        console.log(`🎨 [Collision Paint] world:(${worldX.toFixed(1)}, ${worldY.toFixed(1)}) brush:${brushSize} canvas:${canvas.width}x${canvas.height}`);
+        
         // Draw collision area (solid red, no transparency)
-        // Use worldX/worldY directly - canvas is sized to match world coordinates
         ctx.save();
         ctx.fillStyle = 'rgba(255, 0, 0, 1.0)'; // Solid red
         ctx.globalCompositeOperation = 'source-over';
@@ -2204,12 +2206,8 @@ class EditorManager {
         const ctx = canvas.getContext('2d');
         const brushSize = this.brushSize;
         
-        // worldX/worldY are already in scaled world coordinates
-        // The spawn layer canvas is also in scaled world coordinates (rendered at 0,0 with camera transform)
-        // So we use worldX/worldY directly
-        
-        // DEBUG: Log painting to verify coordinates
-        console.log(`[EditorManager] 🎨 Painting spawn zone at world(${Math.round(worldX)}, ${Math.round(worldY)}) on canvas ${canvas.width}x${canvas.height}, brush size: ${brushSize}`);
+        // EXACT SAME BEHAVIOR AS TEXTURE PAINTING: Use worldX/worldY directly
+        console.log(`🎨 [Spawn Paint] world:(${worldX.toFixed(1)}, ${worldY.toFixed(1)}) brush:${brushSize} canvas:${canvas.width}x${canvas.height}`);
         
         // Draw spawn zone (solid blue for binary pixel detection)
         ctx.save();
