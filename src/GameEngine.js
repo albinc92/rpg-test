@@ -4,8 +4,13 @@
  */
 class GameEngine {
     constructor() {
+        // Canvas2D (foreground layer)
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
+        
+        // WebGL canvas (background layer)
+        this.webglCanvas = document.getElementById('webglCanvas');
+        
         this.debug = document.getElementById('debug');
         
         // Event listener cleanup tracking (MUST be initialized BEFORE setupCanvas)
@@ -68,7 +73,7 @@ class GameEngine {
         
         // NEW: Specialized subsystems for better architecture
         this.layerManager = new LayerManager(); // Multi-layer map system
-        this.renderSystem = new RenderSystem(this.canvas, this.ctx);
+        this.renderSystem = new RenderSystem(this.canvas, this.ctx, this.webglCanvas);
         this.collisionSystem = new CollisionSystem();
         this.interactionSystem = new InteractionSystem();
         this.settingsManager = new SettingsManager();
@@ -225,6 +230,16 @@ class GameEngine {
         
         console.log(`[GameEngine] Canvas: ${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT}, Scale: ${this.resolutionScale.toFixed(3)}`);
         
+        // Helper function to sync WebGL canvas with main canvas
+        const syncWebGLCanvas = () => {
+            if (this.webglCanvas) {
+                this.webglCanvas.width = this.canvas.width;
+                this.webglCanvas.height = this.canvas.height;
+                this.webglCanvas.style.width = this.canvas.style.width;
+                this.webglCanvas.style.height = this.canvas.style.height;
+            }
+        };
+        
         if (this.isMobile) {
             // Mobile: Dynamic resize handling
             const devicePixelRatio = window.devicePixelRatio || 1;
@@ -236,6 +251,9 @@ class GameEngine {
             // Set actual canvas size (scaled for high DPI)
             this.canvas.width = this.CANVAS_WIDTH * devicePixelRatio;
             this.canvas.height = this.CANVAS_HEIGHT * devicePixelRatio;
+            
+            // Sync WebGL canvas
+            syncWebGLCanvas();
             
             // Scale context back to logical pixels
             this.ctx.scale(devicePixelRatio, devicePixelRatio);
@@ -270,9 +288,17 @@ class GameEngine {
                 this.ctx.imageSmoothingEnabled = true;
                 this.ctx.imageSmoothingQuality = 'high';
                 
+                // Sync WebGL canvas
+                syncWebGLCanvas();
+                
                 // Resize day/night shader canvases
                 if (this.dayNightCycle?.shader) {
                     this.dayNightCycle.shader.resize(this.canvas.width, this.canvas.height);
+                }
+                
+                // Resize WebGL renderer if available
+                if (this.renderSystem?.webglRenderer) {
+                    this.renderSystem.webglRenderer.resize(this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
                 }
             };
             
@@ -291,6 +317,9 @@ class GameEngine {
             this.canvas.width = this.CANVAS_WIDTH * devicePixelRatio;
             this.canvas.height = this.CANVAS_HEIGHT * devicePixelRatio;
             this.ctx.scale(devicePixelRatio, devicePixelRatio);
+            
+            // Sync WebGL canvas
+            syncWebGLCanvas();
             
             // Enable smooth scaling for better quality on desktop
             this.ctx.imageSmoothingEnabled = true;

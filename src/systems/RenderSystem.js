@@ -3,25 +3,28 @@
  * Responsible for: camera, layers, sprite rendering, UI
  */
 class RenderSystem {
-    constructor(canvas, ctx) {
+    constructor(canvas, ctx, webglCanvas = null) {
+        // Canvas2D (foreground layer)
         this.canvas = canvas;
         this.ctx = ctx;
         
-        // WebGL renderer - incremental migration from Canvas2D
-        // NOTE: Disabled because you can't have both 2D and WebGL contexts on the same canvas
-        // TODO: Create separate WebGL canvas or fully migrate to WebGL
-        this.useWebGL = false; // Toggle to enable/disable WebGL
+        // WebGL canvas (background layer) - separate canvas element
+        this.webglCanvas = webglCanvas;
+        this.useWebGL = true; // Toggle to enable/disable WebGL
         this.webglRenderer = null;
         
-        if (this.useWebGL) {
+        if (this.useWebGL && this.webglCanvas) {
             try {
-                // Get logical dimensions from canvas
-                const logicalWidth = canvas.width;
-                const logicalHeight = canvas.height;
-                this.webglRenderer = new WebGLRenderer(canvas, logicalWidth, logicalHeight);
+                // Wait for canvas to be properly sized, then get logical dimensions
+                // WebGL canvas should match the main canvas dimensions
+                const logicalWidth = this.webglCanvas.width || canvas.width;
+                const logicalHeight = this.webglCanvas.height || canvas.height;
+                
+                console.log(`[RenderSystem] Initializing WebGL: ${logicalWidth}x${logicalHeight}`);
+                this.webglRenderer = new WebGLRenderer(this.webglCanvas, logicalWidth, logicalHeight);
                 
                 if (this.webglRenderer.initialized) {
-                    console.log('✅ WebGL rendering enabled');
+                    console.log('✅ WebGL rendering enabled on separate canvas');
                 } else {
                     console.warn('⚠️ WebGL init failed, falling back to Canvas2D');
                     this.useWebGL = false;
@@ -30,6 +33,8 @@ class RenderSystem {
                 console.error('❌ WebGL error, using Canvas2D:', error);
                 this.useWebGL = false;
             }
+        } else {
+            console.log('ℹ️ WebGL disabled or canvas not available, using Canvas2D only');
         }
         
         // Camera system
@@ -119,7 +124,14 @@ class RenderSystem {
         // Initialize WebGL frame (if using WebGL)
         if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
             this.webglRenderer.beginFrame([0, 0, 0, 0]); // Clear to transparent
-            this.webglRenderer.setCamera(this.camera.x, this.camera.y, this.camera.zoom);
+            // Pass canvas dimensions for zoom-around-center support
+            this.webglRenderer.setCamera(
+                this.camera.x, 
+                this.camera.y, 
+                this.camera.zoom,
+                game.CANVAS_WIDTH,
+                game.CANVAS_HEIGHT
+            );
         }
         
         // Set camera transform for Canvas2D
@@ -303,26 +315,11 @@ class RenderSystem {
             }
             
             // 2. Render paint canvas (prefer baked image for performance)
+            // NOTE: Paint canvases use Canvas2D only for precise coordinate alignment during editing
             if (layer.paintImageReady && layer.paintImage) {
-                // Use WebGL or Canvas2D for paint image
-                if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
-                    const imageUrl = layer.paintImage.src || `layer_${layer.id}_paint`;
-                    const width = layer.paintImage.width || this.canvas.width;
-                    const height = layer.paintImage.height || this.canvas.height;
-                    this.webglRenderer.drawSprite(0, 0, width, height, layer.paintImage, imageUrl);
-                } else {
-                    this.ctx.drawImage(layer.paintImage, 0, 0);
-                }
+                this.ctx.drawImage(layer.paintImage, 0, 0);
             } else if (layer.paintCanvas) {
-                // Use WebGL or Canvas2D for paint canvas
-                if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
-                    const imageUrl = `layer_${layer.id}_paint_canvas`;
-                    const width = layer.paintCanvas.width;
-                    const height = layer.paintCanvas.height;
-                    this.webglRenderer.drawSprite(0, 0, width, height, layer.paintCanvas, imageUrl);
-                } else {
-                    this.ctx.drawImage(layer.paintCanvas, 0, 0);
-                }
+                this.ctx.drawImage(layer.paintCanvas, 0, 0);
             }
             
             this.ctx.restore();

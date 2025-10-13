@@ -142,13 +142,32 @@ class WebGLRenderer {
         }
     }
     
-    setCamera(x, y, zoom = 1.0) {
-        this.viewMatrix = [
-            zoom, 0, 0, 0,
-            0, zoom, 0, 0,
-            0, 0, 1, 0,
-            -x * zoom, -y * zoom, 0, 1
-        ];
+    setCamera(x, y, zoom = 1.0, canvasWidth = null, canvasHeight = null) {
+        // If zoom is not 1.0 and canvas dimensions provided, zoom around center
+        if (zoom !== 1.0 && canvasWidth && canvasHeight) {
+            const centerX = canvasWidth / 2;
+            const centerY = canvasHeight / 2;
+            
+            // Translate to center, scale, translate back, then apply camera offset
+            // This matches Canvas2D's zoom behavior
+            const tx = centerX - centerX * zoom - x * zoom;
+            const ty = centerY - centerY * zoom - y * zoom;
+            
+            this.viewMatrix = [
+                zoom, 0, 0, 0,
+                0, zoom, 0, 0,
+                0, 0, 1, 0,
+                tx, ty, 0, 1
+            ];
+        } else {
+            // Simple camera with no zoom-around-center
+            this.viewMatrix = [
+                zoom, 0, 0, 0,
+                0, zoom, 0, 0,
+                0, 0, 1, 0,
+                -x * zoom, -y * zoom, 0, 1
+            ];
+        }
     }
     
     createOrthoMatrix(left, right, bottom, top, near, far) {

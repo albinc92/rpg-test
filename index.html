@@ -19,24 +19,42 @@
             height: 100vh;
         }
         
-        #gameCanvas {
+        #webglCanvas, #gameCanvas {
             display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
             /* High-quality anti-aliased scaling for detailed sprites */
             image-rendering: auto;
             image-rendering: high-quality;
             image-rendering: -webkit-optimize-contrast;
-            width: 100vw;
-            height: 100vh;
+            /* CRITICAL: Both canvases must scale identically for coordinate alignment */
+            width: 100%;
+            height: 100%;
             /* Fill screen - choose one: */
             /* object-fit: contain;  - Letterboxing, maintains aspect ratio */
             /* object-fit: fill;     - No letterboxing, stretches to fill */
             object-fit: fill;
         }
         
+        #webglCanvas {
+            z-index: 1; /* Background layer */
+            pointer-events: none; /* WebGL canvas doesn't receive input */
+        }
+        
+        #gameCanvas {
+            z-index: 2; /* Foreground layer */
+            pointer-events: auto; /* Canvas2D receives all input events */
+        }
+        
 
     </style>
 </head>
 <body>
+    <!-- WebGL canvas (background layer) -->
+    <canvas id="webglCanvas"></canvas>
+    
+    <!-- Canvas2D (foreground layer) -->
     <canvas id="gameCanvas"></canvas>
     
     <!-- Load main entry point with Vite -->
