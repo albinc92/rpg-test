@@ -156,7 +156,7 @@ class GameObject {
         // Draw shadow first (if object casts shadows AND map has day/night cycle)
         const hasDayNightCycle = game?.currentMap?.dayNightCycle && game?.dayNightCycle;
         if (this.castsShadow && hasDayNightCycle) {
-            this.renderShadow(ctx, game, scaledWidth, scaledHeight, altitudeOffset);
+            this.renderShadow(ctx, game, scaledWidth, scaledHeight, altitudeOffset, webglRenderer);
         }
         
         // Draw sprite - use WebGL if available, otherwise Canvas2D
@@ -166,11 +166,45 @@ class GameObject {
     /**
      * Render object's shadow
      */
-    renderShadow(ctx, game, width, height, altitudeOffset) {
+    renderShadow(ctx, game, width, height, altitudeOffset, webglRenderer = null) {
         const scaledX = this.getScaledX(game);
         const scaledY = this.getScaledY(game);
-        // Pass the sprite for pixel-perfect shadow projection
-        game.drawShadow(scaledX, scaledY, width, height, altitudeOffset, this.sprite);
+        
+        // Use WebGL if available
+        if (webglRenderer && webglRenderer.initialized) {
+            // Get shadow properties from game engine
+            const shadowProps = game.getShadowProperties();
+            
+            // Calculate shadow opacity with altitude fade
+            const altitudeFade = Math.max(0, 1 - (altitudeOffset / 300));
+            const finalOpacity = shadowProps.opacity * altitudeFade;
+            
+            if (finalOpacity <= 0.01) return; // Don't draw invisible shadows
+            
+            // Get cached sprite silhouette
+            const silhouette = game.getSpriteCache(this.sprite, width, height);
+            const imageUrl = `shadow_${this.sprite.src}_${Math.round(width)}_${Math.round(height)}`;
+            
+            // Calculate shadow position (base of sprite)
+            const shadowX = scaledX;
+            const shadowY = scaledY + (height / 2) + altitudeOffset;
+            
+            // Draw shadow with WebGL
+            webglRenderer.drawShadow(
+                shadowX,
+                shadowY,
+                width,
+                height,
+                silhouette,
+                imageUrl,
+                finalOpacity,
+                shadowProps.skewX,
+                shadowProps.scaleY
+            );
+        } else {
+            // Fallback to Canvas2D
+            game.drawShadow(scaledX, scaledY, width, height, altitudeOffset, this.sprite);
+        }
     }
     
     /**

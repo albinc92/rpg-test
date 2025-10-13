@@ -221,7 +221,7 @@ class WebGLRenderer {
         return texture;
     }
     
-    drawSprite(x, y, width, height, image, imageUrl) {
+    drawSprite(x, y, width, height, image, imageUrl, alpha = 1.0, flipX = false, flipY = false) {
         if (!this.initialized) return;
         
         const texture = this.textures.get(imageUrl) || this.loadTexture(image, imageUrl);
@@ -231,12 +231,80 @@ class WebGLRenderer {
             this.currentTexture = texture;
         }
         
+        // Vertex positions
         this.batchVertices.push(x, y, x + width, y, x + width, y + height, x, y + height);
-        this.batchTexCoords.push(0, 0, 1, 0, 1, 1, 0, 1);
+        
+        // Texture coordinates with optional flipping
+        const u0 = flipX ? 1 : 0;
+        const u1 = flipX ? 0 : 1;
+        const v0 = flipY ? 1 : 0;
+        const v1 = flipY ? 0 : 1;
+        this.batchTexCoords.push(u0, v0, u1, v0, u1, v1, u0, v1);
+        
         this.currentBatchSize++;
     }
     
+    /**
+     * Draw shadow with skew transform for sun direction
+     * @param {number} x - Shadow center X (base of sprite)
+     * @param {number} y - Shadow center Y (base of sprite)
+     * @param {number} width - Shadow width
+     * @param {number} height - Shadow height
+     * @param {Image} silhouetteImage - Pre-rendered black silhouette
+     * @param {string} imageUrl - Cache key for texture
+     * @param {number} opacity - Shadow opacity (0-1)
+     * @param {number} skewX - Horizontal skew factor for sun direction
+     * @param {number} scaleY - Vertical scale (flatten shadow)
+     */
+    drawShadow(x, y, width, height, silhouetteImage, imageUrl, opacity, skewX, scaleY) {
+        if (!this.initialized || opacity <= 0.01) return;
+        
+        const texture = this.textures.get(imageUrl) || this.loadTexture(silhouetteImage, imageUrl);
+        
+        if (this.currentTexture !== texture || this.currentBatchSize >= this.maxBatchSize) {
+            this.flush();
+            this.currentTexture = texture;
+            this.currentAlpha = opacity;
+        }
+        
+        // Calculate transformed vertices
+        // Base position is at (x, y) - bottom center of sprite
+        // Apply transforms: scale Y, then skew X
+        const halfWidth = width / 2;
+        
+        // Bottom-left corner: (-halfWidth, 0) after centering
+        let x0 = x - halfWidth;
+        let y0 = y;
+        
+        // Bottom-right corner: (halfWidth, 0) after centering
+        let x1 = x + halfWidth;
+        let y1 = y;
+        
+        // Top-left corner: (-halfWidth, -height) after centering, then apply transforms
+        let x2 = x - halfWidth + (skewX * -height); // skew shifts based on Y distance from base
+        let y2 = y + (-height * scaleY); // scale Y
+        
+        // Top-right corner: (halfWidth, -height) after centering, then apply transforms
+        let x3 = x + halfWidth + (skewX * -height); // skew shifts based on Y distance from base
+        let y3 = y + (-height * scaleY); // scale Y
+        
+        // Push vertices: bottom-left, bottom-right, top-right, top-left
+        this.batchVertices.push(x0, y0, x1, y1, x3, y3, x2, y2);
+        
+        // Texture coordinates (normal, no flipping for shadows)
+        this.batchTexCoords.push(0, 1, 1, 1, 1, 0, 0, 0);
+        
+        this.currentBatchSize++;
+        
+        // Flush immediately with custom alpha
+        this.flushWithAlpha(opacity);
+    }
+    
     flush() {
+        this.flushWithAlpha(1.0);
+    }
+    
+    flushWithAlpha(alpha = 1.0) {
         if (this.currentBatchSize === 0) return;
         
         this.gl.useProgram(this.spriteProgram);
@@ -249,7 +317,7 @@ class WebGLRenderer {
         
         this.gl.uniformMatrix4fv(this.spriteProgram.locations.projection, false, this.projectionMatrix);
         this.gl.uniformMatrix4fv(this.spriteProgram.locations.view, false, this.viewMatrix || this.createIdentityMatrix());
-        this.gl.uniform1f(this.spriteProgram.locations.alpha, 1.0);
+        this.gl.uniform1f(this.spriteProgram.locations.alpha, alpha);
         
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.batchVertices), this.gl.DYNAMIC_DRAW);
