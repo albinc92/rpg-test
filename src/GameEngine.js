@@ -96,6 +96,11 @@ class GameEngine {
         // Weather system
         this.weatherSystem = new WeatherSystem(this);
         
+        // Connect weather system to WebGL renderer (if available)
+        if (this.renderSystem.webglRenderer) {
+            this.weatherSystem.setWebGLRenderer(this.renderSystem.webglRenderer);
+        }
+        
         // Light system for dynamic lighting
         this.lightManager = new LightManager(this);
         

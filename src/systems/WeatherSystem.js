@@ -6,6 +6,7 @@ class WeatherSystem {
         this.game = game;
         this.canvas = game.canvas;
         this.ctx = game.ctx;
+        this.webglRenderer = null; // Will be set when available
         
         // Current weather state
         this.precipitation = 'none'; // none, dynamic, sun, rain-light, rain-medium, rain-heavy, snow-light, snow-medium, snow-heavy
@@ -407,11 +408,19 @@ class WeatherSystem {
     }
     
     /**
+     * Set WebGL renderer reference (called from GameEngine)
+     */
+    setWebGLRenderer(webglRenderer) {
+        this.webglRenderer = webglRenderer;
+        console.log('🌤️ WeatherSystem: WebGL renderer set');
+    }
+    
+    /**
      * Render weather effects in world space
      * Particles are now positioned in world coordinates and move with the map
      */
     render() {
-        const ctx = this.ctx;
+        const useWebGL = this.webglRenderer && this.webglRenderer.initialized;
         
         // Note: Sun effects are skipped in world-space rendering as they should be screen-space
         // TODO: Render sun effects in screen space separately if needed
@@ -419,18 +428,18 @@ class WeatherSystem {
         // Render rain (world coordinates)
         if (this.precipitation.startsWith('rain') || 
             (this.precipitation === 'dynamic' && this.currentDynamicWeather.startsWith('rain'))) {
-            this.renderRain();
+            this.renderRain(useWebGL);
         }
         
         // Render snow (world coordinates)
         if (this.precipitation.startsWith('snow') || 
             (this.precipitation === 'dynamic' && this.currentDynamicWeather.startsWith('snow'))) {
-            this.renderSnow();
+            this.renderSnow(useWebGL);
         }
         
         // Render falling particles (leaves, sakura) (world coordinates)
         if (this.particles !== 'none') {
-            this.renderLeaves();
+            this.renderLeaves(useWebGL);
         }
     }
     
@@ -469,76 +478,146 @@ class WeatherSystem {
     /**
      * Render rain particles
      */
-    renderRain() {
-        const ctx = this.ctx;
-        
-        ctx.save();
-        ctx.strokeStyle = 'rgba(174, 194, 224, 0.8)';
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-        
-        for (let particle of this.rainParticles) {
-            // Wind affects horizontal displacement
-            const windOffsetX = this.windStrength * 15;
+    renderRain(useWebGL = false) {
+        if (useWebGL) {
+            // WebGL rendering
+            const color = [174/255, 194/255, 224/255, 0.8]; // rgba(174, 194, 224, 0.8)
             
-            ctx.beginPath();
-            ctx.moveTo(particle.x, particle.y);
-            ctx.lineTo(particle.x + windOffsetX, particle.y + particle.length);
-            ctx.stroke();
+            for (let particle of this.rainParticles) {
+                // Wind affects horizontal displacement
+                const windOffsetX = this.windStrength * 15;
+                
+                this.webglRenderer.drawLine(
+                    particle.x, particle.y,
+                    particle.x + windOffsetX, particle.y + particle.length,
+                    2, // thickness
+                    color
+                );
+            }
+        } else {
+            // Canvas2D fallback
+            const ctx = this.ctx;
+            
+            ctx.save();
+            ctx.strokeStyle = 'rgba(174, 194, 224, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            
+            for (let particle of this.rainParticles) {
+                // Wind affects horizontal displacement
+                const windOffsetX = this.windStrength * 15;
+                
+                ctx.beginPath();
+                ctx.moveTo(particle.x, particle.y);
+                ctx.lineTo(particle.x + windOffsetX, particle.y + particle.length);
+                ctx.stroke();
+            }
+            
+            ctx.restore();
         }
-        
-        ctx.restore();
     }
     
     /**
      * Render snow particles
      */
-    renderSnow() {
-        const ctx = this.ctx;
-        
-        ctx.save();
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        
-        for (let particle of this.snowParticles) {
-            ctx.beginPath();
-            ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-            ctx.fill();
+    renderSnow(useWebGL = false) {
+        if (useWebGL) {
+            // WebGL rendering
+            const color = [1.0, 1.0, 1.0, 0.8]; // rgba(255, 255, 255, 0.8)
+            
+            for (let particle of this.snowParticles) {
+                this.webglRenderer.drawCircle(
+                    particle.x, particle.y,
+                    particle.size,
+                    color
+                );
+            }
+        } else {
+            // Canvas2D fallback
+            const ctx = this.ctx;
+            
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            
+            for (let particle of this.snowParticles) {
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            ctx.restore();
         }
-        
-        ctx.restore();
     }
     
     /**
      * Render leaf particles
      */
-    renderLeaves() {
-        const ctx = this.ctx;
-        
-        ctx.save();
-        
-        for (let particle of this.leafParticles) {
+    renderLeaves(useWebGL = false) {
+        if (useWebGL) {
+            // WebGL rendering
+            for (let particle of this.leafParticles) {
+                // Parse RGB color string to array
+                const colorMatch = particle.color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+                if (colorMatch) {
+                    const color = [
+                        parseInt(colorMatch[1]) / 255,
+                        parseInt(colorMatch[2]) / 255,
+                        parseInt(colorMatch[3]) / 255,
+                        0.8
+                    ];
+                    
+                    // Draw leaf ellipse
+                    this.webglRenderer.drawEllipse(
+                        particle.x, particle.y,
+                        particle.size * 2, particle.size * 3, // width, height
+                        particle.rotation,
+                        color
+                    );
+                    
+                    // Draw leaf vein (dark line through center) - rotated with leaf
+                    const veinColor = [0, 0, 0, 0.2];
+                    const cos = Math.cos(particle.rotation);
+                    const sin = Math.sin(particle.rotation);
+                    const veinLength = particle.size * 1.5;
+                    
+                    this.webglRenderer.drawLine(
+                        particle.x - sin * veinLength, particle.y + cos * veinLength,
+                        particle.x + sin * veinLength, particle.y - cos * veinLength,
+                        0.5,
+                        veinColor
+                    );
+                }
+            }
+        } else {
+            // Canvas2D fallback
+            const ctx = this.ctx;
+            
             ctx.save();
-            ctx.translate(particle.x, particle.y);
-            ctx.rotate(particle.rotation);
             
-            // Draw leaf shape (simple ellipse)
-            ctx.fillStyle = particle.color;
-            ctx.globalAlpha = 0.8;
-            ctx.beginPath();
-            ctx.ellipse(0, 0, particle.size, particle.size * 1.5, 0, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Add leaf vein
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
-            ctx.lineWidth = 0.5;
-            ctx.beginPath();
-            ctx.moveTo(0, -particle.size * 1.5);
-            ctx.lineTo(0, particle.size * 1.5);
-            ctx.stroke();
+            for (let particle of this.leafParticles) {
+                ctx.save();
+                ctx.translate(particle.x, particle.y);
+                ctx.rotate(particle.rotation);
+                
+                // Draw leaf shape (simple ellipse)
+                ctx.fillStyle = particle.color;
+                ctx.globalAlpha = 0.8;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, particle.size, particle.size * 1.5, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Add leaf vein
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.lineWidth = 0.5;
+                ctx.beginPath();
+                ctx.moveTo(0, -particle.size * 1.5);
+                ctx.lineTo(0, particle.size * 1.5);
+                ctx.stroke();
+                
+                ctx.restore();
+            }
             
             ctx.restore();
         }
-        
-        ctx.restore();
     }
 }

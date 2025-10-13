@@ -341,6 +341,224 @@ class WebGLRenderer {
         return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
     }
     
+    /**
+     * Draw a line (for rain particles)
+     * @param {number} x1 - Start X
+     * @param {number} y1 - Start Y
+     * @param {number} x2 - End X
+     * @param {number} y2 - End Y
+     * @param {number} thickness - Line width
+     * @param {Array} color - RGBA color [r, g, b, a] (0-1 range)
+     */
+    drawLine(x1, y1, x2, y2, thickness, color) {
+        if (!this.initialized) return;
+        
+        // Flush current batch if needed
+        this.flush();
+        
+        // Use a simple colored rectangle shader (we'll use sprite shader with white texture)
+        // Calculate line direction and perpendicular
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        
+        if (length < 0.1) return; // Skip zero-length lines
+        
+        // Perpendicular vector (normalized)
+        const perpX = -dy / length * (thickness / 2);
+        const perpY = dx / length * (thickness / 2);
+        
+        // Four corners of the line rectangle
+        const corners = [
+            [x1 - perpX, y1 - perpY], // Start bottom
+            [x1 + perpX, y1 + perpY], // Start top
+            [x2 + perpX, y2 + perpY], // End top
+            [x2 - perpX, y2 - perpY]  // End bottom
+        ];
+        
+        // Use solid color (create 1x1 white texture if not exists)
+        if (!this.whiteTexture) {
+            const whitePixel = new ImageData(1, 1);
+            whitePixel.data[0] = 255;
+            whitePixel.data[1] = 255;
+            whitePixel.data[2] = 255;
+            whitePixel.data[3] = 255;
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = 1;
+            canvas.height = 1;
+            const ctx = canvas.getContext('2d');
+            ctx.putImageData(whitePixel, 0, 0);
+            
+            this.whiteTexture = this.loadTexture(canvas, '__white__');
+        }
+        
+        this.currentTexture = this.whiteTexture;
+        
+        // Push vertices
+        this.batchVertices.push(
+            corners[0][0], corners[0][1],
+            corners[1][0], corners[1][1],
+            corners[2][0], corners[2][1],
+            corners[3][0], corners[3][1]
+        );
+        
+        // Texture coordinates (doesn't matter for solid color)
+        this.batchTexCoords.push(0, 0, 0, 1, 1, 1, 1, 0);
+        
+        this.currentBatchSize++;
+        
+        // Flush with color as alpha (hack: use uniform alpha for color)
+        // For proper color, we'd need a different shader, but for now we'll just use alpha
+        this.flushWithColor(color);
+    }
+    
+    /**
+     * Draw a circle (for snow particles)
+     * @param {number} x - Center X
+     * @param {number} y - Center Y
+     * @param {number} radius - Circle radius
+     * @param {Array} color - RGBA color [r, g, b, a] (0-1 range)
+     */
+    drawCircle(x, y, radius, color) {
+        if (!this.initialized) return;
+        
+        // Draw circle as a textured quad with white texture
+        // For performance, we'll just draw a square and use the white texture
+        // (proper circles would need a custom shader or more vertices)
+        
+        this.flush();
+        
+        if (!this.whiteTexture) {
+            const whitePixel = new ImageData(1, 1);
+            whitePixel.data[0] = 255;
+            whitePixel.data[1] = 255;
+            whitePixel.data[2] = 255;
+            whitePixel.data[3] = 255;
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = 1;
+            canvas.height = 1;
+            const ctx = canvas.getContext('2d');
+            ctx.putImageData(whitePixel, 0, 0);
+            
+            this.whiteTexture = this.loadTexture(canvas, '__white__');
+        }
+        
+        this.currentTexture = this.whiteTexture;
+        
+        // Draw as a square (good enough for small particles)
+        const halfSize = radius;
+        this.batchVertices.push(
+            x - halfSize, y - halfSize,
+            x + halfSize, y - halfSize,
+            x + halfSize, y + halfSize,
+            x - halfSize, y + halfSize
+        );
+        
+        this.batchTexCoords.push(0, 0, 1, 0, 1, 1, 0, 1);
+        
+        this.currentBatchSize++;
+        
+        this.flushWithColor(color);
+    }
+    
+    /**
+     * Draw an ellipse (for leaf particles)
+     * @param {number} x - Center X
+     * @param {number} y - Center Y
+     * @param {number} width - Width
+     * @param {number} height - Height
+     * @param {number} rotation - Rotation in radians
+     * @param {Array} color - RGBA color [r, g, b, a] (0-1 range)
+     */
+    drawEllipse(x, y, width, height, rotation, color) {
+        if (!this.initialized) return;
+        
+        this.flush();
+        
+        if (!this.whiteTexture) {
+            const whitePixel = new ImageData(1, 1);
+            whitePixel.data[0] = 255;
+            whitePixel.data[1] = 255;
+            whitePixel.data[2] = 255;
+            whitePixel.data[3] = 255;
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = 1;
+            canvas.height = 1;
+            const ctx = canvas.getContext('2d');
+            ctx.putImageData(whitePixel, 0, 0);
+            
+            this.whiteTexture = this.loadTexture(canvas, '__white__');
+        }
+        
+        this.currentTexture = this.whiteTexture;
+        
+        // Calculate rotated corners
+        const cos = Math.cos(rotation);
+        const sin = Math.sin(rotation);
+        const halfW = width / 2;
+        const halfH = height / 2;
+        
+        // Four corners (unrotated)
+        const corners = [
+            [-halfW, -halfH],
+            [halfW, -halfH],
+            [halfW, halfH],
+            [-halfW, halfH]
+        ];
+        
+        // Rotate and translate
+        for (let corner of corners) {
+            const rx = corner[0] * cos - corner[1] * sin + x;
+            const ry = corner[0] * sin + corner[1] * cos + y;
+            this.batchVertices.push(rx, ry);
+        }
+        
+        this.batchTexCoords.push(0, 0, 1, 0, 1, 1, 0, 1);
+        
+        this.currentBatchSize++;
+        
+        this.flushWithColor(color);
+    }
+    
+    /**
+     * Flush with custom color (multiplies with texture)
+     */
+    flushWithColor(color) {
+        if (this.currentBatchSize === 0) return;
+        
+        this.gl.useProgram(this.spriteProgram);
+        
+        if (this.currentTexture) {
+            this.gl.activeTexture(this.gl.TEXTURE0);
+            this.gl.bindTexture(this.gl.TEXTURE_2D, this.currentTexture);
+            this.gl.uniform1i(this.spriteProgram.locations.texture, 0);
+        }
+        
+        this.gl.uniformMatrix4fv(this.spriteProgram.locations.projection, false, this.projectionMatrix);
+        this.gl.uniformMatrix4fv(this.spriteProgram.locations.view, false, this.viewMatrix || this.createIdentityMatrix());
+        this.gl.uniform1f(this.spriteProgram.locations.alpha, color[3]); // Use alpha from color
+        
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.batchVertices), this.gl.DYNAMIC_DRAW);
+        this.gl.enableVertexAttribArray(this.spriteProgram.locations.position);
+        this.gl.vertexAttribPointer(this.spriteProgram.locations.position, 2, this.gl.FLOAT, false, 0, 0);
+        
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.texCoordBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.batchTexCoords), this.gl.DYNAMIC_DRAW);
+        this.gl.enableVertexAttribArray(this.spriteProgram.locations.texCoord);
+        this.gl.vertexAttribPointer(this.spriteProgram.locations.texCoord, 2, this.gl.FLOAT, false, 0, 0);
+        
+        this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+        this.gl.drawElements(this.gl.TRIANGLES, this.currentBatchSize * 6, this.gl.UNSIGNED_SHORT, 0);
+        
+        this.batchVertices = [];
+        this.batchTexCoords = [];
+        this.currentBatchSize = 0;
+    }
+    
     resize(logicalWidth, logicalHeight) {
         this.logicalWidth = logicalWidth;
         this.logicalHeight = logicalHeight;
