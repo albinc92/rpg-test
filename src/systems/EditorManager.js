@@ -2162,17 +2162,25 @@ class EditorManager {
         if (this.brushShape === 'square') {
             // Square brush
             ctx.fillRect(worldX - brushSize, worldY - brushSize, brushSize * 2, brushSize * 2);
+            console.log(`🎨 [Collision] Drew square at (${worldX}, ${worldY}) size ${brushSize * 2}x${brushSize * 2}`);
         } else {
             // Circle brush (default)
             ctx.beginPath();
             ctx.arc(worldX, worldY, brushSize, 0, Math.PI * 2);
             ctx.fill();
+            console.log(`🎨 [Collision] Drew circle at (${worldX}, ${worldY}) radius ${brushSize}`);
         }
         
         ctx.restore();
         
         // Mark canvas as dirty so collision cache gets updated
         canvas._dataDirty = true;
+        
+        // Invalidate WebGL texture cache so the updated canvas renders immediately
+        if (this.game?.renderSystem?.webglRenderer) {
+            const collisionKey = `collision_layer_${mapId}`;
+            this.game.renderSystem.webglRenderer.invalidateTexture(collisionKey);
+        }
     }
 
     /**
@@ -2230,6 +2238,12 @@ class EditorManager {
         // Mark canvas as dirty so spawn zone cache gets updated
         canvas._dataDirty = true;
         
+        // Invalidate WebGL texture cache so the updated canvas renders immediately
+        if (this.game?.renderSystem?.webglRenderer) {
+            const spawnKey = `spawn_layer_${mapId}`;
+            this.game.renderSystem.webglRenderer.invalidateTexture(spawnKey);
+        }
+        
         // Invalidate spawn zone cache in spawn manager to force rebuild
         if (this.game.spawnManager) {
             this.game.spawnManager.invalidateSpawnZoneCache();
@@ -2275,6 +2289,17 @@ class EditorManager {
             
             // Mark canvas as dirty so collision cache gets updated
             canvas._dataDirty = true;
+            
+            // Invalidate WebGL texture cache
+            if (this.game?.renderSystem?.webglRenderer) {
+                if (this.paintMode === 'collision') {
+                    const collisionKey = `collision_layer_${mapId}`;
+                    this.game.renderSystem.webglRenderer.invalidateTexture(collisionKey);
+                } else if (this.paintMode === 'spawn') {
+                    const spawnKey = `spawn_layer_${mapId}`;
+                    this.game.renderSystem.webglRenderer.invalidateTexture(spawnKey);
+                }
+            }
             
             // Invalidate spawn zone cache if erasing spawn zones
             if (this.paintMode === 'spawn' && this.game.spawnManager) {

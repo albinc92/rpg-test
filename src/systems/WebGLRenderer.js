@@ -49,8 +49,8 @@ class WebGLRenderer {
             
             this.gl.disable(this.gl.DEPTH_TEST);
             this.gl.enable(this.gl.BLEND);
-            // Use premultiplied alpha blending to avoid dark edges on painted textures
-            this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
+            // Use standard alpha blending (source-over)
+            this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
             
             if (!this.createSpriteShader()) {
                 return;
