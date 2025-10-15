@@ -330,6 +330,8 @@ class DayNightCycle {
             maskCanvas.width = width;
             maskCanvas.height = height;
             const maskCtx = maskCanvas.getContext('2d');
+            maskCtx.imageSmoothingEnabled = true;
+            maskCtx.imageSmoothingQuality = 'high';
             maskCtx.drawImage(lightMask, 0, 0);
             const maskData = maskCtx.getImageData(0, 0, width, height);
             
@@ -338,6 +340,8 @@ class DayNightCycle {
             darknessCanvas.width = width;
             darknessCanvas.height = height;
             const darknessCtx = darknessCanvas.getContext('2d');
+            darknessCtx.imageSmoothingEnabled = true;
+            darknessCtx.imageSmoothingQuality = 'high';
             const darknessData = darknessCtx.createImageData(width, height);
             
             // For each pixel: darkness alpha = inverted light brightness
@@ -399,6 +403,8 @@ class DayNightCycle {
                 tempCanvas.width = width;
                 tempCanvas.height = height;
                 const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.imageSmoothingEnabled = true;
+                tempCtx.imageSmoothingQuality = 'high';
                 
                 // Draw overlay to temp
                 tempCtx.fillStyle = `rgba(${lighting.r}, ${lighting.g}, ${lighting.b}, ${lighting.a})`;

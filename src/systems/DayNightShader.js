@@ -39,13 +39,16 @@ class DayNightShader {
             this.offscreenCanvas.width = canvasWidth;
             this.offscreenCanvas.height = canvasHeight;
             this.offscreenCtx = this.offscreenCanvas.getContext('2d');
+            this.offscreenCtx.imageSmoothingEnabled = true;
+            this.offscreenCtx.imageSmoothingQuality = 'high';
             
             // WebGL canvas for shader
             this.webglCanvas = document.createElement('canvas');
             this.webglCanvas.width = canvasWidth;
             this.webglCanvas.height = canvasHeight;
             
-            this.gl = this.webglCanvas.getContext('webgl2') || this.webglCanvas.getContext('webgl');
+            this.gl = this.webglCanvas.getContext('webgl2', { antialias: true, alpha: true }) || 
+                      this.webglCanvas.getContext('webgl', { antialias: true, alpha: true });
             
             if (!this.gl) {
                 console.error('❌ WebGL not supported');

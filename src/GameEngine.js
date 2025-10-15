@@ -1029,6 +1029,8 @@ class GameEngine {
         tempCanvas.width = width;
         tempCanvas.height = height;
         const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.imageSmoothingEnabled = true;
+        tempCtx.imageSmoothingQuality = 'high';
         
         // Draw sprite
         tempCtx.drawImage(sprite, 0, 0, width, height);
