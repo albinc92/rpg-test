@@ -313,6 +313,11 @@ class GameEngine {
                 if (this.renderSystem?.webglRenderer) {
                     this.renderSystem.webglRenderer.resize(this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
                 }
+                
+                // Resize editor collision/spawn layers if editor is active
+                if (this.editorManager) {
+                    this.editorManager.handleResize();
+                }
             };
             
             window.addEventListener('resize', this.handleResize);
@@ -358,6 +363,11 @@ class GameEngine {
                 // Resize WebGL renderer to match logical canvas size
                 if (this.renderSystem?.webglRenderer) {
                     this.renderSystem.webglRenderer.resize(this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+                }
+                
+                // Resize editor collision/spawn layers if editor is active
+                if (this.editorManager) {
+                    this.editorManager.handleResize();
                 }
             };
             

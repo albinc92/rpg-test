@@ -2150,7 +2150,6 @@ class EditorManager {
         const ctx = canvas.getContext('2d');
         const brushSize = this.brushSize;
         
-        // EXACT SAME BEHAVIOR AS TEXTURE PAINTING: Use worldX/worldY directly
         console.log(`🎨 [Collision Paint] world:(${worldX.toFixed(1)}, ${worldY.toFixed(1)}) brush:${brushSize} canvas:${canvas.width}x${canvas.height}`);
         
         // Draw collision area (solid red, no transparency)
@@ -2532,6 +2531,100 @@ class EditorManager {
             console.log(`[EditorManager] Baked spawn zone layer for map ${mapId} to image for better performance`);
         };
         img.src = dataURL;
+    }
+
+    /**
+     * Handle window resize - rescale collision and spawn layers to match new resolution
+     * This fixes the issue where painted zones move around when window is resized
+     */
+    handleResize() {
+        const mapId = this.game.currentMapId;
+        if (!mapId) return;
+        
+        const mapData = this.game.mapManager.maps[mapId];
+        if (!mapData) return;
+        
+        const mapScale = mapData.scale || 1.0;
+        const resolutionScale = this.game.resolutionScale || 1.0;
+        const newWidth = mapData.width * mapScale * resolutionScale;
+        const newHeight = mapData.height * mapScale * resolutionScale;
+        
+        // Rescale collision layer if it exists
+        if (this.collisionLayers[mapId]) {
+            const oldCanvas = this.collisionLayers[mapId];
+            const oldWidth = oldCanvas.width;
+            const oldHeight = oldCanvas.height;
+            
+            // Only resize if dimensions changed
+            if (oldWidth !== newWidth || oldHeight !== newHeight) {
+                const newCanvas = document.createElement('canvas');
+                newCanvas.width = newWidth;
+                newCanvas.height = newHeight;
+                
+                const ctx = newCanvas.getContext('2d');
+                // Scale the old canvas content to fit new size
+                ctx.drawImage(oldCanvas, 0, 0, oldWidth, oldHeight, 0, 0, newWidth, newHeight);
+                
+                // Copy over metadata
+                newCanvas._dataDirty = oldCanvas._dataDirty;
+                newCanvas._imageReady = oldCanvas._imageReady;
+                if (oldCanvas._bakedImage) {
+                    // The baked image will be recreated when needed
+                    newCanvas._bakedImage = null;
+                    newCanvas._imageReady = false;
+                }
+                
+                this.collisionLayers[mapId] = newCanvas;
+                
+                // Invalidate WebGL texture cache
+                if (this.game?.renderSystem?.webglRenderer) {
+                    this.game.renderSystem.webglRenderer.invalidateTexture(`collision_layer_${mapId}`);
+                }
+                
+                console.log(`[EditorManager] Resized collision layer: ${oldWidth}x${oldHeight} → ${newWidth}x${newHeight}`);
+            }
+        }
+        
+        // Rescale spawn layer if it exists
+        if (this.spawnLayers[mapId]) {
+            const oldCanvas = this.spawnLayers[mapId];
+            const oldWidth = oldCanvas.width;
+            const oldHeight = oldCanvas.height;
+            
+            // Only resize if dimensions changed
+            if (oldWidth !== newWidth || oldHeight !== newHeight) {
+                const newCanvas = document.createElement('canvas');
+                newCanvas.width = newWidth;
+                newCanvas.height = newHeight;
+                
+                const ctx = newCanvas.getContext('2d');
+                // Scale the old canvas content to fit new size
+                ctx.drawImage(oldCanvas, 0, 0, oldWidth, oldHeight, 0, 0, newWidth, newHeight);
+                
+                // Copy over metadata
+                newCanvas._dataDirty = oldCanvas._dataDirty;
+                newCanvas._imageReady = oldCanvas._imageReady;
+                if (oldCanvas._bakedImage) {
+                    // The baked image will be recreated when needed
+                    newCanvas._bakedImage = null;
+                    newCanvas._imageReady = false;
+                }
+                
+                this.spawnLayers[mapId] = newCanvas;
+                
+                // Invalidate spawn zone cache since coordinates changed
+                if (this.game.spawnManager) {
+                    this.game.spawnManager.invalidateSpawnZoneCache();
+                }
+                
+                // Invalidate WebGL texture cache
+                if (this.game?.renderSystem?.webglRenderer) {
+                    this.game.renderSystem.webglRenderer.invalidateTexture(`spawn_layer_${mapId}`);
+                }
+                
+                console.log(`[EditorManager] Resized spawn layer: ${oldWidth}x${oldHeight} → ${newWidth}x${newHeight}`);
+            }
+        }
     }
 
     /**
