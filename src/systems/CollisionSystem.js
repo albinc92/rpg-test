@@ -42,15 +42,31 @@ class CollisionSystem {
         const shapeB = objB.collisionShape || 'circle';
         
         // Rectangle-Rectangle collision (AABB)
+        // EDGE SMOOTHING: Shrink bounds slightly to create slippery edges
         if (shapeA === 'rectangle' && shapeB === 'rectangle') {
             const boundsA = objA.getCollisionBounds(game);
             const boundsB = objB.getCollisionBounds(game);
             
+            // Shrink each bound by 5% to create edge tolerance
+            const edgeTolerance = 0.05;
+            const shrinkA = {
+                left: boundsA.left + boundsA.width * edgeTolerance,
+                right: boundsA.right - boundsA.width * edgeTolerance,
+                top: boundsA.top + boundsA.height * edgeTolerance,
+                bottom: boundsA.bottom - boundsA.height * edgeTolerance
+            };
+            const shrinkB = {
+                left: boundsB.left + boundsB.width * edgeTolerance,
+                right: boundsB.right - boundsB.width * edgeTolerance,
+                top: boundsB.top + boundsB.height * edgeTolerance,
+                bottom: boundsB.bottom - boundsB.height * edgeTolerance
+            };
+            
             return (
-                boundsA.left < boundsB.right &&
-                boundsA.right > boundsB.left &&
-                boundsA.top < boundsB.bottom &&
-                boundsA.bottom > boundsB.top
+                shrinkA.left < shrinkB.right &&
+                shrinkA.right > shrinkB.left &&
+                shrinkA.top < shrinkB.bottom &&
+                shrinkA.bottom > shrinkB.top
             );
         }
         
@@ -90,6 +106,7 @@ class CollisionSystem {
     
     /**
      * Check collision between a circle/ellipse and a rectangle
+     * EDGE SMOOTHING: Slightly reduces collision radius to create "slippery" edges
      */
     checkCircleRectangleCollision(circle, rect) {
         // Find the closest point on the rectangle to the circle center
@@ -105,29 +122,36 @@ class CollisionSystem {
         const normalizedDistY = distanceY / circle.radiusY;
         const normalizedDistance = Math.sqrt(normalizedDistX * normalizedDistX + normalizedDistY * normalizedDistY);
         
-        return normalizedDistance <= 1.0;
+        // EDGE SMOOTHING: Use 0.95 threshold instead of 1.0 to create slippery edges
+        // This allows objects to slide along boundaries more smoothly
+        return normalizedDistance <= 0.95;
     }
     
     /**
      * Check collision between two circles/ellipses
      * Uses proper ellipse-to-ellipse collision detection
+     * EDGE SMOOTHING: Slightly reduces collision threshold for slippery edges
      */
     checkEllipseEllipseCollision(circleA, circleB) {
         // Calculate distance between centers
         const dx = circleB.centerX - circleA.centerX;
         const dy = circleB.centerY - circleA.centerY;
         
+        // EDGE SMOOTHING: Reduce effective collision radius by 5% for slippery feel
+        const edgeSmoothing = 0.95;
+        
         // If both are perfect circles (radiusX == radiusY), use exact circle collision
         if (circleA.radiusX === circleA.radiusY && circleB.radiusX === circleB.radiusY) {
             const distance = Math.sqrt(dx * dx + dy * dy);
-            return distance <= (circleA.radiusX + circleB.radiusX);
+            const collisionDistance = (circleA.radiusX + circleB.radiusX) * edgeSmoothing;
+            return distance <= collisionDistance;
         }
         
         // For ellipses, treat ellipse B as a point and test against expanded ellipse A
         // This is more accurate than averaging radii
-        // Expand ellipse A by ellipse B's radii
-        const expandedRadiusX = circleA.radiusX + circleB.radiusX;
-        const expandedRadiusY = circleA.radiusY + circleB.radiusY;
+        // Expand ellipse A by ellipse B's radii (with smoothing applied)
+        const expandedRadiusX = (circleA.radiusX + circleB.radiusX) * edgeSmoothing;
+        const expandedRadiusY = (circleA.radiusY + circleB.radiusY) * edgeSmoothing;
         
         // Normalize the distance by the expanded radii
         const normalizedDistX = dx / expandedRadiusX;

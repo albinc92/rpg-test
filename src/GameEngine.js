@@ -1195,6 +1195,7 @@ class GameEngine {
     /**
      * Check if actor collides with painted collision areas
      * OPTIMIZED: Cache image data to avoid expensive getImageData() calls every frame
+     * SMOOTHING: Uses edge tolerance to allow sliding along collision boundaries
      */
     checkPaintedCollision(newX, newY, movingActor, collisionLayer, game) {
         // ALWAYS read directly from the canvas (not the baked image)
@@ -1256,19 +1257,31 @@ class GameEngine {
         const canvasCenterX = (canvasLeft + canvasRight) / 2;
         const canvasCenterY = (canvasTop + canvasBottom) / 2;
         
+        // EDGE SMOOTHING: Shrink the collision check area slightly to create "slippery" edges
+        // This prevents getting stuck on single pixels and allows sliding along walls
+        const edgeTolerance = 2; // pixels of tolerance on edges
+        const smoothLeft = canvasLeft + edgeTolerance;
+        const smoothRight = canvasRight - edgeTolerance;
+        const smoothTop = canvasTop + edgeTolerance;
+        const smoothBottom = canvasBottom - edgeTolerance;
+        
         // Sample multiple points around the actor's collision bounds
-        // These are now in canvas pixel coordinates (matching where we paint)
+        // Using SMOOTHED bounds for edge points, original bounds for center
         const samplePoints = [
-            { x: Math.floor(canvasCenterX), y: Math.floor(canvasCenterY) },                       // Center
-            { x: Math.floor(canvasLeft), y: Math.floor(canvasTop) },                              // Top-left
-            { x: Math.floor(canvasRight), y: Math.floor(canvasTop) },                             // Top-right
-            { x: Math.floor(canvasLeft), y: Math.floor(canvasBottom) },                           // Bottom-left
-            { x: Math.floor(canvasRight), y: Math.floor(canvasBottom) },                          // Bottom-right
-            { x: Math.floor(canvasCenterX), y: Math.floor(canvasTop) },                           // Top-center
-            { x: Math.floor(canvasCenterX), y: Math.floor(canvasBottom) },                        // Bottom-center
-            { x: Math.floor(canvasLeft), y: Math.floor(canvasCenterY) },                          // Left-center
-            { x: Math.floor(canvasRight), y: Math.floor(canvasCenterY) }                          // Right-center
+            { x: Math.floor(canvasCenterX), y: Math.floor(canvasCenterY) },           // Center (strict)
+            { x: Math.floor(smoothLeft), y: Math.floor(smoothTop) },                  // Top-left (smooth)
+            { x: Math.floor(smoothRight), y: Math.floor(smoothTop) },                 // Top-right (smooth)
+            { x: Math.floor(smoothLeft), y: Math.floor(smoothBottom) },               // Bottom-left (smooth)
+            { x: Math.floor(smoothRight), y: Math.floor(smoothBottom) },              // Bottom-right (smooth)
+            { x: Math.floor(canvasCenterX), y: Math.floor(smoothTop) },               // Top-center (smooth)
+            { x: Math.floor(canvasCenterX), y: Math.floor(smoothBottom) },            // Bottom-center (smooth)
+            { x: Math.floor(smoothLeft), y: Math.floor(canvasCenterY) },              // Left-center (smooth)
+            { x: Math.floor(smoothRight), y: Math.floor(canvasCenterY) }              // Right-center (smooth)
         ];
+        
+        // Count collision hits - require majority to block (reduces single-pixel snags)
+        let collisionHits = 0;
+        const collisionThreshold = 3; // Need at least 3 sample points hitting collision
         
         // Check each sample point using cached data
         for (const point of samplePoints) {
@@ -1288,12 +1301,22 @@ class GameEngine {
             // Check if pixel is red (painted collision) with alpha > 0
             // Painted collision is solid red: rgba(255, 0, 0, 1.0)
             if (r > 200 && g < 50 && b < 50 && a > 200) {
-                // Only log 1% of collisions to avoid console spam
-                if (Math.random() < 0.01) {
-                    console.log(`🚫 [Collision] BLOCKED at world (${newX.toFixed(1)}, ${newY.toFixed(1)}) hit red pixel at (${point.x}, ${point.y})`);
+                collisionHits++;
+                
+                // Early exit if threshold already exceeded
+                if (collisionHits >= collisionThreshold) {
+                    // Only log 1% of collisions to avoid console spam
+                    if (Math.random() < 0.01) {
+                        console.log(`🚫 [Collision] BLOCKED at world (${newX.toFixed(1)}, ${newY.toFixed(1)}) with ${collisionHits} hits`);
+                    }
+                    return true; // Solid collision detected
                 }
-                return true; // Collision detected
             }
+        }
+        
+        // Not enough collision hits - allow movement (creates "slippery" edges)
+        if (collisionHits > 0 && Math.random() < 0.01) {
+            console.log(`✨ [Collision] SLIDING with only ${collisionHits} hits (threshold: ${collisionThreshold})`);
         }
         
         return false; // No collision
