@@ -28,8 +28,8 @@ class EditorManager {
         this.selectedTexture = null; // Current texture to paint with
         this.brushSize = 64; // Brush radius in pixels
         this.brushStyle = 'soft'; // 'soft', 'hard', 'very-soft'
-        this.brushShape = 'circle'; // 'circle' or 'square' (for collision/spawn mode)
-        this.brushOpacity = 0.8;
+        this.brushShape = 'circle'; // 'circle' or 'square' (for all paint modes)
+        this.brushOpacity = 1.0; // Default to 100% opacity
         this.paintLayers = {}; // Store paint layers per map {mapId: canvas}
         this.collisionLayers = {}; // Store collision layers per map {mapId: canvas}
         this.spawnLayers = {}; // Store spawn zone layers per map {mapId: canvas}
@@ -2056,39 +2056,46 @@ class EditorManager {
         brushCanvas.height = brushSize * 2;
         const brushCtx = brushCanvas.getContext('2d');
         
-        // Create radial gradient for brush based on style
-        let gradient;
-        switch (this.brushStyle) {
-            case 'hard':
-                // Sharp edges
-                gradient = brushCtx.createRadialGradient(brushSize, brushSize, brushSize * 0.8, brushSize, brushSize, brushSize);
-                gradient.addColorStop(0, `rgba(255, 255, 255, ${this.brushOpacity})`);
-                gradient.addColorStop(0.99, `rgba(255, 255, 255, ${this.brushOpacity})`);
-                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-                break;
+        // Create brush mask based on shape and style
+        if (this.brushShape === 'square') {
+            // Square brush - fill with opacity
+            brushCtx.fillStyle = `rgba(255, 255, 255, ${this.brushOpacity})`;
+            brushCtx.fillRect(0, 0, brushSize * 2, brushSize * 2);
+        } else {
+            // Circle brush - create radial gradient for brush based on style
+            let gradient;
+            switch (this.brushStyle) {
+                case 'hard':
+                    // Sharp edges
+                    gradient = brushCtx.createRadialGradient(brushSize, brushSize, brushSize * 0.8, brushSize, brushSize, brushSize);
+                    gradient.addColorStop(0, `rgba(255, 255, 255, ${this.brushOpacity})`);
+                    gradient.addColorStop(0.99, `rgba(255, 255, 255, ${this.brushOpacity})`);
+                    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                    break;
+                
+                case 'very-soft':
+                    // Very gradual fade
+                    gradient = brushCtx.createRadialGradient(brushSize, brushSize, 0, brushSize, brushSize, brushSize);
+                    gradient.addColorStop(0, `rgba(255, 255, 255, ${this.brushOpacity})`);
+                    gradient.addColorStop(0.3, `rgba(255, 255, 255, ${this.brushOpacity * 0.8})`);
+                    gradient.addColorStop(0.6, `rgba(255, 255, 255, ${this.brushOpacity * 0.4})`);
+                    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                    break;
+                
+                case 'soft':
+                default:
+                    // Medium soft edges
+                    gradient = brushCtx.createRadialGradient(brushSize, brushSize, 0, brushSize, brushSize, brushSize);
+                    gradient.addColorStop(0, `rgba(255, 255, 255, ${this.brushOpacity})`);
+                    gradient.addColorStop(0.7, `rgba(255, 255, 255, ${this.brushOpacity * 0.5})`);
+                    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                    break;
+            }
             
-            case 'very-soft':
-                // Very gradual fade
-                gradient = brushCtx.createRadialGradient(brushSize, brushSize, 0, brushSize, brushSize, brushSize);
-                gradient.addColorStop(0, `rgba(255, 255, 255, ${this.brushOpacity})`);
-                gradient.addColorStop(0.3, `rgba(255, 255, 255, ${this.brushOpacity * 0.8})`);
-                gradient.addColorStop(0.6, `rgba(255, 255, 255, ${this.brushOpacity * 0.4})`);
-                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-                break;
-            
-            case 'soft':
-            default:
-                // Medium soft edges
-                gradient = brushCtx.createRadialGradient(brushSize, brushSize, 0, brushSize, brushSize, brushSize);
-                gradient.addColorStop(0, `rgba(255, 255, 255, ${this.brushOpacity})`);
-                gradient.addColorStop(0.7, `rgba(255, 255, 255, ${this.brushOpacity * 0.5})`);
-                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-                break;
+            // Fill brush with gradient mask
+            brushCtx.fillStyle = gradient;
+            brushCtx.fillRect(0, 0, brushSize * 2, brushSize * 2);
         }
-        
-        // Fill brush with gradient mask
-        brushCtx.fillStyle = gradient;
-        brushCtx.fillRect(0, 0, brushSize * 2, brushSize * 2);
         
         // Create a temporary canvas for this brush stroke
         const tempCanvas = document.createElement('canvas');
@@ -2357,9 +2364,150 @@ class EditorManager {
     }
 
     /**
-     * Fill entire layer with texture or collision
+     * Show loading spinner for fill operations
      */
-    fillLayer(mapId) {
+    showFillSpinner() {
+        // Remove any existing spinner
+        this.hideFillSpinner();
+        
+        const spinner = document.createElement('div');
+        spinner.id = 'fill-spinner';
+        spinner.innerHTML = `
+            <div style="
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.7);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                flex-direction: column;
+                gap: 16px;
+            ">
+                <div style="
+                    width: 60px;
+                    height: 60px;
+                    border: 6px solid rgba(74, 158, 255, 0.3);
+                    border-top-color: #4a9eff;
+                    border-radius: 50%;
+                    animation: spin 0.8s linear infinite;
+                "></div>
+                <div style="
+                    color: white;
+                    font-family: Arial, sans-serif;
+                    font-size: 18px;
+                    font-weight: bold;
+                ">Processing Fill...</div>
+            </div>
+        `;
+        
+        // Add keyframe animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        document.body.appendChild(spinner);
+    }
+    
+    /**
+     * Hide loading spinner
+     */
+    hideFillSpinner() {
+        const spinner = document.getElementById('fill-spinner');
+        if (spinner) {
+            spinner.remove();
+        }
+    }
+
+    /**
+     * Flood fill algorithm - fills connected unpainted area
+     */
+    floodFill(canvas, startX, startY, fillColor) {
+        const ctx = canvas.getContext('2d');
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const pixels = imageData.data;
+        
+        // Get target color (the color we're replacing)
+        const startIndex = (Math.floor(startY) * canvas.width + Math.floor(startX)) * 4;
+        const targetR = pixels[startIndex];
+        const targetG = pixels[startIndex + 1];
+        const targetB = pixels[startIndex + 2];
+        const targetA = pixels[startIndex + 3];
+        
+        // Parse fill color
+        const fillR = fillColor.r;
+        const fillG = fillColor.g;
+        const fillB = fillColor.b;
+        const fillA = fillColor.a;
+        
+        // If target color is the same as fill color, don't fill
+        if (targetR === fillR && targetG === fillG && targetB === fillB && targetA === fillA) {
+            console.log('[FloodFill] Target color matches fill color, skipping');
+            return;
+        }
+        
+        // Stack-based flood fill (faster than recursion, prevents stack overflow)
+        const stack = [[Math.floor(startX), Math.floor(startY)]];
+        const visited = new Set();
+        
+        const matchesTarget = (x, y) => {
+            if (x < 0 || x >= canvas.width || y < 0 || y >= canvas.height) return false;
+            const i = (y * canvas.width + x) * 4;
+            return pixels[i] === targetR && 
+                   pixels[i + 1] === targetG && 
+                   pixels[i + 2] === targetB && 
+                   pixels[i + 3] === targetA;
+        };
+        
+        const setPixel = (x, y) => {
+            const i = (y * canvas.width + x) * 4;
+            pixels[i] = fillR;
+            pixels[i + 1] = fillG;
+            pixels[i + 2] = fillB;
+            pixels[i + 3] = fillA;
+        };
+        
+        let pixelsFilled = 0;
+        const maxPixels = 10000000; // Safety limit (10 million pixels, enough for large maps)
+        
+        while (stack.length > 0 && pixelsFilled < maxPixels) {
+            const [x, y] = stack.pop();
+            const key = `${x},${y}`;
+            
+            if (visited.has(key)) continue;
+            visited.add(key);
+            
+            if (!matchesTarget(x, y)) continue;
+            
+            setPixel(x, y);
+            pixelsFilled++;
+            
+            // Add neighbors
+            stack.push([x + 1, y]);
+            stack.push([x - 1, y]);
+            stack.push([x, y + 1]);
+            stack.push([x, y - 1]);
+        }
+        
+        // Put modified image data back
+        ctx.putImageData(imageData, 0, 0);
+        
+        console.log(`[FloodFill] Filled ${pixelsFilled} pixels`);
+        return pixelsFilled;
+    }
+
+    /**
+     * Fill area or entire layer with texture or collision
+     */
+    fillArea(worldX, worldY, mapId) {
         let canvas;
         
         // Get the appropriate canvas based on paint mode
@@ -2382,17 +2530,20 @@ class EditorManager {
                 canvas = this.collisionLayers[mapId];
             }
             
-            // Fill with solid red collision
-            const ctx = canvas.getContext('2d');
-            ctx.save();
-            ctx.fillStyle = 'rgba(255, 0, 0, 1.0)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.restore();
+            // Flood fill with red collision color
+            const pixelsFilled = this.floodFill(canvas, worldX, worldY, { r: 255, g: 0, b: 0, a: 255 });
             
-            // Mark canvas as dirty so collision cache gets updated
-            canvas._dataDirty = true;
-            
-            console.log(`[EditorManager] Filled collision layer for map ${mapId}`);
+            if (pixelsFilled > 0) {
+                // Mark canvas as dirty so collision cache gets updated
+                canvas._dataDirty = true;
+                
+                // Invalidate WebGL texture cache
+                if (this.game?.renderSystem?.webglRenderer) {
+                    this.game.renderSystem.webglRenderer.invalidateTexture(`collision_layer_${mapId}`);
+                }
+                
+                console.log(`[EditorManager] Flood filled collision area for map ${mapId}: ${pixelsFilled} pixels`);
+            }
         } else if (this.paintMode === 'spawn') {
             // Initialize spawn zone canvas if needed
             if (!this.spawnLayers[mapId]) {
@@ -2412,20 +2563,23 @@ class EditorManager {
                 canvas = this.spawnLayers[mapId];
             }
             
-            // Fill with solid blue spawn zone
-            const ctx = canvas.getContext('2d');
-            ctx.save();
-            ctx.fillStyle = 'rgba(0, 100, 255, 1.0)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.restore();
+            // Flood fill with blue spawn zone color
+            const pixelsFilled = this.floodFill(canvas, worldX, worldY, { r: 0, g: 100, b: 255, a: 255 });
             
-            // Mark canvas as dirty and invalidate spawn zone cache
-            canvas._dataDirty = true;
-            if (this.game.spawnManager) {
-                this.game.spawnManager.invalidateSpawnZoneCache();
+            if (pixelsFilled > 0) {
+                // Mark canvas as dirty and invalidate spawn zone cache
+                canvas._dataDirty = true;
+                if (this.game.spawnManager) {
+                    this.game.spawnManager.invalidateSpawnZoneCache();
+                }
+                
+                // Invalidate WebGL texture cache
+                if (this.game?.renderSystem?.webglRenderer) {
+                    this.game.renderSystem.webglRenderer.invalidateTexture(`spawn_layer_${mapId}`);
+                }
+                
+                console.log(`[EditorManager] Flood filled spawn zone for map ${mapId}: ${pixelsFilled} pixels`);
             }
-            
-            console.log(`[EditorManager] Filled spawn zone layer for map ${mapId}`);
         } else {
             // Texture mode - require texture
             if (!this.selectedTexture || !this.loadedTextures[this.selectedTexture]) {
@@ -2460,18 +2614,108 @@ class EditorManager {
                 if (!canvas) return;
             }
             
-            // Fill with texture pattern
+            // Texture flood fill: find connected transparent/matching pixels and paint texture
             const ctx = canvas.getContext('2d');
             const texture = this.loadedTextures[this.selectedTexture];
             
+            // Get the target color at click position
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const pixels = imageData.data;
+            const startIndex = (Math.floor(worldY) * canvas.width + Math.floor(worldX)) * 4;
+            const targetR = pixels[startIndex];
+            const targetG = pixels[startIndex + 1];
+            const targetB = pixels[startIndex + 2];
+            const targetA = pixels[startIndex + 3];
+            
+            console.log(`[TextureFill] Target color at (${worldX}, ${worldY}): rgba(${targetR}, ${targetG}, ${targetB}, ${targetA})`);
+            
+            // Create mask canvas for flood fill area
+            const maskCanvas = document.createElement('canvas');
+            maskCanvas.width = canvas.width;
+            maskCanvas.height = canvas.height;
+            const maskCtx = maskCanvas.getContext('2d');
+            
+            // Flood fill the mask with white where we want texture
+            const stack = [[Math.floor(worldX), Math.floor(worldY)]];
+            const visited = new Set();
+            const maskData = maskCtx.createImageData(canvas.width, canvas.height);
+            
+            const matchesTarget = (x, y) => {
+                if (x < 0 || x >= canvas.width || y < 0 || y >= canvas.height) return false;
+                const i = (y * canvas.width + x) * 4;
+                return pixels[i] === targetR && 
+                       pixels[i + 1] === targetG && 
+                       pixels[i + 2] === targetB && 
+                       pixels[i + 3] === targetA;
+            };
+            
+            let pixelsFilled = 0;
+            const maxPixels = 10000000; // Safety limit (10 million pixels, enough for large maps)
+            
+            while (stack.length > 0 && pixelsFilled < maxPixels) {
+                const [x, y] = stack.pop();
+                const key = `${x},${y}`;
+                
+                if (visited.has(key)) continue;
+                visited.add(key);
+                
+                if (!matchesTarget(x, y)) continue;
+                
+                // Mark this pixel in the mask
+                const i = (y * canvas.width + x) * 4;
+                maskData.data[i] = 255;     // R
+                maskData.data[i + 1] = 255; // G
+                maskData.data[i + 2] = 255; // B
+                maskData.data[i + 3] = 255; // A
+                pixelsFilled++;
+                
+                // Add neighbors
+                stack.push([x + 1, y]);
+                stack.push([x - 1, y]);
+                stack.push([x, y + 1]);
+                stack.push([x, y - 1]);
+            }
+            
+            if (pixelsFilled === 0) {
+                console.log('[TextureFill] No pixels to fill');
+                return;
+            }
+            
+            // Put mask data on mask canvas
+            maskCtx.putImageData(maskData, 0, 0);
+            
+            // Create temp canvas with texture pattern
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Fill with texture pattern
+            const pattern = tempCtx.createPattern(texture, 'repeat');
+            tempCtx.fillStyle = pattern;
+            tempCtx.globalAlpha = this.brushOpacity;
+            tempCtx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Apply mask using destination-in
+            tempCtx.globalCompositeOperation = 'destination-in';
+            tempCtx.globalAlpha = 1.0;
+            tempCtx.drawImage(maskCanvas, 0, 0);
+            
+            // Draw masked texture onto main canvas
             ctx.save();
-            const pattern = ctx.createPattern(texture, 'repeat');
-            ctx.fillStyle = pattern;
-            ctx.globalAlpha = this.brushOpacity;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.drawImage(tempCanvas, 0, 0);
             ctx.restore();
             
-            console.log(`[EditorManager] Filled texture layer for map ${mapId}`);
+            // Invalidate WebGL texture cache
+            if (this.game?.renderSystem?.webglRenderer) {
+                const activeLayerId = this.game.layerManager?.activeLayerId;
+                if (activeLayerId) {
+                    this.game.renderSystem.webglRenderer.invalidateTexture(`paint_canvas_${activeLayerId}`);
+                }
+            }
+            
+            console.log(`[EditorManager] Flood filled texture area for map ${mapId}: ${pixelsFilled} pixels`);
         }
     }
 
@@ -2682,8 +2926,18 @@ class EditorManager {
                 });
             }
             
-            // Execute fill
-            this.fillLayer(mapId);
+            // Execute flood fill at mouse position with spinner
+            this.showFillSpinner();
+            
+            // Use setTimeout to allow spinner to render before heavy computation
+            setTimeout(() => {
+                try {
+                    this.fillArea(this.mouseWorldX, this.mouseWorldY, mapId);
+                } finally {
+                    this.hideFillSpinner();
+                }
+            }, 50); // Small delay to ensure spinner renders
+            
             return; // Don't set isPainting for fill action
         }
         

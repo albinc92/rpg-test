@@ -3435,11 +3435,11 @@ class EditorUI {
                     brushShapeSection.style.display = 'block';
                     toolActionSection.style.display = 'block';
                 } else {
-                    // Texture mode: show texture, style, opacity, and tool actions, hide brush shape
+                    // Texture mode: show all options
                     textureSection.style.display = 'block';
                     brushStyleSection.style.display = 'block';
                     opacitySection.style.display = 'block';
-                    brushShapeSection.style.display = 'none';
+                    brushShapeSection.style.display = 'block';
                     toolActionSection.style.display = 'block';
                 }
             };
@@ -3597,9 +3597,9 @@ class EditorUI {
         };
         opacitySection.appendChild(opacitySlider);
         
-        // Brush Shape Section (only for collision mode)
+        // Brush Shape Section (for all paint modes)
         const brushShapeSection = document.createElement('div');
-        brushShapeSection.style.display = this.editor.paintMode === 'collision' ? 'block' : 'none';
+        brushShapeSection.style.display = 'block'; // Show for all modes
         
         const brushShapeLabel = document.createElement('div');
         brushShapeLabel.textContent = 'Brush Shape:';
