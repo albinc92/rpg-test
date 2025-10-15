@@ -266,12 +266,15 @@ class Spirit extends Actor {
         // Determine if we should flip horizontally
         const shouldFlip = this.direction === 'right';
         
-        // Draw shadow using GameObject's shadow rendering (handles WebGL/Canvas2D automatically)
-        // Altitude offset is 0 since floating spirits' shadows stay on ground
-        if (this.castsShadow) {
-            this.renderShadow(ctx, game, scaledWidth, scaledHeight, 0, webglRenderer);
+        // SHADOW PASS: If in shadow rendering mode, only render shadows
+        if (webglRenderer && webglRenderer.renderingShadows) {
+            if (this.castsShadow) {
+                this.renderShadow(ctx, game, scaledWidth, scaledHeight, 0, webglRenderer);
+            }
+            return; // Skip sprite rendering during shadow pass
         }
         
+        // SPRITE PASS: Render sprite normally (shadows already composited)
         // Use WebGL for rendering (same as StaticObject)
         if (webglRenderer && webglRenderer.initialized) {
             // Draw sprite

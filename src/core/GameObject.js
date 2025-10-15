@@ -154,13 +154,16 @@ class GameObject {
         // Calculate altitude offset (scaled with resolution only)
         const altitudeOffset = this.altitude * resolutionScale;
         
-        // Draw shadow first (if object casts shadows AND map has day/night cycle)
-        const hasDayNightCycle = game?.currentMap?.dayNightCycle && game?.dayNightCycle;
-        if (this.castsShadow && hasDayNightCycle) {
-            this.renderShadow(ctx, game, scaledWidth, scaledHeight, altitudeOffset, webglRenderer);
+        // SHADOW PASS: If in shadow rendering mode, only render shadows
+        if (webglRenderer && webglRenderer.renderingShadows) {
+            const hasDayNightCycle = game?.currentMap?.dayNightCycle && game?.dayNightCycle;
+            if (this.castsShadow && hasDayNightCycle) {
+                this.renderShadow(ctx, game, scaledWidth, scaledHeight, altitudeOffset, webglRenderer);
+            }
+            return; // Skip sprite rendering during shadow pass
         }
         
-        // Draw sprite - use WebGL if available, otherwise Canvas2D
+        // SPRITE PASS: Render sprite normally (shadows already composited from shadow pass)
         this.renderSprite(ctx, game, scaledWidth, scaledHeight, altitudeOffset, webglRenderer);
     }
     

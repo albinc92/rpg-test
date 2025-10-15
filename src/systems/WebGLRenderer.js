@@ -28,6 +28,11 @@ class WebGLRenderer {
         this.viewMatrix = null;
         this.projectionMatrix = null;
         
+        // Shadow framebuffer for non-stacking shadows
+        this.shadowFramebuffer = null;
+        this.shadowTexture = null;
+        this.renderingShadows = false;
+        
         this.initialize();
     }
     
@@ -57,12 +62,46 @@ class WebGLRenderer {
             }
             
             this.createBuffers();
+            this.createShadowFramebuffer();
             this.updateProjection(this.logicalWidth, this.logicalHeight);
             this.initialized = true;
             
         } catch (error) {
             console.error('WebGL init failed:', error);
         }
+    }
+    
+    createShadowFramebuffer() {
+        // Create framebuffer for shadow rendering (prevents shadow stacking)
+        this.shadowFramebuffer = this.gl.createFramebuffer();
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.shadowFramebuffer);
+        
+        // Create texture to render shadows to
+        this.shadowTexture = this.gl.createTexture();
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.shadowTexture);
+        this.gl.texImage2D(
+            this.gl.TEXTURE_2D, 0, this.gl.RGBA,
+            this.logicalWidth, this.logicalHeight, 0,
+            this.gl.RGBA, this.gl.UNSIGNED_BYTE, null
+        );
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+        
+        // Attach texture to framebuffer
+        this.gl.framebufferTexture2D(
+            this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0,
+            this.gl.TEXTURE_2D, this.shadowTexture, 0
+        );
+        
+        // Check framebuffer is complete
+        if (this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER) !== this.gl.FRAMEBUFFER_COMPLETE) {
+            console.error('Shadow framebuffer incomplete');
+        }
+        
+        // Unbind
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     }
     
     createSpriteShader() {
@@ -201,6 +240,92 @@ class WebGLRenderer {
         this.batchTexCoords = [];
         this.currentBatchSize = 0;
         this.currentTexture = null;
+    }
+    
+    beginShadowPass() {
+        if (!this.initialized || !this.shadowFramebuffer) return;
+        
+        // Flush any pending draws
+        this.flush();
+        
+        // Switch to shadow framebuffer
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.shadowFramebuffer);
+        this.gl.clearColor(0, 0, 0, 0);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        
+        // Use separate blend equations for RGB and Alpha
+        // RGB: Normal alpha blending
+        // Alpha: MAX blending to prevent shadow stacking
+        if (this.gl.blendEquationSeparate && this.gl.blendFuncSeparate) {
+            // RGB channels: normal alpha blend (FUNC_ADD with SRC_ALPHA, ONE_MINUS_SRC_ALPHA)
+            // Alpha channel: MAX blend (take maximum alpha, don't add)
+            this.gl.blendEquationSeparate(this.gl.FUNC_ADD, this.gl.MAX);
+            this.gl.blendFuncSeparate(
+                this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA,  // RGB: normal alpha blend
+                this.gl.ONE, this.gl.ONE                          // Alpha: MAX blend (ignored when using MAX equation)
+            );
+        } else {
+            // Fallback: use standard blending (will have stacking)
+            console.warn('Separate blend equations not supported, shadows may stack');
+            this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+        }
+        
+        this.renderingShadows = true;
+    }
+    
+    endShadowPass() {
+        if (!this.initialized || !this.shadowFramebuffer) return;
+        
+        // Flush shadow draws
+        this.flush();
+        
+        // Restore normal alpha blending for both RGB and Alpha
+        this.gl.blendEquation(this.gl.FUNC_ADD);
+        this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+        
+        // Switch back to main framebuffer
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        this.renderingShadows = false;
+        
+        // Composite shadow texture to main framebuffer
+        this.compositeShadows();
+    }
+    
+    compositeShadows() {
+        // Draw the shadow texture to the main framebuffer
+        // This composites all shadows at once, preventing stacking
+        const texture = this.shadowTexture;
+        if (!texture) return;
+        
+        // Save current state
+        const prevTexture = this.currentTexture;
+        const prevViewMatrix = this.viewMatrix;
+        
+        // Use identity view matrix (no camera transform for full-screen quad)
+        this.viewMatrix = this.createIdentityMatrix();
+        this.currentTexture = texture;
+        
+        // Draw full-screen quad with shadow texture
+        // IMPORTANT: Flip Y coordinates because framebuffer textures are upside down
+        this.batchVertices.push(
+            0, 0,
+            this.logicalWidth, 0,
+            this.logicalWidth, this.logicalHeight,
+            0, this.logicalHeight
+        );
+        this.batchTexCoords.push(
+            0, 1,  // Bottom-left (flipped from 0,0)
+            1, 1,  // Bottom-right (flipped from 1,0)
+            1, 0,  // Top-right (flipped from 1,1)
+            0, 0   // Top-left (flipped from 0,1)
+        );
+        this.currentBatchSize = 1;
+        
+        this.flush();
+        
+        // Restore state
+        this.currentTexture = prevTexture;
+        this.viewMatrix = prevViewMatrix;
     }
     
     endFrame() {

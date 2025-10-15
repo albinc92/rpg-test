@@ -456,6 +456,12 @@ class RenderSystem {
         // Sort by depth
         renderables.sort((a, b) => a.depth - b.depth);
         
+        // SHADOW PASS: Render all shadows to off-screen buffer (prevents stacking)
+        if (this.webglRenderer && this.webglRenderer.initialized) {
+            this.webglRenderer.beginShadowPass();
+            // Objects will check webglRenderer.renderingShadows flag and only render shadows
+        }
+        
         // Render with dimming if needed
         this.ctx.save();
         if (shouldDim) {
@@ -465,6 +471,11 @@ class RenderSystem {
         renderables.forEach(({ obj }) => {
             obj.render(this.ctx, game, this.webglRenderer);
         });
+        
+        // END SHADOW PASS: Composite shadows to main buffer
+        if (this.webglRenderer && this.webglRenderer.initialized && this.webglRenderer.renderingShadows) {
+            this.webglRenderer.endShadowPass();
+        }
         
         this.ctx.restore();
     }
