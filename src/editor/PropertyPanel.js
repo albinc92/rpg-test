@@ -1126,6 +1126,48 @@ class PropertyPanel {
             overflow: hidden;
         `;
 
+        // Determine object type and filter sprites accordingly
+        const objectType = obj.constructor.name;
+        const spritesByType = {
+            'NPC': [
+                'assets/npc/merchant-0.png',
+                'assets/npc/sage-0.png',
+                'assets/npc/main-0.png',
+            ],
+            'Spirit': [
+                'assets/npc/Spirits/sylphie.png',
+                'assets/npc/Spirits/nythra.png',
+            ],
+            'Chest': [
+                'assets/npc/chest-0.png',
+                'assets/npc/chest-0-open.png',
+            ],
+            'Portal': [
+                'assets/npc/door-0.png',
+                'assets/npc/navigation-0.png',
+            ],
+            'StaticObject': [
+                'assets/objects/trees/tree-01.png',
+                'assets/objects/trees/tree-02.png',
+                'assets/objects/bushes/bush-01.png',
+                'assets/objects/rocks/rock-01.png',
+                'assets/objects/rocks/rock-02.png',
+            ],
+            'InteractiveObject': [
+                'assets/npc/sign-0.png',
+                'assets/npc/chest-0.png',
+                'assets/npc/door-0.png',
+            ],
+        };
+
+        // Get sprites for this object type, or show all if type not found
+        let availableSprites = spritesByType[objectType] || [];
+        
+        // If no specific sprites found, show all as fallback
+        if (availableSprites.length === 0) {
+            availableSprites = Object.values(spritesByType).flat();
+        }
+
         // Header
         const header = document.createElement('div');
         header.style.cssText = `
@@ -1138,7 +1180,7 @@ class PropertyPanel {
         `;
 
         const title = document.createElement('h3');
-        title.textContent = 'Select Sprite';
+        title.textContent = `Select Sprite (${objectType})`;
         title.style.cssText = `
             margin: 0;
             color: white;
@@ -1163,6 +1205,54 @@ class PropertyPanel {
         header.appendChild(title);
         header.appendChild(closeBtn);
 
+        // Filter toggle section
+        const filterSection = document.createElement('div');
+        filterSection.style.cssText = `
+            padding: 10px 20px;
+            background: #252525;
+            border-bottom: 1px solid #444;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        `;
+
+        const filterLabel = document.createElement('span');
+        filterLabel.textContent = 'Filter:';
+        filterLabel.style.cssText = `
+            color: #aaa;
+            font-size: 12px;
+        `;
+
+        const toggleBtn = document.createElement('button');
+        toggleBtn.textContent = `✓ ${objectType} Only`;
+        toggleBtn.style.cssText = `
+            padding: 5px 10px;
+            background: #4a9eff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        `;
+
+        let showingFiltered = true;
+        toggleBtn.onclick = () => {
+            showingFiltered = !showingFiltered;
+            toggleBtn.textContent = showingFiltered ? `✓ ${objectType} Only` : '📋 Show All';
+            toggleBtn.style.background = showingFiltered ? '#4a9eff' : '#666';
+            
+            // Rebuild grid with new filter
+            grid.innerHTML = '';
+            const spritesToShow = showingFiltered ? 
+                (spritesByType[objectType] || Object.values(spritesByType).flat()) : 
+                Object.values(spritesByType).flat();
+            
+            createSpriteCards(spritesToShow);
+        };
+
+        filterSection.appendChild(filterLabel);
+        filterSection.appendChild(toggleBtn);
+
         // Sprite grid container
         const gridContainer = document.createElement('div');
         gridContainer.style.cssText = `
@@ -1178,21 +1268,9 @@ class PropertyPanel {
             gap: 15px;
         `;
 
-        // Available sprite paths
-        const availableSprites = [
-            'assets/npc/merchant-0.png',
-            'assets/npc/sage-0.png',
-            'assets/npc/main-0.png',
-            'assets/npc/chest-0.png',
-            'assets/npc/chest-0-open.png',
-            'assets/npc/door-0.png',
-            'assets/npc/navigation-0.png',
-            'assets/npc/sign-0.png',
-            'assets/npc/Spirits/Sylphie00.png',
-        ];
-
-        // Create sprite cards
-        availableSprites.forEach(spritePath => {
+        // Function to create sprite cards
+        const createSpriteCards = (spritePaths) => {
+            spritePaths.forEach(spritePath => {
             const card = document.createElement('div');
             card.style.cssText = `
                 background: #2a2a2a;
@@ -1247,10 +1325,15 @@ class PropertyPanel {
             };
 
             grid.appendChild(card);
-        });
+            });
+        };
+
+        // Initial sprite card creation
+        createSpriteCards(availableSprites);
 
         gridContainer.appendChild(grid);
         modal.appendChild(header);
+        modal.appendChild(filterSection);
         modal.appendChild(gridContainer);
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
