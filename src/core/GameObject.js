@@ -55,6 +55,7 @@ class GameObject {
         // Collision behavior
         this.blocksMovement = options.blocksMovement !== false; // Default true - whether this object blocks other objects
         this.canBeBlocked = options.canBeBlocked !== false; // Default true - whether this object can be blocked by others
+        this.ignoresCollision = options.ignoresCollision || false; // Default false - if true, object ignores all collision but keeps collision box for z-index
         
         // Load sprite if provided
         if (this.spriteSrc) {
@@ -403,6 +404,9 @@ class GameObject {
     collidesWith(other, game) {
         if (!this.hasCollision || !other.hasCollision) return false;
         
+        // If either object ignores collision, return false (no collision)
+        if (this.ignoresCollision || other.ignoresCollision) return false;
+        
         // Use CollisionSystem for proper shape-aware collision detection
         if (game && game.collisionSystem) {
             return game.collisionSystem.checkCollision(this, other, game);
@@ -425,6 +429,9 @@ class GameObject {
     wouldCollideAt(x, y, other, game) {
         if (!this.hasCollision || !other.hasCollision) return false;
         if (!this.canBeBlocked || !other.blocksMovement) return false;
+        
+        // If either object ignores collision, return false (no collision)
+        if (this.ignoresCollision || other.ignoresCollision) return false;
         
         // Temporarily store current position
         const originalX = this.x;

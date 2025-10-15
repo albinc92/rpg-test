@@ -257,6 +257,36 @@ class PropertyPanel {
             shapeGroup.appendChild(radioContainer);
             section.appendChild(shapeGroup);
             
+            // Ignores Collision checkbox
+            const ignoresCollisionContainer = document.createElement('div');
+            ignoresCollisionContainer.style.cssText = 'margin-bottom: 10px; display: flex; align-items: center; gap: 8px;';
+            
+            const ignoresCheckbox = document.createElement('input');
+            ignoresCheckbox.type = 'checkbox';
+            ignoresCheckbox.checked = obj.ignoresCollision || false;
+            ignoresCheckbox.style.cssText = 'width: 18px; height: 18px; cursor: pointer;';
+            ignoresCheckbox.onchange = () => {
+                obj.ignoresCollision = ignoresCheckbox.checked;
+            };
+            
+            const ignoresLabel = document.createElement('label');
+            ignoresLabel.textContent = 'Ignores Collision';
+            ignoresLabel.style.cssText = 'font-size: 12px; cursor: pointer; user-select: none;';
+            ignoresLabel.onclick = () => {
+                ignoresCheckbox.checked = !ignoresCheckbox.checked;
+                obj.ignoresCollision = ignoresCheckbox.checked;
+            };
+            
+            ignoresCollisionContainer.appendChild(ignoresCheckbox);
+            ignoresCollisionContainer.appendChild(ignoresLabel);
+            section.appendChild(ignoresCollisionContainer);
+            
+            // Info text about ignores collision
+            const ignoresInfoText = document.createElement('div');
+            ignoresInfoText.textContent = 'When checked, object passes through others but keeps collision box for z-index rendering';
+            ignoresInfoText.style.cssText = 'font-size: 11px; color: #90caf9; margin-bottom: 12px; font-style: italic;';
+            section.appendChild(ignoresInfoText);
+            
             // Info text about oval shapes
             const infoText = document.createElement('div');
             infoText.textContent = 'Tip: Use Round + different expand % to create ovals';
