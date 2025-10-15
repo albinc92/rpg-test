@@ -188,7 +188,7 @@ class Spirit extends Actor {
     /**
      * Render spirit with ethereal effects
      */
-    render(ctx, game) {
+    render(ctx, game, webglRenderer) {
         // Debug: Log render calls (only log once per spirit when loaded)
         if (this.spriteLoaded && !this._renderLogged) {
             console.log(`[Spirit] Rendering ${this.name} - spriteLoaded: ${this.spriteLoaded}, auto-detected dimensions: ${this.spriteWidth}x${this.spriteHeight}, scale: ${this.scale}`);
@@ -264,7 +264,37 @@ class Spirit extends Actor {
             game.drawShadow(scaledX, scaledY, scaledWidth, scaledHeight, 0, this.sprite, shouldFlip);
         }
         
-        // Draw sprite with ethereal effects
+        // Render sprite centered at scaled position with floating animation
+        const screenX = scaledX - scaledWidth / 2;
+        const screenY = scaledY - scaledHeight / 2 - baseAltitude - floatingOffset;
+        
+        // Debug: Log draw call once
+        if (!this._drawLogged) {
+            console.log(`[Spirit] Drawing ${this.name} at screen(${Math.round(screenX)}, ${Math.round(screenY)}) from scaled(${Math.round(scaledX)}, ${Math.round(scaledY)}) size: ${Math.round(scaledWidth)}x${Math.round(scaledHeight)}`);
+            this._drawLogged = true;
+        }
+        
+        // Determine if we should flip horizontally
+        const shouldFlip = this.direction === 'right';
+        
+        // Use WebGL for rendering (same as StaticObject)
+        if (webglRenderer && webglRenderer.initialized) {
+            const imageUrl = this.sprite.src || `sprite_${this.id}`;
+            webglRenderer.drawSprite(
+                screenX, 
+                screenY, 
+                scaledWidth, 
+                scaledHeight, 
+                this.sprite, 
+                imageUrl,
+                1.0,        // alpha (WebGL doesn't support per-sprite alpha yet)
+                shouldFlip, // flipX
+                false       // flipY
+            );
+            return;
+        }
+        
+        // Fallback to Canvas2D when WebGL unavailable
         ctx.save();
         ctx.globalAlpha = spiritAlpha;
         
@@ -276,17 +306,7 @@ class Spirit extends Actor {
             ctx.shadowOffsetY = 0;
         }
         
-        // Render sprite centered at scaled position with floating animation
-        const screenX = scaledX - scaledWidth / 2;
-        const screenY = scaledY - scaledHeight / 2 - baseAltitude - floatingOffset;
-        
-        // Debug: Log draw call once
-        if (!this._drawLogged) {
-            console.log(`[Spirit] Drawing ${this.name} at screen(${Math.round(screenX)}, ${Math.round(screenY)}) from scaled(${Math.round(scaledX)}, ${Math.round(scaledY)}) size: ${Math.round(scaledWidth)}x${Math.round(scaledHeight)}`);
-            this._drawLogged = true;
-        }
-        
-        if (this.direction === 'right') {
+        if (shouldFlip) {
             ctx.translate(scaledX, scaledY - baseAltitude - floatingOffset);
             ctx.scale(-1, 1);
             ctx.drawImage(this.sprite, -scaledWidth / 2, -scaledHeight / 2, scaledWidth, scaledHeight);
