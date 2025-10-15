@@ -269,13 +269,14 @@ class WebGLRenderer {
      * @param {number} y - Shadow center Y (base of sprite)
      * @param {number} width - Shadow width
      * @param {number} height - Shadow height
-     * @param {Image} silhouetteImage - Pre-rendered black silhouette
+     * @param {Image} silhouetteImage - Pre-rendered black silhouette (already flipped if needed)
      * @param {string} imageUrl - Cache key for texture
      * @param {number} opacity - Shadow opacity (0-1)
      * @param {number} skewX - Horizontal skew factor for sun direction
      * @param {number} scaleY - Vertical scale (flatten shadow)
+     * @param {boolean} flipX - Whether sprite is flipped (for reference, silhouette already flipped)
      */
-    drawShadow(x, y, width, height, silhouetteImage, imageUrl, opacity, skewX, scaleY) {
+    drawShadow(x, y, width, height, silhouetteImage, imageUrl, opacity, skewX, scaleY, flipX = false) {
         if (!this.initialized || opacity <= 0.01) return;
         
         const texture = this.textures.get(imageUrl) || this.loadTexture(silhouetteImage, imageUrl);
@@ -310,7 +311,7 @@ class WebGLRenderer {
         // Push vertices: bottom-left, bottom-right, top-right, top-left
         this.batchVertices.push(x0, y0, x1, y1, x3, y3, x2, y2);
         
-        // Texture coordinates (normal, no flipping for shadows)
+        // Texture coordinates - silhouette is already flipped in the cache, so use normal coords
         this.batchTexCoords.push(0, 1, 1, 1, 1, 0, 0, 0);
         
         this.currentBatchSize++;

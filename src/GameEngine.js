@@ -1010,9 +1010,9 @@ class GameEngine {
     /**
      * Get cached sprite silhouette for shadows (performance optimization)
      */
-    getSpriteCache(sprite, width, height) {
-        // Create cache key from sprite src
-        const cacheKey = `${sprite.src}_${Math.round(width)}_${Math.round(height)}`;
+    getSpriteCache(sprite, width, height, flipX = false) {
+        // Create cache key from sprite src (include flip state)
+        const cacheKey = `${sprite.src}_${Math.round(width)}_${Math.round(height)}_${flipX}`;
         
         // Return cached silhouette if available
         if (this._spriteShadowCache && this._spriteShadowCache[cacheKey]) {
@@ -1024,7 +1024,7 @@ class GameEngine {
             this._spriteShadowCache = {};
         }
         
-        // Create silhouette canvas (only once per unique sprite/size)
+        // Create silhouette canvas (only once per unique sprite/size/flip combination)
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = width;
         tempCanvas.height = height;
@@ -1032,8 +1032,16 @@ class GameEngine {
         tempCtx.imageSmoothingEnabled = true;
         tempCtx.imageSmoothingQuality = 'high';
         
-        // Draw sprite
-        tempCtx.drawImage(sprite, 0, 0, width, height);
+        // Draw sprite with optional flip
+        if (flipX) {
+            tempCtx.save();
+            tempCtx.translate(width, 0);
+            tempCtx.scale(-1, 1);
+            tempCtx.drawImage(sprite, 0, 0, width, height);
+            tempCtx.restore();
+        } else {
+            tempCtx.drawImage(sprite, 0, 0, width, height);
+        }
         
         // Get image data and make it all black (preserve alpha)
         const imageData = tempCtx.getImageData(0, 0, width, height);
@@ -1056,7 +1064,7 @@ class GameEngine {
      * Draw shadow for game objects with dynamic direction based on time of day
      * Uses sprite silhouettes with skew/stretch (not rotation) for performance
      */
-    drawShadow(x, y, width, height, altitudeOffset = 0, sprite = null) {
+    drawShadow(x, y, width, height, altitudeOffset = 0, sprite = null, flipX = false) {
         const shadowProps = this.getShadowProperties();
         
         // Shadow opacity based on time of day and altitude
@@ -1075,8 +1083,8 @@ class GameEngine {
         const shadowY = y + (height / 2) + altitudeOffset; // Exact bottom of sprite
         
         if (sprite && sprite.complete && sprite.naturalWidth > 0) {
-            // SPRITE-BASED SHADOW: Use cached sprite silhouette
-            const silhouette = this.getSpriteCache(sprite, width, height);
+            // SPRITE-BASED SHADOW: Use cached sprite silhouette (already flipped if needed)
+            const silhouette = this.getSpriteCache(sprite, width, height, flipX);
             
             // Move to shadow position (base of sprite)
             this.ctx.translate(shadowX, shadowY);
@@ -1092,7 +1100,7 @@ class GameEngine {
             // The top is at y=-height, so it shifts by skewX * height
             this.ctx.transform(1, 0, shadowProps.skewX, 1, 0, 0); // Apply skew from base
             
-            // Draw the cached silhouette anchored at bottom center
+            // Draw the cached silhouette anchored at bottom center (no flip needed, already in cache)
             this.ctx.drawImage(silhouette, -width / 2, -height, width, height);
         } else {
             // FALLBACK: Simple elliptical shadow if sprite not ready

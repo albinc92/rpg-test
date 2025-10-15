@@ -170,6 +170,9 @@ class GameObject {
         const scaledX = this.getScaledX(game);
         const scaledY = this.getScaledY(game);
         
+        // Determine if sprite should be flipped (same logic as sprite rendering)
+        const shouldFlip = this.reverseFacing === true || this.direction === 'right';
+        
         // Use WebGL if available
         if (webglRenderer && webglRenderer.initialized) {
             // Get shadow properties from game engine
@@ -181,9 +184,9 @@ class GameObject {
             
             if (finalOpacity <= 0.01) return; // Don't draw invisible shadows
             
-            // Get cached sprite silhouette
-            const silhouette = game.getSpriteCache(this.sprite, width, height);
-            const imageUrl = `shadow_${this.sprite.src}_${Math.round(width)}_${Math.round(height)}`;
+            // Get cached sprite silhouette (including flip state in cache key)
+            const silhouette = game.getSpriteCache(this.sprite, width, height, shouldFlip);
+            const imageUrl = `shadow_${this.sprite.src}_${Math.round(width)}_${Math.round(height)}_${shouldFlip}`;
             
             // Calculate shadow position (base of sprite)
             const shadowX = scaledX;
@@ -199,11 +202,12 @@ class GameObject {
                 imageUrl,
                 finalOpacity,
                 shadowProps.skewX,
-                shadowProps.scaleY
+                shadowProps.scaleY,
+                shouldFlip
             );
         } else {
             // Fallback to Canvas2D
-            game.drawShadow(scaledX, scaledY, width, height, altitudeOffset, this.sprite);
+            game.drawShadow(scaledX, scaledY, width, height, altitudeOffset, this.sprite, shouldFlip);
         }
     }
     

@@ -259,7 +259,9 @@ class Spirit extends Actor {
         if (this.castsShadow && hasDayNightCycle) {
             // Shadow stays at ground level, not affected by floating
             // Pass sprite for pixel-perfect shadow, will use default opacity from time of day
-            game.drawShadow(scaledX, scaledY, scaledWidth, scaledHeight, 0, this.sprite);
+            // Flip shadow based on sprite direction
+            const shouldFlip = this.direction === 'right';
+            game.drawShadow(scaledX, scaledY, scaledWidth, scaledHeight, 0, this.sprite, shouldFlip);
         }
         
         // Draw sprite with ethereal effects
