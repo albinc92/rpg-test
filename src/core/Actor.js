@@ -69,19 +69,35 @@ class Actor extends GameObject {
                 this.x = newX;
                 this.y = newY;
             } else {
-                // Try sliding along walls by testing X and Y movement separately
-                const collisionX = game.checkActorCollisions(newX, this.y, this, game);
-                if (!collisionX.collides) {
-                    this.x = newX; // Can move horizontally
-                } else {
-                    this.velocityX = 0; // Stop horizontal movement
+                // Diagonal blocked - try sliding along walls by testing X and Y movement separately
+                let moved = false;
+                
+                // Try horizontal movement first
+                if (this.velocityX !== 0) {
+                    const collisionX = game.checkActorCollisions(newX, this.y, this, game);
+                    if (!collisionX.collides) {
+                        this.x = newX; // Can slide horizontally
+                        moved = true;
+                    } else {
+                        this.velocityX = 0; // Stop horizontal movement
+                    }
                 }
                 
-                const collisionY = game.checkActorCollisions(this.x, newY, this, game);
-                if (!collisionY.collides) {
-                    this.y = newY; // Can move vertically
-                } else {
-                    this.velocityY = 0; // Stop vertical movement
+                // Try vertical movement (even if horizontal succeeded)
+                if (this.velocityY !== 0) {
+                    const collisionY = game.checkActorCollisions(this.x, newY, this, game);
+                    if (!collisionY.collides) {
+                        this.y = newY; // Can slide vertically
+                        moved = true;
+                    } else {
+                        this.velocityY = 0; // Stop vertical movement
+                    }
+                }
+                
+                // If we couldn't move at all, we're truly stuck - zero out velocity
+                if (!moved) {
+                    this.velocityX = 0;
+                    this.velocityY = 0;
                 }
             }
         } else {

@@ -1211,21 +1211,22 @@ class GameEngine {
         const width = imageData.width;
         const height = imageData.height;
         
-        // Convert logical coordinates to render coordinates (same as painting uses)
-        const mapScale = game.currentMap?.scale || 1.0;
-        const resolutionScale = game.resolutionScale || 1.0;
-        const coordinateScale = mapScale * resolutionScale;
-        
-        // Get actor's collision bounds (NOT sprite bounds)
+        // Get actor's collision bounds (already in scaled/canvas space!)
         const collisionBounds = movingActor.getCollisionBounds(game);
         
         // Calculate what the collision bounds would be if actor were at newX, newY
+        // newX and newY are in LOGICAL space, so we need to scale them
+        const mapScale = game.currentMap?.scale || 1.0;
+        const resolutionScale = game.resolutionScale || 1.0;
+        const scaledNewX = newX * mapScale * resolutionScale;
+        const scaledNewY = newY * mapScale * resolutionScale;
+        
         const currentX = movingActor.getScaledX(game);
         const currentY = movingActor.getScaledY(game);
-        const deltaX = newX - currentX;
-        const deltaY = newY - currentY;
+        const deltaX = scaledNewX - currentX;
+        const deltaY = scaledNewY - currentY;
         
-        // Offset collision bounds to new position
+        // Offset collision bounds to new position (already in canvas space)
         const boundsAtNewPos = {
             x: collisionBounds.x + deltaX,
             y: collisionBounds.y + deltaY,
@@ -1237,11 +1238,11 @@ class GameEngine {
             bottom: collisionBounds.bottom + deltaY
         };
         
-        // Convert collision bounds to canvas space
-        const canvasLeft = boundsAtNewPos.left * coordinateScale;
-        const canvasRight = boundsAtNewPos.right * coordinateScale;
-        const canvasTop = boundsAtNewPos.top * coordinateScale;
-        const canvasBottom = boundsAtNewPos.bottom * coordinateScale;
+        // Bounds are already in canvas pixel space - no need to multiply again!
+        const canvasLeft = boundsAtNewPos.left;
+        const canvasRight = boundsAtNewPos.right;
+        const canvasTop = boundsAtNewPos.top;
+        const canvasBottom = boundsAtNewPos.bottom;
         const canvasCenterX = (canvasLeft + canvasRight) / 2;
         const canvasCenterY = (canvasTop + canvasBottom) / 2;
         
@@ -1274,16 +1275,13 @@ class GameEngine {
             const b = data[pixelIndex + 2];
             const a = data[pixelIndex + 3];
             
-            // Debug: Log what we're checking (throttled)
-            if (!this._lastDebugLog || Date.now() - this._lastDebugLog > 2000) {
-                console.log(`🔍 [Collision Check] Using collision bounds: ${boundsAtNewPos.width.toFixed(1)}x${boundsAtNewPos.height.toFixed(1)} at (${newX.toFixed(1)}, ${newY.toFixed(1)}) -> Canvas center (${canvasCenterX.toFixed(1)}, ${canvasCenterY.toFixed(1)}) -> Pixel (${point.x}, ${point.y}) = RGBA(${r},${g},${b},${a})`);
-                this._lastDebugLog = Date.now();
-            }
-            
             // Check if pixel is red (painted collision) with alpha > 0
             // Painted collision is solid red: rgba(255, 0, 0, 1.0)
             if (r > 200 && g < 50 && b < 50 && a > 200) {
-                console.log(`🚫 [Collision] BLOCKED! Collision bounds ${boundsAtNewPos.width.toFixed(1)}x${boundsAtNewPos.height.toFixed(1)} at world (${newX.toFixed(1)}, ${newY.toFixed(1)}) hit red pixel at (${point.x}, ${point.y})`);
+                // Only log 1% of collisions to avoid console spam
+                if (Math.random() < 0.01) {
+                    console.log(`🚫 [Collision] BLOCKED at world (${newX.toFixed(1)}, ${newY.toFixed(1)}) hit red pixel at (${point.x}, ${point.y})`);
+                }
                 return true; // Collision detected
             }
         }
