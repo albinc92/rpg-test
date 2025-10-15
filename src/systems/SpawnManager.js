@@ -431,8 +431,9 @@ class SpawnManager {
     
     /**
      * Find a valid spawn position within spawn zones (using cached positions)
+     * Now checks the full collision box to prevent spirits from spawning stuck
      */
-    findValidSpawnPosition(spiritId, maxAttempts = 30) {
+    findValidSpawnPosition(spiritId, maxAttempts = 50) {
         if (!this.spawnZoneCache || this.spawnZoneCache.length === 0) {
             console.warn(`[SpawnManager] No spawn zone cache available`);
             return null;
@@ -447,33 +448,48 @@ class SpawnManager {
             const x = spawnPoint.x + (Math.random() - 0.5) * 64;
             const y = spawnPoint.y + (Math.random() - 0.5) * 64;
             
-            // Check collision with existing objects and NPCs
-            if (this.hasCollisionAt(x, y)) {
+            // Check if spirit's collision box fits at this position
+            if (this.hasCollisionAt(x, y, spiritId)) {
                 continue;
             }
             
-            // Valid position found!
+            // Valid position found - collision box fits!
             return { x, y };
         }
         
-        // Fallback: return a random spawn point with offset even if there's a collision
-        // This ensures spirits can spawn even in crowded areas
-        const randomIndex = Math.floor(Math.random() * this.spawnZoneCache.length);
-        const fallbackPoint = this.spawnZoneCache[randomIndex];
-        console.log(`[SpawnManager] ⚠️ Using fallback spawn position after ${maxAttempts} attempts`);
-        return { 
-            x: fallbackPoint.x + (Math.random() - 0.5) * 64, 
-            y: fallbackPoint.y + (Math.random() - 0.5) * 64 
-        };
+        // If still no valid position after maxAttempts, try center points without offset
+        console.log(`[SpawnManager] ⚠️ No valid position found with offset, trying exact spawn points...`);
+        for (let attempt = 0; attempt < 20; attempt++) {
+            const randomIndex = Math.floor(Math.random() * this.spawnZoneCache.length);
+            const spawnPoint = this.spawnZoneCache[randomIndex];
+            
+            // Try exact spawn point without offset
+            if (!this.hasCollisionAt(spawnPoint.x, spawnPoint.y, spiritId)) {
+                console.log(`[SpawnManager] ✓ Found valid position at exact spawn point`);
+                return { x: spawnPoint.x, y: spawnPoint.y };
+            }
+        }
+        
+        // Last resort: return null to skip this spawn
+        console.warn(`[SpawnManager] ❌ Could not find valid spawn position for ${spiritId} after ${maxAttempts + 20} attempts - skipping spawn`);
+        return null;
     }
 
 
 
     /**
      * Check if there's a collision at the given position
+     * Now checks the spirit's full collision box against painted collision zones and other objects
      */
-    hasCollisionAt(x, y) {
-        const checkRadius = 48; // Minimum distance from objects/NPCs (increased for better spacing)
+    hasCollisionAt(x, y, spiritId) {
+        // Get spirit template to determine collision box size
+        const template = this.game.spiritRegistry?.getTemplate(spiritId);
+        
+        // Estimate spirit collision box size (spirits typically 64-128px with 30% collision)
+        // Use conservative estimate if template not available yet
+        const estimatedSpriteSize = 96; // Average spirit size
+        const collisionPercent = 0.3; // Spirits use 30% collision area
+        const collisionRadius = (estimatedSpriteSize * collisionPercent) / 2; // Half width for radius
         
         // Get map scale factors for proper coordinate comparison
         const mapData = this.game.mapManager.maps[this.currentMapId];
@@ -481,9 +497,57 @@ class SpawnManager {
         const resolutionScale = this.game.resolutionScale || 1.0;
         const combinedScale = mapScale * resolutionScale;
         
-        // Check collision with all objects on current map (using ObjectManager)
+        // 1. Check painted collision zones (red pixels) in collision layer
+        const collisionLayer = this.game.editorManager?.getCollisionLayer(this.currentMapId);
+        if (collisionLayer) {
+            if (!collisionLayer._cachedImageData || collisionLayer._dataDirty) {
+                const ctx = collisionLayer.getContext('2d');
+                collisionLayer._cachedImageData = ctx.getImageData(0, 0, collisionLayer.width, collisionLayer.height);
+                collisionLayer._dataDirty = false;
+            }
+            
+            const imageData = collisionLayer._cachedImageData;
+            const data = imageData.data;
+            const canvasWidth = collisionLayer.width;
+            
+            // Check multiple points around the spirit's collision circle
+            const checkPoints = 8; // Sample 8 points around the circle
+            for (let i = 0; i < checkPoints; i++) {
+                const angle = (i / checkPoints) * Math.PI * 2;
+                const checkX = Math.round(x + Math.cos(angle) * collisionRadius);
+                const checkY = Math.round(y + Math.sin(angle) * collisionRadius);
+                
+                // Also check center point
+                const pointsToCheck = i === 0 ? [{ x, y }, { x: checkX, y: checkY }] : [{ x: checkX, y: checkY }];
+                
+                for (const point of pointsToCheck) {
+                    // Bounds check
+                    if (point.x < 0 || point.x >= canvasWidth || point.y < 0 || point.y >= collisionLayer.height) {
+                        return true; // Out of bounds = collision
+                    }
+                    
+                    const pixelIndex = (Math.floor(point.y) * canvasWidth + Math.floor(point.x)) * 4;
+                    const r = data[pixelIndex];
+                    const g = data[pixelIndex + 1];
+                    const b = data[pixelIndex + 2];
+                    const a = data[pixelIndex + 3];
+                    
+                    // Check if pixel is red (collision zone)
+                    const isRed = (r > 200 && g < 50 && b < 50 && a > 128);
+                    if (isRed) {
+                        return true; // Collision with painted zone
+                    }
+                }
+            }
+        }
+        
+        // 2. Check collision with all objects on current map (using ObjectManager)
+        const minObjectDistance = collisionRadius + 32; // Spirit radius + safety margin
         const mapObjects = this.game.objectManager.getObjectsForMap(this.currentMapId);
         for (const obj of mapObjects) {
+            // Skip objects that don't block movement
+            if (!obj.blocksMovement) continue;
+            
             // Get object's scaled position for comparison
             const objX = obj.x * combinedScale;
             const objY = obj.y * combinedScale;
@@ -492,12 +556,12 @@ class SpawnManager {
             const dy = objY - y;
             const distance = Math.sqrt(dx * dx + dy * dy);
             
-            if (distance < checkRadius) {
-                return true;
+            if (distance < minObjectDistance) {
+                return true; // Too close to another object
             }
         }
         
-        // Check collision with player
+        // 3. Check collision with player (give extra space)
         if (this.game.player) {
             const playerX = this.game.player.x * combinedScale;
             const playerY = this.game.player.y * combinedScale;
@@ -506,12 +570,13 @@ class SpawnManager {
             const dy = playerY - y;
             const distance = Math.sqrt(dx * dx + dy * dy);
             
-            if (distance < checkRadius * 2) { // Give player more space
-                return true;
+            const minPlayerDistance = collisionRadius + 64; // Extra space around player
+            if (distance < minPlayerDistance) {
+                return true; // Too close to player
             }
         }
         
-        return false;
+        return false; // No collision detected
     }
 
     /**
