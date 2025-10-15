@@ -163,14 +163,13 @@ class RenderSystem {
         // Collect and sort all renderable objects by y position (for depth sorting)
         const renderables = [];
         
-        // Helper function to get render depth (bottom of sprite = feet position)
+        // Helper function to get render depth based on collision box center
+        // This ensures accurate depth sorting for both ground-based and floating objects
         const getDepth = (obj, game) => {
-            const finalScale = obj.getFinalScale(game);
-            const baseHeight = obj.spriteHeight || obj.fallbackHeight || 0;
-            const renderedHeight = baseHeight * finalScale;
-            // Return bottom of sprite using scaled position (y is center, so add half height)
-            const scaledY = obj.getScaledY(game);
-            return scaledY + (renderedHeight / 2);
+            // Get collision circle which returns the true center of the collision box
+            // This accounts for collision offsets and expansion, not just sprite center
+            const collisionCircle = obj.getCollisionCircle(game);
+            return collisionCircle.centerY;
         };
         
         // Add NPCs
