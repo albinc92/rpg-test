@@ -3510,6 +3510,29 @@ class EditorUI {
         
         scrollContent.appendChild(toolActionSection);
         
+        // Smooth Button
+        const smoothBtn = document.createElement('button');
+        smoothBtn.textContent = '✨ Smooth Edges';
+        smoothBtn.style.cssText = `
+            width: 100%;
+            padding: 10px;
+            margin-top: 8px;
+            background: #9b59b6;
+            color: white;
+            border: 1px solid #8e44ad;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+        `;
+        smoothBtn.onclick = () => {
+            console.log('[UI] Smooth button clicked!');
+            console.log('[UI] Editor:', this.editor);
+            console.log('[UI] Current map ID:', this.editor.game.currentMapId);
+            this.editor.smoothLayer(this.editor.game.currentMapId);
+        };
+        scrollContent.appendChild(smoothBtn);
+        
         // Add spacing
         const spacer = document.createElement('div');
         spacer.style.cssText = 'margin-bottom: 16px; clear: both;';

@@ -2364,9 +2364,223 @@ class EditorManager {
     }
 
     /**
+     * Smooth painted layer - rounds sharp edges and corners
+     */
+    smoothLayer(mapId) {
+        console.log('[EditorManager] smoothLayer called with mapId:', mapId, 'paintMode:', this.paintMode);
+        
+        let canvas;
+        let layerType;
+        
+        // Get the appropriate canvas based on paint mode
+        if (this.paintMode === 'collision') {
+            canvas = this.collisionLayers[mapId];
+            layerType = 'collision';
+            console.log('[EditorManager] Collision canvas:', canvas ? 'FOUND' : 'NOT FOUND');
+        } else if (this.paintMode === 'spawn') {
+            canvas = this.spawnLayers[mapId];
+            layerType = 'spawn';
+            console.log('[EditorManager] Spawn canvas:', canvas ? 'FOUND' : 'NOT FOUND');
+        } else {
+            canvas = this.getPaintLayer(mapId);
+            layerType = 'texture';
+            console.log('[EditorManager] Texture canvas:', canvas ? 'FOUND' : 'NOT FOUND');
+        }
+        
+        if (!canvas) {
+            console.error('[EditorManager] ❌ No canvas to smooth! Paint mode:', this.paintMode, 'MapId:', mapId);
+            alert('No painted layer found to smooth. Make sure you have painted something first!');
+            return;
+        }
+        
+        console.log(`[EditorManager] ✅ Starting smoothing on ${layerType} layer (${canvas.width}x${canvas.height})...`);
+        this.showFillSpinner('Smoothing Edges...');
+        
+        // Use setTimeout to allow spinner to render
+        setTimeout(() => {
+            try {
+                const ctx = canvas.getContext('2d');
+                const width = canvas.width;
+                const height = canvas.height;
+                
+                // VERY AGGRESSIVE SMOOTHING - multiple passes with large kernel
+                const kernelSize = 15; // MUCH larger kernel (15x15 = averaging 225 pixels!)
+                const numPasses = 3; // Multiple passes for extreme smoothing
+                const halfKernel = Math.floor(kernelSize / 2);
+                
+                console.log(`[Smooth] AGGRESSIVE smoothing: ${numPasses} passes with ${kernelSize}x${kernelSize} kernel`);
+                
+                let currentData = ctx.getImageData(0, 0, width, height);
+                
+                // Apply multiple blur passes for EXTREME smoothing
+                for (let pass = 0; pass < numPasses; pass++) {
+                    console.log(`[Smooth] Pass ${pass + 1}/${numPasses}...`);
+                    
+                    const inputData = currentData.data;
+                    const outputData = ctx.createImageData(width, height);
+                    const output = outputData.data;
+                    
+                    // Apply box blur
+                    for (let y = 0; y < height; y++) {
+                        for (let x = 0; x < width; x++) {
+                            let r = 0, g = 0, b = 0, a = 0;
+                            let count = 0;
+                            
+                            // Sample large kernel area
+                            for (let ky = -halfKernel; ky <= halfKernel; ky++) {
+                                for (let kx = -halfKernel; kx <= halfKernel; kx++) {
+                                    const px = x + kx;
+                                    const py = y + ky;
+                                    
+                                    // Check bounds
+                                    if (px >= 0 && px < width && py >= 0 && py < height) {
+                                        const i = (py * width + px) * 4;
+                                        r += inputData[i];
+                                        g += inputData[i + 1];
+                                        b += inputData[i + 2];
+                                        a += inputData[i + 3];
+                                        count++;
+                                    }
+                                }
+                            }
+                            
+                            // Average
+                            const outIndex = (y * width + x) * 4;
+                            output[outIndex] = r / count;
+                            output[outIndex + 1] = g / count;
+                            output[outIndex + 2] = b / count;
+                            output[outIndex + 3] = a / count;
+                        }
+                        
+                        // Progress feedback every 10%
+                        if (y % Math.floor(height / 10) === 0) {
+                            console.log(`[Smooth] Pass ${pass + 1} - ${Math.floor((y / height) * 100)}%`);
+                        }
+                    }
+                    
+                    currentData = outputData;
+                }
+                
+                // Put final smoothed data back
+                ctx.putImageData(currentData, 0, 0);
+                
+                console.log('[Smooth] All blur passes complete');
+                
+                // For collision and spawn zones, re-threshold to maintain solid colors
+                // (but keep the smooth edges from the blur)
+                if (this.paintMode === 'collision' || this.paintMode === 'spawn') {
+                    console.log('[Smooth] Applying threshold to maintain solid colors');
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const pixels = imageData.data;
+                    
+                    // Threshold at 50% to maintain the shape but with smoothed edges
+                    const threshold = 128;
+                    
+                    for (let i = 0; i < pixels.length; i += 4) {
+                        const alpha = pixels[i + 3];
+                        
+                        // Threshold: if alpha > 50%, make it fully opaque with target color
+                        if (alpha > threshold) {
+                            if (this.paintMode === 'collision') {
+                                pixels[i] = 255;     // R
+                                pixels[i + 1] = 0;   // G
+                                pixels[i + 2] = 0;   // B
+                            } else if (this.paintMode === 'spawn') {
+                                pixels[i] = 0;       // R
+                                pixels[i + 1] = 100; // G
+                                pixels[i + 2] = 255; // B
+                            }
+                            pixels[i + 3] = 255; // A
+                        } else {
+                            // Make fully transparent
+                            pixels[i + 3] = 0;
+                        }
+                    }
+                    
+                    ctx.putImageData(imageData, 0, 0);
+                    console.log('[Smooth] Threshold applied');
+                    
+                    // Mark as dirty for collision/spawn cache updates
+                    canvas._dataDirty = true;
+                    
+                    if (this.paintMode === 'spawn' && this.game.spawnManager) {
+                        this.game.spawnManager.invalidateSpawnZoneCache();
+                    }
+                }
+                
+                // Invalidate baked images so it re-renders from canvas
+                if (this.paintMode === 'collision') {
+                    canvas._imageReady = false;
+                    canvas._bakedImage = null;
+                    console.log('[Smooth] Invalidated collision baked image');
+                } else if (this.paintMode === 'spawn') {
+                    canvas._imageReady = false;
+                    canvas._bakedImage = null;
+                    console.log('[Smooth] Invalidated spawn baked image');
+                } else {
+                    const activeLayerId = this.game.layerManager?.activeLayerId;
+                    if (activeLayerId) {
+                        const layer = this.game.layerManager.getLayer(mapId, activeLayerId);
+                        if (layer) {
+                            layer.paintImageReady = false;
+                            layer.paintImage = null;
+                            console.log('[Smooth] Invalidated texture layer paint image');
+                        }
+                    }
+                }
+                
+                // Invalidate WebGL texture cache
+                if (this.game?.renderSystem?.webglRenderer) {
+                    if (this.paintMode === 'collision') {
+                        const key = `collision_layer_${mapId}`;
+                        this.game.renderSystem.webglRenderer.invalidateTexture(key);
+                        console.log('[Smooth] Invalidated WebGL texture:', key);
+                    } else if (this.paintMode === 'spawn') {
+                        const key = `spawn_layer_${mapId}`;
+                        this.game.renderSystem.webglRenderer.invalidateTexture(key);
+                        console.log('[Smooth] Invalidated WebGL texture:', key);
+                    } else {
+                        const activeLayerId = this.game.layerManager?.activeLayerId;
+                        if (activeLayerId) {
+                            const key = `paint_canvas_${activeLayerId}`;
+                            this.game.renderSystem.webglRenderer.invalidateTexture(key);
+                            console.log('[Smooth] Invalidated WebGL texture:', key);
+                        }
+                    }
+                }
+                
+                console.log(`[EditorManager] ✅ Smoothed ${layerType} layer - complete!`);
+                
+                // Optionally re-bake the layer for performance
+                if (this.paintMode === 'collision') {
+                    console.log('[Smooth] Re-baking collision layer...');
+                    this.bakeCollisionLayer(mapId);
+                } else if (this.paintMode === 'spawn') {
+                    console.log('[Smooth] Re-baking spawn layer...');
+                    this.bakeSpawnLayer(mapId);
+                } else {
+                    const activeLayerId = this.game.layerManager?.activeLayerId;
+                    if (activeLayerId) {
+                        console.log('[Smooth] Re-baking texture layer...');
+                        this.game.layerManager.bakeLayerPaint(mapId, activeLayerId);
+                    }
+                }
+                
+                alert(`Smoothing complete! The ${layerType} layer has been smoothed.`);
+            } catch (error) {
+                console.error('[EditorManager] ❌ Error smoothing layer:', error);
+                alert(`Error during smoothing: ${error.message}`);
+            } finally {
+                console.log('[EditorManager] Hiding spinner...');
+                this.hideFillSpinner();
+            }
+        }, 50);
+    }
+
+    /**
      * Show loading spinner for fill operations
      */
-    showFillSpinner() {
+    showFillSpinner(message = 'Processing Fill...') {
         // Remove any existing spinner
         this.hideFillSpinner();
         
@@ -2400,7 +2614,7 @@ class EditorManager {
                     font-family: Arial, sans-serif;
                     font-size: 18px;
                     font-weight: bold;
-                ">Processing Fill...</div>
+                ">${message}</div>
             </div>
         `;
         
