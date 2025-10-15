@@ -253,17 +253,6 @@ class Spirit extends Actor {
             spiritAlpha *= fadeProgress; // Multiply alpha by fade progress (0 to 1)
         }
         
-        // Draw shadow (very faint for spirits) at ground position
-        // Only render if map has day/night cycle enabled
-        const hasDayNightCycle = game?.currentMap?.dayNightCycle && game?.dayNightCycle;
-        if (this.castsShadow && hasDayNightCycle) {
-            // Shadow stays at ground level, not affected by floating
-            // Pass sprite for pixel-perfect shadow, will use default opacity from time of day
-            // Flip shadow based on sprite direction
-            const shouldFlip = this.direction === 'right';
-            game.drawShadow(scaledX, scaledY, scaledWidth, scaledHeight, 0, this.sprite, shouldFlip);
-        }
-        
         // Render sprite centered at scaled position with floating animation
         const screenX = scaledX - scaledWidth / 2;
         const screenY = scaledY - scaledHeight / 2 - baseAltitude - floatingOffset;
@@ -277,8 +266,15 @@ class Spirit extends Actor {
         // Determine if we should flip horizontally
         const shouldFlip = this.direction === 'right';
         
+        // Draw shadow using GameObject's shadow rendering (handles WebGL/Canvas2D automatically)
+        // Altitude offset is 0 since floating spirits' shadows stay on ground
+        if (this.castsShadow) {
+            this.renderShadow(ctx, game, scaledWidth, scaledHeight, 0, webglRenderer);
+        }
+        
         // Use WebGL for rendering (same as StaticObject)
         if (webglRenderer && webglRenderer.initialized) {
+            // Draw sprite
             const imageUrl = this.sprite.src || `sprite_${this.id}`;
             webglRenderer.drawSprite(
                 screenX, 
@@ -295,6 +291,7 @@ class Spirit extends Actor {
         }
         
         // Fallback to Canvas2D when WebGL unavailable
+        
         ctx.save();
         ctx.globalAlpha = spiritAlpha;
         
