@@ -16,6 +16,10 @@ class SpawnManager {
         // Performance optimization: cache spawn zone positions
         this.spawnZoneCache = null; // Array of valid spawn positions {x, y}
         this.spawnZoneCacheValid = false;
+        
+        // Respawn system for continuous rotation
+        this.respawnQueue = []; // Queue of spirits waiting to respawn: {spiritId, respawnTime}
+        this.respawnDelay = 30000; // 30 seconds delay before respawning (configurable per map)
     }
 
     /**
@@ -39,6 +43,7 @@ class SpawnManager {
         // Load spawn configuration from map data
         this.spawnTable = mapData.spawnTable || [];
         this.spawnDensity = mapData.spawnDensity || 10; // Default 10 spirits
+        this.respawnDelay = mapData.respawnDelay || 30000; // Default 30 seconds (configurable per map)
         
         if (this.spawnTable.length === 0) {
             console.log(`[SpawnManager] ⚠️ No spawn table configured for map: ${mapId} - spawning disabled`);
@@ -84,12 +89,15 @@ class SpawnManager {
     }
 
     /**
-     * Update spawn manager - maintain spawn density
+     * Update spawn manager - maintain spawn density and handle respawns
      */
     update(deltaTime) {
         if (!this.enabled || !this.spawnTable.length) return;
         
         const now = Date.now();
+        
+        // Process respawn queue continuously (no interval needed for time-based checks)
+        this.processRespawnQueue(now);
         
         // Only check spawns every X seconds
         if (now - this.lastSpawnCheck < this.spawnCheckInterval) {
@@ -98,7 +106,7 @@ class SpawnManager {
         
         this.lastSpawnCheck = now;
         
-        // Clean up dead/removed spirits
+        // Clean up dead/removed spirits (this detects captures/defeats)
         this.cleanUpSpirits();
         
         // Count current active spirits
@@ -108,7 +116,7 @@ class SpawnManager {
         const currentTime = this.game.dayNightCycle?.timeOfDay || 12;
         const timeFormatted = `${Math.floor(currentTime).toString().padStart(2, '0')}:${Math.floor((currentTime % 1) * 60).toString().padStart(2, '0')}`;
         
-        // Spawn spirits to reach density
+        // Spawn spirits to reach density (initial spawns + respawns)
         const spawnNeeded = this.spawnDensity - currentCount;
         
         if (spawnNeeded > 0) {
@@ -119,6 +127,25 @@ class SpawnManager {
             
             for (let i = 0; i < spawnThisCheck; i++) {
                 this.spawnWeightedRandomSpirit();
+            }
+        }
+    }
+    
+    /**
+     * Process the respawn queue - respawn spirits that are ready
+     */
+    processRespawnQueue(now) {
+        // Check each queued spirit for respawn
+        for (let i = this.respawnQueue.length - 1; i >= 0; i--) {
+            const queueEntry = this.respawnQueue[i];
+            
+            if (now >= queueEntry.respawnTime) {
+                // Time to respawn this spirit!
+                console.log(`[SpawnManager] ♻️ Respawning ${queueEntry.spiritId} after cooldown`);
+                this.spawnSpirit(queueEntry.spiritId);
+                
+                // Remove from queue
+                this.respawnQueue.splice(i, 1);
             }
         }
     }
@@ -209,13 +236,33 @@ class SpawnManager {
     }
 
     /**
-     * Clean up dead/removed spirits from tracking
+     * Clean up dead/removed spirits from tracking and queue them for respawn
      */
     cleanUpSpirits() {
+        const now = Date.now();
+        const mapObjects = this.game.objectManager.getObjectsForMap(this.currentMapId);
+        
+        // Filter out removed spirits and queue them for respawn
         this.allSpawnedSpirits = this.allSpawnedSpirits.filter(spirit => {
-            // Check if spirit still exists in ObjectManager for current map
-            const mapObjects = this.game.objectManager.getObjectsForMap(this.currentMapId);
-            return mapObjects.includes(spirit);
+            const stillExists = mapObjects.includes(spirit);
+            
+            if (!stillExists) {
+                // Spirit was removed (captured/defeated) - queue for respawn
+                const spiritId = spirit.spiritId || spirit.templateId;
+                if (spiritId) {
+                    const respawnTime = now + this.respawnDelay;
+                    const respawnMinutes = (this.respawnDelay / 1000 / 60).toFixed(1);
+                    
+                    console.log(`[SpawnManager] 💀 ${spirit.name || spiritId} was removed - queuing for respawn in ${respawnMinutes}min`);
+                    
+                    this.respawnQueue.push({
+                        spiritId: spiritId,
+                        respawnTime: respawnTime
+                    });
+                }
+            }
+            
+            return stillExists;
         });
     }
 
@@ -477,10 +524,10 @@ class SpawnManager {
     }
     
     /**
-     * Clear all spawned spirits (called on map change)
+     * Clear all spawned spirits and respawn queue (called on map change)
      */
     clearSpawns() {
-        console.log(`[SpawnManager] Clearing ${this.allSpawnedSpirits.length} spawned spirits`);
+        console.log(`[SpawnManager] Clearing ${this.allSpawnedSpirits.length} spawned spirits and ${this.respawnQueue.length} queued respawns`);
         
         // Remove spawned spirits from ObjectManager
         this.allSpawnedSpirits.forEach(spirit => {
@@ -488,6 +535,7 @@ class SpawnManager {
         });
         
         this.allSpawnedSpirits = [];
+        this.respawnQueue = []; // Clear respawn queue on map change
         this.enabled = false;
         
         // Don't invalidate cache on map change - cache can be reused if returning to same map
@@ -505,12 +553,20 @@ class SpawnManager {
             spiritCounts[id] = (spiritCounts[id] || 0) + 1;
         });
         
+        const queuedCounts = {};
+        this.respawnQueue.forEach(entry => {
+            queuedCounts[entry.spiritId] = (queuedCounts[entry.spiritId] || 0) + 1;
+        });
+        
         return {
             enabled: this.enabled,
             mapId: this.currentMapId,
             spawnDensity: this.spawnDensity,
+            respawnDelay: this.respawnDelay,
             totalSpawned: this.allSpawnedSpirits.length,
-            byType: spiritCounts
+            queuedRespawns: this.respawnQueue.length,
+            byType: spiritCounts,
+            queuedByType: queuedCounts
         };
     }
 
