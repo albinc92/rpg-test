@@ -83,6 +83,15 @@ class PropertyPanel {
                 obj.radius = value;
             }, 10, 0);
             
+            // Altitude property for lights (to match floating objects)
+            this.addNumberInput('Altitude', obj.altitude || 0, (value) => {
+                obj.altitude = value;
+                // Invalidate mask to update rendering immediately
+                if (this.editor.game.lightManager) {
+                    this.editor.game.lightManager.invalidateMask();
+                }
+            }, 1, 0);
+            
             // Color inputs
             this.addLabel('Color:');
             this.addNumberInput('  Red', obj.color.r, (value) => {

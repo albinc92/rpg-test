@@ -50,6 +50,7 @@ class LightManager {
                 templateName: lightData.templateName,
                 x: lightData.x,
                 y: lightData.y,
+                altitude: lightData.altitude || 0, // Load altitude
                 radius: lightData.radius,
                 color: { ...lightData.color },
                 flicker: { ...lightData.flicker },
@@ -205,9 +206,13 @@ class LightManager {
         const worldX = light.x * totalScale;
         const worldY = light.y * totalScale;
         
+        // Apply altitude offset if present (scaled by resolution)
+        // This ensures lights on floating objects (like spirits) are rendered at the correct height
+        const altitudeOffset = (light.altitude || 0) * resolutionScale;
+        
         // Convert world coordinates to screen coordinates
         const screenX = worldX - cameraX;
-        const screenY = worldY - cameraY;
+        const screenY = worldY - cameraY - altitudeOffset;
         
         // Calculate effective radius based on flicker
         const effectiveRadius = light.radius * light._currentIntensity;
@@ -298,9 +303,12 @@ class LightManager {
         const worldX = light.x * totalScale;
         const worldY = light.y * totalScale;
         
+        // Apply altitude offset if present (scaled by resolution)
+        const altitudeOffset = (light.altitude || 0) * resolutionScale;
+        
         // Convert world coordinates to screen coordinates
         const screenX = worldX - cameraX;
-        const screenY = worldY - cameraY;
+        const screenY = worldY - cameraY - altitudeOffset;
         
         // Calculate effective radius and alpha based on flicker
         const effectiveRadius = light.radius * light._currentIntensity;
@@ -360,6 +368,9 @@ class LightManager {
             const worldX = light.x * totalScale;
             const worldY = light.y * totalScale;
             
+            // Apply altitude offset if present
+            const altitudeOffset = (light.altitude || 0) * resolutionScale;
+            
             // Camera transform is ALREADY applied, so use world coordinates directly
             // (RenderSystem calls ctx.translate(-camera.x, -camera.y) before this)
             
@@ -368,7 +379,7 @@ class LightManager {
             ctx.drawImage(
                 this.previewSprite,
                 worldX - spriteSize / 2,
-                worldY - spriteSize / 2,
+                worldY - spriteSize / 2 - altitudeOffset,
                 spriteSize,
                 spriteSize
             );
@@ -444,6 +455,7 @@ class LightManager {
             templateName: light.templateName,
             x: light.x,
             y: light.y,
+            altitude: light.altitude || 0, // Export altitude
             radius: light.radius,
             color: { ...light.color },
             flicker: { ...light.flicker }

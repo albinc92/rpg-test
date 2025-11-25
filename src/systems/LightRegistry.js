@@ -108,6 +108,7 @@ class LightRegistry {
             templateName: templateName,
             x: x,
             y: y,
+            altitude: 0, // Default altitude
             radius: template.radius,
             color: { ...template.color },
             flicker: { ...template.flicker },

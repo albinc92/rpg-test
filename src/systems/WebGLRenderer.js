@@ -293,7 +293,10 @@ class WebGLRenderer {
                 
                 // APPLY LIGHT MASK LAST - lights completely bypass night effects
                 if (u_hasLightMask) {
-                    vec4 lightMaskColor = texture2D(u_lightMask, v_texCoord);
+                    // Flip Y coordinate for light mask because it's a Canvas2D upload (Top-Down)
+                    // while WebGL texture coordinates are Bottom-Up
+                    vec4 lightMaskColor = texture2D(u_lightMask, vec2(v_texCoord.x, 1.0 - v_texCoord.y));
+                    
                     // Light mask is usually white on black. Red channel is intensity.
                     // But wait, light mask texture might be flipped or not?
                     // Framebuffer textures are flipped Y relative to standard UVs.
