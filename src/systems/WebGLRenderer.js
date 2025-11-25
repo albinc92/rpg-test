@@ -73,6 +73,13 @@ class WebGLRenderer {
     
     createShadowFramebuffer() {
         // Create framebuffer for shadow rendering (prevents shadow stacking)
+        if (this.shadowFramebuffer) {
+            this.gl.deleteFramebuffer(this.shadowFramebuffer);
+        }
+        if (this.shadowTexture) {
+            this.gl.deleteTexture(this.shadowTexture);
+        }
+
         this.shadowFramebuffer = this.gl.createFramebuffer();
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.shadowFramebuffer);
         
@@ -250,6 +257,12 @@ class WebGLRenderer {
         
         // Switch to shadow framebuffer
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.shadowFramebuffer);
+        
+        // Set viewport to match shadow framebuffer size
+        // This is CRITICAL: if we don't do this, it uses the screen viewport
+        // which might be larger (High DPI) or different, causing shadows to drift or clip
+        this.gl.viewport(0, 0, this.logicalWidth, this.logicalHeight);
+        
         this.gl.clearColor(0, 0, 0, 0);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
         
@@ -285,6 +298,10 @@ class WebGLRenderer {
         
         // Switch back to main framebuffer
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        
+        // Restore viewport to full canvas size
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        
         this.renderingShadows = false;
         
         // Composite shadow texture to main framebuffer
@@ -708,5 +725,11 @@ class WebGLRenderer {
         this.logicalWidth = logicalWidth;
         this.logicalHeight = logicalHeight;
         this.updateProjection(logicalWidth, logicalHeight);
+        
+        // Recreate shadow framebuffer to match new dimensions
+        // This prevents shadow stretching/sliding when window size changes
+        if (this.initialized) {
+            this.createShadowFramebuffer();
+        }
     }
 }
