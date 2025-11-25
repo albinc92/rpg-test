@@ -46,6 +46,9 @@ class WebGLRenderer {
             darknessColor: [1, 1, 1]
         };
         
+        this.circleTexture = null;
+        this.glowTexture = null;
+        
         this.initialize();
     }
     
@@ -186,10 +189,11 @@ class WebGLRenderer {
             precision mediump float;
             uniform sampler2D u_texture;
             uniform float u_alpha;
+            uniform vec3 u_tint;
             varying vec2 v_texCoord;
             void main() {
                 vec4 color = texture2D(u_texture, v_texCoord);
-                gl_FragColor = vec4(color.rgb, color.a * u_alpha);
+                gl_FragColor = vec4(color.rgb * u_tint, color.a * u_alpha);
             }
         `;
         
@@ -213,7 +217,8 @@ class WebGLRenderer {
             projection: this.gl.getUniformLocation(this.spriteProgram, 'u_projection'),
             view: this.gl.getUniformLocation(this.spriteProgram, 'u_view'),
             texture: this.gl.getUniformLocation(this.spriteProgram, 'u_texture'),
-            alpha: this.gl.getUniformLocation(this.spriteProgram, 'u_alpha')
+            alpha: this.gl.getUniformLocation(this.spriteProgram, 'u_alpha'),
+            tint: this.gl.getUniformLocation(this.spriteProgram, 'u_tint')
         };
         
         return true;
@@ -752,6 +757,7 @@ class WebGLRenderer {
         this.gl.uniformMatrix4fv(this.spriteProgram.locations.projection, false, this.projectionMatrix);
         this.gl.uniformMatrix4fv(this.spriteProgram.locations.view, false, this.viewMatrix || this.createIdentityMatrix());
         this.gl.uniform1f(this.spriteProgram.locations.alpha, alpha);
+        this.gl.uniform3f(this.spriteProgram.locations.tint, 1.0, 1.0, 1.0);
         
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.batchVertices), this.gl.DYNAMIC_DRAW);
@@ -857,29 +863,10 @@ class WebGLRenderer {
     drawCircle(x, y, radius, color) {
         if (!this.initialized) return;
         
-        // Draw circle as a textured quad with white texture
-        // For performance, we'll just draw a square and use the white texture
-        // (proper circles would need a custom shader or more vertices)
-        
         this.flush();
         
-        if (!this.whiteTexture) {
-            const whitePixel = new ImageData(1, 1);
-            whitePixel.data[0] = 255;
-            whitePixel.data[1] = 255;
-            whitePixel.data[2] = 255;
-            whitePixel.data[3] = 255;
-            
-            const canvas = document.createElement('canvas');
-            canvas.width = 1;
-            canvas.height = 1;
-            const ctx = canvas.getContext('2d');
-            ctx.putImageData(whitePixel, 0, 0);
-            
-            this.whiteTexture = this.loadTexture(canvas, '__white__');
-        }
-        
-        this.currentTexture = this.whiteTexture;
+        // Use generated circle texture instead of white square
+        this.currentTexture = this.getCircleTexture();
         
         // Draw as a square (good enough for small particles)
         const halfSize = radius;
@@ -911,23 +898,8 @@ class WebGLRenderer {
         
         this.flush();
         
-        if (!this.whiteTexture) {
-            const whitePixel = new ImageData(1, 1);
-            whitePixel.data[0] = 255;
-            whitePixel.data[1] = 255;
-            whitePixel.data[2] = 255;
-            whitePixel.data[3] = 255;
-            
-            const canvas = document.createElement('canvas');
-            canvas.width = 1;
-            canvas.height = 1;
-            const ctx = canvas.getContext('2d');
-            ctx.putImageData(whitePixel, 0, 0);
-            
-            this.whiteTexture = this.loadTexture(canvas, '__white__');
-        }
-        
-        this.currentTexture = this.whiteTexture;
+        // Use circle texture for roundness
+        this.currentTexture = this.getCircleTexture();
         
         // Calculate rotated corners
         const cos = Math.cos(rotation);
@@ -974,6 +946,7 @@ class WebGLRenderer {
         this.gl.uniformMatrix4fv(this.spriteProgram.locations.projection, false, this.projectionMatrix);
         this.gl.uniformMatrix4fv(this.spriteProgram.locations.view, false, this.viewMatrix || this.createIdentityMatrix());
         this.gl.uniform1f(this.spriteProgram.locations.alpha, color[3]); // Use alpha from color
+        this.gl.uniform3f(this.spriteProgram.locations.tint, color[0], color[1], color[2]); // Use RGB from color
         
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.batchVertices), this.gl.DYNAMIC_DRAW);
@@ -1025,5 +998,119 @@ class WebGLRenderer {
             this.gl.deleteTexture(texture);
             this.textures.delete(url);
         }
+    }
+
+    /**
+     * Draw lens flare effect
+     * @param {number} sunX - Sun screen X (0-1)
+     * @param {number} sunY - Sun screen Y (0-1)
+     * @param {number} globalIntensity - Overall intensity multiplier (0-1)
+     */
+    drawLensFlare(sunX, sunY, globalIntensity = 1.0) {
+        if (!this.initialized) return;
+        
+        // Convert normalized coordinates to screen space
+        const sx = sunX * this.logicalWidth;
+        const sy = sunY * this.logicalHeight;
+        
+        // Center of screen
+        const cx = this.logicalWidth / 2;
+        const cy = this.logicalHeight / 2;
+        
+        // Vector from sun to center
+        const dx = cx - sx;
+        const dy = cy - sy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const maxDist = Math.sqrt(cx * cx + cy * cy);
+        
+        // Intensity fades as sun moves away from center (optional)
+        // or maybe just constant intensity when visible
+        const intensity = globalIntensity; // Math.max(0, 1.0 - (dist / maxDist));
+        
+        if (intensity <= 0.01) return;
+        
+        // Flush any pending draws to switch blend mode
+        this.flush();
+        
+        // Enable additive blending for lens flares
+        this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE);
+        
+        // Draw flare elements along the line
+        // Element 1: Large soft glow at sun position
+        this.drawGlow(sx, sy, 150, [1.0, 0.9, 0.7, 0.4 * intensity]);
+        
+        // Element 2: Small bright spot
+        this.drawGlow(sx + dx * 0.2, sy + dy * 0.2, 10, [1.0, 1.0, 0.8, 0.3 * intensity]);
+        
+        // Element 3: Hexagon/Circle artifact
+        this.drawGlow(sx + dx * 0.5, sy + dy * 0.5, 30, [0.8, 1.0, 0.8, 0.15 * intensity]);
+        
+        // Element 4: Distant large artifact
+        this.drawGlow(sx + dx * 1.2, sy + dy * 1.2, 60, [0.7, 0.6, 1.0, 0.1 * intensity]);
+        
+        // Element 5: Very distant small artifact
+        this.drawGlow(sx + dx * 1.5, sy + dy * 1.5, 20, [1.0, 0.9, 0.6, 0.2 * intensity]);
+        
+        // Flush flares
+        this.flush();
+        
+        // Restore normal blending
+        this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+    }
+
+    getCircleTexture() {
+        if (this.circleTexture) return this.circleTexture;
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = 64;
+        canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(32, 32, 30, 0, Math.PI * 2);
+        ctx.fill();
+        
+        this.circleTexture = this.loadTexture(canvas, '__circle__');
+        return this.circleTexture;
+    }
+
+    getGlowTexture() {
+        if (this.glowTexture) return this.glowTexture;
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = 64;
+        canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        
+        const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+        gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.5)');
+        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 64, 64);
+        
+        this.glowTexture = this.loadTexture(canvas, '__glow__');
+        return this.glowTexture;
+    }
+
+    drawGlow(x, y, radius, color) {
+        if (!this.initialized) return;
+        
+        this.flush();
+        this.currentTexture = this.getGlowTexture();
+        
+        const halfSize = radius;
+        this.batchVertices.push(
+            x - halfSize, y - halfSize,
+            x + halfSize, y - halfSize,
+            x + halfSize, y + halfSize,
+            x - halfSize, y + halfSize
+        );
+        
+        this.batchTexCoords.push(0, 0, 1, 0, 1, 1, 0, 1);
+        this.currentBatchSize++;
+        this.flushWithColor(color);
     }
 }

@@ -556,6 +556,44 @@ class DayNightCycle {
         console.log(`[DayNightCycle] ${this.enabled ? 'Enabled' : 'Disabled'}`);
         return this.enabled;
     }
+    
+    /**
+     * Get sun position (0-1 range for x, y)
+     * Returns null if sun is not visible
+     */
+    getSunPosition() {
+        const time = this.timeOfDay;
+        
+        // Sun visible from 6 AM to 6 PM (18:00)
+        if (time < 6 || time > 18) return null;
+        
+        // Calculate sun progress (0.0 at 6 AM, 1.0 at 6 PM)
+        const progress = (time - 6) / 12;
+        
+        // Sun moves from right to left (1.0 to 0.0) to match shadow logic (East=Right)
+        // 6 AM = Right (1.0), 6 PM = Left (0.0) - Full 180 degree arc
+        const x = 1.0 - progress;
+        
+        // Sun arc height (y position)
+        // Starts low (0.8), goes high (-0.2), ends low (0.8)
+        const arcHeight = Math.sin(progress * Math.PI);
+        const y = 0.8 - (arcHeight * 1.0); // 0.8 (horizon) to -0.2 (zenith)
+        
+        // Calculate flare intensity based on specific time windows
+        // Window 1: 8 AM - 10 AM (Morning)
+        // Window 2: 2 PM - 4 PM (Afternoon)
+        let intensity = 0;
+        
+        if (time >= 8 && time <= 10) {
+            // Fade in 8-9, fade out 9-10 (Sine wave peak at 9)
+            intensity = Math.sin(((time - 8) / 2) * Math.PI);
+        } else if (time >= 14 && time <= 16) {
+            // Fade in 14-15, fade out 15-16 (Sine wave peak at 15)
+            intensity = Math.sin(((time - 14) / 2) * Math.PI);
+        }
+        
+        return { x, y, intensity };
+    }
 }
 
 // Export

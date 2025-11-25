@@ -278,6 +278,25 @@ class RenderSystem {
             }
             
             this.webglRenderer.endFrame();
+
+            // Draw lens flare on top of everything (Screen Space)
+            // Only if sun is visible and weather is clear
+            if (game?.dayNightCycle) {
+                const weather = game.currentMap?.weather;
+                // Check if weather allows sun (not raining/snowing)
+                // Assuming 'none', 'clear', 'sunny' or null/undefined means clear weather
+                const isClearWeather = !weather || weather === 'none' || weather === 'clear' || weather === 'sunny';
+                
+                if (isClearWeather) {
+                    const sunPos = game.dayNightCycle.getSunPosition();
+                    if (sunPos) {
+                        // Reset camera to identity for screen-space rendering
+                        this.webglRenderer.setCamera(0, 0);
+                        // Pass calculated intensity (fades out at noon)
+                        this.webglRenderer.drawLensFlare(sunPos.x, sunPos.y, sunPos.intensity);
+                    }
+                }
+            }
         }
     }
     
