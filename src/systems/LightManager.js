@@ -120,26 +120,9 @@ class LightManager {
      * Update flicker animation
      */
     update(deltaTime) {
-        const time = performance.now() / 1000; // Convert to seconds
-        
+        // Animation disabled for performance/consolidation
         this.lights.forEach(light => {
-            if (light.flicker.enabled && light.flicker.intensity > 0) {
-                // Calculate flicker using sine wave with noise
-                const flickerSpeed = light.flicker.speed * 10; // Scale speed
-                const flickerWave = Math.sin(time * flickerSpeed + light._flickerOffset);
-                const flickerNoise = Math.sin(time * flickerSpeed * 3.7 + light._flickerOffset * 2) * 0.3;
-                
-                // Combine waves and apply intensity
-                const flicker = (flickerWave + flickerNoise) * light.flicker.intensity;
-                
-                // Current intensity: 1.0 ± flicker
-                light._currentIntensity = 1.0 + flicker;
-                
-                // Clamp to reasonable range
-                light._currentIntensity = Math.max(0.3, Math.min(1.3, light._currentIntensity));
-            } else {
-                light._currentIntensity = 1.0;
-            }
+            light._currentIntensity = 1.0;
         });
     }
     
@@ -194,7 +177,7 @@ class LightManager {
     }
     
     /**
-     * Render a single light to the mask (as white gradient)
+     * Render a single light to the mask (as colored gradient)
      */
     renderLightMask(ctx, light, cameraX, cameraY) {
         const game = this.game;
@@ -207,7 +190,6 @@ class LightManager {
         const worldY = light.y * totalScale;
         
         // Apply altitude offset if present (scaled by resolution)
-        // This ensures lights on floating objects (like spirits) are rendered at the correct height
         const altitudeOffset = (light.altitude || 0) * resolutionScale;
         
         // Convert world coordinates to screen coordinates
@@ -217,18 +199,24 @@ class LightManager {
         // Calculate effective radius based on flicker
         const effectiveRadius = light.radius * light._currentIntensity;
         
-        // Create radial gradient (white = light, transparent = no light)
+        // Create radial gradient
         const gradient = ctx.createRadialGradient(
             screenX, screenY, 0,
             screenX, screenY, effectiveRadius
         );
         
-        // White at center (full light intensity)
-        gradient.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
-        gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.9)');
-        gradient.addColorStop(0.6, 'rgba(255, 255, 255, 0.5)');
-        gradient.addColorStop(0.8, 'rgba(255, 255, 255, 0.2)');
-        gradient.addColorStop(1.0, 'rgba(255, 255, 255, 0)');
+        // Use light color
+        const r = light.color.r;
+        const g = light.color.g;
+        const b = light.color.b;
+        const a = light.color.a; // Intensity
+        
+        // Center: Full color
+        gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${a})`);
+        // Falloff
+        gradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${a * 0.5})`);
+        // Edge: Transparent
+        gradient.addColorStop(1.0, `rgba(${r}, ${g}, ${b}, 0)`);
         
         // Draw the light mask
         ctx.fillStyle = gradient;
@@ -250,42 +238,18 @@ class LightManager {
         
         // Regenerate mask if lights changed or not yet generated
         if (this.maskNeedsUpdate) {
-            console.log(`[LightManager] Regenerating light mask (${this.lights.length} lights)`);
+            // console.log(`[LightManager] Regenerating light mask (${this.lights.length} lights)`);
             this.generateLightMask(cameraX, cameraY, width, height);
-            
-            // DEBUG: Check if mask is all white (would explain no darkness)
-            const imageData = this.lightMaskCtx.getImageData(width/2, height/2, 1, 1);
-            const centerPixel = imageData.data;
-            console.log(`[LightManager] Mask center pixel: R=${centerPixel[0]} G=${centerPixel[1]} B=${centerPixel[2]} A=${centerPixel[3]}`);
-            
-            // Check a corner (should be black if lights are small)
-            const cornerData = this.lightMaskCtx.getImageData(10, 10, 1, 1);
-            const cornerPixel = cornerData.data;
-            console.log(`[LightManager] Mask corner pixel: R=${cornerPixel[0]} G=${cornerPixel[1]} B=${cornerPixel[2]} A=${cornerPixel[3]}`);
         }
         
         return this.lightMaskCanvas;
     }
     
     /**
-     * Render lights (now renders colored light glows on top of masked darkness)
-     * This adds the colored light effect after darkness has been properly masked
+     * Render lights (DEPRECATED: Now handled via shader mask)
      */
     render(ctx, cameraX, cameraY) {
-        if (this.lights.length === 0) return;
-        
-        // Save context state
-        ctx.save();
-        
-        // Use 'screen' blend mode to add colored light glow on top
-        ctx.globalCompositeOperation = 'screen';
-        
-        this.lights.forEach(light => {
-            this.renderLight(ctx, light, cameraX, cameraY);
-        });
-        
-        // Restore context state
-        ctx.restore();
+        // No-op: Rendering is now consolidated into the light mask shader
     }
     
     /**

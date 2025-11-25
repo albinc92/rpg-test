@@ -297,14 +297,14 @@ class WebGLRenderer {
                     // while WebGL texture coordinates are Bottom-Up
                     vec4 lightMaskColor = texture2D(u_lightMask, vec2(v_texCoord.x, 1.0 - v_texCoord.y));
                     
-                    // Light mask is usually white on black. Red channel is intensity.
-                    // But wait, light mask texture might be flipped or not?
-                    // Framebuffer textures are flipped Y relative to standard UVs.
-                    // We'll assume standard UVs work if we draw full screen quad correctly.
+                    // Component-wise mix to allow colored lights
+                    // If lightMask is (1,1,1), we get originalColor (full daylight)
+                    // If lightMask is (0,0,0), we get color (darkness)
+                    // If lightMask is (1,0,0), Red channel is original, G/B are darkness
                     
-                    float lightIntensity = lightMaskColor.r;
-                    // Mix between night-affected color and original daylight color
-                    color = mix(color, originalColor, lightIntensity);
+                    color.r = mix(color.r, originalColor.r, lightMaskColor.r);
+                    color.g = mix(color.g, originalColor.g, lightMaskColor.g);
+                    color.b = mix(color.b, originalColor.b, lightMaskColor.b);
                 }
                 
                 // Tint
