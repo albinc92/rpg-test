@@ -33,6 +33,19 @@ class WebGLRenderer {
         this.shadowTexture = null;
         this.renderingShadows = false;
         
+        // Scene framebuffer for post-processing (day/night cycle)
+        this.sceneFramebuffer = null;
+        this.sceneTexture = null;
+        this.postProcessProgram = null;
+        this.lightMaskTexture = null;
+        this.dayNightParams = {
+            brightness: 1.0,
+            saturation: 1.0,
+            temperature: 0.0,
+            tint: [0, 0, 0, 0],
+            darknessColor: [1, 1, 1]
+        };
+        
         this.initialize();
     }
     
@@ -61,8 +74,13 @@ class WebGLRenderer {
                 return;
             }
             
+            if (!this.createPostProcessShader()) {
+                console.warn('Failed to create post-process shader');
+            }
+            
             this.createBuffers();
             this.createShadowFramebuffer();
+            this.createSceneFramebuffer();
             this.updateProjection(this.logicalWidth, this.logicalHeight);
             this.initialized = true;
             
@@ -111,6 +129,46 @@ class WebGLRenderer {
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     }
     
+    createSceneFramebuffer() {
+        // Create framebuffer for scene rendering (allows post-processing)
+        if (this.sceneFramebuffer) {
+            this.gl.deleteFramebuffer(this.sceneFramebuffer);
+        }
+        if (this.sceneTexture) {
+            this.gl.deleteTexture(this.sceneTexture);
+        }
+
+        this.sceneFramebuffer = this.gl.createFramebuffer();
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.sceneFramebuffer);
+        
+        // Create texture to render scene to
+        this.sceneTexture = this.gl.createTexture();
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.sceneTexture);
+        this.gl.texImage2D(
+            this.gl.TEXTURE_2D, 0, this.gl.RGBA,
+            this.logicalWidth, this.logicalHeight, 0,
+            this.gl.RGBA, this.gl.UNSIGNED_BYTE, null
+        );
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+        
+        // Attach texture to framebuffer
+        this.gl.framebufferTexture2D(
+            this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0,
+            this.gl.TEXTURE_2D, this.sceneTexture, 0
+        );
+        
+        // Check framebuffer is complete
+        if (this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER) !== this.gl.FRAMEBUFFER_COMPLETE) {
+            console.error('Scene framebuffer incomplete');
+        }
+        
+        // Unbind
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    }
+
     createSpriteShader() {
         const vs = `
             attribute vec2 a_position;
@@ -156,6 +214,130 @@ class WebGLRenderer {
             view: this.gl.getUniformLocation(this.spriteProgram, 'u_view'),
             texture: this.gl.getUniformLocation(this.spriteProgram, 'u_texture'),
             alpha: this.gl.getUniformLocation(this.spriteProgram, 'u_alpha')
+        };
+        
+        return true;
+    }
+    
+    createPostProcessShader() {
+        const vs = `
+            attribute vec2 a_position;
+            attribute vec2 a_texCoord;
+            varying vec2 v_texCoord;
+            void main() {
+                gl_Position = vec4(a_position, 0.0, 1.0);
+                v_texCoord = a_texCoord;
+            }
+        `;
+        
+        const fs = `
+            precision mediump float;
+            
+            uniform sampler2D u_texture;
+            uniform sampler2D u_lightMask;
+            uniform bool u_hasLightMask;
+            uniform vec3 u_darknessColor;
+            uniform float u_brightness;
+            uniform float u_saturation;
+            uniform float u_temperature;
+            uniform vec4 u_tint;
+            
+            varying vec2 v_texCoord;
+            
+            void main() {
+                vec4 texColor = texture2D(u_texture, v_texCoord);
+                
+                // Skip processing for transparent pixels (background)
+                if (texColor.a < 0.001) {
+                    gl_FragColor = texColor;
+                    return;
+                }
+                
+                vec3 color = texColor.rgb;
+                // Un-premultiply alpha for processing if needed, but usually we work on RGB directly
+                // Assuming premultiplied alpha in texture
+                if (texColor.a > 0.0) {
+                    color = color / texColor.a;
+                }
+                
+                vec3 originalColor = color; // Save original for light areas
+                
+                // Apply darkness color multiplier
+                color *= u_darknessColor;
+                
+                // Apply brightness reduction
+                color *= u_brightness;
+                
+                // Fast desaturation (mix with grayscale)
+                float gray = dot(color, vec3(0.299, 0.587, 0.114));
+                color = mix(vec3(gray), color, u_saturation);
+                
+                // Apply temperature shift
+                if (u_temperature > 0.0) {
+                    // Warm (orange/red tint)
+                    color.r = mix(color.r, 1.0, u_temperature * 0.15);
+                    color.g = mix(color.g, color.g * 0.95, u_temperature * 0.1);
+                    color.b = mix(color.b, color.b * 0.8, u_temperature * 0.2);
+                } else if (u_temperature < 0.0) {
+                    // Cool (blue tint)
+                    float coolness = abs(u_temperature);
+                    color.r = mix(color.r, color.r * 0.8, coolness * 0.15);
+                    color.g = mix(color.g, color.g * 0.9, coolness * 0.1);
+                    color.b = mix(color.b, 1.0, coolness * 0.2);
+                }
+                
+                // APPLY LIGHT MASK LAST - lights completely bypass night effects
+                if (u_hasLightMask) {
+                    vec4 lightMaskColor = texture2D(u_lightMask, v_texCoord);
+                    // Light mask is usually white on black. Red channel is intensity.
+                    // But wait, light mask texture might be flipped or not?
+                    // Framebuffer textures are flipped Y relative to standard UVs.
+                    // We'll assume standard UVs work if we draw full screen quad correctly.
+                    
+                    float lightIntensity = lightMaskColor.r;
+                    // Mix between night-affected color and original daylight color
+                    color = mix(color, originalColor, lightIntensity);
+                }
+                
+                // Tint
+                if (u_tint.a > 0.0) {
+                    color = mix(color, u_tint.rgb, u_tint.a);
+                }
+                
+                color = clamp(color, 0.0, 1.0);
+                
+                // Re-premultiply alpha
+                color *= texColor.a;
+                
+                gl_FragColor = vec4(color, texColor.a);
+            }
+        `;
+        
+        const vertexShader = this.compileShader(vs, this.gl.VERTEX_SHADER);
+        const fragmentShader = this.compileShader(fs, this.gl.FRAGMENT_SHADER);
+        
+        if (!vertexShader || !fragmentShader) return false;
+        
+        this.postProcessProgram = this.gl.createProgram();
+        this.gl.attachShader(this.postProcessProgram, vertexShader);
+        this.gl.attachShader(this.postProcessProgram, fragmentShader);
+        this.gl.linkProgram(this.postProcessProgram);
+        
+        if (!this.gl.getProgramParameter(this.postProcessProgram, this.gl.LINK_STATUS)) {
+            return false;
+        }
+        
+        this.postProcessProgram.locations = {
+            position: this.gl.getAttribLocation(this.postProcessProgram, 'a_position'),
+            texCoord: this.gl.getAttribLocation(this.postProcessProgram, 'a_texCoord'),
+            texture: this.gl.getUniformLocation(this.postProcessProgram, 'u_texture'),
+            lightMask: this.gl.getUniformLocation(this.postProcessProgram, 'u_lightMask'),
+            hasLightMask: this.gl.getUniformLocation(this.postProcessProgram, 'u_hasLightMask'),
+            darknessColor: this.gl.getUniformLocation(this.postProcessProgram, 'u_darknessColor'),
+            brightness: this.gl.getUniformLocation(this.postProcessProgram, 'u_brightness'),
+            saturation: this.gl.getUniformLocation(this.postProcessProgram, 'u_saturation'),
+            temperature: this.gl.getUniformLocation(this.postProcessProgram, 'u_temperature'),
+            tint: this.gl.getUniformLocation(this.postProcessProgram, 'u_tint')
         };
         
         return true;
@@ -240,6 +422,12 @@ class WebGLRenderer {
     beginFrame(clearColor = [0, 0, 0, 0]) {
         if (!this.initialized) return;
         
+        // Bind scene framebuffer for off-screen rendering
+        if (this.sceneFramebuffer) {
+            this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.sceneFramebuffer);
+            this.gl.viewport(0, 0, this.logicalWidth, this.logicalHeight);
+        }
+        
         this.gl.clearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
         
@@ -296,11 +484,14 @@ class WebGLRenderer {
         this.gl.blendEquation(this.gl.FUNC_ADD);
         this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
         
-        // Switch back to main framebuffer
-        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-        
-        // Restore viewport to full canvas size
-        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        // Switch back to scene framebuffer (if active) or screen
+        if (this.sceneFramebuffer) {
+            this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.sceneFramebuffer);
+            this.gl.viewport(0, 0, this.logicalWidth, this.logicalHeight);
+        } else {
+            this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+            this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        }
         
         this.renderingShadows = false;
         
@@ -347,9 +538,98 @@ class WebGLRenderer {
     
     endFrame() {
         if (!this.initialized) return;
+        
+        // Flush any remaining sprites to the scene framebuffer
         this.flush();
+        
+        // If we don't have post-processing set up, just copy to screen (or we're already on screen if setup failed)
+        if (!this.sceneFramebuffer || !this.postProcessProgram) {
+            return;
+        }
+        
+        // Switch to default framebuffer (screen)
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        
+        this.gl.clearColor(0, 0, 0, 1);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        
+        // Use post-process shader
+        this.gl.useProgram(this.postProcessProgram);
+        
+        // Bind scene texture to unit 0
+        this.gl.activeTexture(this.gl.TEXTURE0);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.sceneTexture);
+        this.gl.uniform1i(this.postProcessProgram.locations.texture, 0);
+        
+        // Bind light mask to unit 1 (if available)
+        if (this.lightMaskTexture) {
+            this.gl.activeTexture(this.gl.TEXTURE1);
+            this.gl.bindTexture(this.gl.TEXTURE_2D, this.lightMaskTexture);
+            this.gl.uniform1i(this.postProcessProgram.locations.lightMask, 1);
+            this.gl.uniform1i(this.postProcessProgram.locations.hasLightMask, 1);
+        } else {
+            this.gl.uniform1i(this.postProcessProgram.locations.hasLightMask, 0);
+        }
+        
+        // Set day/night uniforms
+        const p = this.dayNightParams;
+        this.gl.uniform3fv(this.postProcessProgram.locations.darknessColor, p.darknessColor || [1, 1, 1]);
+        this.gl.uniform1f(this.postProcessProgram.locations.brightness, p.brightness !== undefined ? p.brightness : 1.0);
+        this.gl.uniform1f(this.postProcessProgram.locations.saturation, p.saturation !== undefined ? p.saturation : 1.0);
+        this.gl.uniform1f(this.postProcessProgram.locations.temperature, p.temperature || 0.0);
+        this.gl.uniform4fv(this.postProcessProgram.locations.tint, p.tint || [0, 0, 0, 0]);
+        
+        // Draw full-screen quad
+        // We reuse the vertex buffer from sprite rendering, but we need to fill it with a quad
+        // Since we're not using the sprite batching system here, we'll just manually set up attributes
+        // or simpler: just use the batch system but with a special "draw immediate" mode?
+        // No, let's just push a quad to the batch buffers and draw it using a custom draw call
+        // Wait, the sprite shader attributes might be different from post-process shader attributes?
+        // Let's check:
+        // Sprite: a_position, a_texCoord
+        // PostProcess: a_position, a_texCoord
+        // They match! So we can use the same buffers.
+        
+        const vertices = [
+            -1, -1,
+             1, -1,
+             1,  1,
+            -1,  1
+        ];
+        
+        const texCoords = [
+            0, 0,
+            1, 0,
+            1, 1,
+            0, 1
+        ];
+        
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(vertices), this.gl.STATIC_DRAW);
+        this.gl.enableVertexAttribArray(this.postProcessProgram.locations.position);
+        this.gl.vertexAttribPointer(this.postProcessProgram.locations.position, 2, this.gl.FLOAT, false, 0, 0);
+        
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.texCoordBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(texCoords), this.gl.STATIC_DRAW);
+        this.gl.enableVertexAttribArray(this.postProcessProgram.locations.texCoord);
+        this.gl.vertexAttribPointer(this.postProcessProgram.locations.texCoord, 2, this.gl.FLOAT, false, 0, 0);
+        
+        this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+        // We need to make sure index buffer has at least 6 indices (0,1,2, 0,2,3)
+        // The initialize() creates enough indices for maxBatchSize, so we are good.
+        
+        this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
     }
     
+    setDayNightParams(params) {
+        this.dayNightParams = { ...this.dayNightParams, ...params };
+    }
+    
+    setLightMask(texture) {
+        this.lightMaskTexture = texture;
+    }
+
     loadTexture(image, url) {
         if (this.textures.has(url)) {
             return this.textures.get(url);
@@ -372,14 +652,6 @@ class WebGLRenderer {
         
         this.textures.set(url, texture);
         return texture;
-    }
-    
-    invalidateTexture(url) {
-        const texture = this.textures.get(url);
-        if (texture) {
-            this.gl.deleteTexture(texture);
-            this.textures.delete(url);
-        }
     }
     
     drawSprite(x, y, width, height, image, imageUrl, alpha = 1.0, flipX = false, flipY = false) {
@@ -461,7 +733,7 @@ class WebGLRenderer {
         // Flush immediately with custom alpha
         this.flushWithAlpha(opacity);
     }
-    
+
     flush() {
         this.flushWithAlpha(1.0);
     }
@@ -726,10 +998,32 @@ class WebGLRenderer {
         this.logicalHeight = logicalHeight;
         this.updateProjection(logicalWidth, logicalHeight);
         
-        // Recreate shadow framebuffer to match new dimensions
-        // This prevents shadow stretching/sliding when window size changes
+        // Recreate framebuffers to match new dimensions
         if (this.initialized) {
             this.createShadowFramebuffer();
+            this.createSceneFramebuffer();
+        }
+    }
+
+    updateTexture(url, image) {
+        let texture = this.textures.get(url);
+        if (!texture) {
+            return this.loadTexture(image, url);
+        }
+        
+        this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+        // DON'T flip Y - images are already in correct orientation
+        this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, false);
+        this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, image);
+        
+        return texture;
+    }
+
+    invalidateTexture(url) {
+        let texture = this.textures.get(url);
+        if (texture) {
+            this.gl.deleteTexture(texture);
+            this.textures.delete(url);
         }
     }
 }

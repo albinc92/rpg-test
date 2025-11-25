@@ -147,6 +147,68 @@ class DayNightCycle {
     }
     
     /**
+     * Get shader parameters for the current time and weather
+     * Used by WebGLRenderer for post-processing
+     */
+    getShaderParams(weatherState = null) {
+        const params = {
+            brightness: 1.0,
+            saturation: 1.0,
+            temperature: 0.0,
+            tint: [0, 0, 0, 0],
+            darknessColor: [1, 1, 1]
+        };
+        
+        const timeOfDay = this.timeOfDay;
+        
+        let weatherDarkening = 0;
+        let weatherDesaturation = 0;
+        if (weatherState && weatherState.precipitation) {
+            if (weatherState.precipitation === 'rain-light' || weatherState.precipitation === 'snow-light') {
+                weatherDarkening = 0.15;
+                weatherDesaturation = 0.2;
+            } else if (weatherState.precipitation === 'rain-medium' || weatherState.precipitation === 'snow-medium') {
+                weatherDarkening = 0.3;
+                weatherDesaturation = 0.35;
+            } else if (weatherState.precipitation === 'rain-heavy' || weatherState.precipitation === 'snow-heavy') {
+                weatherDarkening = 0.5;
+                weatherDesaturation = 0.5;
+            }
+        }
+        
+        if ((timeOfDay >= 20 && timeOfDay < 24) || (timeOfDay >= 0 && timeOfDay < 5)) {
+            // Lighter night - you can actually see now
+            params.brightness = 0.55;
+            params.saturation = 0.6;
+            params.temperature = -0.5;
+        }
+        else if (timeOfDay >= 5 && timeOfDay < 8) {
+            const t = (timeOfDay - 5) / 3;
+            params.brightness = (0.55 + (t * 0.40)) * (1 - weatherDarkening);
+            params.saturation = (0.6 + (t * 0.4)) * (1 - weatherDesaturation);
+            params.temperature = -0.5 + (t * 0.6);
+        }
+        else if (timeOfDay >= 8 && timeOfDay < 17) {
+            const noonFactor = 1.0 - Math.abs((timeOfDay - 12) / 5) * 0.15;
+            params.brightness = (0.95 + (noonFactor * 0.05)) * (1 - weatherDarkening);
+            params.saturation = 1.0 * (1 - weatherDesaturation);
+            params.temperature = 0.1;
+        }
+        else if (timeOfDay >= 17 && timeOfDay < 20) {
+            const t = (timeOfDay - 17) / 3;
+            params.brightness = (0.90 - (t * 0.35)) * (1 - weatherDarkening);
+            params.saturation = (1.0 - (t * 0.4)) * (1 - weatherDesaturation);
+            params.temperature = 0.6 - (t * 1.1);
+        }
+        
+        // Calculate darkness color (legacy support, but useful for tinting)
+        const darkness = this.calculateDarknessColor(weatherState);
+        params.darknessColor = darkness;
+        
+        return params;
+    }
+
+    /**
      * Render day/night overlay on canvas with light mask support
      * WebGL-ONLY rendering with light mask integration
      */

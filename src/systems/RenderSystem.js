@@ -263,6 +263,20 @@ class RenderSystem {
         
         // Finalize WebGL frame (if using WebGL)
         if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+            // Update day/night shader params
+            if (game?.dayNightCycle) {
+                const params = game.dayNightCycle.getShaderParams();
+                this.webglRenderer.setDayNightParams(params);
+            }
+            
+            // Update light mask
+            if (lightMask) {
+                const texture = this.webglRenderer.updateTexture('__light_mask__', lightMask);
+                this.webglRenderer.setLightMask(texture);
+            } else {
+                this.webglRenderer.setLightMask(null);
+            }
+            
             this.webglRenderer.endFrame();
         }
     }
