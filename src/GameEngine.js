@@ -1079,8 +1079,9 @@ class GameEngine {
         // Calculate shadow position - ALWAYS at base of sprite (NO horizontal offset!)
         // The shadow base NEVER moves - only the top skews based on sun position
         // x, y is the CENTER of the sprite, so y + height/2 = bottom
+        // Shadow should always be at ground level, NOT affected by altitude
         const shadowX = x; // NO offsetX! Base stays put!
-        const shadowY = y + (height / 2) + altitudeOffset; // Exact bottom of sprite
+        const shadowY = y + (height / 2); // Exact bottom of sprite at ground level
         
         if (sprite && sprite.complete && sprite.naturalWidth > 0) {
             // SPRITE-BASED SHADOW: Use cached sprite silhouette (already flipped if needed)

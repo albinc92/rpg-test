@@ -193,8 +193,9 @@ class GameObject {
             const imageUrl = `shadow_${this.sprite.src}_${Math.round(width)}_${Math.round(height)}_${shouldFlip}`;
             
             // Calculate shadow position (base of sprite)
+            // Shadow should always be at ground level (scaledY + height/2), NOT affected by altitude
             const shadowX = scaledX;
-            const shadowY = scaledY + (height / 2) + altitudeOffset;
+            const shadowY = scaledY + (height / 2);
             
             // Draw shadow with WebGL
             webglRenderer.drawShadow(

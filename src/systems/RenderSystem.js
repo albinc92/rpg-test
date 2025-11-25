@@ -280,6 +280,17 @@ class RenderSystem {
         // In edit mode, non-active layers will be dimmed
         const layersToRender = layers.filter(layer => layer.visible);
         
+        // Prepare list of ALL objects for shadow rendering (Global Shadow Pass)
+        // This ensures all shadows are rendered in a single pass to prevent accumulation
+        const allShadowObjects = [...objects, ...npcs];
+        if (player) allShadowObjects.push(player);
+        
+        // Identify the bottom-most visible layer to render shadows on
+        // Assuming layers are sorted by zIndex (or at least the first one is bottom)
+        // If layers are not sorted, we should sort them or find min zIndex
+        const sortedLayers = [...layersToRender].sort((a, b) => a.zIndex - b.zIndex);
+        const bottomLayerId = sortedLayers.length > 0 ? sortedLayers[0].id : null;
+        
         // Render each layer from bottom to top
         layersToRender.forEach(layer => {
             this.ctx.save();
@@ -343,14 +354,32 @@ class RenderSystem {
             this.ctx.restore();
             
             // 3. Render objects on this layer (filtered by layerId)
-            const layerObjects = objects.filter(obj => obj.layerId === layer.id);
-            this.renderLayerObjects(layerObjects, npcs, player, game, layer, shouldDim);
+            const layerSpriteObjects = objects.filter(obj => obj.layerId === layer.id);
+            
+            // Add NPCs and player to top layer sprites only (or if no layer specified - legacy)
+            const isTopLayer = !layer || (layer && layer.zIndex === Math.max(...game.layerManager.getLayers(game.currentMapId).map(l => l.zIndex)));
+            const spriteObjects = [...layerSpriteObjects];
+            
+            if (isTopLayer) {
+                spriteObjects.push(...npcs);
+                if (player) spriteObjects.push(player);
+            }
+            
+            // Determine objects for shadows
+            // Render ALL shadows on the bottom-most visible layer ONLY
+            // This puts all shadows on the "ground" and prevents accumulation across layers
+            const shouldRenderShadows = layer.id === bottomLayerId;
+            const shadowObjects = shouldRenderShadows ? allShadowObjects : [];
+            
+            this.renderLayerObjects(spriteObjects, shadowObjects, game, layer, shouldDim);
         });
         
         // Render objects without layerId (legacy objects) - always on top
         const unassignedObjects = objects.filter(obj => !obj.layerId);
         if (unassignedObjects.length > 0) {
-            this.renderLayerObjects(unassignedObjects, npcs, player, game, null, false);
+            // If we haven't rendered shadows yet (e.g. no layers rendered?), render them now
+            // But usually layers cover everything. If unassigned objects exist, they are just sprites.
+            this.renderLayerObjects(unassignedObjects, [], game, null, false);
         }
         
         // Render collision layer (if editor has painted collision areas)
@@ -422,8 +451,26 @@ class RenderSystem {
     
     /**
      * Render objects on a specific layer with depth sorting
+     * @param {Array} spriteObjects - Objects to render sprites for
+     * @param {Array} shadowObjects - Objects to render shadows for (can be different list)
      */
-    renderLayerObjects(layerObjects, npcs, player, game, layer, shouldDim) {
+    renderLayerObjects(spriteObjects, shadowObjects, game, layer, shouldDim) {
+        // SHADOW PASS: Render shadows for ALL provided shadowObjects
+        // This is usually called only for the bottom layer with ALL game objects
+        if (this.webglRenderer && this.webglRenderer.initialized && shadowObjects && shadowObjects.length > 0) {
+            this.webglRenderer.beginShadowPass();
+            
+            // Render shadows for all objects in the shadow list
+            // No depth sorting needed for shadows as they are flattened and MAX blended
+            shadowObjects.forEach(obj => {
+                // Force render to only draw shadow (GameObject checks renderingShadows flag)
+                obj.render(this.ctx, game, this.webglRenderer);
+            });
+            
+            this.webglRenderer.endShadowPass();
+        }
+        
+        // SPRITE PASS: Render sprites for spriteObjects (depth sorted)
         const renderables = [];
         
         // Helper function to get render depth
@@ -435,32 +482,13 @@ class RenderSystem {
             return scaledY + (renderedHeight / 2);
         };
         
-        // Add layer objects
-        layerObjects.forEach(obj => {
+        // Add sprite objects to render list
+        spriteObjects.forEach(obj => {
             renderables.push({ obj: obj, depth: getDepth(obj, game) });
         });
         
-        // Add NPCs and player on top layer only (or if no layer specified - legacy)
-        const isTopLayer = !layer || (layer && layer.zIndex === Math.max(...game.layerManager.getLayers(game.currentMapId).map(l => l.zIndex)));
-        
-        if (isTopLayer) {
-            npcs.forEach(npc => {
-                renderables.push({ obj: npc, depth: getDepth(npc, game) });
-            });
-            
-            if (player) {
-                renderables.push({ obj: player, depth: getDepth(player, game) });
-            }
-        }
-        
         // Sort by depth
         renderables.sort((a, b) => a.depth - b.depth);
-        
-        // SHADOW PASS: Render all shadows to off-screen buffer (prevents stacking)
-        if (this.webglRenderer && this.webglRenderer.initialized) {
-            this.webglRenderer.beginShadowPass();
-            // Objects will check webglRenderer.renderingShadows flag and only render shadows
-        }
         
         // Render with dimming if needed
         this.ctx.save();
@@ -471,11 +499,6 @@ class RenderSystem {
         renderables.forEach(({ obj }) => {
             obj.render(this.ctx, game, this.webglRenderer);
         });
-        
-        // END SHADOW PASS: Composite shadows to main buffer
-        if (this.webglRenderer && this.webglRenderer.initialized && this.webglRenderer.renderingShadows) {
-            this.webglRenderer.endShadowPass();
-        }
         
         this.ctx.restore();
     }
