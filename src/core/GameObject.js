@@ -177,6 +177,7 @@ class GameObject {
         // Determine if sprite should be flipped (same logic as sprite rendering)
         const shouldFlip = this.reverseFacing === true || this.direction === 'right';
         
+        // 1. GLOBAL SUN/MOON SHADOW
         // Use WebGL if available
         if (webglRenderer && webglRenderer.initialized) {
             // Get shadow properties from game engine
@@ -186,30 +187,119 @@ class GameObject {
             const altitudeFade = Math.max(0, 1 - (altitudeOffset / 300));
             const finalOpacity = shadowProps.opacity * altitudeFade;
             
-            if (finalOpacity <= 0.01) return; // Don't draw invisible shadows
-            
-            // Get cached sprite silhouette (including flip state in cache key)
-            const silhouette = game.getSpriteCache(this.sprite, width, height, shouldFlip);
-            const imageUrl = `shadow_${this.sprite.src}_${Math.round(width)}_${Math.round(height)}_${shouldFlip}`;
-            
-            // Calculate shadow position (base of sprite)
-            // Shadow should always be at ground level (scaledY + height/2), NOT affected by altitude
-            const shadowX = scaledX;
-            const shadowY = scaledY + (height / 2);
-            
-            // Draw shadow with WebGL
-            webglRenderer.drawShadow(
-                shadowX,
-                shadowY,
-                width,
-                height,
-                silhouette,
-                imageUrl,
-                finalOpacity,
-                shadowProps.skewX,
-                shadowProps.scaleY,
-                shouldFlip
-            );
+            if (finalOpacity > 0.01) {
+                // Get cached sprite silhouette (including flip state in cache key)
+                const silhouette = game.getSpriteCache(this.sprite, width, height, shouldFlip);
+                const imageUrl = `shadow_${this.sprite.src}_${Math.round(width)}_${Math.round(height)}_${shouldFlip}`;
+                
+                // Calculate shadow position (base of sprite)
+                const shadowX = scaledX;
+                const shadowY = scaledY + (height / 2);
+                
+                // Draw shadow with WebGL
+                webglRenderer.drawShadow(
+                    shadowX,
+                    shadowY,
+                    width,
+                    height,
+                    silhouette,
+                    imageUrl,
+                    finalOpacity,
+                    shadowProps.skewX,
+                    shadowProps.scaleY,
+                    shouldFlip
+                );
+            }
+
+            // 2. DYNAMIC POINT LIGHT SHADOWS
+            // Check for nearby lights and cast shadows away from them
+            if (game.lightManager && game.lightManager.lights && game.lightManager.lights.length > 0) {
+                const lights = game.lightManager.lights;
+                const worldX = this.x; // Unscaled world pos
+                const worldY = this.y; // Unscaled world pos
+                
+                // Use a constant for shadow length calculation
+                // Higher value = longer shadows
+                const SHADOW_LENGTH_FACTOR = 40.0; 
+                
+                lights.forEach(light => {
+                    // Calculate vector from light to object
+                    const dx = worldX - light.x;
+                    const dy = worldY - light.y;
+                    const distSq = dx*dx + dy*dy;
+                    const radiusSq = light.radius * light.radius;
+                    
+                    // Only cast shadow if within light radius
+                    if (distSq < radiusSq) {
+                        const dist = Math.sqrt(distSq);
+                        
+                        // Calculate shadow intensity based on distance
+                        // Stronger near light, fades at edge
+                        // Also fades if object is very close to light center (to avoid weird artifacts)
+                        let intensity = Math.max(0, 1 - (dist / light.radius));
+                        
+                        // Fade out very close to center to prevent infinite skew
+                        if (dist < 10) intensity *= (dist / 10);
+                        
+                        // Base opacity for point light shadows (can be tuned)
+                        const shadowOpacity = 0.5 * intensity * altitudeFade;
+                        
+                        if (shadowOpacity > 0.05) {
+                            // Calculate projection
+                            // Shadow points away from light: along (dx, dy) vector
+                            
+                            // Light altitude affects shadow length
+                            // Higher light = shorter shadow
+                            const lightAltitude = Math.max(50, light.altitude || 100);
+                            
+                            // Projection factor
+                            const projFactor = SHADOW_LENGTH_FACTOR / lightAltitude;
+                            
+                            // Calculate skew and scale
+                            // skewX = -(dx * projFactor) / height
+                            // scaleY = -(dy * projFactor) / height
+                            // We use rendered height for normalization
+                            
+                            // Note: dx, dy are in world units. height is in pixels (scaled).
+                            // We need to scale dx, dy to pixel units for the ratio to be correct?
+                            // Actually, skewX is a ratio. 
+                            // If we want shadow tip to be offset by (Tx, Ty) pixels:
+                            // Tx = dx * scale * projFactor
+                            // skewX = -Tx / height
+                            
+                            const resolutionScale = game.resolutionScale || 1.0;
+                            const mapScale = game.currentMap?.scale || 1.0;
+                            const totalScale = resolutionScale * mapScale;
+                            
+                            const pixelDx = dx * totalScale;
+                            const pixelDy = dy * totalScale;
+                            
+                            const skewX = -(pixelDx * projFactor) / height;
+                            const scaleY = -(pixelDy * projFactor) / height;
+                            
+                            // Get cached sprite silhouette
+                            const silhouette = game.getSpriteCache(this.sprite, width, height, shouldFlip);
+                            const imageUrl = `shadow_${this.sprite.src}_${Math.round(width)}_${Math.round(height)}_${shouldFlip}`;
+                            
+                            const shadowX = scaledX;
+                            const shadowY = scaledY + (height / 2);
+                            
+                            webglRenderer.drawShadow(
+                                shadowX,
+                                shadowY,
+                                width,
+                                height,
+                                silhouette,
+                                imageUrl,
+                                shadowOpacity,
+                                skewX,
+                                scaleY,
+                                shouldFlip
+                            );
+                        }
+                    }
+                });
+            }
         } else {
             // Fallback to Canvas2D
             game.drawShadow(scaledX, scaledY, width, height, altitudeOffset, this.sprite, shouldFlip);
