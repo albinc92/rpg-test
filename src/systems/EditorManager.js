@@ -1838,66 +1838,157 @@ class EditorManager {
     }
 
     /**
-     * Save current map data
+     * Serialize a single game object to JSON-ready format
      */
-    async save() {
-        console.log('[EditorManager] Saving map data...');
-        
-        // Get all objects for current map
-        const objects = this.game.objectManager.getObjectsForMap(this.game.currentMapId);
-        
-        // Convert to JSON format
-        const objectsData = objects.map(obj => {
-            // Extract only the data we need (remove methods, game references, etc.)
-            const data = {
-                category: obj.category || 'StaticObject',
-                x: obj.x,
-                y: obj.y,
-                scale: obj.scale
-            };
-            
-            // Add type-specific fields
-            if (obj.spriteSrc) data.spriteSrc = obj.spriteSrc;
-            if (obj.id) data.id = obj.id;
-            if (obj.actorType) data.actorType = obj.actorType;
-            if (obj.objectType) data.objectType = obj.objectType;
-            if (obj.castsShadow === false) data.castsShadow = false;
-            if (obj.reverseFacing) data.reverseFacing = obj.reverseFacing;
-            
-            // Add collision customization if present
-            if (obj.collisionExpandTopPercent) data.collisionExpandTopPercent = obj.collisionExpandTopPercent;
-            if (obj.collisionExpandBottomPercent) data.collisionExpandBottomPercent = obj.collisionExpandBottomPercent;
-            if (obj.collisionExpandLeftPercent) data.collisionExpandLeftPercent = obj.collisionExpandLeftPercent;
-            if (obj.collisionExpandRightPercent) data.collisionExpandRightPercent = obj.collisionExpandRightPercent;
-            
-            // Add type-specific properties
-            if (obj.name) data.name = obj.name;
-            if (obj.dialogue) data.dialogue = obj.dialogue;
-            if (obj.npcType) data.npcType = obj.npcType;
-            if (obj.gold !== undefined) data.gold = obj.gold;
-            if (obj.loot) data.loot = obj.loot;
-            if (obj.chestType) data.chestType = obj.chestType;
-            if (obj.targetMap) data.targetMap = obj.targetMap;
-            if (obj.spawnPoint) data.spawnPoint = obj.spawnPoint;
-            if (obj.portalType) data.portalType = obj.portalType;
-            
-            return data;
-        });
-        
-        // Get lights data for current map
-        const lightsData = this.game.lightManager.exportLights();
-        
-        // Combine into full map data
-        const mapData = {
-            objects: objectsData,
-            lights: lightsData
+    serializeObject(obj) {
+        // Extract only the data we need (remove methods, game references, etc.)
+        const data = {
+            category: obj.category || 'StaticObject',
+            x: obj.x,
+            y: obj.y,
+            scale: obj.scale
         };
         
-        // Display JSON for now (later we'll save to file)
-        const json = JSON.stringify(mapData, null, 2);
-        console.log('[EditorManager] Map data:', json);
+        // Add type-specific fields
+        if (obj.spriteSrc) data.spriteSrc = obj.spriteSrc;
+        if (obj.id) data.id = obj.id;
+        if (obj.actorType) data.actorType = obj.actorType;
+        if (obj.objectType) data.objectType = obj.objectType;
+        if (obj.castsShadow === false) data.castsShadow = false;
+        if (obj.reverseFacing) data.reverseFacing = obj.reverseFacing;
         
-        alert('Map data (objects + lights) saved to console. Check browser console (F12) to copy JSON.');
+        // Add collision customization if present
+        if (obj.collisionExpandTopPercent) data.collisionExpandTopPercent = obj.collisionExpandTopPercent;
+        if (obj.collisionExpandBottomPercent) data.collisionExpandBottomPercent = obj.collisionExpandBottomPercent;
+        if (obj.collisionExpandLeftPercent) data.collisionExpandLeftPercent = obj.collisionExpandLeftPercent;
+        if (obj.collisionExpandRightPercent) data.collisionExpandRightPercent = obj.collisionExpandRightPercent;
+        
+        // Add type-specific properties
+        if (obj.name) data.name = obj.name;
+        if (obj.dialogue) data.dialogue = obj.dialogue;
+        if (obj.npcType) data.npcType = obj.npcType;
+        if (obj.gold !== undefined) data.gold = obj.gold;
+        if (obj.loot) data.loot = obj.loot;
+        if (obj.chestType) data.chestType = obj.chestType;
+        if (obj.targetMap) data.targetMap = obj.targetMap;
+        if (obj.spawnPoint) data.spawnPoint = obj.spawnPoint;
+        if (obj.portalType) data.portalType = obj.portalType;
+        
+        return data;
+    }
+
+    /**
+     * Sync current live data back to managers
+     */
+    syncGameData() {
+        // 1. Sync Lights for current map
+        const lightsData = this.game.lightManager.exportLights();
+        if (this.game.mapManager.maps[this.game.currentMapId]) {
+            this.game.mapManager.maps[this.game.currentMapId].lights = lightsData;
+            console.log(`[EditorManager] Synced ${lightsData.length} lights for map ${this.game.currentMapId}`);
+        }
+
+        // 2. Sync Objects for all loaded maps
+        // We iterate over initializedMaps to get the live objects
+        for (const mapId of this.game.objectManager.initializedMaps) {
+            const objects = this.game.objectManager.getObjectsForMap(mapId);
+            const serializedObjects = objects.map(obj => this.serializeObject(obj));
+            
+            // Update the definitions in ObjectManager
+            this.game.objectManager.objectDefinitions[mapId] = serializedObjects;
+            console.log(`[EditorManager] Synced ${serializedObjects.length} objects for map ${mapId}`);
+        }
+    }
+
+    /**
+     * Save all game data to a folder (using File System Access API)
+     */
+    async save() {
+        console.log('[EditorManager] Starting save process...');
+        
+        // Sync live data first
+        this.syncGameData();
+        
+        // Prepare data strings
+        const mapsJson = JSON.stringify(this.game.mapManager.maps, null, 2);
+        const objectsJson = JSON.stringify(this.game.objectManager.objectDefinitions, null, 2);
+        const itemsJson = JSON.stringify(this.game.itemManager.itemTypes || {}, null, 2);
+        
+        // Prepare template data strings
+        const lightsJson = JSON.stringify(this.game.lightManager.lightRegistry.exportToJSON(), null, 2);
+        const spiritsJson = this.game.spiritRegistry.exportTemplates(); // Already returns string
+        
+        try {
+            // Check for File System Access API support
+            if ('showDirectoryPicker' in window) {
+                const handle = await window.showDirectoryPicker({
+                    mode: 'readwrite',
+                    startIn: 'documents'
+                });
+                
+                // Write maps.json
+                const mapsFile = await handle.getFileHandle('maps.json', { create: true });
+                const mapsWritable = await mapsFile.createWritable();
+                await mapsWritable.write(mapsJson);
+                await mapsWritable.close();
+                
+                // Write objects.json
+                const objectsFile = await handle.getFileHandle('objects.json', { create: true });
+                const objectsWritable = await objectsFile.createWritable();
+                await objectsWritable.write(objectsJson);
+                await objectsWritable.close();
+                
+                // Write items.json
+                const itemsFile = await handle.getFileHandle('items.json', { create: true });
+                const itemsWritable = await itemsFile.createWritable();
+                await itemsWritable.write(itemsJson);
+                await itemsWritable.close();
+                
+                // Write lights.json
+                const lightsFile = await handle.getFileHandle('lights.json', { create: true });
+                const lightsWritable = await lightsFile.createWritable();
+                await lightsWritable.write(lightsJson);
+                await lightsWritable.close();
+                
+                // Write spirits.json
+                const spiritsFile = await handle.getFileHandle('spirits.json', { create: true });
+                const spiritsWritable = await spiritsFile.createWritable();
+                await spiritsWritable.write(spiritsJson);
+                await spiritsWritable.close();
+                
+                alert('✅ All game data (maps, objects, items, lights, spirits) saved successfully!');
+                console.log('[EditorManager] Save complete.');
+            } else {
+                // Fallback: Download files individually
+                console.warn('[EditorManager] File System Access API not supported. Falling back to downloads.');
+                this.downloadFile('maps.json', mapsJson);
+                this.downloadFile('objects.json', objectsJson);
+                this.downloadFile('items.json', itemsJson);
+                this.downloadFile('lights.json', lightsJson);
+                this.downloadFile('spirits.json', spiritsJson);
+                alert('Saved via download. Please move the 5 JSON files to your data folder.');
+            }
+        } catch (error) {
+            console.error('[EditorManager] Save failed:', error);
+            if (error.name !== 'AbortError') {
+                alert('❌ Save failed: ' + error.message);
+            }
+        }
+    }
+
+    /**
+     * Helper to download a file
+     */
+    downloadFile(filename, content) {
+        const blob = new Blob([content], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
 
     /**
