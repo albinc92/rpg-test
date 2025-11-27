@@ -45,8 +45,6 @@ if (!settings.vsync) {
 } else {
   // VSync ON: Default behavior (usually locked to refresh rate)
   console.log('VSync is ON - Using default behavior');
-  // We don't need to explicitly enable VSync as it's the default behavior.
-  // Passing 'enable-gpu-vsync' can sometimes cause crashes on certain drivers/Electron versions.
 }
 
 const createWindow = () => {
