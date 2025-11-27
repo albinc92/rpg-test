@@ -149,6 +149,26 @@ class GameEngine {
         // Apply loaded settings to audio manager
         this.applyAudioSettings();
         
+        // Apply loaded graphics settings (Resolution/Fullscreen)
+        // We need to do this after a short delay to ensure Electron window is ready
+        if (window.electronAPI) {
+            setTimeout(() => {
+                // Apply fullscreen
+                if (this.settings.fullscreen) {
+                    window.electronAPI.setFullscreen(true);
+                }
+                
+                // Apply resolution
+                if (this.settings.resolution) {
+                    const [width, height] = this.settings.resolution.split('x').map(Number);
+                    if (width && height) {
+                        console.log(`[GameEngine] Applying saved resolution: ${width}x${height}`);
+                        window.electronAPI.setResolution(width, height);
+                    }
+                }
+            }, 100);
+        }
+
         // Initialize
         this.initialize();
     }

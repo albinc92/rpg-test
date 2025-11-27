@@ -64,7 +64,7 @@ const createWindow = () => {
     // In dev mode, we load the Vite dev server.
     // Ensure your Vite server is running on port 3000
     mainWindow.loadURL('http://localhost:3000');
-    mainWindow.webContents.openDevTools();
+    // mainWindow.webContents.openDevTools(); // Disable auto-open devtools
   } else {
     // Load the index.html of the app.
     // We assume the build output is in the 'dist' folder at the project root.

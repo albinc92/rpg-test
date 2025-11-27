@@ -14,7 +14,7 @@ class SettingsManager {
             isMuted: false,
             showFPS: true,
             showDebug: false,
-            showDebugInfo: true,
+            showDebugInfo: false, // Default to false for cleaner startup
             resolution: '1280x720',
             fullscreen: false
         };
