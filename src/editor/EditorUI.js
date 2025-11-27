@@ -302,6 +302,15 @@ class EditorUI {
                     this.showPaintToolPanel();
                 }
             },
+            {
+                label: '📐 Zone Tool',
+                shortcut: 'K',
+                action: () => {
+                    this.editor.setTool('zone');
+                    this.showZoneToolPanel();
+                    this.showNotification('📐 Zone Tool: Left Click to add points, Right Click to close loop');
+                }
+            },
             { separator: true },
             {
                 label: '🎨 Manage Textures',
@@ -661,7 +670,7 @@ class EditorUI {
             }
         }, { min: 0, step: 1 });
         densityContainer.appendChild(densityField);
-        form.appendChild(densityContainer);
+        form.append
 
         // Spawn table container
         const spawnTableContainer = document.createElement('div');
@@ -1365,13 +1374,12 @@ class EditorUI {
         cancelBtn.textContent = 'Cancel';
         cancelBtn.type = 'button';
         cancelBtn.style.cssText = `
-            padding: 10px 20px;
+            padding: 10px 20
             background: #555;
             color: white;
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
         `;
         cancelBtn.onclick = () => backdrop.remove();
 
@@ -1724,7 +1732,6 @@ class EditorUI {
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
         `;
         closeBtn.onclick = () => backdrop.remove();
 
@@ -2077,7 +2084,6 @@ class EditorUI {
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
         `;
         cancelBtn.onclick = () => backdrop.remove();
 
@@ -2291,7 +2297,6 @@ class EditorUI {
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
         `;
         closeBtn.onclick = () => backdrop.remove();
 
@@ -2367,7 +2372,7 @@ class EditorUI {
             border-radius: 12px;
             padding: 24px;
             width: 600px;
-            max-height: 85vh;
+            max-height: 80vh;
             overflow-y: auto;
             color: white;
             font-family: Arial, sans-serif;
@@ -2562,7 +2567,7 @@ class EditorUI {
             deleteBtn.type = 'button';
             deleteBtn.style.cssText = `
                 padding: 10px 20px;
-                background: #d9534f;
+                background: #c0392b;
                 color: white;
                 border: none;
                 border-radius: 6px;
@@ -2607,7 +2612,6 @@ class EditorUI {
             backdrop.remove();
         };
 
-        // Cancel button
         const cancelBtn = document.createElement('button');
         cancelBtn.textContent = 'Cancel';
         cancelBtn.type = 'button';
@@ -2618,7 +2622,6 @@ class EditorUI {
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
         `;
         cancelBtn.onclick = () => backdrop.remove();
 
@@ -3075,7 +3078,6 @@ class EditorUI {
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
         `;
         cancelBtn.onclick = () => backdrop.remove();
 
@@ -3204,11 +3206,11 @@ class EditorUI {
                 
                 card.onmouseenter = () => {
                     card.style.borderColor = '#4a9eff';
-                    card.style.transform = 'scale(1.05)';
+                    card.style.background = '#333';
                 };
                 card.onmouseleave = () => {
                     card.style.borderColor = '#444';
-                    card.style.transform = 'scale(1)';
+                    card.style.background = '#2a2a2a';
                 };
 
                 // Sprite preview
@@ -3278,7 +3280,6 @@ class EditorUI {
         // Close button
         const closeBtn = document.createElement('button');
         closeBtn.textContent = 'Close';
-        closeBtn.type = 'button';
         closeBtn.style.cssText = `
             padding: 10px 20px;
             background: #555;
@@ -3286,10 +3287,8 @@ class EditorUI {
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
-            margin-top: 20px;
-            display: block;
-            margin-left: auto;
+            width: 100%;
+            margin-top: 12px;
         `;
         closeBtn.onclick = () => backdrop.remove();
         modal.appendChild(closeBtn);
@@ -3301,1084 +3300,6 @@ class EditorUI {
         backdrop.onclick = (e) => {
             if (e.target === backdrop) backdrop.remove();
         };
-    }
-
-    /**
-     * Get rarity color
-     */
-    getRarityColor(rarity) {
-        const colors = {
-            common: '#ffffff',
-            uncommon: '#1eff00',
-            rare: '#0070dd',
-            epic: '#a335ee',
-            legendary: '#ff8000'
-        };
-        return colors[rarity] || '#ffffff';
-    }
-
-    /**
-     * Show Paint Tool Panel
-     */
-    showPaintToolPanel() {
-        // Remove existing panel if any
-        const existing = document.getElementById('paint-tool-panel');
-        if (existing) existing.remove();
-        
-        const panel = document.createElement('div');
-        panel.id = 'paint-tool-panel';
-        panel.style.cssText = `
-            position: fixed;
-            right: 20px;
-            top: 80px;
-            width: 280px;
-            max-height: calc(100vh - 100px);
-            background: rgba(0, 0, 0, 0.95);
-            border: 2px solid #4a9eff;
-            border-radius: 8px;
-            color: white;
-            font-family: Arial, sans-serif;
-            z-index: 1001;
-            display: flex;
-            flex-direction: column;
-        `;
-        
-        // Title
-        const title = document.createElement('h3');
-        title.textContent = '🖌️ Paint Tool';
-        title.style.cssText = 'margin: 0; padding: 16px 16px 12px 16px; color: #4a9eff; flex-shrink: 0;';
-        panel.appendChild(title);
-        
-        // Scrollable content container
-        const scrollContent = document.createElement('div');
-        scrollContent.style.cssText = `
-            overflow-y: auto;
-            overflow-x: hidden;
-            flex: 1;
-            padding: 0 16px 16px 16px;
-        `;
-        
-        // Add custom scrollbar styling
-        const style = document.createElement('style');
-        style.textContent = `
-            #paint-tool-panel div::-webkit-scrollbar {
-                width: 8px;
-            }
-            #paint-tool-panel div::-webkit-scrollbar-track {
-                background: rgba(255, 255, 255, 0.1);
-                border-radius: 4px;
-            }
-            #paint-tool-panel div::-webkit-scrollbar-thumb {
-                background: #4a9eff;
-                border-radius: 4px;
-            }
-            #paint-tool-panel div::-webkit-scrollbar-thumb:hover {
-                background: #6bb3ff;
-            }
-        `;
-        document.head.appendChild(style);
-        
-        // Paint Mode Selector
-        const paintModeLabel = document.createElement('div');
-        paintModeLabel.textContent = 'Paint Mode:';
-        paintModeLabel.style.cssText = 'margin-bottom: 8px; font-size: 13px; font-weight: bold;';
-        scrollContent.appendChild(paintModeLabel);
-        
-        // Layer selection (Texture, Collision, or Spawn)
-        const paintModes = [
-            { value: 'texture', label: '🎨 Texture Layer' },
-            { value: 'collision', label: '🚧 Collision Layer' },
-            { value: 'spawn', label: '🎯 Spawn Zones' }
-        ];
-        
-        // Initialize paint mode if not set
-        if (!this.editor.paintMode) {
-            this.editor.paintMode = 'texture';
-        }
-        
-        const paintModeButtons = [];
-        
-        paintModes.forEach((mode, index) => {
-            const btn = document.createElement('button');
-            btn.textContent = mode.label;
-            btn.dataset.paintMode = mode.value;
-            btn.style.cssText = `
-                width: 100%;
-                padding: 8px;
-                margin-bottom: 8px;
-                background: ${this.editor.paintMode === mode.value ? '#4a9eff' : '#333'};
-                color: white;
-                border: 1px solid #555;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 11px;
-                display: block;
-            `;
-            btn.onclick = () => {
-                this.editor.paintMode = mode.value;
-                paintModeButtons.forEach(b => {
-                    b.style.background = b.dataset.paintMode === mode.value ? '#4a9eff' : '#333';
-                });
-                // Update section visibility based on mode
-                if (mode.value === 'collision') {
-                    // Collision mode: show brush shape and tool actions, hide texture, style, and opacity
-                    textureSection.style.display = 'none';
-                    brushStyleSection.style.display = 'none';
-                    opacitySection.style.display = 'none';
-                    brushShapeSection.style.display = 'block';
-                    toolActionSection.style.display = 'block';
-                } else if (mode.value === 'spawn') {
-                    // Spawn Zone mode: show brush shape and tool actions, hide texture, style, and opacity
-                    textureSection.style.display = 'none';
-                    brushStyleSection.style.display = 'none';
-                    opacitySection.style.display = 'none';
-                    brushShapeSection.style.display = 'block';
-                    toolActionSection.style.display = 'block';
-                } else {
-                    // Texture mode: show all options
-                    textureSection.style.display = 'block';
-                    brushStyleSection.style.display = 'block';
-                    opacitySection.style.display = 'block';
-                    brushShapeSection.style.display = 'block';
-                    toolActionSection.style.display = 'block';
-                }
-            };
-            paintModeButtons.push(btn);
-            scrollContent.appendChild(btn);
-        });
-        
-        // Add spacing
-        const spacer2 = document.createElement('div');
-        spacer2.style.cssText = 'margin-bottom: 8px;';
-        scrollContent.appendChild(spacer2);
-        
-        // Tool Action (Paint, Erase, Fill)
-        const toolActionLabel = document.createElement('div');
-        toolActionLabel.textContent = 'Tool Action:';
-        toolActionLabel.style.cssText = 'margin-bottom: 8px; font-size: 13px; font-weight: bold;';
-        scrollContent.appendChild(toolActionLabel);
-        
-        const toolActionSection = document.createElement('div');
-        
-        const toolActions = [
-            { value: 'paint', label: '🖌️ Paint' },
-            { value: 'erase', label: '🧹 Erase' },
-            { value: 'fill', label: '🪣 Fill' }
-        ];
-        
-        // Initialize tool action if not set
-        if (!this.editor.toolAction) {
-            this.editor.toolAction = 'paint';
-        }
-        
-        const toolActionButtons = [];
-        
-        toolActions.forEach(action => {
-            const btn = document.createElement('button');
-            btn.textContent = action.label;
-            btn.dataset.toolAction = action.value;
-            btn.style.cssText = `
-                width: 32%;
-                padding: 8px;
-                margin-bottom: 8px;
-                margin-right: ${action.value !== 'fill' ? '2%' : '0'};
-                background: ${this.editor.toolAction === action.value ? '#4a9eff' : '#333'};
-                color: white;
-                border: 1px solid #555;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 11px;
-                display: inline-block;
-            `;
-            btn.onclick = () => {
-                this.editor.toolAction = action.value;
-                toolActionButtons.forEach(b => {
-                    b.style.background = b.dataset.toolAction === action.value ? '#4a9eff' : '#333';
-                });
-                // Update brush size visibility (hide for fill)
-                if (action.value === 'fill') {
-                    brushSizeLabel.style.display = 'none';
-                    brushSizeSlider.style.display = 'none';
-                } else {
-                    brushSizeLabel.style.display = 'block';
-                    brushSizeSlider.style.display = 'block';
-                }
-            };
-            toolActionButtons.push(btn);
-            toolActionSection.appendChild(btn);
-        });
-        
-        scrollContent.appendChild(toolActionSection);
-        
-        // Smooth Button
-        const smoothBtn = document.createElement('button');
-        smoothBtn.textContent = '✨ Smooth Edges';
-        smoothBtn.style.cssText = `
-            width: 100%;
-            padding: 10px;
-            margin-top: 8px;
-            background: #9b59b6;
-            color: white;
-            border: 1px solid #8e44ad;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: bold;
-        `;
-        smoothBtn.onclick = () => {
-            console.log('[UI] Smooth button clicked!');
-            console.log('[UI] Editor:', this.editor);
-            console.log('[UI] Current map ID:', this.editor.game.currentMapId);
-            this.editor.smoothLayer(this.editor.game.currentMapId);
-        };
-        scrollContent.appendChild(smoothBtn);
-        
-        // Add spacing
-        const spacer = document.createElement('div');
-        spacer.style.cssText = 'margin-bottom: 16px; clear: both;';
-        scrollContent.appendChild(spacer);
-        
-        // Brush Size
-        const brushSizeLabel = document.createElement('div');
-        brushSizeLabel.textContent = `Brush Size: ${this.editor.brushSize}px`;
-        brushSizeLabel.style.cssText = 'margin-bottom: 8px; font-size: 13px;';
-        scrollContent.appendChild(brushSizeLabel);
-        
-        const brushSizeSlider = document.createElement('input');
-        brushSizeSlider.type = 'range';
-        brushSizeSlider.min = '16';
-        brushSizeSlider.max = '256';
-        brushSizeSlider.value = this.editor.brushSize;
-        brushSizeSlider.style.cssText = 'width: 100%; margin-bottom: 16px;';
-        brushSizeSlider.oninput = () => {
-            this.editor.brushSize = parseInt(brushSizeSlider.value);
-            brushSizeLabel.textContent = `Brush Size: ${this.editor.brushSize}px`;
-        };
-        scrollContent.appendChild(brushSizeSlider);
-        
-        // Brush Style Section (only for texture mode)
-        const brushStyleSection = document.createElement('div');
-        brushStyleSection.style.display = this.editor.paintMode === 'texture' ? 'block' : 'none';
-        
-        const brushStyleLabel = document.createElement('div');
-        brushStyleLabel.textContent = 'Brush Style:';
-        brushStyleLabel.style.cssText = 'margin-bottom: 8px; font-size: 13px; font-weight: bold;';
-        brushStyleSection.appendChild(brushStyleLabel);
-        
-        const brushStyles = [
-            { value: 'hard', label: 'Hard Edge' },
-            { value: 'soft', label: 'Soft Edge' },
-            { value: 'very-soft', label: 'Very Soft' }
-        ];
-        
-        // Store brush style buttons for proper updates
-        const brushStyleButtons = [];
-        
-        brushStyles.forEach(style => {
-            const btn = document.createElement('button');
-            btn.textContent = style.label;
-            btn.dataset.brushStyle = style.value;
-            btn.style.cssText = `
-                width: 100%;
-                padding: 8px;
-                margin-bottom: 4px;
-                background: ${this.editor.brushStyle === style.value ? '#4a9eff' : '#333'};
-                color: white;
-                border: 1px solid #555;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 12px;
-            `;
-            btn.onclick = () => {
-                this.editor.brushStyle = style.value;
-                brushStyleButtons.forEach(b => {
-                    b.style.background = b.dataset.brushStyle === style.value ? '#4a9eff' : '#333';
-                });
-            };
-            brushStyleButtons.push(btn);
-            brushStyleSection.appendChild(btn);
-        });
-        
-        // Opacity Section (only for texture mode)
-        const opacitySection = document.createElement('div');
-        opacitySection.style.display = this.editor.paintMode === 'texture' ? 'block' : 'none';
-        
-        const opacityLabel = document.createElement('div');
-        opacityLabel.textContent = `Opacity: ${Math.round(this.editor.brushOpacity * 100)}%`;
-        opacityLabel.style.cssText = 'margin: 16px 0 8px 0; font-size: 13px;';
-        opacitySection.appendChild(opacityLabel);
-        
-        const opacitySlider = document.createElement('input');
-        opacitySlider.type = 'range';
-        opacitySlider.min = '0';
-        opacitySlider.max = '100';
-        opacitySlider.value = this.editor.brushOpacity * 100;
-        opacitySlider.style.cssText = 'width: 100%; margin-bottom: 16px;';
-        opacitySlider.oninput = () => {
-            this.editor.brushOpacity = parseInt(opacitySlider.value) / 100;
-            opacityLabel.textContent = `Opacity: ${Math.round(this.editor.brushOpacity * 100)}%`;
-        };
-        opacitySection.appendChild(opacitySlider);
-        
-        // Brush Shape Section (for all paint modes)
-        const brushShapeSection = document.createElement('div');
-        brushShapeSection.style.display = 'block'; // Show for all modes
-        
-        const brushShapeLabel = document.createElement('div');
-        brushShapeLabel.textContent = 'Brush Shape:';
-        brushShapeLabel.style.cssText = 'margin-bottom: 8px; font-size: 13px; font-weight: bold;';
-        brushShapeSection.appendChild(brushShapeLabel);
-        
-        const brushShapes = [
-            { value: 'circle', label: '⭕ Circle' },
-            { value: 'square', label: '⬜ Square' }
-        ];
-        
-        const brushShapeButtons = [];
-        
-        brushShapes.forEach(shape => {
-            const btn = document.createElement('button');
-            btn.textContent = shape.label;
-            btn.dataset.brushShape = shape.value;
-            btn.style.cssText = `
-                width: 48%;
-                padding: 8px;
-                margin-bottom: 8px;
-                margin-right: ${shape.value === 'circle' ? '4%' : '0'};
-                background: ${this.editor.brushShape === shape.value ? '#4a9eff' : '#333'};
-                color: white;
-                border: 1px solid #555;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 12px;
-                display: inline-block;
-            `;
-            btn.onclick = () => {
-                this.editor.brushShape = shape.value;
-                brushShapeButtons.forEach(b => {
-                    b.style.background = b.dataset.brushShape === shape.value ? '#4a9eff' : '#333';
-                });
-            };
-            brushShapeButtons.push(btn);
-            brushShapeSection.appendChild(btn);
-        });
-        
-        // Add sections to scrollContent
-        scrollContent.appendChild(brushStyleSection);
-        scrollContent.appendChild(opacitySection);
-        scrollContent.appendChild(brushShapeSection);
-        
-        // Texture Section (only for texture mode)
-        const textureSection = document.createElement('div');
-        textureSection.style.display = this.editor.paintMode === 'texture' ? 'block' : 'none';
-        
-        // Current Texture
-        const textureLabel = document.createElement('div');
-        textureLabel.textContent = 'Current Texture:';
-        textureLabel.style.cssText = 'margin-bottom: 8px; font-size: 13px; font-weight: bold;';
-        textureSection.appendChild(textureLabel);
-        
-        const texturePreview = document.createElement('div');
-        texturePreview.style.cssText = `
-            width: 100%;
-            height: 80px;
-            background: repeating-conic-gradient(#333 0% 25%, #444 0% 50%) 50% / 20px 20px;
-            border: 2px solid #555;
-            border-radius: 4px;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #888;
-            font-size: 12px;
-        `;
-        
-        if (this.editor.selectedTexture) {
-            const img = document.createElement('img');
-            img.src = this.editor.selectedTexture;
-            img.style.cssText = 'max-width: 100%; max-height: 100%; image-rendering: pixelated;';
-            texturePreview.innerHTML = '';
-            texturePreview.appendChild(img);
-            
-            // Show loading indicator if texture isn't loaded yet
-            if (!this.editor.loadedTextures[this.editor.selectedTexture]) {
-                img.style.opacity = '0.5';
-                img.title = 'Loading...';
-            }
-        } else {
-            texturePreview.textContent = 'No texture selected';
-        }
-        textureSection.appendChild(texturePreview);
-        
-        // Select Texture Button
-        const selectTextureBtn = document.createElement('button');
-        selectTextureBtn.textContent = '🎨 Select Texture';
-        selectTextureBtn.style.cssText = `
-            width: 100%;
-            padding: 10px;
-            background: #4a9eff;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            margin-bottom: 8px;
-        `;
-        selectTextureBtn.onclick = () => this.showTextureManager();
-        textureSection.appendChild(selectTextureBtn);
-        
-        // Add texture section to scrollContent
-        scrollContent.appendChild(textureSection);
-        
-        // Add scrollContent to panel
-        panel.appendChild(scrollContent);
-        
-        // Footer with close button (fixed at bottom)
-        const footer = document.createElement('div');
-        footer.style.cssText = `
-            padding: 12px 16px;
-            border-top: 1px solid #555;
-            flex-shrink: 0;
-        `;
-        
-        // Close Panel Button
-        const closeBtn = document.createElement('button');
-        closeBtn.textContent = '✖ Close Paint Tool';
-        closeBtn.style.cssText = `
-            width: 100%;
-            padding: 8px;
-            background: #c0392b;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-        `;
-        closeBtn.onclick = () => {
-            this.editor.setTool('select');
-            panel.remove();
-        };
-        footer.appendChild(closeBtn);
-        panel.appendChild(footer);
-        
-        document.body.appendChild(panel);
-    }
-
-    /**
-     * Show Texture Manager
-     */
-    showTextureManager() {
-        // Predefined textures from assets/texture folder
-        const availableTextures = [
-            { path: 'assets/texture/grass.png', name: 'Grass' },
-            // Add more textures here as they are added to the folder
-            // { path: 'assets/texture/dirt.png', name: 'Dirt' },
-            // { path: 'assets/texture/stone.png', name: 'Stone' },
-        ];
-        
-        // Create modal backdrop
-        const backdrop = document.createElement('div');
-        backdrop.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 10000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        `;
-        
-        // Create modal
-        const modal = document.createElement('div');
-        modal.style.cssText = `
-            background: #1a1a1a;
-            border: 2px solid #4a9eff;
-            border-radius: 12px;
-            padding: 24px;
-            width: 600px;
-            max-height: 80vh;
-            overflow-y: auto;
-            color: white;
-            font-family: Arial, sans-serif;
-        `;
-        
-        // Title
-        const title = document.createElement('h2');
-        title.textContent = '🎨 Select Texture';
-        title.style.cssText = 'margin-top: 0; color: #4a9eff;';
-        modal.appendChild(title);
-        
-        // Info text
-        const infoText = document.createElement('div');
-        infoText.textContent = 'Select a texture to paint with:';
-        infoText.style.cssText = 'margin-bottom: 16px; color: #aaa; font-size: 14px;';
-        modal.appendChild(infoText);
-        
-        // Texture Grid
-        const grid = document.createElement('div');
-        grid.style.cssText = `
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 12px;
-            margin-bottom: 16px;
-        `;
-        
-        // Populate grid with available textures
-        availableTextures.forEach(texture => {
-            const card = document.createElement('div');
-            card.style.cssText = `
-                background: #2a2a2a;
-                border: 2px solid ${this.editor.selectedTexture === texture.path ? '#4a9eff' : '#444'};
-                border-radius: 8px;
-                padding: 12px;
-                cursor: pointer;
-                text-align: center;
-                transition: all 0.2s;
-            `;
-            
-            card.onmouseover = () => {
-                if (this.editor.selectedTexture !== texture.path) {
-                    card.style.borderColor = '#666';
-                    card.style.transform = 'translateY(-2px)';
-                }
-            };
-            card.onmouseout = () => {
-                if (this.editor.selectedTexture !== texture.path) {
-                    card.style.borderColor = '#444';
-                }
-                card.style.transform = 'translateY(0)';
-            };
-            
-            card.onclick = () => {
-                this.editor.loadTexture(texture.path, texture.name);
-                this.showNotification(`✅ Selected: ${texture.name}`);
-                backdrop.remove();
-                // Update paint panel if open - use a small delay to ensure texture is selected
-                const panel = document.getElementById('paint-tool-panel');
-                if (panel) {
-                    // Small delay to allow texture to be fully selected
-                    setTimeout(() => {
-                        panel.remove();
-                        this.showPaintToolPanel();
-                    }, 10);
-                }
-            };
-            
-            // Texture preview image
-            const img = document.createElement('img');
-            img.src = texture.path;
-            img.style.cssText = `
-                width: 100%;
-                height: 100px;
-                object-fit: cover;
-                image-rendering: pixelated;
-                border-radius: 4px;
-                margin-bottom: 8px;
-                background: repeating-conic-gradient(#333 0% 25%, #444 0% 50%) 50% / 20px 20px;
-            `;
-            img.onerror = () => {
-                img.style.background = '#c0392b';
-                img.alt = '❌ Failed to load';
-            };
-            card.appendChild(img);
-            
-            // Texture name
-            const name = document.createElement('div');
-            name.textContent = texture.name;
-            name.style.cssText = 'font-size: 13px; font-weight: bold; color: #fff;';
-            card.appendChild(name);
-            
-            // Selected indicator
-            if (this.editor.selectedTexture === texture.path) {
-                const selectedBadge = document.createElement('div');
-                selectedBadge.textContent = '✓ Selected';
-                selectedBadge.style.cssText = `
-                    margin-top: 8px;
-                    padding: 4px 8px;
-                    background: #4a9eff;
-                    color: white;
-                    border-radius: 4px;
-                    font-size: 11px;
-                    font-weight: bold;
-                `;
-                card.appendChild(selectedBadge);
-            }
-            
-            grid.appendChild(card);
-        });
-        
-        modal.appendChild(grid);
-        
-        // Close Button
-        const closeBtn = document.createElement('button');
-        closeBtn.textContent = 'Close';
-        closeBtn.style.cssText = `
-            padding: 10px 20px;
-            background: #555;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-        `;
-        closeBtn.onclick = () => backdrop.remove();
-        modal.appendChild(closeBtn);
-        
-        backdrop.appendChild(modal);
-        document.body.appendChild(backdrop);
-        
-        // Close on backdrop click
-        backdrop.onclick = (e) => {
-            if (e.target === backdrop) backdrop.remove();
-        };
-    }
-
-    /**
-     * Open item icon picker modal
-     */
-    openItemIconPicker(onSelect) {
-        // Create modal overlay
-        const overlay = document.createElement('div');
-        overlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 10001;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        `;
-
-        // Create modal container
-        const modal = document.createElement('div');
-        modal.style.cssText = `
-            background: #1a1a1a;
-            border: 2px solid #444;
-            border-radius: 8px;
-            width: 90%;
-            max-width: 700px;
-            max-height: 80vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        `;
-
-        // Header
-        const header = document.createElement('div');
-        header.style.cssText = `
-            padding: 15px 20px;
-            background: #2a2a2a;
-            border-bottom: 2px solid #444;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        `;
-
-        const title = document.createElement('h3');
-        title.textContent = 'Select Item Icon';
-        title.style.cssText = `
-            margin: 0;
-            color: white;
-            font-size: 18px;
-        `;
-
-        const closeBtn = document.createElement('button');
-        closeBtn.textContent = '✕';
-        closeBtn.style.cssText = `
-            background: #d32f2f;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            width: 30px;
-            height: 30px;
-            cursor: pointer;
-            font-size: 18px;
-            line-height: 1;
-        `;
-        closeBtn.onclick = () => overlay.remove();
-
-        header.appendChild(title);
-        header.appendChild(closeBtn);
-
-        // Icon grid container
-        const gridContainer = document.createElement('div');
-        gridContainer.style.cssText = `
-            padding: 20px;
-            overflow-y: auto;
-            flex: 1;
-        `;
-
-        const grid = document.createElement('div');
-        grid.style.cssText = `
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 15px;
-        `;
-
-        // Available item icon paths
-        const availableIcons = [
-            'assets/icon/Items/Health_Potion-0.png',
-            'assets/icon/Items/Mana_Potion-0.png',
-            'assets/icon/Items/Iron_Sword.png',
-            'assets/icon/Items/Leather_Armor-0.png',
-            'assets/icon/Items/Magic_Scroll-0.png',
-            'assets/icon/Items/Iron_Ore-0.png',
-            'assets/icon/Items/Mysterious_Key-0.png',
-        ];
-
-        // Create icon cards
-        availableIcons.forEach(iconPath => {
-            const card = document.createElement('div');
-            card.style.cssText = `
-                background: #2a2a2a;
-                border: 2px solid #444;
-                border-radius: 8px;
-                padding: 12px;
-                cursor: pointer;
-                transition: all 0.2s;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 8px;
-            `;
-
-            const img = document.createElement('img');
-            img.src = iconPath;
-            img.style.cssText = `
-                width: 64px;
-                height: 64px;
-                image-rendering: pixelated;
-                background: #1a1a1a;
-                border-radius: 4px;
-            `;
-
-            const name = document.createElement('div');
-            name.textContent = iconPath.split('/').pop().replace('.png', '').replace(/_/g, ' ');
-            name.style.cssText = `
-                color: white;
-                font-size: 11px;
-                text-align: center;
-                word-break: break-word;
-            `;
-
-            card.appendChild(img);
-            card.appendChild(name);
-
-            card.onmouseover = () => {
-                card.style.borderColor = '#4a9eff';
-                card.style.background = '#333';
-            };
-            card.onmouseout = () => {
-                card.style.borderColor = '#444';
-                card.style.background = '#2a2a2a';
-            };
-            card.onclick = () => {
-                onSelect(iconPath);
-                overlay.remove();
-            };
-
-            grid.appendChild(card);
-        });
-
-        gridContainer.appendChild(grid);
-        modal.appendChild(header);
-        modal.appendChild(gridContainer);
-        overlay.appendChild(modal);
-        document.body.appendChild(overlay);
-
-        // Close on overlay click
-        overlay.onclick = (e) => {
-            if (e.target === overlay) {
-                overlay.remove();
-            }
-        };
-    }
-    
-    /**
-     * Show NPC template browser (placeholder until full implementation)
-     */
-    showNPCBrowser() {
-        // Create modal backdrop
-        const backdrop = document.createElement('div');
-        backdrop.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 10000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        `;
-
-        // Create modal
-        const modal = document.createElement('div');
-        modal.style.cssText = `
-            background: #1a1a1a;
-            border: 2px solid #9b59b6;
-            border-radius: 12px;
-            padding: 24px;
-            width: 600px;
-            max-height: 80vh;
-            overflow-y: auto;
-            color: white;
-            font-family: Arial, sans-serif;
-        `;
-
-        // Title
-        const title = document.createElement('h2');
-        title.textContent = '🧙 NPC Template Browser';
-        title.style.cssText = 'margin-top: 0; color: #9b59b6;';
-        modal.appendChild(title);
-
-        // Info text
-        const info = document.createElement('div');
-        info.style.cssText = 'margin-bottom: 20px; padding: 12px; background: rgba(155, 89, 182, 0.2); border-radius: 6px; font-size: 14px;';
-        info.innerHTML = `
-            <strong>NPC Template Browser</strong><br>
-            Templates from NPCRegistry (${this.editor.game.npcRegistry.getCount()} total)<br>
-            Click on an NPC type to place it in the world.<br>
-            <em>Full editor UI with Create/Edit/Delete coming soon!</em>
-        `;
-        modal.appendChild(info);
-
-        // NPC templates (hardcoded for now - can be moved to registry later)
-        const npcTemplates = [
-            { id: 'npc-merchant', name: 'Merchant', npcType: 'merchant', icon: '🏪', description: 'Buys and sells items' },
-            { id: 'npc-sage', name: 'Sage', npcType: 'sage', icon: '🔮', description: 'Provides wisdom and quests' },
-            { id: 'npc-guard', name: 'Guard', npcType: 'guard', icon: '🛡️', description: 'Protects an area' },
-            { id: 'npc-villager', name: 'Villager', npcType: 'villager', icon: '🧑', description: 'Generic townsperson' }
-        ];
-
-        // Template grid
-        const grid = document.createElement('div');
-        grid.style.cssText = `
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            margin-bottom: 20px;
-        `;
-
-        npcTemplates.forEach(template => {
-            const card = document.createElement('div');
-            card.style.cssText = `
-                background: #2a2a2a;
-                border: 2px solid #444;
-                border-radius: 8px;
-                padding: 16px;
-                cursor: pointer;
-                transition: all 0.2s;
-            `;
-
-            card.innerHTML = `
-                <div style="font-size: 32px; text-align: center; margin-bottom: 8px;">${template.icon}</div>
-                <div style="font-weight: bold; text-align: center; margin-bottom: 4px; color: #9b59b6;">${template.name}</div>
-                <div style="font-size: 12px; color: #aaa; text-align: center;">${template.description}</div>
-            `;
-
-            card.addEventListener('mouseenter', () => {
-                card.style.borderColor = '#9b59b6';
-                card.style.background = '#333';
-            });
-
-            card.addEventListener('mouseleave', () => {
-                card.style.borderColor = '#444';
-                card.style.background = '#2a2a2a';
-            });
-
-            card.addEventListener('click', () => {
-                backdrop.remove();
-                // Open placement panel and select NPCs
-                if (this.editor.placementPanel) {
-                    this.editor.placementPanel.show();
-                    document.getElementById('placement-type-select').value = 'npcs';
-                    this.editor.placementPanel.selectedType = 'npcs';
-                    this.editor.placementPanel.populateTemplates();
-                }
-            });
-
-            grid.appendChild(card);
-        });
-
-        modal.appendChild(grid);
-
-        // Close button
-        const closeBtn = document.createElement('button');
-        closeBtn.textContent = 'Close';
-        closeBtn.style.cssText = `
-            width: 100%;
-            padding: 12px;
-            background: #444;
-            border: none;
-            border-radius: 6px;
-            color: white;
-            font-size: 14px;
-            cursor: pointer;
-            transition: background 0.2s;
-        `;
-        closeBtn.addEventListener('mouseenter', () => closeBtn.style.background = '#555');
-        closeBtn.addEventListener('mouseleave', () => closeBtn.style.background = '#444');
-        closeBtn.addEventListener('click', () => backdrop.remove());
-        modal.appendChild(closeBtn);
-
-        backdrop.appendChild(modal);
-        backdrop.addEventListener('click', (e) => {
-            if (e.target === backdrop) backdrop.remove();
-        });
-
-        document.body.appendChild(backdrop);
-    }
-    
-    /**
-     * Show Chest template browser
-     */
-    showChestBrowser() {
-        // Create modal backdrop
-        const backdrop = document.createElement('div');
-        backdrop.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 10000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        `;
-
-        // Create modal
-        const modal = document.createElement('div');
-        modal.style.cssText = `
-            background: #1a1a1a;
-            border: 2px solid #f39c12;
-            border-radius: 12px;
-            padding: 24px;
-            width: 600px;
-            max-height: 80vh;
-            overflow-y: auto;
-            color: white;
-            font-family: Arial, sans-serif;
-        `;
-
-        // Title
-        const title = document.createElement('h2');
-        title.textContent = '📦 Chest Template Browser';
-        title.style.cssText = 'margin-top: 0; color: #f39c12;';
-        modal.appendChild(title);
-
-        // Info text
-        const info = document.createElement('div');
-        info.style.cssText = 'margin-bottom: 20px; padding: 12px; background: rgba(243, 156, 18, 0.2); border-radius: 6px; font-size: 14px;';
-        info.innerHTML = `
-            <strong>Chest Template Browser</strong><br>
-            Templates from ChestRegistry (${this.editor.game.chestRegistry.getCount()} total)<br>
-            Click on a chest type to place it in the world.<br>
-            <em>Full editor UI with Create/Edit/Delete coming soon!</em>
-        `;
-        modal.appendChild(info);
-
-        // Chest templates
-        const chestTemplates = [
-            { id: 'chest-wooden', name: 'Wooden Chest', chestType: 'wooden', icon: '📦', description: 'Basic wooden chest', rarity: 'Common' },
-            { id: 'chest-iron', name: 'Iron Chest', chestType: 'iron', icon: '🗃️', description: 'Sturdy iron chest', rarity: 'Uncommon' },
-            { id: 'chest-golden', name: 'Golden Chest', chestType: 'golden', icon: '✨', description: 'Valuable golden chest', rarity: 'Rare' },
-            { id: 'chest-mystical', name: 'Mystical Chest', chestType: 'mystical', icon: '🎁', description: 'Enchanted chest', rarity: 'Epic' }
-        ];
-
-        // Template grid
-        const grid = document.createElement('div');
-        grid.style.cssText = `
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            margin-bottom: 20px;
-        `;
-
-        chestTemplates.forEach(template => {
-            const card = document.createElement('div');
-            card.style.cssText = `
-                background: #2a2a2a;
-                border: 2px solid #444;
-                border-radius: 8px;
-                padding: 16px;
-                cursor: pointer;
-                transition: all 0.2s;
-            `;
-
-            const rarityColors = {
-                'Common': '#95a5a6',
-                'Uncommon': '#2ecc71',
-                'Rare': '#3498db',
-                'Epic': '#9b59b6'
-            };
-
-            card.innerHTML = `
-                <div style="font-size: 32px; text-align: center; margin-bottom: 8px;">${template.icon}</div>
-                <div style="font-weight: bold; text-align: center; margin-bottom: 4px; color: #f39c12;">${template.name}</div>
-                <div style="font-size: 11px; color: ${rarityColors[template.rarity]}; text-align: center; margin-bottom: 4px;">${template.rarity}</div>
-                <div style="font-size: 12px; color: #aaa; text-align: center;">${template.description}</div>
-            `;
-
-            card.addEventListener('mouseenter', () => {
-                card.style.borderColor = '#f39c12';
-                card.style.background = '#333';
-            });
-
-            card.addEventListener('mouseleave', () => {
-                card.style.borderColor = '#444';
-                card.style.background = '#2a2a2a';
-            });
-
-            card.addEventListener('click', () => {
-                backdrop.remove();
-                // Open placement panel and select Chests
-                if (this.editor.placementPanel) {
-                    this.editor.placementPanel.show();
-                    document.getElementById('placement-type-select').value = 'chests';
-                    this.editor.placementPanel.selectedType = 'chests';
-                    this.editor.placementPanel.populateTemplates();
-                }
-            });
-
-            grid.appendChild(card);
-        });
-
-        modal.appendChild(grid);
-
-        // Close button
-        const closeBtn = document.createElement('button');
-        closeBtn.textContent = 'Close';
-        closeBtn.style.cssText = `
-            width: 100%;
-            padding: 12px;
-            background: #444;
-            border: none;
-            border-radius: 6px;
-            color: white;
-            font-size: 14px;
-            cursor: pointer;
-            transition: background 0.2s;
-        `;
-        closeBtn.addEventListener('mouseenter', () => closeBtn.style.background = '#555');
-        closeBtn.addEventListener('mouseleave', () => closeBtn.style.background = '#444');
-        closeBtn.addEventListener('click', () => backdrop.remove());
-        modal.appendChild(closeBtn);
-
-        backdrop.appendChild(modal);
-        backdrop.addEventListener('click', (e) => {
-            if (e.target === backdrop) backdrop.remove();
-        });
-
-        document.body.appendChild(backdrop);
     }
     
     /**
@@ -4459,7 +3380,7 @@ class EditorUI {
                 cursor: pointer;
                 transition: all 0.2s;
             `;
-
+            
             card.innerHTML = `
                 <div style="font-size: 32px; text-align: center; margin-bottom: 8px;">${template.icon}</div>
                 <div style="font-weight: bold; text-align: center; margin-bottom: 4px; color: #e74c3c;">${template.name}</div>
@@ -4496,27 +3417,206 @@ class EditorUI {
         const closeBtn = document.createElement('button');
         closeBtn.textContent = 'Close';
         closeBtn.style.cssText = `
-            width: 100%;
-            padding: 12px;
-            background: #444;
+            padding: 10px 20px;
+            background: #555;
+            color: white;
             border: none;
             border-radius: 6px;
-            color: white;
-            font-size: 14px;
             cursor: pointer;
-            transition: background 0.2s;
+            width: 100%;
+            margin-top: 12px;
         `;
-        closeBtn.addEventListener('mouseenter', () => closeBtn.style.background = '#555');
-        closeBtn.addEventListener('mouseleave', () => closeBtn.style.background = '#444');
-        closeBtn.addEventListener('click', () => backdrop.remove());
+        closeBtn.onclick = () => backdrop.remove();
         modal.appendChild(closeBtn);
 
         backdrop.appendChild(modal);
-        backdrop.addEventListener('click', (e) => {
-            if (e.target === backdrop) backdrop.remove();
-        });
-
         document.body.appendChild(backdrop);
+
+        // Close on backdrop click
+        backdrop.onclick = (e) => {
+            if (e.target === backdrop) backdrop.remove();
+        };
+    }
+
+    /**
+     * Show Paint Tool Panel
+     */
+    showPaintToolPanel() {
+        // Remove existing panel if any
+        const existing = document.getElementById('paint-tool-panel');
+        if (existing) existing.remove();
+        
+        const panel = document.createElement('div');
+        panel.id = 'paint-tool-panel';
+        panel.style.cssText = `
+            position: fixed;
+            right: 20px;
+            top: 80px;
+            width: 250px;
+            background: rgba(0, 0, 0, 0.95);
+            border: 2px solid #4a9eff;
+            border-radius: 8px;
+            color: white;
+            font-family: Arial, sans-serif;
+            z-index: 1001;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        `;
+        
+        // Title
+        const title = document.createElement('h3');
+        title.textContent = '🖌️ Paint Tool';
+        title.style.cssText = 'margin: 0; color: #4a9eff; border-bottom: 1px solid #444; padding-bottom: 8px;';
+        panel.appendChild(title);
+        
+        // Instructions
+        const instructions = document.createElement('div');
+        instructions.innerHTML = `
+            <div style="font-size: 12px; color: #888; margin-top: 8px; line-height: 1.4;">
+                <strong>Controls:</strong><br>
+                • Left Click: Paint<br>
+                • Shift + Click: Erase<br>
+                • Esc: Cancel
+            </div>
+        `;
+        panel.appendChild(instructions);
+        
+        // Close button
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Close';
+        closeBtn.style.cssText = `
+            margin-top: 8px;
+            padding: 8px;
+            background: #555;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        `;
+        closeBtn.onclick = () => {
+            panel.remove();
+            this.editor.setTool('select');
+        };
+        panel.appendChild(closeBtn);
+        
+        document.body.appendChild(panel);
+    }
+
+    /**
+     * Show Zone Tool Panel
+     */
+    showZoneToolPanel() {
+        // Remove existing panel if any
+        const existing = document.getElementById('zone-tool-panel');
+        if (existing) existing.remove();
+        
+        const panel = document.createElement('div');
+        panel.id = 'zone-tool-panel';
+        panel.style.cssText = `
+            position: fixed;
+            right: 20px;
+            top: 80px;
+            width: 250px;
+            background: rgba(0, 0, 0, 0.95);
+            border: 2px solid #4a9eff;
+            border-radius: 8px;
+            color: white;
+            font-family: Arial, sans-serif;
+            z-index: 1001;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        `;
+        
+        // Title
+        const title = document.createElement('h3');
+        title.textContent = '📐 Zone Tool';
+        title.style.cssText = 'margin: 0; color: #4a9eff; border-bottom: 1px solid #444; padding-bottom: 8px;';
+        panel.appendChild(title);
+        
+        // Zone Type Selector
+        const typeLabel = document.createElement('div');
+        typeLabel.textContent = 'Zone Type:';
+        typeLabel.style.cssText = 'font-size: 13px; font-weight: bold; color: #aaa;';
+        panel.appendChild(typeLabel);
+        
+        const zoneTypes = [
+            { value: 'collision', label: '🚧 Collision', color: '#ff0000' },
+            { value: 'spawn', label: '🎯 Spawn', color: '#00ff00' }
+        ];
+        
+        // Initialize zone type if not set
+        if (!this.editor.zoneType) {
+            this.editor.zoneType = 'collision';
+        }
+        
+        const typeButtons = [];
+        
+        zoneTypes.forEach(type => {
+            const btn = document.createElement('button');
+            btn.textContent = type.label;
+            btn.dataset.zoneType = type.value;
+            const isSelected = this.editor.zoneType === type.value;
+            
+            btn.style.cssText = `
+                width: 100%;
+                padding: 10px;
+                background: ${isSelected ? '#4a9eff' : '#333'};
+                color: white;
+                border: 1px solid #555;
+                border-left: 4px solid ${type.color};
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 13px;
+                text-align: left;
+                transition: background 0.2s;
+            `;
+            
+            btn.onclick = () => {
+                this.editor.zoneType = type.value;
+                typeButtons.forEach(b => {
+                    const isBtnSelected = b.dataset.zoneType === type.value;
+                    b.style.background = isBtnSelected ? '#4a9eff' : '#333';
+                });
+                this.showNotification(`Selected Zone Type: ${type.label}`);
+            };
+            
+            typeButtons.push(btn);
+            panel.appendChild(btn);
+        });
+        
+        // Instructions
+        const instructions = document.createElement('div');
+        instructions.innerHTML = `
+            <div style="font-size: 12px; color: #888; margin-top: 8px; line-height: 1.4;">
+                <strong>Controls:</strong><br>
+                • Left Click: Add Point<br>
+                • Right Click: Close Loop<br>
+                • Esc: Cancel
+            </div>
+        `;
+        panel.appendChild(instructions);
+        
+        // Close button
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Close Panel';
+        closeBtn.style.cssText = `
+            margin-top: 8px;
+            padding: 8px;
+            background: #555;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        `;
+        closeBtn.onclick = () => panel.remove();
+        panel.appendChild(closeBtn);
+        
+        document.body.appendChild(panel);
     }
 }
 

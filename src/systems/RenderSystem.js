@@ -201,6 +201,11 @@ class RenderSystem {
         if (showCollision) {
             this.renderDebugCollisionBoxes(renderables, game);
         }
+
+        // Render vector zones if debug mode is enabled
+        if (game.settings && game.settings.showDebugInfo) {
+            this.renderVectorZones(game);
+        }
         
         // Render weather effects in world space (BEFORE restoring camera transform)
         if (game?.currentMap?.weather && game?.weatherSystem) {
@@ -736,6 +741,47 @@ class RenderSystem {
         this.ctx.restore();
     }
     
+    /**
+     * Render vector zones (collision and spawn) for debugging
+     */
+    renderVectorZones(game) {
+        const mapData = game.mapManager.maps[game.currentMapId];
+        if (!mapData || !mapData.zones) return;
+
+        this.ctx.save();
+        this.ctx.lineWidth = 2;
+        
+        // Calculate scale factor to convert stored unscaled coordinates to world coordinates
+        const resolutionScale = game.resolutionScale || 1.0;
+        const mapScale = mapData.scale || 1.0;
+        const totalScale = mapScale * resolutionScale;
+
+        for (const zone of mapData.zones) {
+            if (zone.type === 'collision') {
+                this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+                this.ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+            } else if (zone.type === 'spawn') {
+                this.ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
+                this.ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
+            } else {
+                continue;
+            }
+
+            this.ctx.beginPath();
+            if (zone.points && zone.points.length > 0) {
+                this.ctx.moveTo(zone.points[0].x * totalScale, zone.points[0].y * totalScale);
+                for (let i = 1; i < zone.points.length; i++) {
+                    this.ctx.lineTo(zone.points[i].x * totalScale, zone.points[i].y * totalScale);
+                }
+                this.ctx.closePath();
+            }
+            this.ctx.fill();
+            this.ctx.stroke();
+        }
+
+        this.ctx.restore();
+    }
+
     /**
      * Clear the canvas
      */

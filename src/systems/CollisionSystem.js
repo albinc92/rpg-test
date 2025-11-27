@@ -224,4 +224,97 @@ class CollisionSystem {
             y <= bounds.bottom
         );
     }
+    
+    /**
+     * Check if a point is inside any collision zone
+     * Optionally checks actor bounds if provided (for more accurate collision)
+     */
+    checkZoneCollision(x, y, game, actor = null) {
+        // Get current map zones
+        const mapData = game.mapManager.maps[game.currentMapId];
+        if (!mapData || !mapData.zones) return false;
+        
+        let pointsToCheck = [{x, y}];
+        
+        // If actor provided, check multiple points around their collision bounds
+        if (actor) {
+            // Get scaled collision bounds (current position)
+            const bounds = actor.getCollisionBounds(game);
+            
+            // Calculate scale factors
+            const mapScale = mapData.scale || 1.0;
+            const resolutionScale = game.resolutionScale || 1.0;
+            const totalScale = mapScale * resolutionScale;
+            
+            // Calculate unscaled dimensions
+            const unscaledWidth = bounds.width / totalScale;
+            const unscaledHeight = bounds.height / totalScale;
+            
+            // Calculate offset of collision box center relative to actor center
+            // We use the CURRENT actor position to determine the offset
+            const currentScaledX = actor.getScaledX(game);
+            const currentScaledY = actor.getScaledY(game);
+            const boundsCenterX = bounds.x + bounds.width / 2;
+            const boundsCenterY = bounds.y + bounds.height / 2;
+            
+            const scaledOffsetX = boundsCenterX - currentScaledX;
+            const scaledOffsetY = boundsCenterY - currentScaledY;
+            
+            const unscaledOffsetX = scaledOffsetX / totalScale;
+            const unscaledOffsetY = scaledOffsetY / totalScale;
+            
+            // Apply offset to NEW position (x,y)
+            const centerX = x + unscaledOffsetX;
+            const centerY = y + unscaledOffsetY;
+            
+            // Calculate unscaled bounds at new position
+            const left = centerX - unscaledWidth / 2;
+            const right = centerX + unscaledWidth / 2;
+            const top = centerY - unscaledHeight / 2;
+            const bottom = centerY + unscaledHeight / 2;
+            
+            // Add edge points to check list (corners and midpoints)
+            pointsToCheck = [
+                {x: centerX, y: centerY}, // Center
+                {x: left, y: top}, // Top-Left
+                {x: right, y: top}, // Top-Right
+                {x: left, y: bottom}, // Bottom-Left
+                {x: right, y: bottom}, // Bottom-Right
+                {x: centerX, y: top}, // Top-Center
+                {x: centerX, y: bottom}, // Bottom-Center
+                {x: left, y: centerY}, // Left-Center
+                {x: right, y: centerY} // Right-Center
+            ];
+        }
+        
+        for (const zone of mapData.zones) {
+            // Only check collision zones
+            if (zone.type !== 'collision') continue;
+            
+            // Check all sample points
+            for (const point of pointsToCheck) {
+                if (this.pointInPolygon(point, zone.points)) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Check if a point is inside a polygon
+     */
+    pointInPolygon(point, vs) {
+        var x = point.x, y = point.y;
+        var inside = false;
+        for (var i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+            var xi = vs[i].x, yi = vs[i].y;
+            var xj = vs[j].x, yj = vs[j].y;
+            var intersect = ((yi > y) != (yj > y))
+                && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
 }

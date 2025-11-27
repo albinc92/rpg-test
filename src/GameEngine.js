@@ -1147,6 +1147,13 @@ class GameEngine {
             }
         }
         
+        // Check vector collision zones
+        if (movingActor.canBeBlocked && this.collisionSystem) {
+            if (this.collisionSystem.checkZoneCollision(newX, newY, this, movingActor)) {
+                return { collides: true, object: 'vector_collision' };
+            }
+        }
+        
         // Check painted collision areas
         if (movingActor.canBeBlocked && this.editorManager) {
             const collisionLayer = this.editorManager.getCollisionLayer(this.currentMapId);

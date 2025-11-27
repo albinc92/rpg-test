@@ -37,8 +37,19 @@ class EditorManager {
         this.loadedTextures = {}; // Cache of loaded texture images
         this.paintStartState = null; // Store canvas state before stroke for undo
         
+        // Vector Zone state
+        this.currentZonePoints = []; // Points for the zone currently being drawn
+        this.zones = []; // List of completed zones { points: [], type: 'spawn'|'collision' }
+        this.zoneType = 'collision'; // Default zone type
+        this.selectedZone = null; // Currently selected zone
+
+        
         // Spawn zone visibility
         this.showSpawnZones = true; // Show spawn zones in editor
+        
+        // Zone Editor state
+        this.currentZonePoints = [];
+        this.zones = []; // Array of {points: [{x,y}, ...]}
         
         // Drag state for moving objects
         this.isDragging = false;
@@ -154,32 +165,46 @@ class EditorManager {
             }
             
             // Delete selected object(s) with 'D' or Delete key
-            else if ((e.key === 'd' || e.key === 'D' || e.key === 'Delete') && (this.selectedObject || this.selectedObjects.length > 0)) {
-                e.preventDefault();
-                
-                // Delete multiple selected objects
-                if (this.selectedObjects.length > 0) {
-                    console.log(`[EditorManager] Deleting ${this.selectedObjects.length} selected objects`);
-                    for (const obj of this.selectedObjects) {
-                        console.log('[DELETE] Multi-delete:', obj.name || obj.objectType, 'at', obj.x, obj.y);
-                        this.deleteObject(obj);
+            else if ((e.key === 'd' || e.key === 'D' || e.key === 'Delete')) {
+                if (this.selectedZone) {
+                    e.preventDefault();
+                    this.deleteZone(this.selectedZone);
+                } else if (this.selectedObject || this.selectedObjects.length > 0) {
+                    e.preventDefault();
+                    
+                    // Delete multiple selected objects
+                    if (this.selectedObjects.length > 0) {
+                        console.log(`[EditorManager] Deleting ${this.selectedObjects.length} selected objects`);
+                        for (const obj of this.selectedObjects) {
+                            console.log('[DELETE] Multi-delete:', obj.name || obj.objectType, 'at', obj.x, obj.y);
+                            this.deleteObject(obj);
+                        }
+                        this.selectedObjects = [];
+                    } 
+                    // Delete single selected object
+                    else if (this.selectedObject) {
+                        console.log('[DELETE] Single delete:', this.selectedObject.name || this.selectedObject.objectType, 'at', this.selectedObject.x, this.selectedObject.y);
+                        this.deleteObject(this.selectedObject);
                     }
-                    this.selectedObjects = [];
-                } 
-                // Delete single selected object
-                else if (this.selectedObject) {
-                    console.log('[DELETE] Single delete:', this.selectedObject.name || this.selectedObject.objectType, 'at', this.selectedObject.x, this.selectedObject.y);
-                    this.deleteObject(this.selectedObject);
                 }
             }
             
             // Copy/paste
-            else if (e.ctrlKey && e.key === 'c' && this.selectedObject) {
+            else if (e.ctrlKey && e.key === 'c') {
+                if (this.selectedZone) {
+                    e.preventDefault();
+                    this.copyZone(this.selectedZone);
+                } else if (this.selectedObject) {
+                    e.preventDefault();
+                    this.copyObject(this.selectedObject);
+                }
+            } else if (e.ctrlKey && e.key === 'v' && (this.clipboard || this.zoneClipboard)) {
                 e.preventDefault();
-                this.copyObject(this.selectedObject);
-            } else if (e.ctrlKey && e.key === 'v' && this.clipboard) {
-                e.preventDefault();
-                this.pasteObject();
+                if (this.zoneClipboard) {
+                    this.pasteZone();
+                } else {
+                    this.pasteObject();
+                }
             }
             
             // Undo/redo
@@ -315,6 +340,13 @@ class EditorManager {
         this.selectedTool = 'select';
         this.selectedPrefab = null;
         
+        // Load zones for current map
+        const mapData = this.game.mapManager.maps[this.game.currentMapId];
+        if (!mapData.zones) {
+            mapData.zones = [];
+        }
+        this.zones = mapData.zones;
+        
         // Create UI if not exists
         if (!this.ui) {
             this.ui = new EditorUI(this);
@@ -367,6 +399,12 @@ class EditorManager {
         const paintPanel = document.getElementById('paint-tool-panel');
         if (paintPanel) {
             paintPanel.remove();
+        }
+
+        // Close zone tool panel if open
+        const zonePanel = document.getElementById('zone-tool-panel');
+        if (zonePanel) {
+            zonePanel.remove();
         }
         
         // Clear selection and drag state
@@ -636,7 +674,12 @@ class EditorManager {
         if (this.selectedTool === 'paint') {
             this.renderBrushPreview(ctx);
         }
-        
+
+        // Render zone editor
+        if (this.selectedTool === 'zone' || this.zones.length > 0) {
+            this.renderZones(ctx);
+        }
+
         // Render UI overlays
         this.renderOverlays(ctx);
     }
@@ -1249,6 +1292,14 @@ class EditorManager {
         this.game.canvas.addEventListener('mousemove', this.mouseMoveHandler);
         this.game.canvas.addEventListener('mouseup', this.mouseUpHandler);
         window.addEventListener('mousemove', this.rawMouseMoveHandler);
+        
+        // Prevent context menu for right-click in zone editor
+        this.contextMenuHandler = (e) => {
+            if (this.isActive && this.selectedTool === 'zone_create') {
+                e.preventDefault();
+            }
+        };
+        this.game.canvas.addEventListener('contextmenu', this.contextMenuHandler);
     }
     
     /**
@@ -1262,6 +1313,9 @@ class EditorManager {
         }
         if (this.rawMouseMoveHandler) {
             window.removeEventListener('mousemove', this.rawMouseMoveHandler);
+        }
+        if (this.contextMenuHandler) {
+            this.game.canvas.removeEventListener('contextmenu', this.contextMenuHandler);
         }
     }
     
@@ -1322,7 +1376,7 @@ class EditorManager {
             }
             
             // Handle single object dragging
-            if (this.selectedObject) {
+            if (this.selectedObject || this.selectedZone) {
                 // Start dragging if not already
                 if (!this.isDragging) {
                     const dragThreshold = 5; // Pixels before starting drag
@@ -1332,36 +1386,48 @@ class EditorManager {
                     if (dx > dragThreshold || dy > dragThreshold) {
                         this.isDragging = true;
                         this.game.canvas.style.cursor = 'move';
-                    }
+                      }
                 }
                 
                 // Update object position while dragging
                 if (this.isDragging) {
-                    // Store old position for history
-                    if (!this.dragOriginalX) {
-                        this.dragOriginalX = this.selectedObject.x;
-                        this.dragOriginalY = this.selectedObject.y;
-                    }
-                    
-                    // Convert scaled mouse to unscaled storage coordinates
-                    const unscaledMouse = this.worldToUnscaled(this.mouseWorldXUnsnapped, this.mouseWorldYUnsnapped);
-                    
-                    // Calculate new position (all in unscaled space: obj.x, dragOffset, unscaledMouse)
-                    const newX = unscaledMouse.x - this.dragOffsetX;
-                    const newY = unscaledMouse.y - this.dragOffsetY;
-                    
-                    if (Math.random() < 0.05) { // Log occasionally to avoid spam
-                        console.log('[DRAG] mouse:', unscaledMouse.x.toFixed(1), unscaledMouse.y.toFixed(1),
-                                    'offset:', this.dragOffsetX.toFixed(1), this.dragOffsetY.toFixed(1),
-                                    'result:', newX.toFixed(1), newY.toFixed(1));
-                    }
-                    
-                    this.selectedObject.x = newX;
-                    this.selectedObject.y = newY;
-                    
-                    // Update property panel if visible
-                    if (this.propertyPanel && this.propertyPanel.show) {
-                        this.propertyPanel.show(this.selectedObject);
+                    if (this.selectedZone) {
+                        const unscaledMouse = this.worldToUnscaled(this.mouseWorldXUnsnapped, this.mouseWorldYUnsnapped);
+                        const dx = unscaledMouse.x - this.dragStartX;
+                        const dy = unscaledMouse.y - this.dragStartY;
+                        
+                        // Move all points
+                        this.selectedZone.points = this.dragOriginalPoints.map(p => ({
+                            x: p.x + dx,
+                            y: p.y + dy
+                        }));
+                    } else if (this.selectedObject) {
+                        // Store old position for history
+                        if (!this.dragOriginalX) {
+                            this.dragOriginalX = this.selectedObject.x;
+                            this.dragOriginalY = this.selectedObject.y;
+                        }
+                        
+                        // Convert scaled mouse to unscaled storage coordinates
+                        const unscaledMouse = this.worldToUnscaled(this.mouseWorldXUnsnapped, this.mouseWorldYUnsnapped);
+                        
+                        // Calculate new position (all in unscaled space: obj.x, dragOffset, unscaledMouse)
+                        const newX = unscaledMouse.x - this.dragOffsetX;
+                        const newY = unscaledMouse.y - this.dragOffsetY;
+                        
+                        if (Math.random() < 0.05) { // Log occasionally to avoid spam
+                            console.log('[DRAG] mouse:', unscaledMouse.x.toFixed(1), unscaledMouse.y.toFixed(1),
+                                        'offset:', this.dragOffsetX.toFixed(1), this.dragOffsetY.toFixed(1),
+                                        'result:', newX.toFixed(1), newY.toFixed(1));
+                        }
+                        
+                        this.selectedObject.x = newX;
+                        this.selectedObject.y = newY;
+                        
+                        // Update property panel if visible
+                        if (this.propertyPanel && this.propertyPanel.show) {
+                            this.propertyPanel.show(this.selectedObject);
+                        }
                     }
                 }
             }
@@ -1388,18 +1454,30 @@ class EditorManager {
         }
         
         if (this.isDragging) {
-            // Add move action to history
-            this.addHistory({
-                type: 'move',
-                object: this.selectedObject,
-                oldX: this.dragOriginalX,
-                oldY: this.dragOriginalY,
-                newX: this.selectedObject.x,
-                newY: this.selectedObject.y,
-                mapId: this.game.currentMapId
-            });
-            
-            console.log('[EditorManager] Moved object to:', this.selectedObject.x, this.selectedObject.y);
+            if (this.selectedZone) {
+                // Add zone move action to history
+                this.addHistory({
+                    type: 'move_zone',
+                    zone: this.selectedZone,
+                    oldPoints: this.dragOriginalPoints,
+                    newPoints: this.selectedZone.points.map(p => ({...p})),
+                    mapId: this.game.currentMapId
+                });
+                console.log('[EditorManager] Moved zone');
+            } else if (this.selectedObject) {
+                // Add move action to history
+                this.addHistory({
+                    type: 'move',
+                    object: this.selectedObject,
+                    oldX: this.dragOriginalX,
+                    oldY: this.dragOriginalY,
+                    newX: this.selectedObject.x,
+                    newY: this.selectedObject.y,
+                    mapId: this.game.currentMapId
+                });
+                
+                console.log('[EditorManager] Moved object to:', this.selectedObject.x, this.selectedObject.y);
+            }
             
             // Reset drag state
             this.isDragging = false;
@@ -1464,9 +1542,72 @@ class EditorManager {
                 return this.handleSelectClick(x, y);
             case 'place':
                 return this.handlePlaceClick(x, y);
+            case 'zone':
+                return this.handleZoneClick(x, y, button);
+            case 'paint':
+                return true;
         }
         
         return true; // Consume click
+    }
+
+    /**
+     * Check if a point is inside a polygon
+     */
+    pointInPolygon(point, vs) {
+        var x = point.x, y = point.y;
+        var inside = false;
+        for (var i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+            var xi = vs[i].x, yi = vs[i].y;
+            var xj = vs[j].x, yj = vs[j].y;
+            var intersect = ((yi > y) != (yj > y))
+                && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
+
+    /**
+     * Select a zone
+     */
+    selectZone(zone) {
+        this.selectedZone = zone;
+        this.selectedObject = null; // Deselect other objects
+        this.selectedObjects = []; // Clear multi-select
+        
+        if (zone) {
+            console.log('[EditorManager] Selected Zone:', zone.type);
+            // Calculate center for dragging
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            zone.points.forEach(p => {
+                minX = Math.min(minX, p.x);
+                maxX = Math.max(maxX, p.x);
+                minY = Math.min(minY, p.y);
+                maxY = Math.max(maxY, p.y);
+            });
+            this.selectedZoneCenter = {
+                x: (minX + maxX) / 2,
+                y: (minY + maxY) / 2
+            };
+        }
+    }
+
+    /**
+     * Delete a zone
+     */
+    deleteZone(zone) {
+        const index = this.zones.indexOf(zone);
+        if (index > -1) {
+            this.zones.splice(index, 1);
+            
+            // Invalidate spawn cache if needed
+            if (zone.type === 'spawn' && this.game.spawnManager) {
+                this.game.spawnManager.invalidateSpawnZoneCache();
+            }
+            
+            this.selectZone(null);
+            console.log('[EditorManager] Deleted zone');
+        }
     }
 
     /**
@@ -1543,6 +1684,28 @@ class EditorManager {
                 console.log('[SELECT] Selected:', obj.name || obj.objectType, 'at unscaled:', obj.x, obj.y);
                 
                 return true;
+            }
+        }
+        
+        // Check for zone selection
+        if (this.zones && this.zones.length > 0) {
+            // Convert mouse to unscaled for checking against stored zones
+            const unscaledMouse = this.worldToUnscaled(worldX, worldY);
+            
+            for (const zone of this.zones) {
+                if (this.pointInPolygon({x: unscaledMouse.x, y: unscaledMouse.y}, zone.points)) {
+                    this.selectZone(zone);
+                    
+                    // Setup drag offsets using unscaled coordinates
+                    this.dragStartX = unscaledMouse.x;
+                    this.dragStartY = unscaledMouse.y;
+                    
+                    // Store original points for dragging
+                    this.dragOriginalPoints = zone.points.map(p => ({...p}));
+                    
+                    console.log('[SELECT] Selected zone');
+                    return true;
+                }
             }
         }
         
@@ -1749,6 +1912,41 @@ class EditorManager {
     }
 
     /**
+     * Copy a zone
+     */
+    copyZone(zone) {
+        this.zoneClipboard = {
+            points: zone.points.map(p => ({...p})),
+            type: zone.type
+        };
+        this.clipboard = null; // Clear object clipboard
+        console.log('[EditorManager] Copied zone');
+    }
+
+    /**
+     * Paste a zone
+     */
+    pasteZone() {
+        if (!this.zoneClipboard) return;
+        
+        // Offset by 32 pixels
+        const offset = 32;
+        const newPoints = this.zoneClipboard.points.map(p => ({
+            x: p.x + offset,
+            y: p.y + offset
+        }));
+        
+        const newZone = {
+            points: newPoints,
+            type: this.zoneClipboard.type
+        };
+        
+        this.zones.push(newZone);
+        this.selectZone(newZone);
+        console.log('[EditorManager] Pasted zone');
+    }
+
+    /**
      * Add action to history
      */
     addHistory(action) {
@@ -1785,6 +1983,8 @@ class EditorManager {
         } else if (action.type === 'move') {
             action.object.x = action.oldX;
             action.object.y = action.oldY;
+        } else if (action.type === 'move_zone') {
+            action.zone.points = action.oldPoints.map(p => ({...p}));
         } else if (action.type === 'paint') {
             // Store current state for redo before restoring
             const canvas = this.paintLayers[action.mapId];
@@ -1825,6 +2025,8 @@ class EditorManager {
         } else if (action.type === 'move') {
             action.object.x = action.newX;
             action.object.y = action.newY;
+        } else if (action.type === 'move_zone') {
+            action.zone.points = action.newPoints.map(p => ({...p}));
         } else if (action.type === 'paint') {
             // Restore the "after" state
             const canvas = this.paintLayers[action.mapId];
@@ -1881,6 +2083,11 @@ class EditorManager {
      * Sync current live data back to managers
      */
     syncGameData() {
+        // 0. Sync Zones for current map
+        if (this.game.mapManager.maps[this.game.currentMapId]) {
+            this.game.mapManager.maps[this.game.currentMapId].zones = this.zones;
+        }
+
         // 1. Sync Lights for current map
         const lightsData = this.game.lightManager.exportLights();
         if (this.game.mapManager.maps[this.game.currentMapId]) {
@@ -1990,7 +2197,6 @@ class EditorManager {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     }
-
     /**
      * Zoom in camera
      */
@@ -2878,7 +3084,7 @@ class EditorManager {
                     this.game.spawnManager.invalidateSpawnZoneCache();
                 }
                 
-                // Invalidate WebGL texture cache
+                // Invalidate WebGL texture cache so the updated canvas renders immediately
                 if (this.game?.renderSystem?.webglRenderer) {
                     this.game.renderSystem.webglRenderer.invalidateTexture(`spawn_layer_${mapId}`);
                 }
@@ -3366,10 +3572,174 @@ class EditorManager {
         ctx.setLineDash([]);
         
         // Draw center dot
-        ctx.fillStyle = this.selectedTexture ? 'rgba(74, 158, 255, 1)' : 'rgba(255, 0, 0, 1)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
         ctx.beginPath();
-        ctx.arc(worldX, worldY, 3 / zoom, 0, Math.PI * 2);
+        ctx.arc(worldX, worldY, 2 / zoom, 0, Math.PI * 2);
         ctx.fill();
+        
+        ctx.restore();
+    }
+
+    /**
+     * Handle zone editor click
+     */
+    handleZoneClick(x, y, button) {
+        // Use world coordinates (snapped if grid is on)
+        const worldX = this.mouseWorldX;
+        const worldY = this.mouseWorldY;
+        
+        // Convert to unscaled coordinates for storage
+        const unscaled = this.worldToUnscaled(worldX, worldY);
+        
+        console.log(`[ZoneEditor] Click button ${button} at ${worldX}, ${worldY} (unscaled: ${unscaled.x}, ${unscaled.y})`);
+        
+        // Left click: Add point
+        if (button === 0) {
+            this.currentZonePoints.push({ x: unscaled.x, y: unscaled.y });
+            console.log(`[ZoneEditor] Added point. Total: ${this.currentZonePoints.length}`);
+            return true;
+        }
+        
+        // Right click: Close loop
+        if (button === 2) {
+            if (this.currentZonePoints.length > 2) {
+                // Create zone
+                const zone = {
+                    points: [...this.currentZonePoints],
+                    type: this.zoneType || 'collision'
+                };
+                this.zones.push(zone);
+                console.log(`[ZoneEditor] Zone created! Type: ${zone.type}`);
+                
+                // Invalidate spawn cache if needed
+                if (zone.type === 'spawn' && this.game.spawnManager) {
+                    this.game.spawnManager.invalidateSpawnZoneCache();
+                }
+                
+                // Clear current points
+                this.currentZonePoints = [];
+            } else {
+                console.log('[ZoneEditor] Need at least 3 points to create a zone');
+                // Optional: Cancel if right click with < 3 points?
+                // For now, just clear if they want to cancel
+                if (this.currentZonePoints.length > 0) {
+                    console.log('[ZoneEditor] Cancelled current zone');
+                    this.currentZonePoints = [];
+                }
+            }
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * Render zones and editor interface
+     */
+    renderZones(ctx) {
+        const camera = this.game.camera;
+        const zoom = camera.zoom || 1.0;
+        
+        ctx.save();
+        
+        // Apply camera transform
+        const canvasWidth = this.game.CANVAS_WIDTH;
+        const canvasHeight = this.game.CANVAS_HEIGHT;
+        
+        if (zoom !== 1.0) {
+            ctx.translate(canvasWidth / 2, canvasHeight / 2);
+            ctx.scale(zoom, zoom);
+            ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
+        }
+        
+        ctx.translate(-camera.x, -camera.y);
+        
+        // Helper to get colors based on type
+        const getZoneColors = (type) => {
+            if (type === 'spawn') {
+                return {
+                    fill: 'rgba(0, 255, 0, 0.3)',
+                    stroke: '#00ff00'
+                };
+            }
+            // Default to collision (red)
+            return {
+                fill: 'rgba(255, 0, 0, 0.3)',
+                stroke: '#ff0000'
+            };
+        };
+        
+        // 1. Render completed zones
+        for (const zone of this.zones) {
+            if (zone.points.length < 3) continue;
+            
+            const colors = getZoneColors(zone.type);
+            const isSelected = this.selectedZone === zone;
+            
+            ctx.beginPath();
+            
+            // Convert unscaled points to world coordinates for rendering
+            const p0 = this.unscaledToWorld(zone.points[0].x, zone.points[0].y);
+            ctx.moveTo(p0.x, p0.y);
+            
+            for (let i = 1; i < zone.points.length; i++) {
+                const p = this.unscaledToWorld(zone.points[i].x, zone.points[i].y);
+                ctx.lineTo(p.x, p.y);
+            }
+            ctx.closePath();
+            
+            ctx.fillStyle = colors.fill;
+            ctx.fill();
+            
+            ctx.strokeStyle = isSelected ? '#ffff00' : colors.stroke;
+            ctx.lineWidth = (isSelected ? 4 : 2) / zoom;
+            ctx.stroke();
+            
+            // Draw vertices if selected
+            if (isSelected) {
+                ctx.fillStyle = '#ffff00';
+                for (const point of zone.points) {
+                    const p = this.unscaledToWorld(point.x, point.y);
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 4 / zoom, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+        
+        // 2. Render current zone being drawn
+        if (this.currentZonePoints.length > 0) {
+            const colors = getZoneColors(this.zoneType || 'collision');
+            
+            ctx.beginPath();
+            
+            // Convert unscaled points to world coordinates for rendering
+            const p0 = this.unscaledToWorld(this.currentZonePoints[0].x, this.currentZonePoints[0].y);
+            ctx.moveTo(p0.x, p0.y);
+            
+            for (let i = 1; i < this.currentZonePoints.length; i++) {
+                const p = this.unscaledToWorld(this.currentZonePoints[i].x, this.currentZonePoints[i].y);
+                ctx.lineTo(p.x, p.y);
+            }
+            
+            // Draw line to cursor
+            ctx.lineTo(this.mouseWorldX, this.mouseWorldY);
+            
+            ctx.strokeStyle = colors.stroke;
+            ctx.lineWidth = 2 / zoom;
+            ctx.setLineDash([5 / zoom, 5 / zoom]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Draw points
+            ctx.fillStyle = colors.stroke;
+            for (const point of this.currentZonePoints) {
+                const p = this.unscaledToWorld(point.x, point.y);
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 4 / zoom, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
         
         ctx.restore();
     }

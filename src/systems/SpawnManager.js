@@ -63,13 +63,15 @@ class SpawnManager {
         
         // Check if spawn zones exist and build cache
         const spawnLayer = this.game.editorManager.getSpawnLayer(mapId);
-        if (!spawnLayer) {
-            console.warn(`[SpawnManager] ⚠️ No spawn zones painted for map: ${mapId}. Paint spawn zones in Map Editor to enable spawning.`);
+        const hasVectorZones = mapData.zones && mapData.zones.some(z => z.type === 'spawn');
+        
+        if (!spawnLayer && !hasVectorZones) {
+            console.warn(`[SpawnManager] ⚠️ No spawn zones found for map: ${mapId}. Create vector spawn zones or paint them.`);
             this.enabled = false;
             return;
         }
         
-        console.log(`[SpawnManager] 🗺️ Found spawn layer for map ${mapId}, dimensions: ${spawnLayer.width}x${spawnLayer.height}`);
+        console.log(`[SpawnManager] 🗺️ Found spawn zones for map ${mapId}`);
         
         // Build spawn zone cache for performance (or use existing cache for this map)
         this.buildSpawnZoneCache(mapId, spawnLayer);
@@ -370,41 +372,72 @@ class SpawnManager {
         const startTime = performance.now();
         
         const mapData = this.game.mapManager.maps[mapId];
-        const mapScale = mapData.scale || 1.0;
-        const resolutionScale = this.game.resolutionScale || 1.0;
-        const combinedScale = mapScale * resolutionScale;
-        
-        const canvasWidth = spawnLayer.width;
-        const canvasHeight = spawnLayer.height;
-        
-        console.log(`[SpawnManager] 🗺️ Spawn layer dimensions: ${canvasWidth}x${canvasHeight}`);
-        console.log(`[SpawnManager] 🗺️ Map scale: ${mapScale}, Resolution scale: ${resolutionScale}, Combined: ${combinedScale}`);
-        
-        // Get all pixel data at once (much faster than repeated getImageData calls)
-        const ctx = spawnLayer.getContext('2d');
-        const imageData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
-        const pixels = imageData.data;
-        
-        // Sample grid for spawn points (every 16 pixels to avoid too many points)
-        const sampleRate = 16;
         const spawnPoints = [];
+        const sampleRate = 16;
+
+        // 1. Check Vector Zones
+        if (mapData.zones) {
+            // Calculate scale to convert stored unscaled coordinates to world coordinates
+            const mapScale = mapData.scale || 1.0;
+            const resolutionScale = this.game.resolutionScale || 1.0;
+            const totalScale = mapScale * resolutionScale;
+
+            for (const zone of mapData.zones) {
+                if (zone.type !== 'spawn') continue;
+                
+                // Convert zone points to scaled for sampling (matching painted layer coordinates)
+                const scaledPoints = zone.points.map(p => ({
+                    x: p.x * totalScale,
+                    y: p.y * totalScale
+                }));
+                
+                // Get bounding box of zone to minimize checks
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                scaledPoints.forEach(p => {
+                    minX = Math.min(minX, p.x);
+                    maxX = Math.max(maxX, p.x);
+                    minY = Math.min(minY, p.y);
+                    maxY = Math.max(maxY, p.y);
+                });
+                
+                // Snap to sample grid
+                minX = Math.floor(minX / sampleRate) * sampleRate;
+                minY = Math.floor(minY / sampleRate) * sampleRate;
+                
+                for (let y = minY; y <= maxY; y += sampleRate) {
+                    for (let x = minX; x <= maxX; x += sampleRate) {
+                        if (this.pointInPolygon({x, y}, scaledPoints)) {
+                            spawnPoints.push({x, y});
+                        }
+                    }
+                }
+            }
+        }
         
-        for (let cy = 0; cy < canvasHeight; cy += sampleRate) {
-            for (let cx = 0; cx < canvasWidth; cx += sampleRate) {
-                const index = (cy * canvasWidth + cx) * 4;
-                const r = pixels[index];
-                const g = pixels[index + 1];
-                const b = pixels[index + 2];
-                const a = pixels[index + 3];
-                
-                // Check if pixel is blue (spawn zone color: rgba(0, 100, 255, 1.0))
-                const isBlue = (r < 50 && g > 50 && g < 150 && b > 200 && a > 128);
-                
-                if (isBlue) {
-                    // Canvas coordinates are already in world coordinates
-                    // The spawn layer canvas size matches the scaled world size
-                    // So we just use cx, cy directly
-                    spawnPoints.push({ x: cx, y: cy });
+        // 2. Check Painted Zones (if layer exists)
+        if (spawnLayer) {
+            const canvasWidth = spawnLayer.width;
+            const canvasHeight = spawnLayer.height;
+            
+            // Get all pixel data at once
+            const ctx = spawnLayer.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
+            const pixels = imageData.data;
+            
+            for (let cy = 0; cy < canvasHeight; cy += sampleRate) {
+                for (let cx = 0; cx < canvasWidth; cx += sampleRate) {
+                    const index = (cy * canvasWidth + cx) * 4;
+                    const r = pixels[index];
+                    const g = pixels[index + 1];
+                    const b = pixels[index + 2];
+                    const a = pixels[index + 3];
+                    
+                    // Check if pixel is blue
+                    const isBlue = (r < 50 && g > 50 && g < 150 && b > 200 && a > 128);
+                    
+                    if (isBlue) {
+                        spawnPoints.push({ x: cx, y: cy });
+                    }
                 }
             }
         }
@@ -425,7 +458,6 @@ class SpawnManager {
                 if (p.y > maxY) maxY = p.y;
             });
             console.log(`[SpawnManager] 📍 Spawn zone bounds: X(${minX} to ${maxX}), Y(${minY} to ${maxY})`);
-            console.log(`[SpawnManager] 📍 Sample spawn points:`, spawnPoints.slice(0, 5));
         }
     }
     
@@ -668,5 +700,21 @@ class SpawnManager {
                 }
             }
         }
+    }
+
+    /**
+     * Check if a point is inside a polygon
+     */
+    pointInPolygon(point, vs) {
+        var x = point.x, y = point.y;
+        var inside = false;
+        for (var i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+            var xi = vs[i].x, yi = vs[i].y;
+            var xj = vs[j].x, yj = vs[j].y;
+            var intersect = ((yi > y) != (yj > y))
+                && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
     }
 }

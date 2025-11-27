@@ -5,7 +5,7 @@ export default defineConfig({
   root: '.',
   
   // Public directory for static assets
-  publicDir: 'assets',
+  // publicDir: 'assets',
   
   // Server configuration
   server: {
