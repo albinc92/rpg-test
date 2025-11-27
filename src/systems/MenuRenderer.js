@@ -44,17 +44,18 @@ class MenuRenderer {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
         ctx.fillRect(x, y, width, height * 0.4);
 
-        // Inner glow/shadow
+        // Inner glow/shadow - REDUCED BLUR FOR PERFORMANCE
+        // High blur values (>10) can cause significant performance drops on some GPUs
         ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 0; // Disabled blur for performance
         ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 10;
+        ctx.shadowOffsetY = 5;
         
         // Corner accents (Cyan)
         const cornerSize = 8;
         ctx.fillStyle = '#4a9eff';
         ctx.shadowColor = '#4a9eff';
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 0; // Disabled blur for performance
         
         // Draw corners
         ctx.fillRect(x - 1, y - 1, cornerSize, 2); // Top-left H
@@ -84,7 +85,7 @@ class MenuRenderer {
         
         // Title Shadow/Glow (Stronger for glass effect)
         ctx.shadowColor = '#4a9eff';
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 0; // Reduced from 20
         ctx.fillStyle = '#fff';
         ctx.font = `900 ${sizes.title}px 'Cinzel', serif`;
         ctx.fillText(title, canvasWidth / 2, canvasHeight * yPosition);
@@ -236,7 +237,7 @@ class MenuRenderer {
                 ctx.fillStyle = '#fff';
                 ctx.font = `700 ${sizes.menu}px 'Lato', sans-serif`;
                 ctx.shadowColor = '#4a9eff';
-                ctx.shadowBlur = 10;
+                ctx.shadowBlur = 0; // Reduced from 10
             } else {
                 ctx.fillStyle = '#aaa';
                 ctx.font = `400 ${sizes.menu}px 'Lato', sans-serif`;

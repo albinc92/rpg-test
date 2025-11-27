@@ -549,6 +549,11 @@ class MainMenuState extends GameState {
                 break;
             case 'Exit':
                 // Exit game
+                if (window.electronAPI && window.electronAPI.exitApp) {
+                    window.electronAPI.exitApp();
+                } else {
+                    console.log('Exit requested (not in Electron)');
+                }
                 break;
         }
     }
@@ -1566,6 +1571,7 @@ class SettingsState extends GameState {
             'Graphics': [
                 { name: 'Resolution', type: 'select', key: 'resolution', values: this.resolutions },
                 { name: 'Fullscreen', type: 'toggle', key: 'fullscreen' },
+                { name: 'VSync (Restart)', type: 'toggle', key: 'vsync' },
                 { name: 'Show FPS', type: 'toggle', key: 'showFPS' }
             ],
             'Gameplay': [
@@ -1744,7 +1750,11 @@ class SettingsState extends GameState {
         }
         
         // Save settings
-        this.saveSettings();
+        // Debounce saving to avoid lag on sliders
+        if (this.saveTimeout) clearTimeout(this.saveTimeout);
+        this.saveTimeout = setTimeout(() => {
+            this.saveSettings();
+        }, 500);
     }
     
     selectOption() {
@@ -1793,11 +1803,17 @@ class SettingsState extends GameState {
 
     
     saveSettings() {
-        // Save to localStorage
-        try {
-            localStorage.setItem('rpg-game-settings', JSON.stringify(this.game.settings));
-        } catch (error) {
-            console.warn('Failed to save settings:', error);
+        // Sync changes back to SettingsManager and save (handles Electron IPC)
+        if (this.game.settingsManager) {
+            console.log('[SettingsState] Saving settings via SettingsManager...');
+            this.game.settingsManager.update(this.game.settings);
+        } else {
+            // Fallback for non-SettingsManager environments (shouldn't happen)
+            try {
+                localStorage.setItem('rpg-game-settings', JSON.stringify(this.game.settings));
+            } catch (error) {
+                console.warn('Failed to save settings:', error);
+            }
         }
     }
     

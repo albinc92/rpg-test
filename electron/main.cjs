@@ -1,9 +1,29 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
   app.quit();
+}
+
+// Load settings for boot flags
+const userDataPath = app.getPath('userData');
+const settingsPath = path.join(userDataPath, 'settings.json');
+let settings = { vsync: false }; // Default to VSync OFF
+
+console.log('Loading settings from:', settingsPath);
+
+try {
+  if (fs.existsSync(settingsPath)) {
+    const data = fs.readFileSync(settingsPath, 'utf8');
+    settings = JSON.parse(data);
+    console.log('Loaded settings:', settings);
+  } else {
+    console.log('Settings file not found, using defaults');
+  }
+} catch (e) {
+  console.error('Failed to load settings for boot flags:', e);
 }
 
 // Disable background throttling to prevent FPS drops when window loses focus
@@ -14,10 +34,20 @@ app.commandLine.appendSwitch('force_high_performance_gpu');
 // Force 1:1 pixel mapping (ignore Windows scaling)
 app.commandLine.appendSwitch('force-device-scale-factor', '1');
 app.commandLine.appendSwitch('high-dpi-support', '1');
-// Unlock FPS limits
-app.commandLine.appendSwitch('disable-frame-rate-limit');
-app.commandLine.appendSwitch('disable-gpu-vsync');
-app.commandLine.appendSwitch('max-gum-fps', '1000');
+
+// VSync / FPS Unlocking Logic
+if (!settings.vsync) {
+  // VSync OFF: Unlock FPS
+  console.log('VSync is OFF - Unlocking FPS');
+  app.commandLine.appendSwitch('disable-frame-rate-limit');
+  app.commandLine.appendSwitch('disable-gpu-vsync');
+  app.commandLine.appendSwitch('max-gum-fps', '1000');
+} else {
+  // VSync ON: Default behavior (usually locked to refresh rate)
+  console.log('VSync is ON - Using default behavior');
+  // Explicitly enable VSync just in case
+  app.commandLine.appendSwitch('enable-gpu-vsync');
+}
 
 const createWindow = () => {
   // Create the browser window.
@@ -49,6 +79,22 @@ const createWindow = () => {
 
   ipcMain.handle('is-fullscreen', () => {
     return mainWindow.isFullScreen();
+  });
+
+  ipcMain.handle('save-settings', (event, newSettings) => {
+    try {
+      console.log('Saving settings to file:', settingsPath);
+      fs.writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2));
+      console.log('Settings saved successfully');
+      return true;
+    } catch (e) {
+      console.error('Failed to save settings to file:', e);
+      return false;
+    }
+  });
+
+  ipcMain.handle('exit-app', () => {
+    app.quit();
   });
 
   // In development, we can load the Vite dev server.

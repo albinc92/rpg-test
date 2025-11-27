@@ -16,7 +16,8 @@ class SettingsManager {
             showDebug: false,
             showDebugInfo: false, // Default to false for cleaner startup
             resolution: '1280x720',
-            fullscreen: false
+            fullscreen: false,
+            vsync: false // Default to OFF for high FPS
         };
         
         this.settings = { ...this.defaults };
@@ -41,12 +42,19 @@ class SettingsManager {
     }
     
     /**
-     * Save settings to localStorage
+     * Save settings to localStorage and File (for boot flags)
      */
     save() {
         try {
+            // Save to localStorage (Renderer)
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.settings));
-            console.log('✅ Settings saved to localStorage');
+            
+            // Save to File (Main Process) - needed for boot flags like VSync
+            if (window.electronAPI && window.electronAPI.saveSettings) {
+                window.electronAPI.saveSettings(this.settings);
+            }
+            
+            console.log('✅ Settings saved');
             return true;
         } catch (error) {
             console.error('❌ Failed to save settings:', error);
