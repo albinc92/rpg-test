@@ -1,21 +1,6 @@
 /**
  * PerformanceMonitor - Tracks FPS and debug info
- *        // Draw semi-transparent background panel (top-left position, below editor toolbar if active)
-        const topOffset = 80; // Position below editor toolbar
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.fillRect(10, topOffset, panelWidth, panelHeight);
-        
-        // Border
-        ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(10, topOffset, panelWidth, panelHeight);
-        
-        // Text styling
-        ctx.fillStyle = '#00ff00';
-        ctx.font = '14px Courier New, monospace';
-        ctx.textAlign = 'left';
-        
-        let y = topOffset + padding;r: FPS tracking, performance metrics, debug display
+ * FPS tracking, performance metrics, debug display
  */
 class PerformanceMonitor {
     constructor() {
@@ -63,9 +48,32 @@ class PerformanceMonitor {
     /**
      * Render debug info
      */
-    render(ctx, canvasWidth, canvasHeight, currentState, currentMapId) {
+    render(ctx, canvasWidth, canvasHeight, currentState, currentMapId, settings) {
         if (!this.enabled) return;
         
+        // If neither is enabled, don't render anything
+        if (!settings?.showFPS && !settings?.showDebugInfo) return;
+
+        // If ONLY FPS is enabled (and not full debug info)
+        if (settings.showFPS && !settings.showDebugInfo) {
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(canvasWidth - 80, 10, 70, 25);
+            
+            ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(canvasWidth - 80, 10, 70, 25);
+            
+            ctx.fillStyle = '#00ff00';
+            ctx.font = 'bold 14px Courier New, monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`FPS: ${this.fps}`, canvasWidth - 45, 22.5);
+            ctx.restore();
+            return;
+        }
+
+        // Full Debug Info Panel (includes FPS)
         const panelWidth = 260;
         const panelHeight = 226; // Increased for day/night controls + shader info
         const padding = 12;
@@ -104,9 +112,9 @@ class PerformanceMonitor {
         y += lineHeight;
         
         // Player position
-        if (game.player) {
-            const playerX = Math.round(game.player.x);
-            const playerY = Math.round(game.player.y);
+        if (window.game && window.game.player) {
+            const playerX = Math.round(window.game.player.x);
+            const playerY = Math.round(window.game.player.y);
             ctx.fillText(`Player: (${playerX}, ${playerY})`, 20, y);
             y += lineHeight;
         }
@@ -117,25 +125,25 @@ class PerformanceMonitor {
         y += lineHeight;
         
         // Day/Night cycle info (if available)
-        if (game?.dayNightCycle && game?.currentMap?.dayNightCycle) {
+        if (window.game?.dayNightCycle && window.game?.currentMap?.dayNightCycle) {
             y += 4; // Extra spacing
             ctx.fillStyle = '#00ffff';
             ctx.fillText('─── Day/Night Cycle ───', 20, y);
             y += lineHeight;
             
             ctx.fillStyle = '#00ff00';
-            const timeStr = game.dayNightCycle.getTimeString();
-            const phase = game.dayNightCycle.getCurrentPhase();
+            const timeStr = window.game.dayNightCycle.getTimeString();
+            const phase = window.game.dayNightCycle.getCurrentPhase();
             ctx.fillText(`Time: ${timeStr} (${phase})`, 20, y);
             y += lineHeight;
             
-            const timeScale = game.dayNightCycle.timeScale;
+            const timeScale = window.game.dayNightCycle.timeScale;
             ctx.fillText(`Speed: ${timeScale.toFixed(1)}x`, 20, y);
             y += lineHeight;
             
             // Show shader info (WebGL-only now)
-            if (game.dayNightCycle.shader && game.dayNightCycle.shader.initialized) {
-                const shaderInfo = game.dayNightCycle.shader.getDebugInfo();
+            if (window.game.dayNightCycle.shader && window.game.dayNightCycle.shader.initialized) {
+                const shaderInfo = window.game.dayNightCycle.shader.getDebugInfo();
                 ctx.fillStyle = '#00ff00';
                 ctx.fillText(`WebGL Shader: B:${shaderInfo.brightness} S:${shaderInfo.saturation} T:${shaderInfo.temperature}`, 20, y);
                 y += lineHeight;

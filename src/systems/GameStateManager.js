@@ -1541,7 +1541,19 @@ class SettingsState extends GameState {
         this.currentCategory = 'Audio'; // Default category
         this.categories = ['Audio', 'Graphics', 'Gameplay'];
         
-        this.resolutions = ['1280x720', '1366x768', '1600x900', '1920x1080'];
+        this.resolutions = this.generateResolutions();
+        
+        // Ensure current resolution is valid for this display
+        if (!this.resolutions.includes(this.game.settings.resolution)) {
+            // If saved resolution is not in the list (e.g. changed monitor), 
+            // default to the largest available resolution
+            if (this.resolutions.length > 0) {
+                this.game.settings.resolution = this.resolutions[this.resolutions.length - 1];
+                // We update the setting in memory so the UI shows a valid value.
+                // We don't force apply it immediately to avoid jarring resizes when just opening the menu,
+                // unless the user interacts with it.
+            }
+        }
         
         // Define options per category
         this.allOptions = {
@@ -1568,6 +1580,45 @@ class SettingsState extends GameState {
             this.game.touchControlsUI.show();
             this.game.touchControlsUI.updateButtonLabels('menu');
         }
+    }
+
+    generateResolutions() {
+        const screenWidth = window.screen.width;
+        const screenHeight = window.screen.height;
+        const dpr = window.devicePixelRatio || 1;
+        
+        // Calculate physical screen dimensions (approximate)
+        const physicalWidth = screenWidth * dpr;
+        const physicalHeight = screenHeight * dpr;
+        
+        console.log(`[Settings] Detected Screen: Logical ${screenWidth}x${screenHeight}, DPR: ${dpr}, Physical ~${physicalWidth}x${physicalHeight}`);
+        
+        const allResolutions = [
+            { w: 1280, h: 720, label: '1280x720' },
+            { w: 1366, h: 768, label: '1366x768' },
+            { w: 1600, h: 900, label: '1600x900' },
+            { w: 1920, h: 1080, label: '1920x1080' },
+            { w: 2560, h: 1440, label: '2560x1440' },
+            { w: 3840, h: 2160, label: '3840x2160' }
+        ];
+        
+        // Filter resolutions
+        // We allow resolutions that fit within the PHYSICAL dimensions of the screen.
+        // This handles high-DPI displays where logical width < 1920 but physical width >= 1920.
+        // We also add a small tolerance (1.1x) to be generous.
+        let validResolutions = allResolutions.filter(res => 
+            (res.w <= screenWidth * 1.05 && res.h <= screenHeight * 1.05) || // Fits in logical pixels
+            (res.w <= physicalWidth * 1.05 && res.h <= physicalHeight * 1.05) // Fits in physical pixels
+        );
+        
+        // Fallback: If screen detection seems broken (very small) or no resolutions found,
+        // provide a standard set of resolutions up to 1080p
+        if (validResolutions.length === 0 || screenWidth < 640) {
+            console.warn('[Settings] Screen detection suspicious or no valid resolutions. Defaulting to standard set.');
+            validResolutions = allResolutions.filter(res => res.w <= 1920);
+        }
+        
+        return validResolutions.map(res => res.label);
     }
     
     updateCurrentOptions(keepFocus = false) {
@@ -1678,8 +1729,14 @@ class SettingsState extends GameState {
             if (option.key === 'isMuted') this.applyAudioSettings();
             if (option.key === 'fullscreen') this.applyGraphicsSettings(option.key);
         } else if (option.type === 'select') {
+            // Prevent changing if there's only one option
+            if (!option.values || option.values.length <= 1) return;
+
             const currentIndex = option.values.indexOf(settings[option.key]);
             let newIndex = currentIndex + direction;
+            
+            console.log(`[Settings] Changing ${option.key}: index ${currentIndex} -> ${newIndex} (Total: ${option.values.length})`);
+            
             if (newIndex < 0) newIndex = option.values.length - 1;
             if (newIndex >= option.values.length) newIndex = 0;
             settings[option.key] = option.values[newIndex];
@@ -1798,7 +1855,12 @@ class SettingsState extends GameState {
             } else if (option.type === 'toggle') {
                 value = `< ${this.game.settings[option.key] ? 'ON' : 'OFF'} >`;
             } else if (option.type === 'select') {
-                value = `< ${this.game.settings[option.key]} >`;
+                // Only show arrows if there are multiple options
+                if (option.values && option.values.length > 1) {
+                    value = `< ${this.game.settings[option.key]} >`;
+                } else {
+                    value = `${this.game.settings[option.key]}`;
+                }
             }
             return {
                 name: option.name,
@@ -1952,7 +2014,7 @@ class InventoryState extends GameState {
             
             ctx.font = '20px "Lato", sans-serif';
             ctx.textAlign = 'left';
-            ctx.textBaseline = 'middle';
+                       ctx.textBaseline = 'middle';
             ctx.fillText(item.name, listX + 20, y + itemHeight / 2);
             
             // Quantity

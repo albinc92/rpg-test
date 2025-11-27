@@ -346,6 +346,26 @@ class GameEngine {
             
             // Desktop resize handler (for when dev tools open/close)
             this.handleResize = () => {
+                // Update logical dimensions to match window size (respecting max resolution)
+                const newWidth = window.innerWidth;
+                const newHeight = window.innerHeight;
+                const maxWidth = this.BASE_WIDTH;
+                const maxHeight = this.BASE_HEIGHT;
+
+                if (newWidth <= maxWidth && newHeight <= maxHeight) {
+                    this.CANVAS_WIDTH = newWidth;
+                    this.CANVAS_HEIGHT = newHeight;
+                } else {
+                    this.CANVAS_WIDTH = maxWidth;
+                    this.CANVAS_HEIGHT = maxHeight;
+                }
+
+                // Recalculate resolution scale
+                this.resolutionScale = Math.min(
+                    this.CANVAS_WIDTH / this.BASE_WIDTH,
+                    this.CANVAS_HEIGHT / this.BASE_HEIGHT
+                );
+
                 const dpr = window.devicePixelRatio || 1;
                 this.canvas.width = this.CANVAS_WIDTH * dpr;
                 this.canvas.height = this.CANVAS_HEIGHT * dpr;
@@ -556,8 +576,8 @@ class GameEngine {
         // Render editor overlay
         this.editorManager.render(this.ctx);
         
-        // Render debug info if enabled
-        if (this.settings.showDebugInfo) {
+        // Render debug info if enabled (FPS or full debug)
+        if (this.settings.showDebugInfo || this.settings.showFPS) {
             this.renderDebugInfo();
         }
     }
@@ -876,7 +896,8 @@ class GameEngine {
             this.CANVAS_WIDTH,
             this.CANVAS_HEIGHT,
             this.stateManager.getCurrentState(),
-            this.currentMapId
+            this.currentMapId,
+            this.settings
         );
     }
     

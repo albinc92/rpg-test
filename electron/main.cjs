@@ -6,6 +6,10 @@ if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
+// Disable background throttling to prevent FPS drops when window loses focus
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+
 const createWindow = () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -15,6 +19,7 @@ const createWindow = () => {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false, // Security best practice
       contextIsolation: true, // Security best practice
+      backgroundThrottling: false, // Prevent FPS drop when window is not focused
     },
   });
 
