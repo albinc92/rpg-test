@@ -2099,11 +2099,15 @@ class EditorManager {
         // We iterate over initializedMaps to get the live objects
         for (const mapId of this.game.objectManager.initializedMaps) {
             const objects = this.game.objectManager.getObjectsForMap(mapId);
-            const serializedObjects = objects.map(obj => this.serializeObject(obj));
+            
+            // Filter out dynamic spawns (spirits from spawn zones)
+            const saveableObjects = objects.filter(obj => !obj.isDynamicSpawn);
+            
+            const serializedObjects = saveableObjects.map(obj => this.serializeObject(obj));
             
             // Update the definitions in ObjectManager
             this.game.objectManager.objectDefinitions[mapId] = serializedObjects;
-            console.log(`[EditorManager] Synced ${serializedObjects.length} objects for map ${mapId}`);
+            console.log(`[EditorManager] Synced ${serializedObjects.length} objects for map ${mapId} (filtered ${objects.length - serializedObjects.length} dynamic spawns)`);
         }
     }
 

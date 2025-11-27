@@ -441,6 +441,106 @@
       "collisionExpandLeftPercent": -0.05,
       "collisionExpandRightPercent": -0.05,
       "name": "Static Object"
+    },
+    {
+      "category": "StaticObject",
+      "x": 1021.8787503091156,
+      "y": 773.4469881445804,
+      "scale": 0.075,
+      "spriteSrc": "/assets/npc/Spirits/sylphie.png",
+      "id": "spirit_d7f004f6-4e26-4b4a-beb4-899176f802b5",
+      "collisionExpandTopPercent": -0.75,
+      "name": "Sylphie"
+    },
+    {
+      "category": "StaticObject",
+      "x": 670.2482790437208,
+      "y": 221.17089151692184,
+      "scale": 0.075,
+      "spriteSrc": "/assets/npc/Spirits/sylphie.png",
+      "id": "spirit_a69d06ed-e4e9-46d7-ba0a-9ba03c065434",
+      "collisionExpandTopPercent": -0.75,
+      "name": "Sylphie"
+    },
+    {
+      "category": "StaticObject",
+      "x": 677.0773250906294,
+      "y": 909.587101522655,
+      "scale": 0.075,
+      "spriteSrc": "/assets/npc/Spirits/sylphie.png",
+      "id": "spirit_18ef5e64-abae-4874-8b4b-d707d252f52c",
+      "collisionExpandTopPercent": -0.75,
+      "name": "Sylphie"
+    },
+    {
+      "category": "StaticObject",
+      "x": 1155.2012517206454,
+      "y": 755.5233314748756,
+      "scale": 0.075,
+      "spriteSrc": "/assets/npc/Spirits/sylphie.png",
+      "id": "spirit_5aa4c8de-34a7-4d4a-8f71-106b2d437cd4",
+      "collisionExpandTopPercent": -0.75,
+      "name": "Sylphie"
+    },
+    {
+      "category": "StaticObject",
+      "x": 1279.3769839863253,
+      "y": 903.895573187135,
+      "scale": 0.075,
+      "spriteSrc": "/assets/npc/Spirits/sylphie.png",
+      "id": "spirit_b5cb196b-4087-4a99-b042-83ea1b884be1",
+      "collisionExpandTopPercent": -0.75,
+      "name": "Sylphie"
+    },
+    {
+      "category": "StaticObject",
+      "x": 540.2341070362703,
+      "y": 756.9739307518424,
+      "scale": 0.075,
+      "spriteSrc": "/assets/npc/Spirits/sylphie.png",
+      "id": "spirit_0edebea9-7c9c-4f61-9c4e-11bb806e8a94",
+      "collisionExpandTopPercent": -0.75,
+      "name": "Sylphie"
+    },
+    {
+      "category": "StaticObject",
+      "x": 592.5842806360602,
+      "y": 655.7864061941976,
+      "scale": 0.075,
+      "spriteSrc": "/assets/npc/Spirits/sylphie.png",
+      "id": "spirit_10854f13-999b-4f10-ba06-9e2faf52e398",
+      "collisionExpandTopPercent": -0.75,
+      "name": "Sylphie"
+    },
+    {
+      "category": "StaticObject",
+      "x": 306.58010689443637,
+      "y": 351.0247741060611,
+      "scale": 0.075,
+      "spriteSrc": "/assets/npc/Spirits/sylphie.png",
+      "id": "spirit_4bdbda9f-6498-4935-b724-410bcb018450",
+      "collisionExpandTopPercent": -0.75,
+      "name": "Sylphie"
+    },
+    {
+      "category": "StaticObject",
+      "x": 585.5106148608758,
+      "y": 229.66400144025553,
+      "scale": 0.075,
+      "spriteSrc": "/assets/npc/Spirits/sylphie.png",
+      "id": "spirit_2ccbe2ca-8e57-4a11-845e-3a5081e6bdf6",
+      "collisionExpandTopPercent": -0.75,
+      "name": "Sylphie"
+    },
+    {
+      "category": "StaticObject",
+      "x": 677.5482350236305,
+      "y": 662.8115989126887,
+      "scale": 0.075,
+      "spriteSrc": "/assets/npc/Spirits/sylphie.png",
+      "id": "spirit_8a0bfc7f-517a-4776-b6da-cf472e9d5ac6",
+      "collisionExpandTopPercent": -0.75,
+      "name": "Sylphie"
     }
   ],
   "0-1": [

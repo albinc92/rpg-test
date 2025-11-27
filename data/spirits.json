@@ -42,7 +42,7 @@
         "defense": 6,
         "speed": 18
       },
-      "moveSpeed": 2.0,
+      "moveSpeed": 2,
       "movePattern": "wander",
       "description": "A mysterious wisp that only appears at night"
     },

@@ -312,6 +312,9 @@ class SpawnManager {
             console.error(`[SpawnManager] Failed to create spirit: ${spiritId}`);
             return;
         }
+
+        // Mark as dynamic spawn so it doesn't get saved by EditorManager
+        spirit.isDynamicSpawn = true;
         
         // Add to ObjectManager (not npcs array - using new architecture)
         this.game.objectManager.addObject(this.currentMapId, spirit);
