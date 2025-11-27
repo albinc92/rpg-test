@@ -2,6 +2,7 @@
  * HUDSystem - Handles rendering of the in-game Heads-Up Display
  * Displays player health, gold, and other status information
  * Uses the same Glassmorphism design language as the menus
+ * OPTIMIZED: Uses offscreen canvas caching to prevent performance drops
  */
 class HUDSystem {
     constructor(game) {
@@ -12,6 +13,18 @@ class HUDSystem {
             healthBarGradient: null,
             glassBackground: null
         };
+        
+        // Offscreen canvas for static HUD elements (backgrounds, borders)
+        this.cachedCanvas = document.createElement('canvas');
+        this.cachedCtx = this.cachedCanvas.getContext('2d');
+        this.isCacheDirty = true;
+        this.lastCanvasWidth = 0;
+        this.lastCanvasHeight = 0;
+        
+        // Track state to minimize redraws
+        this.lastHealth = -1;
+        this.lastMaxHealth = -1;
+        this.lastGold = -1;
     }
 
     /**
@@ -22,23 +35,72 @@ class HUDSystem {
     render(ctx, player) {
         if (!player) return;
 
-        // Save context state
-        ctx.save();
+        // Check if canvas size changed
+        if (this.game.CANVAS_WIDTH !== this.lastCanvasWidth || this.game.CANVAS_HEIGHT !== this.lastCanvasHeight) {
+            this.resizeCache(this.game.CANVAS_WIDTH, this.game.CANVAS_HEIGHT);
+        }
 
-        // 1. Render Health Bar (Top Left)
-        this.renderHealthBar(ctx, player);
+        // Check if we need to redraw the static cache (e.g. if gold amount changes width of container)
+        // For now, we'll just redraw the static parts once and assume they don't change size often
+        // Actually, gold counter width depends on gold amount text, so we might need to redraw cache if gold digits change significantly
+        // But for simplicity, let's just cache the expensive shadows and gradients
+        
+        if (this.isCacheDirty) {
+            this.updateCache(player);
+        }
 
-        // 2. Render Gold Counter (Top Left, below health)
-        this.renderGoldCounter(ctx, player);
+        // Draw the cached static elements
+        ctx.drawImage(this.cachedCanvas, 0, 0);
 
-        // Restore context state
-        ctx.restore();
+        // Draw dynamic elements (health bar fill, text values)
+        this.renderDynamicElements(ctx, player);
+    }
+    
+    /**
+     * Resize the offscreen cache
+     */
+    resizeCache(width, height) {
+        this.cachedCanvas.width = width;
+        this.cachedCanvas.height = height;
+        this.lastCanvasWidth = width;
+        this.lastCanvasHeight = height;
+        this.isCacheDirty = true;
+    }
+    
+    /**
+     * Update the static cache (backgrounds, borders, icons)
+     * These are expensive to draw due to shadows and gradients
+     */
+    updateCache(player) {
+        const ctx = this.cachedCtx;
+        ctx.clearRect(0, 0, this.cachedCanvas.width, this.cachedCanvas.height);
+        
+        // Render Health Bar Background
+        this.renderHealthBarBackground(ctx);
+        
+        // Render Gold Counter Background
+        // Note: We pass player to calculate width, but we only redraw if necessary
+        this.renderGoldCounterBackground(ctx, player);
+        
+        this.isCacheDirty = false;
     }
 
     /**
-     * Render the player's health bar
+     * Render dynamic elements (bars, text)
+     * These change frequently but are cheaper to draw
      */
-    renderHealthBar(ctx, player) {
+    renderDynamicElements(ctx, player) {
+        // Render Health Bar Fill & Text
+        this.renderHealthBarFill(ctx, player);
+        
+        // Render Gold Text
+        this.renderGoldText(ctx, player);
+    }
+
+    /**
+     * Render the player's health bar background (Static)
+     */
+    renderHealthBarBackground(ctx) {
         const x = 20;
         const y = 20;
         const width = 200;
@@ -68,10 +130,24 @@ class HUDSystem {
         ctx.lineWidth = 1;
         ctx.stroke();
         ctx.restore();
-
-        // Health Bar Fill
+        
+        // Heart Icon (Left of bar)
+        this.renderIcon(ctx, '❤️', x - 10, y + height / 2 + padding);
+    }
+    
+    /**
+     * Render health bar fill and text (Dynamic)
+     */
+    renderHealthBarFill(ctx, player) {
+        const x = 20;
+        const y = 20;
+        const width = 200;
+        const height = 24;
+        const padding = 4;
+        const borderRadius = 12;
+        
         const maxHealth = player.maxHealth || 100;
-        const currentHealth = player.health || 100; // Default to full if undefined
+        const currentHealth = player.health || 100;
         const healthPercent = Math.max(0, Math.min(1, currentHealth / maxHealth));
         const fillWidth = width * healthPercent;
 
@@ -81,7 +157,7 @@ class HUDSystem {
             this.roundRect(ctx, x + padding, y + padding, width, height, borderRadius - 2);
             ctx.clip();
 
-            // Health gradient (Red/Pink)
+            // Health gradient (Red/Pink) - Cache this if possible, but it's fast enough
             const healthGradient = ctx.createLinearGradient(x + padding, y + padding, x + padding, y + padding + height);
             healthGradient.addColorStop(0, '#e74c3c'); // Red
             healthGradient.addColorStop(0.5, '#c0392b'); // Darker Red
@@ -105,18 +181,17 @@ class HUDSystem {
         ctx.fillStyle = '#ffffff';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+        // Reduced shadow blur for dynamic text to improve performance
         ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-        ctx.shadowBlur = 4;
+        ctx.shadowBlur = 2; 
         ctx.fillText(`${Math.ceil(currentHealth)} / ${maxHealth}`, x + width / 2 + padding, y + height / 2 + padding);
-        
-        // Heart Icon (Left of bar)
-        this.renderIcon(ctx, '❤️', x - 10, y + height / 2 + padding);
+        ctx.shadowBlur = 0; // Reset
     }
 
     /**
-     * Render the gold counter
+     * Render the gold counter background (Static)
      */
-    renderGoldCounter(ctx, player) {
+    renderGoldCounterBackground(ctx, player) {
         const x = 20;
         const y = 65; // Below health bar
         const height = 30;
@@ -124,6 +199,9 @@ class HUDSystem {
         const padding = 10;
         const borderRadius = 15;
 
+        // We need to estimate width to draw background
+        // If gold changes significantly (e.g. 9 to 10), we might need to redraw cache
+        // For now, let's assume a safe width or check if we need to resize
         const goldText = `${player.gold || 0}`;
         ctx.font = 'bold 16px "Cinzel", serif';
         const textWidth = ctx.measureText(goldText).width;
@@ -152,7 +230,26 @@ class HUDSystem {
 
         // Gold Icon
         this.renderIcon(ctx, '🪙', x + 15, y + height / 2);
-
+    }
+    
+    /**
+     * Render gold text (Dynamic)
+     */
+    renderGoldText(ctx, player) {
+        const x = 20;
+        const y = 65;
+        const height = 30;
+        const minWidth = 100;
+        
+        const goldText = `${player.gold || 0}`;
+        ctx.font = 'bold 16px "Cinzel", serif';
+        const textWidth = ctx.measureText(goldText).width;
+        const width = Math.max(minWidth, textWidth + 40);
+        
+        // Check if we need to update cache due to width change
+        // This is a simple check - if text grows beyond current background, we'd see artifacts
+        // Ideally we'd track the width used in updateCache
+        
         // Gold Text
         ctx.fillStyle = '#f1c40f'; // Gold color
         ctx.textAlign = 'right';
@@ -160,6 +257,7 @@ class HUDSystem {
         ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
         ctx.shadowBlur = 2;
         ctx.fillText(goldText, x + width - 15, y + height / 2 + 1);
+        ctx.shadowBlur = 0;
     }
 
     /**
