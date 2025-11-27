@@ -53,6 +53,29 @@ class InputManager {
             'X': 'delete',
             'Y': 'inventory'
         };
+
+        // Gamepad state
+        this.gamepadState = {
+            buttons: {},     // Current frame button state
+            prevButtons: {}, // Previous frame button state
+            axes: [],        // Current frame axes
+            connected: false,
+            index: -1
+        };
+
+        // Standard Gamepad Mapping (Xbox/PlayStation standard layout)
+        this.gamepadMapping = {
+            0: ['confirm', 'interact'], // A / Cross
+            1: ['cancel', 'run'],       // B / Circle
+            2: ['delete'],              // X / Square
+            3: ['inventory', 'menu'],   // Y / Triangle
+            8: ['menu'],                // Select / Share
+            9: ['menu'],                // Start / Options
+            12: ['up', 'moveUp'],       // D-Pad Up
+            13: ['down', 'moveDown'],   // D-Pad Down
+            14: ['left', 'moveLeft'],   // D-Pad Left
+            15: ['right', 'moveRight']  // D-Pad Right
+        };
         
         this.setupEventListeners();
         
@@ -84,6 +107,24 @@ class InputManager {
      * Setup event listeners for input
      */
     setupEventListeners() {
+        // Gamepad connection events
+        window.addEventListener("gamepadconnected", (e) => {
+            console.log("Gamepad connected at index %d: %s. %d buttons, %d axes.",
+                e.gamepad.index, e.gamepad.id,
+                e.gamepad.buttons.length, e.gamepad.axes.length);
+            this.gamepadState.connected = true;
+            this.gamepadState.index = e.gamepad.index;
+        });
+
+        window.addEventListener("gamepaddisconnected", (e) => {
+            console.log("Gamepad disconnected from index %d: %s",
+                e.gamepad.index, e.gamepad.id);
+            if (this.gamepadState.index === e.gamepad.index) {
+                this.gamepadState.connected = false;
+                this.gamepadState.index = -1;
+            }
+        });
+
         // Keyboard events
         document.addEventListener('keydown', (e) => {
             // Don't capture input if user is typing in a text field
@@ -140,6 +181,25 @@ class InputManager {
         this.mouse.prevButtons = { ...this.mouse.buttons };
         this.touchControls.prevButtons = { ...this.touchControls.buttons };
         this.touchControls.prevJoystick = { ...this.touchControls.joystick };
+
+        // Update Gamepad State
+        if (this.gamepadState.connected && navigator.getGamepads) {
+            const gamepads = navigator.getGamepads();
+            const gamepad = gamepads[this.gamepadState.index];
+            
+            if (gamepad) {
+                // Store previous buttons
+                this.gamepadState.prevButtons = { ...this.gamepadState.buttons };
+                
+                // Update current buttons
+                gamepad.buttons.forEach((button, index) => {
+                    this.gamepadState.buttons[index] = button.pressed;
+                });
+                
+                // Update axes
+                this.gamepadState.axes = [...gamepad.axes];
+            }
+        }
     }
     
     /**
@@ -152,6 +212,15 @@ class InputManager {
             return true;
         }
         
+        // Check Gamepad
+        if (this.gamepadState.connected) {
+            for (const [btnIndex, actions] of Object.entries(this.gamepadMapping)) {
+                if (actions.includes(action) && this.gamepadState.buttons[btnIndex]) {
+                    return true;
+                }
+            }
+        }
+
         // Check touch controls (find button that maps to this action)
         if (this.isMobile) {
             for (const [button, mappedAction] of Object.entries(this.buttonMapping)) {
@@ -172,6 +241,17 @@ class InputManager {
         const keys = this.keyBindings[action];
         if (keys && keys.some(key => this.keys[key] && !this.prevKeys[key])) {
             return true;
+        }
+
+        // Check Gamepad
+        if (this.gamepadState.connected) {
+            for (const [btnIndex, actions] of Object.entries(this.gamepadMapping)) {
+                if (actions.includes(action) && 
+                    this.gamepadState.buttons[btnIndex] && 
+                    !this.gamepadState.prevButtons[btnIndex]) {
+                    return true;
+                }
+            }
         }
         
         // Check touch controls buttons
@@ -231,7 +311,19 @@ class InputManager {
         if (this.isPressed('moveUp')) y -= 1;
         if (this.isPressed('moveDown')) y += 1;
         
-        // Touch joystick input (overrides keyboard if active)
+        // Gamepad Joystick Input (overrides keyboard if active)
+        if (this.gamepadState.connected && this.gamepadState.axes.length >= 2) {
+            const axisX = this.gamepadState.axes[0];
+            const axisY = this.gamepadState.axes[1];
+            const deadzone = 0.2;
+            
+            if (Math.abs(axisX) > deadzone || Math.abs(axisY) > deadzone) {
+                x = axisX;
+                y = axisY;
+            }
+        }
+
+        // Touch joystick input (overrides keyboard/gamepad if active)
         if (this.isMobile && this.touchControls.joystick.active) {
             x = this.touchControls.joystick.x;
             y = this.touchControls.joystick.y;
