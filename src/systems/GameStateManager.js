@@ -1546,8 +1546,13 @@ class SettingsState extends GameState {
         this.currentCategory = 'Audio'; // Default category
         this.categories = ['Audio', 'Graphics', 'Gameplay'];
         
-        // Create a copy of settings for pending changes
-        this.pendingSettings = JSON.parse(JSON.stringify(this.game.settings));
+        // Store original settings for revert functionality
+        this.originalSettings = JSON.parse(JSON.stringify(this.game.settings));
+        
+        // We work directly on game.settings for instant preview
+        // pendingSettings is now just an alias for game.settings to minimize code changes
+        this.pendingSettings = this.game.settings;
+        
         this.isDirty = false;
         this.showExitModal = false;
         this.exitModalOption = 0; // 0: Save, 1: Discard, 2: Cancel
@@ -1663,6 +1668,13 @@ class SettingsState extends GameState {
                     this.applyChanges();
                     this.stateManager.popState();
                 } else if (this.exitModalOption === 1) { // Discard
+                    // Revert changes
+                    Object.assign(this.game.settings, this.originalSettings);
+                    // Re-apply original settings to revert visuals
+                    this.applyAudioSettings();
+                    this.applyGraphicsSettings('resolution');
+                    this.applyGraphicsSettings('fullscreen');
+                    
                     this.stateManager.popState();
                 } else { // Cancel
                     this.showExitModal = false;
@@ -1733,14 +1745,14 @@ class SettingsState extends GameState {
     
     checkChangesAndExit() {
         // Check if there are actual changes compared to original settings
-        const hasChanges = JSON.stringify(this.pendingSettings) !== JSON.stringify(this.game.settings);
+        const hasChanges = JSON.stringify(this.originalSettings) !== JSON.stringify(this.game.settings);
         
         if (hasChanges) {
             this.showExitModal = true;
             this.exitModalOption = 0; // Default to Save
             
             // Check for restart requirement again just in case
-            this.restartRequired = this.pendingSettings.vsync !== this.game.settings.vsync;
+            this.restartRequired = this.originalSettings.vsync !== this.game.settings.vsync;
         } else {
             this.stateManager.popState();
         }
@@ -1762,8 +1774,8 @@ class SettingsState extends GameState {
         const option = this.options[this.selectedOption];
         if (!option || !option.key) return;
         
-        // Use pendingSettings instead of live settings
-        const settings = this.pendingSettings;
+        // Use live settings for instant preview
+        const settings = this.game.settings;
         let changed = false;
         
         if (option.type === 'slider') {
@@ -1773,6 +1785,9 @@ class SettingsState extends GameState {
                 settings[option.key] = newValue;
                 changed = true;
                 
+                // Apply audio settings immediately
+                this.applyAudioSettings();
+                
                 // Play a test sound for volume adjustment feedback (preview only)
                 if (option.key === 'effectsVolume' || option.key === 'masterVolume') {
                     this.game.audioManager?.playEffect('menu-navigation.mp3');
@@ -1781,6 +1796,10 @@ class SettingsState extends GameState {
         } else if (option.type === 'toggle') {
             settings[option.key] = !settings[option.key];
             changed = true;
+            
+            if (option.key === 'isMuted') this.applyAudioSettings();
+            if (option.key === 'fullscreen') this.applyGraphicsSettings(option.key);
+            
         } else if (option.type === 'select') {
             // Prevent changing if there's only one option
             if (!option.values || option.values.length <= 1) return;
@@ -1796,17 +1815,19 @@ class SettingsState extends GameState {
             if (settings[option.key] !== option.values[newIndex]) {
                 settings[option.key] = option.values[newIndex];
                 changed = true;
+                
+                if (option.key === 'resolution') this.applyGraphicsSettings(option.key);
             }
         }
         
         if (changed) {
             // Re-evaluate dirty state by comparing full objects
             // This handles the case where user changes value and changes it back
-            this.isDirty = JSON.stringify(this.pendingSettings) !== JSON.stringify(this.game.settings);
+            this.isDirty = JSON.stringify(this.originalSettings) !== JSON.stringify(this.game.settings);
             
             // Check if this change requires a restart
             if (option.key === 'vsync') {
-                this.restartRequired = settings.vsync !== this.game.settings.vsync;
+                this.restartRequired = settings.vsync !== this.originalSettings.vsync;
             }
         }
     }
@@ -1824,21 +1845,10 @@ class SettingsState extends GameState {
     }
 
     applyChanges() {
-        console.log('[SettingsState] Applying changes...');
+        console.log('[SettingsState] Saving changes...');
         
-        // Apply pending settings to game settings
-        Object.assign(this.game.settings, this.pendingSettings);
-        
-        // Apply audio settings immediately
-        this.applyAudioSettings();
-        
-        // Apply graphics settings immediately (resolution, fullscreen)
-        // VSync requires restart, so we don't apply it here in a way that takes effect immediately
-        // but we do save it.
-        this.applyGraphicsSettings('resolution');
-        this.applyGraphicsSettings('fullscreen');
-        
-        // Save to disk
+        // Settings are already applied to game.settings during preview
+        // We just need to save to disk
         this.saveSettings();
         
         this.isDirty = false;
