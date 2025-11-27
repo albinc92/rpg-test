@@ -28,14 +28,16 @@ class DropdownMenu {
         // Create button
         this.button = document.createElement('button');
         this.button.style.cssText = `
-            background: #333;
-            color: white;
-            border: 1px solid #555;
+            background: transparent;
+            color: #ecf0f1;
+            border: 1px solid transparent;
             padding: 8px 16px;
             cursor: pointer;
-            border-radius: 4px;
+            border-radius: 6px;
             font-size: 14px;
-            transition: background 0.2s;
+            font-family: 'Lato', sans-serif;
+            font-weight: 600;
+            transition: all 0.2s;
             display: flex;
             align-items: center;
             gap: 8px;
@@ -54,10 +56,14 @@ class DropdownMenu {
 
         // Button hover effects
         this.button.onmouseover = () => {
-            if (!this.isOpen) this.button.style.background = '#555';
+            if (!this.isOpen) {
+                this.button.style.background = 'rgba(255, 255, 255, 0.1)';
+            }
         };
         this.button.onmouseout = () => {
-            if (!this.isOpen) this.button.style.background = '#333';
+            if (!this.isOpen) {
+                this.button.style.background = 'transparent';
+            }
         };
         this.button.onclick = (e) => {
             e.stopPropagation();
@@ -68,17 +74,32 @@ class DropdownMenu {
         this.menu = document.createElement('div');
         this.menu.style.cssText = `
             position: absolute;
-            top: 100%;
+            top: calc(100% + 4px);
             left: 0;
-            background: #2a2a2a;
-            border: 1px solid #555;
-            border-radius: 4px;
-            margin-top: 4px;
-            min-width: 200px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            background: rgba(20, 20, 25, 0.95);
+            border: 1px solid rgba(74, 158, 255, 0.3);
+            border-radius: 8px;
+            min-width: 220px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(12px);
             z-index: 10000;
             display: none;
+            padding: 6px 0;
+            animation: fadeIn 0.2s ease-out;
         `;
+        
+        // Add animation style
+        if (!document.getElementById('dropdown-animation')) {
+            const style = document.createElement('style');
+            style.id = 'dropdown-animation';
+            style.textContent = `
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(-10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
 
         // Add menu items
         this.items.forEach((item, index) => {
@@ -86,8 +107,8 @@ class DropdownMenu {
                 const separator = document.createElement('div');
                 separator.style.cssText = `
                     height: 1px;
-                    background: #555;
-                    margin: 4px 0;
+                    background: rgba(255, 255, 255, 0.1);
+                    margin: 6px 0;
                 `;
                 this.menu.appendChild(separator);
             } else {
@@ -115,13 +136,16 @@ class DropdownMenu {
         menuItem.style.cssText = `
             padding: 10px 16px;
             cursor: ${item.disabled ? 'not-allowed' : 'pointer'};
-            color: ${item.disabled ? '#666' : 'white'};
+            color: ${item.disabled ? '#666' : '#ecf0f1'};
             font-size: 14px;
-            transition: background 0.2s;
+            font-family: 'Lato', sans-serif;
+            transition: all 0.2s;
             display: flex;
             justify-content: space-between;
             align-items: center;
             position: relative;
+            margin: 0 4px;
+            border-radius: 4px;
         `;
 
         // Store reference to item for updates
@@ -129,7 +153,7 @@ class DropdownMenu {
 
         // Create label container with checkmark
         const labelContainer = document.createElement('span');
-        labelContainer.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+        labelContainer.style.cssText = 'display: flex; align-items: center; gap: 10px;';
         
         // Add checkmark if item is checkable and checked
         const checkmark = document.createElement('span');
@@ -139,6 +163,7 @@ class DropdownMenu {
             color: #4a9eff;
             font-weight: bold;
             width: 12px;
+            font-size: 12px;
         `;
         checkmark.className = 'menu-checkmark';
         labelContainer.appendChild(checkmark);
@@ -155,9 +180,12 @@ class DropdownMenu {
             const shortcutSpan = document.createElement('span');
             shortcutSpan.textContent = item.shortcut;
             shortcutSpan.style.cssText = `
-                color: #999;
-                font-size: 12px;
+                color: #7f8c8d;
+                font-size: 11px;
                 margin-left: 20px;
+                background: rgba(255, 255, 255, 0.05);
+                padding: 2px 6px;
+                border-radius: 3px;
             `;
             menuItem.appendChild(shortcutSpan);
         }
@@ -169,6 +197,7 @@ class DropdownMenu {
             submenuArrow.style.cssText = `
                 margin-left: auto;
                 padding-left: 12px;
+                color: #95a5a6;
             `;
             menuItem.appendChild(submenuArrow);
 
@@ -189,13 +218,15 @@ class DropdownMenu {
         // Hover effect
         if (!item.disabled) {
             menuItem.onmouseover = () => {
-                menuItem.style.background = '#4a9eff';
+                menuItem.style.background = 'rgba(74, 158, 255, 0.15)';
+                menuItem.style.color = '#fff';
                 if (!item.items) {
                     this.closeAllSubmenus();
                 }
             };
             menuItem.onmouseout = () => {
                 menuItem.style.background = 'transparent';
+                menuItem.style.color = '#ecf0f1';
             };
         }
 
@@ -221,14 +252,17 @@ class DropdownMenu {
         submenu.style.cssText = `
             position: absolute;
             left: 100%;
-            top: 0;
-            background: #2a2a2a;
-            border: 1px solid #555;
-            border-radius: 4px;
-            min-width: 180px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            top: -4px;
+            background: rgba(20, 20, 25, 0.95);
+            border: 1px solid rgba(74, 158, 255, 0.3);
+            border-radius: 8px;
+            min-width: 200px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(12px);
             display: none;
             z-index: 10001;
+            padding: 6px 0;
+            margin-left: 8px;
         `;
 
         items.forEach(item => {
@@ -236,8 +270,8 @@ class DropdownMenu {
                 const separator = document.createElement('div');
                 separator.style.cssText = `
                     height: 1px;
-                    background: #555;
-                    margin: 4px 0;
+                    background: rgba(255, 255, 255, 0.1);
+                    margin: 6px 0;
                 `;
                 submenu.appendChild(separator);
             } else {
@@ -257,20 +291,25 @@ class DropdownMenu {
         menuItem.style.cssText = `
             padding: 10px 16px;
             cursor: ${item.disabled ? 'not-allowed' : 'pointer'};
-            color: ${item.disabled ? '#666' : 'white'};
+            color: ${item.disabled ? '#666' : '#ecf0f1'};
             font-size: 14px;
-            transition: background 0.2s;
+            font-family: 'Lato', sans-serif;
+            transition: all 0.2s;
             white-space: nowrap;
+            margin: 0 4px;
+            border-radius: 4px;
         `;
 
         menuItem.textContent = item.label;
 
         if (!item.disabled) {
             menuItem.onmouseover = () => {
-                menuItem.style.background = '#4a9eff';
+                menuItem.style.background = 'rgba(74, 158, 255, 0.15)';
+                menuItem.style.color = '#fff';
             };
             menuItem.onmouseout = () => {
                 menuItem.style.background = 'transparent';
+                menuItem.style.color = '#ecf0f1';
             };
 
             menuItem.onclick = (e) => {
@@ -322,7 +361,8 @@ class DropdownMenu {
         
         this.isOpen = true;
         this.menu.style.display = 'block';
-        this.button.style.background = '#4a9eff';
+        this.button.style.background = 'rgba(74, 158, 255, 0.2)';
+        this.button.style.color = '#4a9eff';
     }
 
     /**
@@ -331,7 +371,8 @@ class DropdownMenu {
     close() {
         this.isOpen = false;
         this.menu.style.display = 'none';
-        this.button.style.background = '#333';
+        this.button.style.background = 'transparent';
+        this.button.style.color = '#ecf0f1';
         this.closeAllSubmenus();
     }
 
@@ -354,8 +395,8 @@ class DropdownMenu {
                 const separator = document.createElement('div');
                 separator.style.cssText = `
                     height: 1px;
-                    background: #555;
-                    margin: 4px 0;
+                    background: rgba(255, 255, 255, 0.1);
+                    margin: 6px 0;
                 `;
                 this.menu.appendChild(separator);
             } else {

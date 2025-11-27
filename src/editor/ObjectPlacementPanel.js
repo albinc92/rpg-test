@@ -18,70 +18,135 @@ class ObjectPlacementPanel {
      * Create the placement panel UI
      */
     createPanel() {
+        // Define theme for placement panel
+        const theme = {
+            primary: 'rgba(46, 204, 113, 0.8)', // Green
+            primaryLight: 'rgba(46, 204, 113, 0.2)',
+            primaryDark: 'rgba(39, 174, 96, 0.4)',
+            accent: '#2ecc71',
+            name: 'Placement'
+        };
+        this.theme = theme;
+
         this.panel = document.createElement('div');
         this.panel.id = 'object-placement-panel';
-        this.panel.style.cssText = `
-            position: fixed;
-            right: 20px;
-            top: 80px;
-            width: 320px;
-            max-height: 80vh;
-            background: rgba(0, 0, 0, 0.95);
-            border: 2px solid #4CAF50;
+        this.panel.style.cssText = EditorStyles.getPanelStyle(theme);
+        this.panel.style.display = 'none'; // Start hidden
+        
+        // Header
+        const header = document.createElement('div');
+        header.style.cssText = EditorStyles.getHeaderStyle(theme);
+        header.innerHTML = EditorStyles.createHeader(theme, 'Place Objects', 'Select and place game objects');
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.id = 'placement-panel-close';
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = EditorStyles.getCloseButtonStyle();
+        EditorStyles.applyCloseButtonHover(closeBtn);
+        header.appendChild(closeBtn);
+        
+        this.panel.appendChild(header);
+
+        // Content Container
+        const content = document.createElement('div');
+        content.style.cssText = EditorStyles.getContentStyle();
+        
+        // Object Type Selector
+        const typeContainer = document.createElement('div');
+        typeContainer.style.cssText = EditorStyles.getFieldContainerStyle();
+        
+        const typeLabel = document.createElement('label');
+        typeLabel.textContent = 'Object Type:';
+        typeLabel.style.cssText = EditorStyles.getLabelStyle();
+        
+        const typeSelect = document.createElement('select');
+        typeSelect.id = 'placement-type-select';
+        typeSelect.style.cssText = EditorStyles.getInputStyle();
+        typeSelect.style.width = '100%';
+        typeSelect.style.cursor = 'pointer';
+        
+        const types = [
+            { value: 'lights', label: '💡 Lights' },
+            { value: 'spirits', label: '👻 Spirits' },
+            { value: 'doodads', label: '🎨 Doodads' },
+            { value: 'npcs', label: '🧙 NPCs' },
+            { value: 'chests', label: '📦 Chests' },
+            { value: 'portals', label: '🚪 Portals' }
+        ];
+        
+        types.forEach(t => {
+            const option = document.createElement('option');
+            option.value = t.value;
+            option.textContent = t.label;
+            typeSelect.appendChild(option);
+        });
+        
+        EditorStyles.applyInputFocus(typeSelect);
+        
+        typeContainer.appendChild(typeLabel);
+        typeContainer.appendChild(typeSelect);
+        content.appendChild(typeContainer);
+        
+        // Template List Container
+        const listContainer = document.createElement('div');
+        listContainer.id = 'placement-template-list';
+        listContainer.style.marginBottom = '15px';
+        content.appendChild(listContainer);
+        
+        // Placement Status
+        const statusDiv = document.createElement('div');
+        statusDiv.id = 'placement-status';
+        statusDiv.style.cssText = `
+            background: ${theme.primaryLight};
+            border: 1px solid ${theme.primary};
+            padding: 12px;
             border-radius: 8px;
-            padding: 15px;
-            color: #fff;
-            font-family: Arial, sans-serif;
+            margin-bottom: 15px;
             display: none;
-            z-index: 10000;
-            overflow-y: auto;
         `;
-        
-        this.panel.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3 style="margin: 0; color: #4CAF50;">📍 Place Objects</h3>
-                <button id="placement-panel-close" style="background: #f44336; border: none; color: white; padding: 5px 10px; cursor: pointer; border-radius: 4px;">✕</button>
+        statusDiv.innerHTML = `
+            <div style="font-size: 13px; margin-bottom: 5px; color: ${theme.accent}; font-weight: bold;">
+                Placement Active
             </div>
-            
-            <!-- Object Type Selector -->
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Object Type:</label>
-                <select id="placement-type-select" style="width: 100%; padding: 8px; border-radius: 4px; background: #333; color: #fff; border: 1px solid #555;">
-                    <option value="lights">💡 Lights</option>
-                    <option value="spirits">👻 Spirits</option>
-                    <option value="doodads">🎨 Doodads</option>
-                    <option value="npcs">🧙 NPCs</option>
-                    <option value="chests">📦 Chests</option>
-                    <option value="portals">🚪 Portals</option>
-                </select>
-            </div>
-            
-            <!-- Template List Container -->
-            <div id="placement-template-list" style="margin-bottom: 15px;">
-                <!-- Dynamically populated -->
-            </div>
-            
-            <!-- Placement Status -->
-            <div id="placement-status" style="background: rgba(76, 175, 80, 0.2); padding: 10px; border-radius: 4px; margin-bottom: 10px; display: none;">
-                <div style="font-size: 13px; margin-bottom: 5px;">
-                    <strong>Placement Active</strong>
-                </div>
-                <div style="font-size: 12px; color: #aaa;">
-                    Selected: <span id="placement-selected-name">-</span><br>
-                    Click on map to place<br>
-                    Press ESC to cancel
-                </div>
-            </div>
-            
-            <!-- Action Buttons -->
-            <div style="text-align: center;">
-                <button id="placement-cancel-btn" style="background: #f44336; border: none; color: white; padding: 10px 20px; cursor: pointer; border-radius: 4px; display: none; width: 100%;">
-                    🛑 Cancel Placement
-                </button>
+            <div style="font-size: 12px; color: #bdc3c7;">
+                Selected: <span id="placement-selected-name" style="color: #fff;">-</span><br>
+                Click on map to place<br>
+                Press ESC to cancel
             </div>
         `;
+        content.appendChild(statusDiv);
         
+        // Cancel Button
+        const cancelBtn = document.createElement('button');
+        cancelBtn.id = 'placement-cancel-btn';
+        cancelBtn.textContent = '🛑 Cancel Placement';
+        cancelBtn.style.cssText = `
+            width: 100%;
+            padding: 12px;
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+            border-radius: 8px;
+            color: #e74c3c;
+            cursor: pointer;
+            font-weight: 700;
+            display: none;
+            transition: all 0.2s;
+        `;
+        
+        cancelBtn.onmouseover = () => {
+            cancelBtn.style.background = 'rgba(231, 76, 60, 0.4)';
+            cancelBtn.style.transform = 'translateY(-2px)';
+        };
+        cancelBtn.onmouseout = () => {
+            cancelBtn.style.background = 'rgba(231, 76, 60, 0.2)';
+            cancelBtn.style.transform = 'translateY(0)';
+        };
+        
+        content.appendChild(cancelBtn);
+        
+        this.panel.appendChild(content);
         document.body.appendChild(this.panel);
+        
         this.setupEventListeners();
         this.populateTemplates();
     }
@@ -144,8 +209,9 @@ class ObjectPlacementPanel {
         }
         
         if (templates.length === 0) {
+            container.innerHTML = EditorStyles.getEmptyStateStyle();
             container.innerHTML = `
-                <div style="padding: 20px; text-align: center; color: #999; font-size: 13px;">
+                <div style="${EditorStyles.getEmptyStateStyle()}">
                     No templates available.<br>
                     Create templates in the Data menu first.
                 </div>
@@ -159,42 +225,39 @@ class ObjectPlacementPanel {
         // Create template list
         const list = document.createElement('div');
         list.style.cssText = `
-            background: #1a1a1a;
-            border: 1px solid #555;
-            border-radius: 4px;
             max-height: 300px;
             overflow-y: auto;
+            padding-right: 5px;
         `;
         
         templates.forEach(template => {
             const item = document.createElement('div');
             item.className = 'placement-template-item';
             item.dataset.templateId = template.id || template.name;
-            item.style.cssText = `
-                padding: 10px;
-                border-bottom: 1px solid #333;
-                cursor: pointer;
-                transition: background 0.2s;
-            `;
+            item.style.cssText = EditorStyles.getListItemStyle();
             
             const icon = this.getTypeIcon(this.selectedType);
             item.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 20px;">${icon}</span>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 24px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.3));">${icon}</span>
                     <div style="flex: 1;">
-                        <div style="font-weight: bold;">${template.name || template.id}</div>
-                        <div style="font-size: 11px; color: #999;">${this.getTemplateInfo(template)}</div>
+                        <div style="font-weight: 700; color: #fff; font-size: 14px;">${template.name || template.id}</div>
+                        <div style="font-size: 11px; color: #95a5a6; margin-top: 2px;">${this.getTemplateInfo(template)}</div>
                     </div>
                 </div>
             `;
             
             item.addEventListener('mouseenter', () => {
-                item.style.background = '#2a2a2a';
+                if (!this.selectedTemplate || this.selectedTemplate.name !== template.name) {
+                    item.style.background = 'rgba(255, 255, 255, 0.1)';
+                    item.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                }
             });
             
             item.addEventListener('mouseleave', () => {
                 if (!this.selectedTemplate || this.selectedTemplate.name !== template.name) {
-                    item.style.background = 'transparent';
+                    item.style.background = 'rgba(255, 255, 255, 0.03)';
+                    item.style.borderColor = 'rgba(255, 255, 255, 0.05)';
                 }
             });
             
@@ -256,10 +319,15 @@ class ObjectPlacementPanel {
         // Update visual selection
         const items = document.querySelectorAll('.placement-template-item');
         items.forEach(item => {
-            if (item.dataset.templateId === (template.id || template.name)) {
-                item.style.background = '#2a4a2a';
+            const isSelected = item.dataset.templateId === (template.id || template.name);
+            if (isSelected) {
+                item.style.background = 'rgba(46, 204, 113, 0.2)';
+                item.style.borderColor = '#2ecc71';
+                item.style.boxShadow = '0 0 10px rgba(46, 204, 113, 0.1)';
             } else {
-                item.style.background = 'transparent';
+                item.style.background = 'rgba(255, 255, 255, 0.03)';
+                item.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+                item.style.boxShadow = 'none';
             }
         });
         

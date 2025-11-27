@@ -10,44 +10,44 @@ class EditorStyles {
      */
     static THEMES = {
         npc: {
-            primary: 'rgba(46, 204, 113, 0.6)',
-            primaryLight: 'rgba(46, 204, 113, 0.3)',
-            primaryDark: 'rgba(39, 174, 96, 0.3)',
+            primary: 'rgba(46, 204, 113, 0.8)',
+            primaryLight: 'rgba(46, 204, 113, 0.2)',
+            primaryDark: 'rgba(39, 174, 96, 0.4)',
             accent: '#2ecc71',
             name: 'NPC'
         },
         chest: {
-            primary: 'rgba(243, 156, 18, 0.6)',
-            primaryLight: 'rgba(243, 156, 18, 0.3)',
-            primaryDark: 'rgba(211, 84, 0, 0.3)',
+            primary: 'rgba(243, 156, 18, 0.8)',
+            primaryLight: 'rgba(243, 156, 18, 0.2)',
+            primaryDark: 'rgba(211, 84, 0, 0.4)',
             accent: '#f39c12',
             name: 'Chest'
         },
         portal: {
-            primary: 'rgba(155, 89, 182, 0.6)',
-            primaryLight: 'rgba(155, 89, 182, 0.3)',
-            primaryDark: 'rgba(142, 68, 173, 0.3)',
+            primary: 'rgba(155, 89, 182, 0.8)',
+            primaryLight: 'rgba(155, 89, 182, 0.2)',
+            primaryDark: 'rgba(142, 68, 173, 0.4)',
             accent: '#9b59b6',
             name: 'Portal'
         },
         light: {
-            primary: 'rgba(241, 196, 15, 0.6)',
-            primaryLight: 'rgba(241, 196, 15, 0.3)',
-            primaryDark: 'rgba(243, 156, 18, 0.3)',
+            primary: 'rgba(241, 196, 15, 0.8)',
+            primaryLight: 'rgba(241, 196, 15, 0.2)',
+            primaryDark: 'rgba(243, 156, 18, 0.4)',
             accent: '#f1c40f',
             name: 'Light'
         },
         spirit: {
-            primary: 'rgba(52, 152, 219, 0.6)',
-            primaryLight: 'rgba(52, 152, 219, 0.3)',
-            primaryDark: 'rgba(41, 128, 185, 0.3)',
+            primary: 'rgba(52, 152, 219, 0.8)',
+            primaryLight: 'rgba(52, 152, 219, 0.2)',
+            primaryDark: 'rgba(41, 128, 185, 0.4)',
             accent: '#3498db',
             name: 'Spirit'
         },
         doodad: {
-            primary: 'rgba(149, 165, 166, 0.6)',
-            primaryLight: 'rgba(149, 165, 166, 0.3)',
-            primaryDark: 'rgba(127, 140, 141, 0.3)',
+            primary: 'rgba(149, 165, 166, 0.8)',
+            primaryLight: 'rgba(149, 165, 166, 0.2)',
+            primaryDark: 'rgba(127, 140, 141, 0.4)',
             accent: '#95a5a6',
             name: 'Doodad'
         }
@@ -63,18 +63,19 @@ class EditorStyles {
             top: 80px;
             width: 380px;
             max-height: 85vh;
-            background: rgba(30, 30, 40, 0.95);
-            border: 2px solid ${theme.primary};
-            border-radius: 8px;
+            background: rgba(20, 20, 25, 0.95);
+            border: 1px solid ${theme.primary};
+            border-radius: 12px;
             padding: 0;
             color: #ecf0f1;
-            font-family: 'Segoe UI', Arial, sans-serif;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(10px);
+            font-family: 'Lato', sans-serif;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(12px);
             display: flex;
             flex-direction: column;
             z-index: 9999;
             pointer-events: auto;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         `;
     }
 
@@ -83,10 +84,10 @@ class EditorStyles {
      */
     static getHeaderStyle(theme) {
         return `
-            padding: 15px 20px;
-            background: linear-gradient(135deg, ${theme.primaryLight}, ${theme.primaryDark});
-            border-bottom: 1px solid ${theme.primaryLight};
-            border-radius: 6px 6px 0 0;
+            padding: 16px 24px;
+            background: linear-gradient(135deg, ${theme.primaryLight}, rgba(0,0,0,0));
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px 12px 0 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -100,7 +101,7 @@ class EditorStyles {
         return `
             overflow-y: auto;
             flex: 1;
-            padding: 15px;
+            padding: 20px;
             pointer-events: auto;
             overscroll-behavior: contain;
         `;
@@ -111,17 +112,18 @@ class EditorStyles {
      */
     static getCloseButtonStyle() {
         return `
-            background: rgba(231, 76, 60, 0.2);
-            border: 1px solid rgba(231, 76, 60, 0.4);
+            background: transparent;
+            border: none;
             color: #e74c3c;
-            font-size: 24px;
+            font-size: 20px;
             width: 32px;
             height: 32px;
-            border-radius: 4px;
+            border-radius: 50%;
             cursor: pointer;
-            line-height: 1;
-            padding: 0;
-            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
         `;
     }
 
@@ -134,13 +136,15 @@ class EditorStyles {
             padding: 12px;
             background: ${theme.primaryLight};
             border: 1px solid ${theme.primary};
-            border-radius: 6px;
+            border-radius: 8px;
             color: ${theme.accent};
             cursor: pointer;
-            font-weight: bold;
-            margin-bottom: 15px;
+            font-weight: 700;
+            margin-bottom: 20px;
             font-size: 14px;
-            transition: background 0.2s;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         `;
     }
 
@@ -149,13 +153,16 @@ class EditorStyles {
      */
     static getListItemStyle() {
         return `
-            padding: 12px;
-            margin-bottom: 8px;
-            background: rgba(52, 73, 94, 0.3);
-            border: 1px solid rgba(149, 165, 166, 0.3);
-            border-radius: 6px;
+            padding: 14px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         `;
     }
 
@@ -164,14 +171,15 @@ class EditorStyles {
      */
     static getEditButtonStyle() {
         return `
-            background: rgba(52, 152, 219, 0.2);
-            border: 1px solid rgba(52, 152, 219, 0.4);
+            background: rgba(52, 152, 219, 0.15);
+            border: 1px solid rgba(52, 152, 219, 0.3);
             color: #3498db;
-            padding: 6px 12px;
-            border-radius: 4px;
+            padding: 6px 14px;
+            border-radius: 6px;
             cursor: pointer;
             font-size: 12px;
-            transition: background 0.2s;
+            font-weight: 600;
+            transition: all 0.2s;
         `;
     }
 
@@ -180,14 +188,15 @@ class EditorStyles {
      */
     static getDeleteButtonStyle() {
         return `
-            background: rgba(231, 76, 60, 0.2);
-            border: 1px solid rgba(231, 76, 60, 0.4);
+            background: rgba(231, 76, 60, 0.15);
+            border: 1px solid rgba(231, 76, 60, 0.3);
             color: #e74c3c;
-            padding: 6px 12px;
-            border-radius: 4px;
+            padding: 6px 14px;
+            border-radius: 6px;
             cursor: pointer;
             font-size: 12px;
-            transition: background 0.2s;
+            font-weight: 600;
+            transition: all 0.2s;
         `;
     }
 
@@ -198,7 +207,8 @@ class EditorStyles {
         return `
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 6px;
+            margin-bottom: 16px;
         `;
     }
 
@@ -208,8 +218,10 @@ class EditorStyles {
     static getLabelStyle() {
         return `
             font-size: 12px;
-            color: #bdc3c7;
-            font-weight: 500;
+            color: #95a5a6;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         `;
     }
 
@@ -218,13 +230,15 @@ class EditorStyles {
      */
     static getInputStyle() {
         return `
-            padding: 8px;
-            background: rgba(52, 73, 94, 0.5);
-            border: 1px solid rgba(149, 165, 166, 0.3);
-            border-radius: 4px;
+            padding: 10px 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
             color: #ecf0f1;
-            font-size: 13px;
-            transition: border-color 0.2s;
+            font-size: 14px;
+            font-family: 'Lato', sans-serif;
+            transition: all 0.2s;
+            outline: none;
         `;
     }
 
@@ -233,10 +247,13 @@ class EditorStyles {
      */
     static getSectionTitleStyle() {
         return `
-            font-weight: bold;
-            color: #3498db;
-            margin-top: 8px;
-            margin-bottom: 8px;
+            font-weight: 700;
+            color: #fff;
+            margin-top: 24px;
+            margin-bottom: 12px;
+            font-size: 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 8px;
         `;
     }
 
@@ -246,14 +263,17 @@ class EditorStyles {
     static getSaveButtonStyle(theme) {
         return `
             flex: 1;
-            padding: 10px;
-            background: ${theme.primaryLight};
-            border: 1px solid ${theme.primary};
+            padding: 12px;
+            background: ${theme.primary};
+            border: none;
             border-radius: 6px;
-            color: ${theme.accent};
+            color: #fff;
             cursor: pointer;
-            font-weight: bold;
-            transition: background 0.2s;
+            font-weight: 700;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         `;
     }
 
@@ -263,13 +283,14 @@ class EditorStyles {
     static getCancelButtonStyle() {
         return `
             flex: 1;
-            padding: 10px;
-            background: rgba(127, 140, 141, 0.2);
-            border: 1px solid rgba(127, 140, 141, 0.4);
+            padding: 12px;
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 6px;
-            color: #95a5a6;
+            color: #bdc3c7;
             cursor: pointer;
-            transition: background 0.2s;
+            font-weight: 600;
+            transition: all 0.2s;
         `;
     }
 
@@ -278,11 +299,12 @@ class EditorStyles {
      */
     static getEmptyStateStyle() {
         return `
-            padding: 20px;
+            padding: 40px 20px;
             text-align: center;
             color: #7f8c8d;
-            background: rgba(52, 73, 94, 0.2);
-            border-radius: 6px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            border: 1px dashed rgba(255, 255, 255, 0.1);
             margin: 10px 0;
         `;
     }
@@ -293,8 +315,8 @@ class EditorStyles {
     static createHeader(theme, title, subtitle) {
         return `
             <div>
-                <h3 style="margin: 0; font-size: 18px; color: ${theme.accent};">${title}</h3>
-                <div style="font-size: 12px; color: #95a5a6; margin-top: 4px;">${subtitle}</div>
+                <h3 style="margin: 0; font-size: 20px; font-weight: 700; color: ${theme.accent}; font-family: 'Cinzel', serif;">${title}</h3>
+                <div style="font-size: 12px; color: #bdc3c7; margin-top: 4px;">${subtitle}</div>
             </div>
         `;
     }
@@ -311,56 +333,102 @@ class EditorStyles {
      * Apply hover effect to close button
      */
     static applyCloseButtonHover(button) {
-        button.onmouseover = () => button.style.background = 'rgba(231, 76, 60, 0.4)';
-        button.onmouseout = () => button.style.background = 'rgba(231, 76, 60, 0.2)';
+        button.onmouseover = () => {
+            button.style.background = 'rgba(231, 76, 60, 0.2)';
+            button.style.transform = 'rotate(90deg)';
+        };
+        button.onmouseout = () => {
+            button.style.background = 'transparent';
+            button.style.transform = 'rotate(0deg)';
+        };
     }
 
     /**
      * Apply hover effect to new button
      */
     static applyNewButtonHover(button, theme) {
-        button.onmouseover = () => button.style.background = theme.primary;
-        button.onmouseout = () => button.style.background = theme.primaryLight;
+        button.onmouseover = () => {
+            button.style.background = theme.primary;
+            button.style.color = '#fff';
+            button.style.transform = 'translateY(-2px)';
+            button.style.boxShadow = `0 4px 12px ${theme.primaryDark}`;
+        };
+        button.onmouseout = () => {
+            button.style.background = theme.primaryLight;
+            button.style.color = theme.accent;
+            button.style.transform = 'translateY(0)';
+            button.style.boxShadow = 'none';
+        };
     }
 
     /**
      * Apply hover effect to edit button
      */
     static applyEditButtonHover(button) {
-        button.onmouseover = () => button.style.background = 'rgba(52, 152, 219, 0.3)';
-        button.onmouseout = () => button.style.background = 'rgba(52, 152, 219, 0.2)';
+        button.onmouseover = () => {
+            button.style.background = 'rgba(52, 152, 219, 0.3)';
+            button.style.borderColor = '#3498db';
+        };
+        button.onmouseout = () => {
+            button.style.background = 'rgba(52, 152, 219, 0.15)';
+            button.style.borderColor = 'rgba(52, 152, 219, 0.3)';
+        };
     }
 
     /**
      * Apply hover effect to delete button
      */
     static applyDeleteButtonHover(button) {
-        button.onmouseover = () => button.style.background = 'rgba(231, 76, 60, 0.3)';
-        button.onmouseout = () => button.style.background = 'rgba(231, 76, 60, 0.2)';
+        button.onmouseover = () => {
+            button.style.background = 'rgba(231, 76, 60, 0.3)';
+            button.style.borderColor = '#e74c3c';
+        };
+        button.onmouseout = () => {
+            button.style.background = 'rgba(231, 76, 60, 0.15)';
+            button.style.borderColor = 'rgba(231, 76, 60, 0.3)';
+        };
     }
 
     /**
      * Apply hover effect to save button
      */
     static applySaveButtonHover(button, theme) {
-        button.onmouseover = () => button.style.background = theme.primary;
-        button.onmouseout = () => button.style.background = theme.primaryLight;
+        button.onmouseover = () => {
+            button.style.filter = 'brightness(1.1)';
+            button.style.transform = 'translateY(-1px)';
+        };
+        button.onmouseout = () => {
+            button.style.filter = 'brightness(1)';
+            button.style.transform = 'translateY(0)';
+        };
     }
 
     /**
      * Apply hover effect to cancel button
      */
     static applyCancelButtonHover(button) {
-        button.onmouseover = () => button.style.background = 'rgba(127, 140, 141, 0.3)';
-        button.onmouseout = () => button.style.background = 'rgba(127, 140, 141, 0.2)';
+        button.onmouseover = () => {
+            button.style.background = 'rgba(255, 255, 255, 0.1)';
+            button.style.color = '#fff';
+        };
+        button.onmouseout = () => {
+            button.style.background = 'transparent';
+            button.style.color = '#bdc3c7';
+        };
     }
 
     /**
      * Apply focus effect to input
      */
     static applyInputFocus(input) {
-        input.onfocus = () => input.style.borderColor = 'rgba(52, 152, 219, 0.6)';
-        input.onblur = () => input.style.borderColor = 'rgba(149, 165, 166, 0.3)';
+        input.onfocus = () => {
+            input.style.borderColor = '#3498db';
+            input.style.background = 'rgba(0, 0, 0, 0.5)';
+        };
+        input.onblur = () => {
+            input.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+            input.style.background = 'rgba(0, 0, 0, 0.3)';
+        };
     }
 }
 

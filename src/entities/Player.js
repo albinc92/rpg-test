@@ -18,6 +18,8 @@ class Player extends Actor {
         
         // Player-specific properties
         this.gold = options.gold || 100;
+        this.maxHealth = options.maxHealth || 100;
+        this.health = options.health || this.maxHealth;
         
         // Input state
         this.inputX = 0;

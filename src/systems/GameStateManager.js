@@ -380,7 +380,7 @@ class MainMenuState extends GameState {
         this.backgroundImage.onerror = () => {
             console.warn('⚠️ Failed to load main menu background');
         };
-        this.backgroundImage.src = '/bg/main.png';
+        this.backgroundImage.src = '/assets/bg/main.png';
     }
     
     enter(data = {}) {
@@ -1635,8 +1635,213 @@ class SettingsState extends GameState {
     }
 }
 
-// Placeholder states - implement as needed
-class InventoryState extends GameState {}
+/**
+ * Inventory State
+ */
+class InventoryState extends GameState {
+    enter() {
+        this.selectedOption = 0;
+        this.scrollOffset = 0;
+        this.maxVisibleItems = 8;
+        
+        // Get items from inventory manager
+        this.items = this.game.inventoryManager.getAllSlots();
+        
+        // Show touch controls if on mobile
+        if (this.game.touchControlsUI) {
+            this.game.touchControlsUI.show();
+            this.game.touchControlsUI.updateButtonLabels('menu');
+        }
+    }
+    
+    handleInput(inputManager) {
+        if (inputManager.isJustPressed('cancel') || inputManager.isJustPressed('inventory') || inputManager.isJustPressed('menu')) {
+            this.stateManager.popState();
+            return;
+        }
+        
+        if (this.items.length === 0) return;
+        
+        if (inputManager.isJustPressed('up')) {
+            this.selectedOption = Math.max(0, this.selectedOption - 1);
+            this.updateScrollOffset();
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        }
+        
+        if (inputManager.isJustPressed('down')) {
+            this.selectedOption = Math.min(this.items.length - 1, this.selectedOption + 1);
+            this.updateScrollOffset();
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        }
+        
+        if (inputManager.isJustPressed('confirm')) {
+            this.useItem();
+        }
+    }
+    
+    updateScrollOffset() {
+        if (this.items.length > this.maxVisibleItems) {
+            if (this.selectedOption < this.scrollOffset) {
+                this.scrollOffset = this.selectedOption;
+            } else if (this.selectedOption >= this.scrollOffset + this.maxVisibleItems) {
+                this.scrollOffset = this.selectedOption - this.maxVisibleItems + 1;
+            }
+        }
+    }
+    
+    useItem() {
+        const item = this.items[this.selectedOption];
+        if (item) {
+            // Use item via inventory manager
+            const used = this.game.inventoryManager.useItem(this.selectedOption, this.game.player);
+            if (used) {
+                this.game.audioManager?.playEffect('powerup.mp3'); // Placeholder sound
+                // Refresh list
+                this.items = this.game.inventoryManager.getAllSlots();
+                // Adjust selection if list shrank
+                if (this.selectedOption >= this.items.length) {
+                    this.selectedOption = Math.max(0, this.items.length - 1);
+                }
+            } else {
+                this.game.audioManager?.playEffect('error.mp3'); // Placeholder sound
+            }
+        }
+    }
+    
+    render(ctx) {
+        const canvasWidth = this.game.CANVAS_WIDTH;
+        const canvasHeight = this.game.CANVAS_HEIGHT;
+        const menuRenderer = this.stateManager.menuRenderer;
+        
+        // Draw overlay
+        menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.85);
+        
+        // Draw title
+        menuRenderer.drawTitle(ctx, 'Inventory', canvasWidth, canvasHeight, 0.15);
+        
+        if (this.items.length === 0) {
+            menuRenderer.drawInstruction(ctx, 'Inventory is empty', canvasWidth, canvasHeight, 0.5);
+            menuRenderer.drawHint(ctx, 'Press ESC to close', canvasWidth, canvasHeight);
+            return;
+        }
+        
+        // Draw item list (Left side)
+        const listX = canvasWidth * 0.1;
+        const listY = canvasHeight * 0.25;
+        const listWidth = canvasWidth * 0.4;
+        const listHeight = canvasHeight * 0.6;
+        
+        // Draw item details (Right side)
+        const detailsX = canvasWidth * 0.55;
+        const detailsY = listY;
+        const detailsWidth = canvasWidth * 0.35;
+        const detailsHeight = listHeight;
+        
+        // Draw list background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fillRect(listX, listY, listWidth, listHeight);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.strokeRect(listX, listY, listWidth, listHeight);
+        
+        // Draw items
+        const visibleItems = this.items.slice(this.scrollOffset, this.scrollOffset + this.maxVisibleItems);
+        const itemHeight = listHeight / this.maxVisibleItems;
+        
+        visibleItems.forEach((item, index) => {
+            const actualIndex = this.scrollOffset + index;
+            const isSelected = actualIndex === this.selectedOption;
+            const y = listY + index * itemHeight;
+            
+            if (isSelected) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.fillRect(listX, y, listWidth, itemHeight);
+                ctx.fillStyle = '#ffff00'; // Selected color
+            } else {
+                ctx.fillStyle = '#ffffff';
+            }
+            
+            ctx.font = '20px "Lato", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(item.name, listX + 20, y + itemHeight / 2);
+            
+            // Quantity
+            if (item.quantity > 1) {
+                ctx.textAlign = 'right';
+                ctx.fillText(`x${item.quantity}`, listX + listWidth - 20, y + itemHeight / 2);
+            }
+        });
+        
+        // Draw details of selected item
+        const selectedItem = this.items[this.selectedOption];
+        if (selectedItem) {
+            // Details background
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.fillRect(detailsX, detailsY, detailsWidth, detailsHeight);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.strokeRect(detailsX, detailsY, detailsWidth, detailsHeight);
+            
+            // Item Name
+            ctx.fillStyle = '#ffff00';
+            ctx.font = 'bold 28px "Cinzel", serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(selectedItem.name, detailsX + detailsWidth / 2, detailsY + 50);
+            
+            // Item Type/Rarity
+            ctx.fillStyle = '#aaa';
+            ctx.font = 'italic 18px "Lato", sans-serif';
+            ctx.fillText(`${selectedItem.rarity} ${selectedItem.type}`, detailsX + detailsWidth / 2, detailsY + 80);
+            
+            // Description (wrapped)
+            ctx.fillStyle = '#fff';
+            ctx.font = '20px "Lato", sans-serif';
+            this.wrapText(ctx, selectedItem.description, detailsX + detailsWidth / 2, detailsY + 140, detailsWidth - 40, 30);
+            
+            // Use hint
+            if (selectedItem.type === 'consumable') {
+                ctx.fillStyle = '#0f0';
+                ctx.font = 'bold 20px "Lato", sans-serif';
+                ctx.fillText('Press ENTER to use', detailsX + detailsWidth / 2, detailsY + detailsHeight - 40);
+            }
+        }
+        
+        // Scroll indicators
+        menuRenderer.drawScrollIndicators(
+            ctx, 
+            canvasWidth, 
+            canvasHeight, 
+            this.scrollOffset > 0,
+            this.scrollOffset + this.maxVisibleItems < this.items.length,
+            listY,
+            listHeight
+        );
+        
+        // Controls hint
+        const hintText = this.game.inputManager.isMobile ? 'A: Use | B: Close' : 'Enter: Use | ESC: Close';
+        menuRenderer.drawHint(ctx, hintText, canvasWidth, canvasHeight);
+    }
+    
+    wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+        const words = text.split(' ');
+        let line = '';
+        let currentY = y;
+        
+        for (let n = 0; n < words.length; n++) {
+            const testLine = line + words[n] + ' ';
+            const metrics = ctx.measureText(testLine);
+            const testWidth = metrics.width;
+            
+            if (testWidth > maxWidth && n > 0) {
+                ctx.fillText(line, x, currentY);
+                line = words[n] + ' ';
+                currentY += lineHeight;
+            } else {
+                line = testLine;
+            }
+        }
+        ctx.fillText(line, x, currentY);
+    }
+}
 class DialogueState extends GameState {}
 class ShopState extends GameState {}
 class LootWindowState extends GameState {}

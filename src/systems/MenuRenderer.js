@@ -12,13 +12,64 @@ class MenuRenderer {
      */
     getFontSizes(canvasHeight) {
         return {
-            title: Math.min(48, canvasHeight * 0.08),
-            menu: Math.min(36, canvasHeight * 0.055),
-            subtitle: Math.min(28, canvasHeight * 0.048),
-            instruction: Math.min(20, canvasHeight * 0.035),
-            detail: Math.min(18, canvasHeight * 0.032),
+            title: Math.min(60, canvasHeight * 0.1),
+            menu: Math.min(32, canvasHeight * 0.05),
+            subtitle: Math.min(24, canvasHeight * 0.04),
+            instruction: Math.min(18, canvasHeight * 0.03),
+            detail: Math.min(16, canvasHeight * 0.028),
             hint: Math.min(14, canvasHeight * 0.025)
         };
+    }
+
+    /**
+     * Draw a styled panel background (Glassmorphism)
+     */
+    drawPanel(ctx, x, y, width, height, alpha = 0.6) {
+        ctx.save();
+        
+        // Glass background (gradient for reflection)
+        const gradient = ctx.createLinearGradient(x, y, x + width, y + height);
+        gradient.addColorStop(0, `rgba(40, 40, 50, ${alpha})`);
+        gradient.addColorStop(1, `rgba(20, 20, 30, ${alpha})`);
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x, y, width, height);
+
+        // Glass border (white/transparent)
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, width, height);
+
+        // Top highlight (reflection)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.fillRect(x, y, width, height * 0.4);
+
+        // Inner glow/shadow
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 20;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 10;
+        
+        // Corner accents (Cyan)
+        const cornerSize = 8;
+        ctx.fillStyle = '#4a9eff';
+        ctx.shadowColor = '#4a9eff';
+        ctx.shadowBlur = 10;
+        
+        // Draw corners
+        ctx.fillRect(x - 1, y - 1, cornerSize, 2); // Top-left H
+        ctx.fillRect(x - 1, y - 1, 2, cornerSize); // Top-left V
+        
+        ctx.fillRect(x + width - cornerSize + 1, y - 1, cornerSize, 2); // Top-right H
+        ctx.fillRect(x + width - 1, y - 1, 2, cornerSize); // Top-right V
+        
+        ctx.fillRect(x - 1, y + height - 1, cornerSize, 2); // Bottom-left H
+        ctx.fillRect(x - 1, y + height - cornerSize + 1, 2, cornerSize); // Bottom-left V
+        
+        ctx.fillRect(x + width - cornerSize + 1, y + height - 1, cornerSize, 2); // Bottom-right H
+        ctx.fillRect(x + width - 1, y + height - cornerSize + 1, 2, cornerSize); // Bottom-right V
+        
+        ctx.restore();
     }
     
     /**
@@ -26,14 +77,40 @@ class MenuRenderer {
      */
     drawTitle(ctx, title, canvasWidth, canvasHeight, yPosition = 0.25) {
         const sizes = this.getFontSizes(canvasHeight);
-        ctx.fillStyle = '#fff';
-        ctx.font = `bold ${sizes.title}px Arial`;
+        
+        ctx.save();
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Title Shadow/Glow (Stronger for glass effect)
+        ctx.shadowColor = '#4a9eff';
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = '#fff';
+        ctx.font = `900 ${sizes.title}px 'Cinzel', serif`;
         ctx.fillText(title, canvasWidth / 2, canvasHeight * yPosition);
+        
+        // Sub-line decoration (Thinner, cleaner)
+        const lineWidth = ctx.measureText(title).width * 0.8;
+        const lineY = canvasHeight * yPosition + sizes.title * 0.6;
+        
+        const gradient = ctx.createLinearGradient(
+            canvasWidth / 2 - lineWidth / 2, 0,
+            canvasWidth / 2 + lineWidth / 2, 0
+        );
+        gradient.addColorStop(0, 'rgba(74, 158, 255, 0)');
+        gradient.addColorStop(0.2, 'rgba(74, 158, 255, 0.8)');
+        gradient.addColorStop(0.8, 'rgba(74, 158, 255, 0.8)');
+        gradient.addColorStop(1, 'rgba(74, 158, 255, 0)');
+        
+        ctx.fillStyle = gradient;
+        ctx.shadowBlur = 10; // Glow for the line too
+        ctx.fillRect(canvasWidth / 2 - lineWidth / 2, lineY, lineWidth, 1.5);
+        
+        ctx.restore();
     }
     
     /**
-     * Draw menu options with standard styling (yellow highlight, no box)
+     * Draw menu options with standard styling
      * @param {Array} options - Array of option strings or objects {text, color}
      * @param {number} selectedIndex - Currently selected option index
      * @param {number} startY - Y position ratio (0-1) where menu starts
@@ -41,25 +118,75 @@ class MenuRenderer {
      */
     drawMenuOptions(ctx, options, selectedIndex, canvasWidth, canvasHeight, startY = 0.45, spacing = 0.10) {
         const sizes = this.getFontSizes(canvasHeight);
-        ctx.font = `bold ${sizes.menu}px Arial`;
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
         
         const menuStartY = canvasHeight * startY;
         const menuSpacing = canvasHeight * spacing;
         
         options.forEach((option, index) => {
             const optionText = typeof option === 'string' ? option : option.text;
-            const optionColor = typeof option === 'object' && option.color ? option.color : '#fff';
+            const optionColor = typeof option === 'object' && option.color ? option.color : '#ccc';
             const y = menuStartY + index * menuSpacing;
             const isSelected = index === selectedIndex;
             
-            // Text shadow for all options (optional, makes text pop)
-            ctx.fillStyle = '#000';
-            ctx.fillText(optionText, canvasWidth / 2 + 2, y + 2);
-            
-            // Main text - yellow when selected, custom color or white otherwise
-            ctx.fillStyle = isSelected ? '#ffff00' : optionColor;
-            ctx.fillText(optionText, canvasWidth / 2, y);
+            if (isSelected) {
+                // Selection background (Glass bar)
+                const textWidth = ctx.measureText(optionText).width + 100;
+                const bgHeight = sizes.menu * 1.8;
+                
+                // Glass gradient
+                const gradient = ctx.createLinearGradient(
+                    canvasWidth / 2 - textWidth / 2, 0,
+                    canvasWidth / 2 + textWidth / 2, 0
+                );
+                gradient.addColorStop(0, 'rgba(74, 158, 255, 0)');
+                gradient.addColorStop(0.2, 'rgba(74, 158, 255, 0.15)');
+                gradient.addColorStop(0.8, 'rgba(74, 158, 255, 0.15)');
+                gradient.addColorStop(1, 'rgba(74, 158, 255, 0)');
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(canvasWidth / 2 - textWidth / 2, y - bgHeight / 2, textWidth, bgHeight);
+                
+                // Top/Bottom borders for glass effect
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(canvasWidth / 2 - textWidth / 2 + 20, y - bgHeight / 2);
+                ctx.lineTo(canvasWidth / 2 + textWidth / 2 - 20, y - bgHeight / 2);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(canvasWidth / 2 - textWidth / 2 + 20, y + bgHeight / 2);
+                ctx.lineTo(canvasWidth / 2 + textWidth / 2 - 20, y + bgHeight / 2);
+                ctx.stroke();
+                
+                // Selected text
+                ctx.font = `700 ${sizes.menu * 1.1}px 'Cinzel', serif`;
+                ctx.fillStyle = '#fff';
+                ctx.shadowColor = '#4a9eff';
+                ctx.shadowBlur = 15;
+                ctx.fillText(optionText, canvasWidth / 2, y);
+                ctx.shadowBlur = 0;
+                
+                // Selection indicators (Diamonds)
+                ctx.font = `${sizes.menu * 0.6}px 'Arial'`;
+                ctx.fillStyle = '#4a9eff';
+                ctx.shadowColor = '#4a9eff';
+                ctx.shadowBlur = 5;
+                ctx.fillText('❖', canvasWidth / 2 - textWidth / 2 + 10, y);
+                ctx.fillText('❖', canvasWidth / 2 + textWidth / 2 - 10, y);
+                ctx.shadowBlur = 0;
+            } else {
+                // Normal text
+                ctx.font = `400 ${sizes.menu}px 'Lato', sans-serif`;
+                ctx.fillStyle = optionColor;
+                // Subtle shadow for readability
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 4;
+                ctx.fillText(optionText, canvasWidth / 2, y);
+                ctx.shadowBlur = 0;
+            }
         });
     }
     
@@ -72,60 +199,61 @@ class MenuRenderer {
      */
     drawSettingsOptions(ctx, options, selectedIndex, canvasWidth, canvasHeight, startY = 0.35, spacing = 0.12) {
         const sizes = this.getFontSizes(canvasHeight);
-        ctx.font = `bold ${sizes.menu}px Arial`;
-        
         const menuStartY = canvasHeight * startY;
         const lineHeight = canvasHeight * spacing;
         
-        // Center the entire settings menu block
-        const centerX = canvasWidth / 2;
-        const valueGap = sizes.menu * 0.6; // Tiny gap - about half a character width
+        // Draw panel background for settings
+        const panelWidth = canvasWidth * 0.6;
+        const panelHeight = options.length * lineHeight + canvasHeight * 0.1;
+        const panelX = (canvasWidth - panelWidth) / 2;
+        const panelY = menuStartY - canvasHeight * 0.05;
+        
+        this.drawPanel(ctx, panelX, panelY, panelWidth, panelHeight);
         
         options.forEach((option, index) => {
             const y = menuStartY + (index * lineHeight);
             const isSelected = index === selectedIndex;
             
-            // Draw option value first (if exists) to measure for centering
-            if (option.value !== undefined) {
-                // Measure text widths
-                const nameWidth = ctx.measureText(option.name).width;
-                const valueWidth = ctx.measureText(option.value).width;
-                const totalWidth = nameWidth + valueGap + valueWidth;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            
+            // Selection highlight (Glass bar)
+            if (isSelected) {
+                // Gradient highlight
+                const gradient = ctx.createLinearGradient(panelX + 20, y - lineHeight/2 + 5, panelX + panelWidth - 20, y - lineHeight/2 + 5);
+                gradient.addColorStop(0, 'rgba(74, 158, 255, 0.1)');
+                gradient.addColorStop(0.5, 'rgba(74, 158, 255, 0.25)');
+                gradient.addColorStop(1, 'rgba(74, 158, 255, 0.1)');
                 
-                // Calculate starting X position to center the entire line
-                const startX = centerX - (totalWidth / 2);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(panelX + 20, y - lineHeight/2 + 5, panelWidth - 40, lineHeight - 10);
                 
-                // Text shadow for option name
-                ctx.fillStyle = '#000';
-                ctx.textAlign = 'left';
-                ctx.fillText(option.name, startX + 2, y + 2);
+                // Border for highlight
+                ctx.strokeStyle = 'rgba(74, 158, 255, 0.3)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(panelX + 20, y - lineHeight/2 + 5, panelWidth - 40, lineHeight - 10);
                 
-                // Draw option name
-                ctx.fillStyle = isSelected ? '#ffff00' : '#fff';
-                ctx.textAlign = 'left';
-                ctx.fillText(option.name, startX, y);
-                
-                // Text shadow for value
-                ctx.fillStyle = '#000';
-                ctx.textAlign = 'left';
-                ctx.fillText(option.value, startX + nameWidth + valueGap + 2, y + 2);
-                
-                // Value text
-                ctx.fillStyle = isSelected ? '#ffff00' : '#fff';
-                ctx.textAlign = 'left';
-                ctx.fillText(option.value, startX + nameWidth + valueGap, y);
+                ctx.fillStyle = '#fff';
+                ctx.font = `700 ${sizes.menu}px 'Lato', sans-serif`;
+                ctx.shadowColor = '#4a9eff';
+                ctx.shadowBlur = 10;
             } else {
-                // Just center the text (for items without values like "Back")
-                // Text shadow
-                ctx.fillStyle = '#000';
-                ctx.textAlign = 'center';
-                ctx.fillText(option.name, centerX + 2, y + 2);
-                
-                // Draw option name
-                ctx.fillStyle = isSelected ? '#ffff00' : '#fff';
-                ctx.textAlign = 'center';
-                ctx.fillText(option.name, centerX, y);
+                ctx.fillStyle = '#aaa';
+                ctx.font = `400 ${sizes.menu}px 'Lato', sans-serif`;
+                ctx.shadowBlur = 0;
             }
+            
+            // Draw Name
+            ctx.fillText(option.name, panelX + 40, y);
+            
+            // Draw Value
+            if (option.value !== undefined) {
+                ctx.textAlign = 'right';
+                ctx.fillStyle = isSelected ? '#4a9eff' : '#888';
+                ctx.fillText(option.value, panelX + panelWidth - 40, y);
+            }
+            
+            ctx.shadowBlur = 0;
         });
     }
     
@@ -150,91 +278,129 @@ class MenuRenderer {
             const boxX = canvasWidth / 2 - boxWidth / 2;
             const boxY = y - boxHeight * 0.5;
             
-            // Only highlight empty slots with dashed border
-            if (item.isEmpty) {
-                if (isSelected) {
-                    // Empty slot gets a dashed yellow border when selected
-                    ctx.strokeStyle = '#ffff00';
-                    ctx.lineWidth = 2;
-                    ctx.setLineDash([5, 5]);
-                    ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
-                    ctx.setLineDash([]);
-                } else {
-                    // Empty slot gets subtle dashed border
-                    ctx.strokeStyle = '#666';
-                    ctx.lineWidth = 1;
-                    ctx.setLineDash([5, 5]);
-                    ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
-                    ctx.setLineDash([]);
-                }
+            // Draw item box (Glass style)
+            if (isSelected) {
+                // Selected: Brighter glass
+                const gradient = ctx.createLinearGradient(boxX, boxY, boxX + boxWidth, boxY + boxHeight);
+                gradient.addColorStop(0, 'rgba(74, 158, 255, 0.1)');
+                gradient.addColorStop(1, 'rgba(74, 158, 255, 0.2)');
+                ctx.fillStyle = gradient;
+                
+                ctx.strokeStyle = '#4a9eff';
+                ctx.lineWidth = 2;
+                ctx.shadowColor = '#4a9eff';
+                ctx.shadowBlur = 10;
+            } else {
+                // Normal: Dark glass
+                ctx.fillStyle = 'rgba(30, 30, 40, 0.4)';
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.lineWidth = 1;
+                ctx.shadowBlur = 0;
             }
+            
+            ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+            
+            if (item.isEmpty) {
+                ctx.setLineDash([5, 5]);
+            } else {
+                ctx.setLineDash([]);
+            }
+            
+            ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+            ctx.setLineDash([]);
+            ctx.shadowBlur = 0; // Reset shadow
             
             // Item name
             ctx.textAlign = 'left';
-            ctx.fillStyle = isSelected ? '#ffff00' : (item.isEmpty ? '#888' : '#fff');
-            ctx.font = `bold ${sizes.subtitle}px Arial`;
-            ctx.fillText(item.name, boxX + 20, y);
+            ctx.textBaseline = 'top';
+            ctx.fillStyle = isSelected ? '#fff' : (item.isEmpty ? '#666' : '#ccc');
+            ctx.font = `700 ${sizes.subtitle}px 'Lato', sans-serif`;
+            
+            if (isSelected) {
+                ctx.shadowColor = '#4a9eff';
+                ctx.shadowBlur = 5;
+            }
+            
+            ctx.fillText(item.name, boxX + 20, boxY + 10);
+            ctx.shadowBlur = 0;
             
             // Item details (if exists)
             if (item.details) {
-                ctx.font = `${sizes.detail}px Arial`;
-                ctx.fillStyle = isSelected ? '#ffff88' : '#aaa';
-                ctx.fillText(item.details, boxX + 20, y + lineHeight * 0.35);
+                ctx.font = `${sizes.detail}px 'Lato', sans-serif`;
+                ctx.fillStyle = isSelected ? '#4a9eff' : '#888';
+                ctx.fillText(item.details, boxX + 20, boxY + 10 + sizes.subtitle * 1.2);
             }
         });
     }
     
     /**
      * Draw confirmation dialog (Yes/No)
-     * @param {string} title - Dialog title
-     * @param {string} message - Main message
-     * @param {string} warning - Warning text (optional)
-     * @param {number} selectedOption - 0 for Yes, 1 for No
-     * @param {string} yesColor - Color for Yes option
      */
-    drawConfirmation(ctx, title, message, warning, selectedOption, canvasWidth, canvasHeight, yesColor = '#ff3333') {
+    drawConfirmation(ctx, title, message, warning, selectedOption, canvasWidth, canvasHeight, yesColor = '#e74c3c') {
         const sizes = this.getFontSizes(canvasHeight);
         
         // Darker overlay
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        this.drawOverlay(ctx, canvasWidth, canvasHeight, 0.9);
+        
+        // Dialog Box
+        const boxWidth = Math.min(600, canvasWidth * 0.8);
+        const boxHeight = canvasHeight * 0.4;
+        const boxX = (canvasWidth - boxWidth) / 2;
+        const boxY = (canvasHeight - boxHeight) / 2;
+        
+        this.drawPanel(ctx, boxX, boxY, boxWidth, boxHeight);
         
         // Title
         ctx.fillStyle = yesColor;
-        ctx.font = `bold ${sizes.subtitle}px Arial`;
+        ctx.font = `700 ${sizes.subtitle}px 'Cinzel', serif`;
         ctx.textAlign = 'center';
-        ctx.fillText(title, canvasWidth / 2, canvasHeight * 0.25);
+        ctx.shadowColor = yesColor;
+        ctx.shadowBlur = 10;
+        ctx.fillText(title, canvasWidth / 2, boxY + 50);
+        ctx.shadowBlur = 0;
         
         // Message
         ctx.fillStyle = '#fff';
-        ctx.font = `${sizes.instruction}px Arial`;
-        ctx.fillText(message, canvasWidth / 2, canvasHeight * 0.35);
+        ctx.font = `${sizes.instruction}px 'Lato', sans-serif`;
+        ctx.fillText(message, canvasWidth / 2, boxY + 100);
         
         // Warning (if provided)
         if (warning) {
             ctx.fillStyle = '#aaa';
-            ctx.font = `${sizes.instruction * 0.85}px Arial`;
-            ctx.fillText(warning, canvasWidth / 2, canvasHeight * 0.43);
+            ctx.font = `italic ${sizes.instruction * 0.85}px 'Lato', sans-serif`;
+            ctx.fillText(warning, canvasWidth / 2, boxY + 140);
         }
         
         // Options (Yes/No)
         const options = ['Yes', 'No'];
-        const menuStartY = canvasHeight * 0.55;
-        const menuSpacing = canvasHeight * 0.08;
+        const buttonY = boxY + boxHeight - 80;
+        const buttonSpacing = 150;
         
         options.forEach((option, index) => {
-            const y = menuStartY + index * menuSpacing;
+            const x = canvasWidth / 2 + (index === 0 ? -buttonSpacing/2 : buttonSpacing/2);
+            const isSelected = index === selectedOption;
             
-            // Option text with appropriate color (same as all menus)
-            ctx.font = `bold ${sizes.menu}px Arial`;
-            if (index === 0) {
-                // "Yes" option
-                ctx.fillStyle = index === selectedOption ? '#ffff00' : yesColor;
+            // Button Box
+            const btnWidth = 100;
+            const btnHeight = 40;
+            
+            if (isSelected) {
+                ctx.fillStyle = index === 0 ? yesColor : '#4a9eff';
+                ctx.shadowColor = index === 0 ? yesColor : '#4a9eff';
+                ctx.shadowBlur = 10;
+                ctx.fillRect(x - btnWidth/2, buttonY - btnHeight/2, btnWidth, btnHeight);
+                ctx.fillStyle = '#fff';
             } else {
-                // "No" option
-                ctx.fillStyle = index === selectedOption ? '#ffff00' : '#fff';
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x - btnWidth/2, buttonY - btnHeight/2, btnWidth, btnHeight);
+                ctx.fillStyle = '#aaa';
+                ctx.shadowBlur = 0;
             }
-            ctx.fillText(option, canvasWidth / 2, y);
+            
+            ctx.font = `700 ${sizes.menu}px 'Lato', sans-serif`;
+            ctx.fillText(option, x, buttonY);
+            ctx.shadowBlur = 0;
         });
     }
     
@@ -243,8 +409,8 @@ class MenuRenderer {
      */
     drawHint(ctx, text, canvasWidth, canvasHeight, yPosition = 0.95) {
         const sizes = this.getFontSizes(canvasHeight);
-        ctx.fillStyle = '#666';
-        ctx.font = `${sizes.hint}px Arial`;
+        ctx.fillStyle = '#888';
+        ctx.font = `italic ${sizes.hint}px 'Lato', sans-serif`;
         ctx.textAlign = 'center';
         ctx.fillText(text, canvasWidth / 2, canvasHeight * yPosition);
     }
@@ -254,18 +420,36 @@ class MenuRenderer {
      */
     drawInstruction(ctx, text, canvasWidth, canvasHeight, yPosition = 0.22) {
         const sizes = this.getFontSizes(canvasHeight);
-        ctx.fillStyle = '#aaa';
-        ctx.font = `${sizes.instruction}px Arial`;
+        ctx.fillStyle = '#4a9eff';
+        ctx.font = `${sizes.instruction}px 'Lato', sans-serif`;
         ctx.textAlign = 'center';
         ctx.fillText(text, canvasWidth / 2, canvasHeight * yPosition);
     }
     
     /**
-     * Draw overlay background (semi-transparent black)
+     * Draw overlay background (Glassmorphism blur simulation)
      */
     drawOverlay(ctx, canvasWidth, canvasHeight, alpha = 0.7) {
-        ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+        // Darken background
+        ctx.fillStyle = `rgba(10, 10, 15, ${alpha})`;
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        // Vignette
+        const gradient = ctx.createRadialGradient(
+            canvasWidth / 2, canvasHeight / 2, canvasHeight * 0.3,
+            canvasWidth / 2, canvasHeight / 2, canvasHeight * 0.8
+        );
+        gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        // Scanline effect (very subtle)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+        for (let i = 0; i < canvasHeight; i += 3) {
+            ctx.fillRect(0, i, canvasWidth, 1);
+        }
     }
     
     /**
@@ -276,8 +460,8 @@ class MenuRenderer {
         const arrowSize = Math.min(20, canvasHeight * 0.035);
         const arrowOffset = canvasHeight * 0.03;
         
-        ctx.fillStyle = '#fff';
-        ctx.font = `${arrowSize}px Arial`;
+        ctx.fillStyle = '#4a9eff';
+        ctx.font = `${arrowSize}px Arial`; // Arrows look better in Arial
         ctx.textAlign = 'center';
         
         if (canScrollUp) {

@@ -84,9 +84,10 @@ class TouchControlsUI {
             width: 100%;
             height: 100%;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.15);
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(4px);
         `;
         
         // Inner circle (stick)
@@ -98,10 +99,11 @@ class TouchControlsUI {
             left: 25%;
             top: 25%;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.8);
-            border: 2px solid rgba(255, 255, 255, 0.5);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
             transition: all 0.1s ease-out;
+            backdrop-filter: blur(4px);
         `;
         
         this.joystickContainer.appendChild(this.joystickOuter);
@@ -125,10 +127,10 @@ class TouchControlsUI {
         `;
         
         const buttonLayout = {
-            'A': { x: '65%', y: '80%', color: '#4CAF50', label: 'A' },  // Bottom (Confirm)
-            'B': { x: '90%', y: '50%', color: '#f44336', label: 'B' },  // Right (Cancel)
-            'X': { x: '40%', y: '50%', color: '#2196F3', label: 'X' },  // Left (Delete/Action)
-            'Y': { x: '65%', y: '20%', color: '#FFC107', label: 'Y' }   // Top (Inventory)
+            'A': { x: '65%', y: '80%', color: 'rgba(46, 204, 113, 0.4)', label: 'A' },  // Bottom (Confirm)
+            'B': { x: '90%', y: '50%', color: 'rgba(231, 76, 60, 0.4)', label: 'B' },  // Right (Cancel)
+            'X': { x: '40%', y: '50%', color: 'rgba(52, 152, 219, 0.4)', label: 'X' },  // Left (Delete/Action)
+            'Y': { x: '65%', y: '20%', color: 'rgba(241, 196, 15, 0.4)', label: 'Y' }   // Top (Inventory)
         };
         
         for (const [button, config] of Object.entries(buttonLayout)) {
@@ -141,6 +143,42 @@ class TouchControlsUI {
         
         // Create arrow navigation (hidden by default)
         this.createArrowNavigation();
+    }
+
+    /**
+     * Create individual button
+     */
+    createButton(buttonId, config) {
+        const button = document.createElement('div');
+        button.className = 'touch-button';
+        button.dataset.button = buttonId;
+        button.style.cssText = `
+            position: absolute;
+            left: ${config.x};
+            top: ${config.y};
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: ${config.color};
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Cinzel', serif;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+            user-select: none;
+            -webkit-user-select: none;
+            transition: all 0.1s ease-out;
+            backdrop-filter: blur(4px);
+        `;
+        button.textContent = config.label;
+        
+        return button;
     }
     
     /**
@@ -179,9 +217,9 @@ class TouchControlsUI {
                 width: 50px;
                 height: 50px;
                 border-radius: 50%;
-                background: rgba(255, 255, 255, 0.3);
-                border: 3px solid rgba(255, 255, 255, 0.6);
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+                background: rgba(255, 255, 255, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -190,6 +228,7 @@ class TouchControlsUI {
                 text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
                 user-select: none;
                 transition: all 0.1s ease-out;
+                backdrop-filter: blur(4px);
             `;
             btn.textContent = config.label;
             this.arrowButtons[dir] = btn;
@@ -197,41 +236,6 @@ class TouchControlsUI {
         }
         
         this.container.appendChild(this.arrowContainer);
-    }
-    
-    /**
-     * Create individual button
-     */
-    createButton(buttonId, config) {
-        const button = document.createElement('div');
-        button.className = 'touch-button';
-        button.dataset.button = buttonId;
-        button.style.cssText = `
-            position: absolute;
-            left: ${config.x};
-            top: ${config.y};
-            transform: translate(-50%, -50%);
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: ${config.color};
-            border: 3px solid rgba(255, 255, 255, 0.6);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: Arial, sans-serif;
-            font-size: 24px;
-            font-weight: bold;
-            color: white;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-            user-select: none;
-            -webkit-user-select: none;
-            transition: all 0.1s ease-out;
-        `;
-        button.textContent = config.label;
-        
-        return button;
     }
     
     /**

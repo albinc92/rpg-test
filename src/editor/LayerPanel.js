@@ -16,6 +16,15 @@ class LayerPanel {
         this.container = null;
         this.showAllMode = false; // Toggle for showing all layers vs active only
         
+        // Define theme for layer panel
+        this.theme = {
+            primary: 'rgba(46, 204, 113, 0.8)',
+            primaryLight: 'rgba(46, 204, 113, 0.2)',
+            primaryDark: 'rgba(39, 174, 96, 0.4)',
+            accent: '#2ecc71',
+            name: 'Layers'
+        };
+        
         this.createUI();
     }
 
@@ -26,44 +35,40 @@ class LayerPanel {
         // Create container
         this.container = document.createElement('div');
         this.container.id = 'layer-panel';
-        this.container.style.cssText = `
-            position: fixed;
-            top: 80px;
-            right: 20px;
-            width: 250px;
-            background: rgba(0, 0, 0, 0.85);
-            border: 2px solid #555;
-            border-radius: 8px;
-            padding: 15px;
-            color: white;
-            font-family: 'Press Start 2P', monospace;
-            font-size: 10px;
-            z-index: 1000;
-            display: none;
-            max-height: 500px;
-            overflow-y: auto;
-        `;
+        this.container.style.cssText = EditorStyles.getPanelStyle(this.theme);
+        // Override specific styles
+        this.container.style.right = '20px';
+        this.container.style.top = '80px';
+        this.container.style.width = '280px';
+        this.container.style.maxHeight = '500px';
+        this.container.style.display = 'none';
 
-        // Title
-        const title = document.createElement('div');
-        title.textContent = 'LAYERS';
-        title.style.cssText = `
-            font-size: 12px;
-            margin-bottom: 15px;
-            text-align: center;
-            color: #4CAF50;
-            border-bottom: 1px solid #555;
-            padding-bottom: 10px;
-        `;
-        this.container.appendChild(title);
+        // Header
+        const header = document.createElement('div');
+        header.style.cssText = EditorStyles.getHeaderStyle(this.theme);
+        header.innerHTML = EditorStyles.createHeader(this.theme, 'Layers', 'Manage Map Layers');
+        this.container.appendChild(header);
+
+        // Content container
+        const content = document.createElement('div');
+        content.style.cssText = EditorStyles.getContentStyle();
+        this.container.appendChild(content);
 
         // Show All toggle
         const showAllContainer = document.createElement('div');
-        showAllContainer.style.cssText = `
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
+        showAllContainer.style.cssText = EditorStyles.getListItemStyle();
+        showAllContainer.style.marginBottom = '15px';
+        showAllContainer.style.padding = '10px';
+
+        const showAllLabel = document.createElement('label');
+        showAllLabel.textContent = 'Show All (Preview)';
+        showAllLabel.htmlFor = 'show-all-layers';
+        showAllLabel.style.cssText = `
+            cursor: pointer;
+            font-size: 12px;
+            color: #ecf0f1;
+            flex: 1;
+            font-weight: 600;
         `;
 
         const showAllCheckbox = document.createElement('input');
@@ -74,52 +79,51 @@ class LayerPanel {
             width: 16px;
             height: 16px;
             cursor: pointer;
+            accent-color: ${this.theme.accent};
         `;
+        
+        const toggleShowAll = () => {
+            showAllCheckbox.checked = !showAllCheckbox.checked;
+            this.showAllMode = showAllCheckbox.checked;
+            this.updateLayerList();
+            console.log(`[LayerPanel] Show All mode: ${this.showAllMode}`);
+        };
+
         showAllCheckbox.addEventListener('change', () => {
             this.showAllMode = showAllCheckbox.checked;
             this.updateLayerList();
             console.log(`[LayerPanel] Show All mode: ${this.showAllMode}`);
         });
+        
+        showAllContainer.onclick = (e) => {
+            if (e.target !== showAllCheckbox && e.target !== showAllLabel) toggleShowAll();
+        };
 
-        const showAllLabel = document.createElement('label');
-        showAllLabel.textContent = 'Show All (Preview)';
-        showAllLabel.htmlFor = 'show-all-layers';
-        showAllLabel.style.cssText = `
-            cursor: pointer;
-            font-size: 9px;
-        `;
-
-        showAllContainer.appendChild(showAllCheckbox);
         showAllContainer.appendChild(showAllLabel);
-        this.container.appendChild(showAllContainer);
+        showAllContainer.appendChild(showAllCheckbox);
+        content.appendChild(showAllContainer);
 
         // Layer list container
         this.layerListContainer = document.createElement('div');
         this.layerListContainer.id = 'layer-list';
         this.layerListContainer.style.cssText = `
             margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         `;
-        this.container.appendChild(this.layerListContainer);
+        content.appendChild(this.layerListContainer);
 
         // Add Layer button
         const addButton = document.createElement('button');
         addButton.textContent = '+ Add Layer';
-        addButton.style.cssText = `
-            width: 100%;
-            padding: 10px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-family: 'Press Start 2P', monospace;
-            font-size: 9px;
-            margin-top: 10px;
-        `;
+        addButton.style.cssText = EditorStyles.getNewButtonStyle(this.theme);
+        addButton.style.marginBottom = '0';
+        
         addButton.addEventListener('click', () => this.addLayer());
-        addButton.addEventListener('mouseenter', () => addButton.style.background = '#45a049');
-        addButton.addEventListener('mouseleave', () => addButton.style.background = '#4CAF50');
-        this.container.appendChild(addButton);
+        EditorStyles.applyNewButtonHover(addButton, this.theme);
+        
+        content.appendChild(addButton);
 
         // Append to body
         document.body.appendChild(this.container);
@@ -146,13 +150,19 @@ class LayerPanel {
             const isActive = layer.id === activeLayerId;
             
             layerItem.style.cssText = `
-                background: ${isActive ? 'rgba(76, 175, 80, 0.3)' : 'rgba(255, 255, 255, 0.1)'};
-                border: 2px solid ${isActive ? '#4CAF50' : '#555'};
-                border-radius: 4px;
-                padding: 10px;
-                margin-bottom: 8px;
+                background: ${isActive ? 'rgba(46, 204, 113, 0.15)' : 'rgba(255, 255, 255, 0.03)'};
+                border: 1px solid ${isActive ? this.theme.accent : 'rgba(255, 255, 255, 0.05)'};
+                border-radius: 8px;
+                padding: 12px;
                 cursor: pointer;
+                transition: all 0.2s;
+                position: relative;
+                overflow: hidden;
             `;
+            
+            if (isActive) {
+                layerItem.style.boxShadow = `0 0 10px ${this.theme.primaryDark}`;
+            }
 
             // Layer header (name and visibility)
             const header = document.createElement('div');
@@ -167,9 +177,10 @@ class LayerPanel {
             const nameSpan = document.createElement('span');
             nameSpan.textContent = `${layer.name} ${layer.locked ? '🔒' : ''}`;
             nameSpan.style.cssText = `
-                font-size: 10px;
-                font-weight: bold;
-                color: ${isActive ? '#4CAF50' : 'white'};
+                font-size: 13px;
+                font-weight: 700;
+                color: ${isActive ? this.theme.accent : '#ecf0f1'};
+                font-family: 'Lato', sans-serif;
             `;
             header.appendChild(nameSpan);
 
@@ -179,15 +190,20 @@ class LayerPanel {
             visibilityButton.style.cssText = `
                 background: transparent;
                 border: none;
-                color: white;
+                color: ${layer.visible ? '#ecf0f1' : '#7f8c8d'};
                 cursor: pointer;
                 font-size: 16px;
-                padding: 0;
+                padding: 4px;
+                border-radius: 4px;
+                transition: all 0.2s;
             `;
             visibilityButton.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.toggleLayerVisibility(layer.id);
             });
+            visibilityButton.onmouseover = () => visibilityButton.style.background = 'rgba(255, 255, 255, 0.1)';
+            visibilityButton.onmouseout = () => visibilityButton.style.background = 'transparent';
+            
             header.appendChild(visibilityButton);
 
             layerItem.appendChild(header);
@@ -195,9 +211,10 @@ class LayerPanel {
             // Layer info
             const info = document.createElement('div');
             info.style.cssText = `
-                font-size: 8px;
-                color: #aaa;
-                margin-bottom: 8px;
+                font-size: 10px;
+                color: #95a5a6;
+                margin-bottom: 10px;
+                font-family: 'Lato', sans-serif;
             `;
             info.textContent = `z-index: ${layer.zIndex}`;
             layerItem.appendChild(info);
@@ -207,8 +224,8 @@ class LayerPanel {
                 const controls = document.createElement('div');
                 controls.style.cssText = `
                     display: flex;
-                    gap: 5px;
-                    justify-content: center;
+                    gap: 8px;
+                    justify-content: flex-end;
                 `;
 
                 // Move Up button
@@ -227,7 +244,19 @@ class LayerPanel {
                 const deleteButton = this.createControlButton('🗑️', () => {
                     this.deleteLayer(layer.id);
                 });
-                deleteButton.style.background = '#f44336';
+                deleteButton.style.background = 'rgba(231, 76, 60, 0.15)';
+                deleteButton.style.color = '#e74c3c';
+                deleteButton.style.borderColor = 'rgba(231, 76, 60, 0.3)';
+                
+                deleteButton.onmouseover = () => {
+                    deleteButton.style.background = 'rgba(231, 76, 60, 0.3)';
+                    deleteButton.style.borderColor = '#e74c3c';
+                };
+                deleteButton.onmouseout = () => {
+                    deleteButton.style.background = 'rgba(231, 76, 60, 0.15)';
+                    deleteButton.style.borderColor = 'rgba(231, 76, 60, 0.3)';
+                };
+                
                 controls.appendChild(deleteButton);
 
                 layerItem.appendChild(controls);
@@ -237,6 +266,20 @@ class LayerPanel {
             layerItem.addEventListener('click', () => {
                 this.selectLayer(layer.id);
             });
+            
+            // Hover effect for layer item
+            layerItem.onmouseover = () => {
+                if (!isActive) {
+                    layerItem.style.background = 'rgba(255, 255, 255, 0.08)';
+                    layerItem.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                }
+            };
+            layerItem.onmouseout = () => {
+                if (!isActive) {
+                    layerItem.style.background = 'rgba(255, 255, 255, 0.03)';
+                    layerItem.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+                }
+            };
 
             this.layerListContainer.appendChild(layerItem);
         });
@@ -249,20 +292,31 @@ class LayerPanel {
         const button = document.createElement('button');
         button.textContent = text;
         button.style.cssText = `
-            padding: 5px 10px;
-            background: #555;
-            color: white;
-            border: none;
-            border-radius: 3px;
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #ecf0f1;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
             cursor: pointer;
-            font-size: 10px;
+            font-size: 12px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 28px;
         `;
         button.addEventListener('click', (e) => {
             e.stopPropagation();
             onClick();
         });
-        button.addEventListener('mouseenter', () => button.style.background = '#666');
-        button.addEventListener('mouseleave', () => button.style.background = '#555');
+        button.addEventListener('mouseenter', () => {
+            button.style.background = 'rgba(255, 255, 255, 0.2)';
+            button.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+        });
+        button.addEventListener('mouseleave', () => {
+            button.style.background = 'rgba(255, 255, 255, 0.1)';
+            button.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+        });
         return button;
     }
 

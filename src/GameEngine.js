@@ -74,6 +74,7 @@ class GameEngine {
         // NEW: Specialized subsystems for better architecture
         this.layerManager = new LayerManager(); // Multi-layer map system
         this.renderSystem = new RenderSystem(this.canvas, this.ctx, this.webglCanvas);
+        this.hudSystem = new HUDSystem(this); // NEW: HUD system
         
         // CRITICAL: Initialize WebGL renderer with correct logical dimensions
         // Must be called immediately after RenderSystem creation for correct projection matrix
@@ -839,8 +840,12 @@ class GameEngine {
      * Render UI elements
      */
     renderUI(ctx) {
-        // This would render HUD elements, health bars, etc.
-        // For now, keep it clean - no permanent UI overlays
+        // Render HUD if player exists and not in editor mode (unless testing)
+        if (this.player && this.hudSystem) {
+            // Don't hide HUD in editor mode, it's useful to see
+            this.hudSystem.render(ctx, this.player);
+        }
+        
         // Debug info is handled separately and can be toggled with F1
     }
     

@@ -51,21 +51,22 @@ class EditorUI {
             top: 0;
             left: 0;
             right: 0;
-            background: rgba(0, 0, 0, 0.9);
-            color: white;
-            padding: 10px 20px;
-            font-family: Arial, sans-serif;
+            background: rgba(20, 20, 25, 0.95);
+            color: #ecf0f1;
+            padding: 10px 24px;
+            font-family: 'Lato', sans-serif;
             z-index: 1000;
             display: none;
-            border-bottom: 2px solid #4a9eff;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+            border-bottom: 1px solid rgba(74, 158, 255, 0.3);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
         `;
 
         // Create toolbar
         const toolbar = document.createElement('div');
         toolbar.style.cssText = `
             display: flex;
-            gap: 5px;
+            gap: 8px;
             align-items: center;
         `;
 
@@ -73,10 +74,12 @@ class EditorUI {
         const title = document.createElement('span');
         title.textContent = '🎨 Map Editor';
         title.style.cssText = `
-            font-weight: bold;
+            font-weight: 900;
             font-size: 18px;
-            margin-right: 15px;
+            margin-right: 20px;
             color: #4a9eff;
+            font-family: 'Cinzel', serif;
+            text-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
         `;
         toolbar.appendChild(title);
 
@@ -98,9 +101,18 @@ class EditorUI {
         const closeBtn = this.createButton('✖ Close', () => {
             this.editor.toggle();
         });
-        closeBtn.style.background = '#c0392b';
-        closeBtn.onmouseover = () => closeBtn.style.background = '#e74c3c';
-        closeBtn.onmouseout = () => closeBtn.style.background = '#c0392b';
+        closeBtn.style.background = 'rgba(231, 76, 60, 0.2)';
+        closeBtn.style.border = '1px solid rgba(231, 76, 60, 0.4)';
+        closeBtn.style.color = '#e74c3c';
+        
+        closeBtn.onmouseover = () => {
+            closeBtn.style.background = 'rgba(231, 76, 60, 0.4)';
+            closeBtn.style.transform = 'translateY(-1px)';
+        };
+        closeBtn.onmouseout = () => {
+            closeBtn.style.background = 'rgba(231, 76, 60, 0.2)';
+            closeBtn.style.transform = 'translateY(0)';
+        };
         toolbar.appendChild(closeBtn);
 
         this.container.appendChild(toolbar);
@@ -412,18 +424,24 @@ class EditorUI {
         notification.textContent = message;
         notification.style.cssText = `
             position: fixed;
-            bottom: 20px;
+            bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(74, 158, 255, 0.95);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-family: Arial, sans-serif;
+            background: rgba(20, 20, 25, 0.95);
+            color: #fff;
+            padding: 14px 28px;
+            border-radius: 50px;
+            border: 1px solid rgba(74, 158, 255, 0.3);
+            font-family: 'Lato', sans-serif;
             font-size: 14px;
+            font-weight: 600;
             z-index: 10000;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            animation: slideUp 0.3s ease-out;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            align-items: center;
+            gap: 10px;
         `;
         
         // Add animation
@@ -432,7 +450,7 @@ class EditorUI {
             @keyframes slideUp {
                 from {
                     opacity: 0;
-                    transform: translateX(-50%) translateY(20px);
+                    transform: translateX(-50%) translateY(30px);
                 }
                 to {
                     opacity: 1;
@@ -446,7 +464,9 @@ class EditorUI {
         
         // Auto-remove after 3 seconds
         setTimeout(() => {
-            notification.style.animation = 'slideUp 0.3s ease-out reverse';
+            notification.style.transition = 'all 0.3s ease-in';
+            notification.style.opacity = '0';
+            notification.style.transform = 'translateX(-50%) translateY(20px)';
             setTimeout(() => notification.remove(), 300);
         }, 3000);
     }
@@ -458,20 +478,29 @@ class EditorUI {
         const btn = document.createElement('button');
         btn.textContent = text;
         btn.style.cssText = `
-            background: #333;
-            color: white;
-            border: 1px solid #555;
-            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #ecf0f1;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 8px 16px;
             cursor: pointer;
-            border-radius: 4px;
-            font-size: 14px;
-            transition: background 0.2s;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: 'Lato', sans-serif;
+            font-weight: 600;
+            transition: all 0.2s;
         `;
-        btn.onmouseover = () => btn.style.background = '#555';
+        
+        btn.onmouseover = () => {
+            btn.style.background = 'rgba(255, 255, 255, 0.1)';
+            btn.style.transform = 'translateY(-1px)';
+        };
+        
         btn.onmouseout = () => {
             const isActive = btn.dataset.tool && btn.dataset.tool === this.editor.selectedTool;
-            btn.style.background = isActive ? '#4a9eff' : '#333';
+            btn.style.background = isActive ? '#4a9eff' : 'rgba(255, 255, 255, 0.05)';
+            btn.style.transform = 'translateY(0)';
         };
+        
         btn.onclick = onClick;
         return btn;
     }

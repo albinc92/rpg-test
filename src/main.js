@@ -72,6 +72,7 @@ async function loadGameScripts() {
         await loadScript('/src/systems/PerformanceMonitor.js');
         await loadScript('/src/systems/SaveGameManager.js');
         await loadScript('/src/systems/TemplateManager.js'); // NEW: Object template system
+        await loadScript('/src/systems/HUDSystem.js'); // NEW: HUD rendering system
         
         // Load editor components
         await loadScript('/src/editor/EditorStyles.js'); // NEW: Standardized editor styling

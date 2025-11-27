@@ -6,6 +6,16 @@ class PropertyPanel {
         this.editor = editor;
         this.container = null;
         this.currentObject = null;
+        
+        // Define theme for property panel
+        this.theme = {
+            primary: 'rgba(74, 158, 255, 0.8)',
+            primaryLight: 'rgba(74, 158, 255, 0.2)',
+            primaryDark: 'rgba(41, 128, 185, 0.4)',
+            accent: '#4a9eff',
+            name: 'Properties'
+        };
+        
         this.createUI();
     }
 
@@ -15,31 +25,34 @@ class PropertyPanel {
     createUI() {
         this.container = document.createElement('div');
         this.container.id = 'property-panel';
-        this.container.style.cssText = `
-            position: fixed;
-            right: 10px;
-            top: 70px;
-            width: 300px;
-            max-height: 600px;
-            background: rgba(0, 0, 0, 0.9);
-            color: white;
-            padding: 15px;
-            font-family: Arial, sans-serif;
-            z-index: 1000;
-            display: none;
-            border: 2px solid #444;
-            border-radius: 8px;
-            overflow-y: auto;
-        `;
+        
+        // Use EditorStyles for consistent look
+        this.container.style.cssText = EditorStyles.getPanelStyle(this.theme);
+        // Override some specific styles for property panel positioning
+        this.container.style.right = '10px';
+        this.container.style.top = '70px';
+        this.container.style.width = '320px';
+        this.container.style.maxHeight = 'calc(100vh - 90px)';
+        this.container.style.display = 'none';
 
-        // Title
-        const title = document.createElement('h3');
-        title.textContent = 'Properties';
-        title.style.marginTop = '0';
-        this.container.appendChild(title);
+        // Header
+        const header = document.createElement('div');
+        header.style.cssText = EditorStyles.getHeaderStyle(this.theme);
+        header.innerHTML = EditorStyles.createHeader(this.theme, 'Properties', 'Edit Object Details');
+        
+        // Close button
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '×';
+        closeBtn.style.cssText = EditorStyles.getCloseButtonStyle();
+        closeBtn.onclick = () => this.hide();
+        EditorStyles.applyCloseButtonHover(closeBtn);
+        
+        header.appendChild(closeBtn);
+        this.container.appendChild(header);
 
         // Properties container
         this.propertiesContainer = document.createElement('div');
+        this.propertiesContainer.style.cssText = EditorStyles.getContentStyle();
         this.container.appendChild(this.propertiesContainer);
 
         document.body.appendChild(this.container);
@@ -368,9 +381,12 @@ class PropertyPanel {
         label.style.cssText = `
             font-weight: bold;
             margin-bottom: 10px;
-            padding: 5px;
-            background: rgba(74, 158, 255, 0.2);
+            padding: 8px;
+            background: ${this.theme.primaryLight};
+            border-left: 3px solid ${this.theme.accent};
             border-radius: 4px;
+            color: #fff;
+            font-size: 13px;
         `;
         this.propertiesContainer.appendChild(label);
     }
@@ -380,11 +396,17 @@ class PropertyPanel {
      */
     addCheckbox(label, value, onChange) {
         const container = document.createElement('div');
-        container.style.cssText = `
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+        container.style.cssText = EditorStyles.getListItemStyle();
+        container.style.padding = '10px';
+
+        const labelEl = document.createElement('label');
+        labelEl.textContent = label;
+        labelEl.style.cssText = `
+            font-size: 13px;
+            cursor: pointer;
+            user-select: none;
+            color: #ecf0f1;
+            flex: 1;
         `;
 
         const checkbox = document.createElement('input');
@@ -394,23 +416,22 @@ class PropertyPanel {
             width: 18px;
             height: 18px;
             cursor: pointer;
+            accent-color: ${this.theme.accent};
         `;
-        checkbox.onchange = () => onChange(checkbox.checked);
-
-        const labelEl = document.createElement('label');
-        labelEl.textContent = label;
-        labelEl.style.cssText = `
-            font-size: 12px;
-            cursor: pointer;
-            user-select: none;
-        `;
-        labelEl.onclick = () => {
+        
+        const toggle = () => {
             checkbox.checked = !checkbox.checked;
             onChange(checkbox.checked);
         };
+        
+        checkbox.onchange = () => onChange(checkbox.checked);
+        labelEl.onclick = toggle;
+        container.onclick = (e) => {
+            if (e.target !== checkbox && e.target !== labelEl) toggle();
+        };
 
-        container.appendChild(checkbox);
         container.appendChild(labelEl);
+        container.appendChild(checkbox);
         this.propertiesContainer.appendChild(container);
     }
 
@@ -427,29 +448,20 @@ class PropertyPanel {
      */
     createNumberInput(label, value, onChange, step = 1, min = null) {
         const container = document.createElement('div');
-        container.style.marginBottom = '10px';
+        container.style.cssText = EditorStyles.getFieldContainerStyle();
 
         const labelEl = document.createElement('label');
         labelEl.textContent = label;
-        labelEl.style.cssText = `
-            display: block;
-            margin-bottom: 5px;
-            font-size: 12px;
-        `;
+        labelEl.style.cssText = EditorStyles.getLabelStyle();
 
         const input = document.createElement('input');
         input.type = 'number';
         input.value = value;
         input.step = step;
         if (min !== null) input.min = min;
-        input.style.cssText = `
-            width: 100%;
-            padding: 5px;
-            background: #222;
-            color: white;
-            border: 1px solid #555;
-            border-radius: 4px;
-        `;
+        input.style.cssText = EditorStyles.getInputStyle();
+        
+        EditorStyles.applyInputFocus(input);
         input.oninput = () => onChange(parseFloat(input.value));
 
         container.appendChild(labelEl);
@@ -462,27 +474,18 @@ class PropertyPanel {
      */
     addTextInput(label, value, onChange) {
         const container = document.createElement('div');
-        container.style.marginBottom = '10px';
+        container.style.cssText = EditorStyles.getFieldContainerStyle();
 
         const labelEl = document.createElement('label');
         labelEl.textContent = label;
-        labelEl.style.cssText = `
-            display: block;
-            margin-bottom: 5px;
-            font-size: 12px;
-        `;
+        labelEl.style.cssText = EditorStyles.getLabelStyle();
 
         const input = document.createElement('input');
         input.type = 'text';
         input.value = value || '';
-        input.style.cssText = `
-            width: 100%;
-            padding: 5px;
-            background: #222;
-            color: white;
-            border: 1px solid #555;
-            border-radius: 4px;
-        `;
+        input.style.cssText = EditorStyles.getInputStyle();
+        
+        EditorStyles.applyInputFocus(input);
         input.oninput = () => onChange(input.value);
 
         container.appendChild(labelEl);
@@ -495,28 +498,19 @@ class PropertyPanel {
      */
     addTextArea(label, value, onChange) {
         const container = document.createElement('div');
-        container.style.marginBottom = '10px';
+        container.style.cssText = EditorStyles.getFieldContainerStyle();
 
         const labelEl = document.createElement('label');
         labelEl.textContent = label;
-        labelEl.style.cssText = `
-            display: block;
-            margin-bottom: 5px;
-            font-size: 12px;
-        `;
+        labelEl.style.cssText = EditorStyles.getLabelStyle();
 
         const textarea = document.createElement('textarea');
         textarea.value = value || '';
         textarea.rows = 3;
-        textarea.style.cssText = `
-            width: 100%;
-            padding: 5px;
-            background: #222;
-            color: white;
-            border: 1px solid #555;
-            border-radius: 4px;
-            resize: vertical;
-        `;
+        textarea.style.cssText = EditorStyles.getInputStyle();
+        textarea.style.resize = 'vertical';
+        
+        EditorStyles.applyInputFocus(textarea);
         textarea.oninput = () => onChange(textarea.value);
 
         container.appendChild(labelEl);
@@ -528,39 +522,7 @@ class PropertyPanel {
      * Add select dropdown
      */
     addSelect(label, value, options, onChange) {
-        const container = document.createElement('div');
-        container.style.marginBottom = '10px';
-
-        const labelEl = document.createElement('label');
-        labelEl.textContent = label;
-        labelEl.style.cssText = `
-            display: block;
-            margin-bottom: 5px;
-            font-size: 12px;
-        `;
-
-        const select = document.createElement('select');
-        select.style.cssText = `
-            width: 100%;
-            padding: 5px;
-            background: #222;
-            color: white;
-            border: 1px solid #555;
-            border-radius: 4px;
-        `;
-
-        options.forEach(opt => {
-            const option = document.createElement('option');
-            option.value = opt;
-            option.textContent = opt;
-            option.selected = opt === value;
-            select.appendChild(option);
-        });
-
-        select.onchange = () => onChange(select.value);
-
-        container.appendChild(labelEl);
-        container.appendChild(select);
+        const container = this.createSelect(label, value, options, onChange);
         this.propertiesContainer.appendChild(container);
     }
 
@@ -569,25 +531,15 @@ class PropertyPanel {
      */
     createSelect(label, value, options, onChange) {
         const container = document.createElement('div');
-        container.style.marginBottom = '10px';
+        container.style.cssText = EditorStyles.getFieldContainerStyle();
 
         const labelEl = document.createElement('label');
         labelEl.textContent = label;
-        labelEl.style.cssText = `
-            display: block;
-            margin-bottom: 5px;
-            font-size: 12px;
-        `;
+        labelEl.style.cssText = EditorStyles.getLabelStyle();
 
         const select = document.createElement('select');
-        select.style.cssText = `
-            width: 100%;
-            padding: 5px;
-            background: #222;
-            color: white;
-            border: 1px solid #555;
-            border-radius: 4px;
-        `;
+        select.style.cssText = EditorStyles.getInputStyle();
+        select.style.cursor = 'pointer';
 
         options.forEach(opt => {
             const option = document.createElement('option');
@@ -597,6 +549,7 @@ class PropertyPanel {
             select.appendChild(option);
         });
 
+        EditorStyles.applyInputFocus(select);
         select.onchange = () => onChange(select.value);
 
         container.appendChild(labelEl);
@@ -611,21 +564,29 @@ class PropertyPanel {
         const header = document.createElement('div');
         header.textContent = '▶ ' + title;
         header.style.cssText = `
-            padding: 8px;
-            background: #333;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
             cursor: pointer;
-            border-radius: 4px;
+            border-radius: 6px;
             margin-bottom: 5px;
             user-select: none;
+            font-weight: 600;
+            color: ${this.theme.accent};
+            transition: all 0.2s;
+            border: 1px solid rgba(255, 255, 255, 0.05);
         `;
+        
+        header.onmouseover = () => header.style.background = 'rgba(255, 255, 255, 0.1)';
+        header.onmouseout = () => header.style.background = 'rgba(255, 255, 255, 0.05)';
 
         const content = document.createElement('div');
         content.style.cssText = `
             display: none;
-            padding: 10px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 4px;
-            margin-bottom: 10px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
         `;
         
         const contentEl = contentCreator();
@@ -636,6 +597,7 @@ class PropertyPanel {
             isExpanded = !isExpanded;
             header.textContent = (isExpanded ? '▼ ' : '▶ ') + title;
             content.style.display = isExpanded ? 'block' : 'none';
+            header.style.background = isExpanded ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.05)';
         };
 
         this.propertiesContainer.appendChild(header);
@@ -651,20 +613,21 @@ class PropertyPanel {
 
         const label = document.createElement('label');
         label.textContent = 'Sprite';
-        label.style.cssText = `
-            display: block;
-            margin-bottom: 5px;
-            font-size: 12px;
-            font-weight: bold;
-        `;
+        label.style.cssText = EditorStyles.getLabelStyle();
+        label.style.marginBottom = '8px';
+        label.style.display = 'block';
 
         // Preview and select button container
         const previewContainer = document.createElement('div');
         previewContainer.style.cssText = `
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             margin-bottom: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
         `;
 
         // Preview image
@@ -673,9 +636,9 @@ class PropertyPanel {
             width: 64px;
             height: 64px;
             object-fit: contain;
-            background: #333;
-            border: 1px solid #555;
-            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
         `;
         if (obj.spriteSrc) {
             preview.src = obj.spriteSrc;
@@ -684,16 +647,10 @@ class PropertyPanel {
         // Select sprite button
         const selectBtn = document.createElement('button');
         selectBtn.textContent = '📁 Choose Sprite...';
-        selectBtn.style.cssText = `
-            flex: 1;
-            padding: 8px;
-            background: #4a9eff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 13px;
-        `;
+        selectBtn.style.cssText = EditorStyles.getNewButtonStyle(this.theme);
+        selectBtn.style.marginBottom = '0';
+        selectBtn.style.flex = '1';
+        
         selectBtn.onclick = () => {
             this.openSpritePicker(obj, (selectedPath) => {
                 obj.spriteSrc = selectedPath;
@@ -702,8 +659,7 @@ class PropertyPanel {
                 pathInput.value = selectedPath;
             });
         };
-        selectBtn.onmouseover = () => selectBtn.style.background = '#5aafff';
-        selectBtn.onmouseout = () => selectBtn.style.background = '#4a9eff';
+        EditorStyles.applyNewButtonHover(selectBtn, this.theme);
 
         previewContainer.appendChild(preview);
         previewContainer.appendChild(selectBtn);
@@ -713,15 +669,10 @@ class PropertyPanel {
         pathInput.type = 'text';
         pathInput.value = obj.spriteSrc || '';
         pathInput.placeholder = 'assets/npc/...';
-        pathInput.style.cssText = `
-            width: 100%;
-            padding: 5px;
-            background: #222;
-            color: #888;
-            border: 1px solid #555;
-            border-radius: 4px;
-            font-size: 11px;
-        `;
+        pathInput.style.cssText = EditorStyles.getInputStyle();
+        pathInput.style.width = '100%';
+        pathInput.style.fontSize = '11px';
+        pathInput.style.color = '#95a5a6';
         pathInput.readOnly = true;
 
         container.appendChild(label);
@@ -739,20 +690,9 @@ class PropertyPanel {
 
         const button = document.createElement('button');
         button.textContent = '📦 Loot List';
-        button.style.cssText = `
-            width: 100%;
-            padding: 10px;
-            background: #4a9eff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-        `;
-        button.onmouseover = () => button.style.background = '#5aafff';
-        button.onmouseout = () => button.style.background = '#4a9eff';
+        button.style.cssText = EditorStyles.getNewButtonStyle(this.theme);
         button.onclick = () => this.openLootListModal(obj);
+        EditorStyles.applyNewButtonHover(button, this.theme);
 
         container.appendChild(button);
         this.propertiesContainer.appendChild(container);
@@ -778,75 +718,54 @@ class PropertyPanel {
             display: flex;
             align-items: center;
             justify-content: center;
+            backdrop-filter: blur(5px);
         `;
 
         // Create modal container
         const modal = document.createElement('div');
-        modal.style.cssText = `
-            background: #1a1a1a;
-            border: 2px solid #444;
-            border-radius: 8px;
-            width: 90%;
-            max-width: 700px;
-            max-height: 80vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        `;
+        modal.style.cssText = EditorStyles.getPanelStyle(this.theme);
+        modal.style.position = 'relative';
+        modal.style.top = 'auto';
+        modal.style.right = 'auto';
+        modal.style.width = '90%';
+        modal.style.maxWidth = '700px';
+        modal.style.maxHeight = '80vh';
 
         // Header
         const header = document.createElement('div');
-        header.style.cssText = `
-            padding: 15px 20px;
-            background: #2a2a2a;
-            border-bottom: 2px solid #444;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        `;
-
-        const title = document.createElement('h3');
-        title.textContent = 'Loot List Editor';
-        title.style.cssText = `
-            margin: 0;
-            color: white;
-            font-size: 18px;
-        `;
+        header.style.cssText = EditorStyles.getHeaderStyle(this.theme);
+        header.innerHTML = EditorStyles.createHeader(this.theme, 'Loot List Editor', 'Manage Chest Contents');
 
         const closeBtn = document.createElement('button');
-        closeBtn.textContent = '✕';
-        closeBtn.style.cssText = `
-            background: #d32f2f;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            width: 30px;
-            height: 30px;
-            cursor: pointer;
-            font-size: 18px;
-            line-height: 1;
-        `;
+        closeBtn.innerHTML = '×';
+        closeBtn.style.cssText = EditorStyles.getCloseButtonStyle();
         closeBtn.onclick = () => overlay.remove();
+        EditorStyles.applyCloseButtonHover(closeBtn);
 
-        header.appendChild(title);
         header.appendChild(closeBtn);
+
+        // Content container
+        const contentContainer = document.createElement('div');
+        contentContainer.style.cssText = EditorStyles.getContentStyle();
+        contentContainer.style.display = 'flex';
+        contentContainer.style.flexDirection = 'column';
+        contentContainer.style.gap = '20px';
 
         // Current loot section
         const currentLootSection = document.createElement('div');
         currentLootSection.style.cssText = `
-            padding: 20px;
-            border-bottom: 2px solid #444;
-            overflow-y: auto;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
             max-height: 300px;
+            overflow-y: auto;
         `;
 
         const currentTitle = document.createElement('h4');
         currentTitle.textContent = 'Current Loot';
-        currentTitle.style.cssText = `
-            margin: 0 0 15px 0;
-            color: white;
-            font-size: 16px;
-        `;
+        currentTitle.style.cssText = EditorStyles.getSectionTitleStyle();
+        currentTitle.style.marginTop = '0';
         currentLootSection.appendChild(currentTitle);
 
         // Loot grid
@@ -863,13 +782,7 @@ class PropertyPanel {
             if (!obj.loot || obj.loot.length === 0) {
                 const emptyMsg = document.createElement('div');
                 emptyMsg.textContent = 'No items in loot list';
-                emptyMsg.style.cssText = `
-                    color: #888;
-                    font-style: italic;
-                    grid-column: 1 / -1;
-                    text-align: center;
-                    padding: 20px;
-                `;
+                emptyMsg.style.cssText = EditorStyles.getEmptyStateStyle();
                 lootGrid.appendChild(emptyMsg);
                 return;
             }
@@ -878,16 +791,22 @@ class PropertyPanel {
                 const itemData = items[lootItem.id];
                 const itemCard = document.createElement('div');
                 itemCard.style.cssText = `
-                    background: #2a2a2a;
-                    border: 2px solid #444;
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
                     border-radius: 8px;
                     padding: 10px;
                     cursor: pointer;
                     transition: all 0.2s;
                     position: relative;
                 `;
-                itemCard.onmouseover = () => itemCard.style.borderColor = '#4a9eff';
-                itemCard.onmouseout = () => itemCard.style.borderColor = '#444';
+                itemCard.onmouseover = () => {
+                    itemCard.style.borderColor = this.theme.accent;
+                    itemCard.style.background = 'rgba(255, 255, 255, 0.1)';
+                };
+                itemCard.onmouseout = () => {
+                    itemCard.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                    itemCard.style.background = 'rgba(255, 255, 255, 0.05)';
+                };
 
                 // Item icon
                 if (itemData && itemData.icon) {
@@ -899,7 +818,7 @@ class PropertyPanel {
                         object-fit: contain;
                         display: block;
                         margin: 0 auto 8px;
-                        background: #1a1a1a;
+                        background: rgba(0, 0, 0, 0.3);
                         border-radius: 4px;
                     `;
                     itemCard.appendChild(icon);
@@ -909,11 +828,12 @@ class PropertyPanel {
                 const name = document.createElement('div');
                 name.textContent = itemData ? itemData.name : lootItem.id;
                 name.style.cssText = `
-                    color: white;
+                    color: #ecf0f1;
                     font-size: 12px;
                     text-align: center;
                     margin-bottom: 8px;
                     font-weight: bold;
+                    font-family: 'Lato', sans-serif;
                 `;
                 itemCard.appendChild(name);
 
@@ -927,23 +847,31 @@ class PropertyPanel {
                     margin-bottom: 8px;
                 `;
 
-                const minusBtn = document.createElement('button');
-                minusBtn.textContent = '-';
-                minusBtn.style.cssText = `
-                    background: #333;
-                    color: white;
-                    border: none;
-                    border-radius: 3px;
-                    width: 24px;
-                    height: 24px;
-                    cursor: pointer;
-                    font-size: 14px;
-                `;
-                minusBtn.onclick = (e) => {
+                const createBtn = (text, onClick) => {
+                    const btn = document.createElement('button');
+                    btn.textContent = text;
+                    btn.style.cssText = `
+                        background: rgba(255, 255, 255, 0.1);
+                        color: white;
+                        border: none;
+                        border-radius: 3px;
+                        width: 24px;
+                        height: 24px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        transition: all 0.2s;
+                    `;
+                    btn.onclick = onClick;
+                    btn.onmouseover = () => btn.style.background = 'rgba(255, 255, 255, 0.2)';
+                    btn.onmouseout = () => btn.style.background = 'rgba(255, 255, 255, 0.1)';
+                    return btn;
+                };
+
+                const minusBtn = createBtn('-', (e) => {
                     e.stopPropagation();
                     lootItem.amount = Math.max(1, (lootItem.amount || 1) - 1);
                     amountDisplay.textContent = lootItem.amount;
-                };
+                });
 
                 const amountDisplay = document.createElement('div');
                 amountDisplay.textContent = lootItem.amount || 1;
@@ -955,23 +883,11 @@ class PropertyPanel {
                     font-weight: bold;
                 `;
 
-                const plusBtn = document.createElement('button');
-                plusBtn.textContent = '+';
-                plusBtn.style.cssText = `
-                    background: #333;
-                    color: white;
-                    border: none;
-                    border-radius: 3px;
-                    width: 24px;
-                    height: 24px;
-                    cursor: pointer;
-                    font-size: 14px;
-                `;
-                plusBtn.onclick = (e) => {
+                const plusBtn = createBtn('+', (e) => {
                     e.stopPropagation();
                     lootItem.amount = (lootItem.amount || 1) + 1;
                     amountDisplay.textContent = lootItem.amount;
-                };
+                });
 
                 amountControl.appendChild(minusBtn);
                 amountControl.appendChild(amountDisplay);
@@ -981,21 +897,14 @@ class PropertyPanel {
                 // Delete button
                 const deleteBtn = document.createElement('button');
                 deleteBtn.textContent = '🗑️ Remove';
-                deleteBtn.style.cssText = `
-                    width: 100%;
-                    padding: 5px;
-                    background: #d32f2f;
-                    color: white;
-                    border: none;
-                    border-radius: 3px;
-                    cursor: pointer;
-                    font-size: 11px;
-                `;
+                deleteBtn.style.cssText = EditorStyles.getDeleteButtonStyle();
+                deleteBtn.style.width = '100%';
                 deleteBtn.onclick = (e) => {
                     e.stopPropagation();
                     obj.loot.splice(index, 1);
                     updateLootGrid();
                 };
+                EditorStyles.applyDeleteButtonHover(deleteBtn);
                 itemCard.appendChild(deleteBtn);
 
                 lootGrid.appendChild(itemCard);
@@ -1007,34 +916,27 @@ class PropertyPanel {
         // Available items section
         const availableSection = document.createElement('div');
         availableSection.style.cssText = `
-            padding: 20px;
-            overflow-y: auto;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
             flex: 1;
+            overflow-y: auto;
         `;
 
         const availableTitle = document.createElement('h4');
         availableTitle.textContent = 'Add Items';
-        availableTitle.style.cssText = `
-            margin: 0 0 15px 0;
-            color: white;
-            font-size: 16px;
-        `;
+        availableTitle.style.cssText = EditorStyles.getSectionTitleStyle();
+        availableTitle.style.marginTop = '0';
         availableSection.appendChild(availableTitle);
 
         // Search box
         const searchBox = document.createElement('input');
         searchBox.type = 'text';
         searchBox.placeholder = 'Search items...';
-        searchBox.style.cssText = `
-            width: 100%;
-            padding: 8px;
-            background: #222;
-            color: white;
-            border: 1px solid #555;
-            border-radius: 4px;
-            margin-bottom: 15px;
-            font-size: 14px;
-        `;
+        searchBox.style.cssText = EditorStyles.getInputStyle();
+        searchBox.style.width = '100%';
+        searchBox.style.marginBottom = '15px';
         availableSection.appendChild(searchBox);
 
         // Items grid
@@ -1058,8 +960,8 @@ class PropertyPanel {
 
                 const itemCard = document.createElement('div');
                 itemCard.style.cssText = `
-                    background: #2a2a2a;
-                    border: 2px solid #444;
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
                     border-radius: 8px;
                     padding: 10px;
                     cursor: pointer;
@@ -1067,12 +969,12 @@ class PropertyPanel {
                     text-align: center;
                 `;
                 itemCard.onmouseover = () => {
-                    itemCard.style.borderColor = '#4a9eff';
-                    itemCard.style.background = '#333';
+                    itemCard.style.borderColor = this.theme.accent;
+                    itemCard.style.background = 'rgba(255, 255, 255, 0.1)';
                 };
                 itemCard.onmouseout = () => {
-                    itemCard.style.borderColor = '#444';
-                    itemCard.style.background = '#2a2a2a';
+                    itemCard.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                    itemCard.style.background = 'rgba(255, 255, 255, 0.05)';
                 };
                 itemCard.onclick = () => {
                     if (!obj.loot) obj.loot = [];
@@ -1090,7 +992,7 @@ class PropertyPanel {
                         object-fit: contain;
                         display: block;
                         margin: 0 auto 8px;
-                        background: #1a1a1a;
+                        background: rgba(0, 0, 0, 0.3);
                         border-radius: 4px;
                     `;
                     itemCard.appendChild(icon);
@@ -1100,9 +1002,10 @@ class PropertyPanel {
                 const name = document.createElement('div');
                 name.textContent = item.name;
                 name.style.cssText = `
-                    color: white;
+                    color: #ecf0f1;
                     font-size: 11px;
                     word-break: break-word;
+                    font-family: 'Lato', sans-serif;
                 `;
                 itemCard.appendChild(name);
 
@@ -1111,12 +1014,14 @@ class PropertyPanel {
         };
 
         searchBox.oninput = () => renderAvailableItems(searchBox.value);
+        EditorStyles.applyInputFocus(searchBox);
         availableSection.appendChild(itemsGrid);
 
         // Assemble modal
+        contentContainer.appendChild(currentLootSection);
+        contentContainer.appendChild(availableSection);
         modal.appendChild(header);
-        modal.appendChild(currentLootSection);
-        modal.appendChild(availableSection);
+        modal.appendChild(contentContainer);
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
 
@@ -1149,21 +1054,18 @@ class PropertyPanel {
             display: flex;
             align-items: center;
             justify-content: center;
+            backdrop-filter: blur(5px);
         `;
 
         // Create modal container
         const modal = document.createElement('div');
-        modal.style.cssText = `
-            background: #1a1a1a;
-            border: 2px solid #444;
-            border-radius: 8px;
-            width: 90%;
-            max-width: 800px;
-            max-height: 80vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        `;
+        modal.style.cssText = EditorStyles.getPanelStyle(this.theme);
+        modal.style.position = 'relative';
+        modal.style.top = 'auto';
+        modal.style.right = 'auto';
+        modal.style.width = '90%';
+        modal.style.maxWidth = '800px';
+        modal.style.maxHeight = '80vh';
 
         // Determine object type and filter sprites accordingly
         const objectType = obj.constructor.name;
@@ -1209,76 +1111,51 @@ class PropertyPanel {
 
         // Header
         const header = document.createElement('div');
-        header.style.cssText = `
-            padding: 15px 20px;
-            background: #2a2a2a;
-            border-bottom: 2px solid #444;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        `;
-
-        const title = document.createElement('h3');
-        title.textContent = `Select Sprite (${objectType})`;
-        title.style.cssText = `
-            margin: 0;
-            color: white;
-            font-size: 18px;
-        `;
+        header.style.cssText = EditorStyles.getHeaderStyle(this.theme);
+        header.innerHTML = EditorStyles.createHeader(this.theme, `Select Sprite (${objectType})`, 'Choose Visual Appearance');
 
         const closeBtn = document.createElement('button');
-        closeBtn.textContent = '✕';
-        closeBtn.style.cssText = `
-            background: #d32f2f;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            width: 30px;
-            height: 30px;
-            cursor: pointer;
-            font-size: 18px;
-            line-height: 1;
-        `;
+        closeBtn.innerHTML = '×';
+        closeBtn.style.cssText = EditorStyles.getCloseButtonStyle();
         closeBtn.onclick = () => overlay.remove();
+        EditorStyles.applyCloseButtonHover(closeBtn);
 
-        header.appendChild(title);
         header.appendChild(closeBtn);
 
         // Filter toggle section
         const filterSection = document.createElement('div');
         filterSection.style.cssText = `
-            padding: 10px 20px;
-            background: #252525;
-            border-bottom: 1px solid #444;
+            padding: 15px 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 15px;
         `;
 
         const filterLabel = document.createElement('span');
         filterLabel.textContent = 'Filter:';
-        filterLabel.style.cssText = `
-            color: #aaa;
-            font-size: 12px;
-        `;
+        filterLabel.style.cssText = EditorStyles.getLabelStyle();
 
         const toggleBtn = document.createElement('button');
         toggleBtn.textContent = `✓ ${objectType} Only`;
         toggleBtn.style.cssText = `
-            padding: 5px 10px;
-            background: #4a9eff;
+            padding: 8px 16px;
+            background: ${this.theme.primary};
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
             font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s;
         `;
 
         let showingFiltered = true;
         toggleBtn.onclick = () => {
             showingFiltered = !showingFiltered;
             toggleBtn.textContent = showingFiltered ? `✓ ${objectType} Only` : '📋 Show All';
-            toggleBtn.style.background = showingFiltered ? '#4a9eff' : '#666';
+            toggleBtn.style.background = showingFiltered ? this.theme.primary : 'rgba(255, 255, 255, 0.1)';
             
             // Rebuild grid with new filter
             grid.innerHTML = '';
@@ -1294,11 +1171,7 @@ class PropertyPanel {
 
         // Sprite grid container
         const gridContainer = document.createElement('div');
-        gridContainer.style.cssText = `
-            padding: 20px;
-            overflow-y: auto;
-            flex: 1;
-        `;
+        gridContainer.style.cssText = EditorStyles.getContentStyle();
 
         const grid = document.createElement('div');
         grid.style.cssText = `
@@ -1311,9 +1184,11 @@ class PropertyPanel {
         const createSpriteCards = (spritePaths) => {
             spritePaths.forEach(spritePath => {
             const card = document.createElement('div');
+            const isSelected = obj.spriteSrc === spritePath;
+            
             card.style.cssText = `
-                background: #2a2a2a;
-                border: 2px solid ${obj.spriteSrc === spritePath ? '#4a9eff' : '#444'};
+                background: ${isSelected ? 'rgba(74, 158, 255, 0.1)' : 'rgba(255, 255, 255, 0.05)'};
+                border: 2px solid ${isSelected ? this.theme.accent : 'rgba(255, 255, 255, 0.1)'};
                 border-radius: 8px;
                 padding: 10px;
                 cursor: pointer;
@@ -1330,17 +1205,18 @@ class PropertyPanel {
                 width: 64px;
                 height: 64px;
                 object-fit: contain;
-                background: #1a1a1a;
+                background: rgba(0, 0, 0, 0.3);
                 border-radius: 4px;
             `;
 
             const name = document.createElement('div');
             name.textContent = spritePath.split('/').pop().replace('.png', '');
             name.style.cssText = `
-                color: white;
+                color: #ecf0f1;
                 font-size: 11px;
                 text-align: center;
                 word-break: break-word;
+                font-family: 'Lato', sans-serif;
             `;
 
             card.appendChild(img);
@@ -1348,14 +1224,14 @@ class PropertyPanel {
 
             card.onmouseover = () => {
                 if (obj.spriteSrc !== spritePath) {
-                    card.style.borderColor = '#666';
-                    card.style.background = '#333';
+                    card.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+                    card.style.background = 'rgba(255, 255, 255, 0.1)';
                 }
             };
             card.onmouseout = () => {
                 if (obj.spriteSrc !== spritePath) {
-                    card.style.borderColor = '#444';
-                    card.style.background = '#2a2a2a';
+                    card.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                    card.style.background = 'rgba(255, 255, 255, 0.05)';
                 }
             };
             card.onclick = () => {
