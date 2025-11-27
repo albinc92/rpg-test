@@ -1060,38 +1060,34 @@ class WebGLRenderer {
         // Vector from sun to center
         const dx = cx - sx;
         const dy = cy - sy;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const maxDist = Math.sqrt(cx * cx + cy * cy);
         
-        // Intensity fades as sun moves away from center (optional)
-        // or maybe just constant intensity when visible
-        const intensity = globalIntensity; // Math.max(0, 1.0 - (dist / maxDist));
-        
+        const intensity = globalIntensity;
         if (intensity <= 0.01) return;
         
-        // Flush any pending draws to switch blend mode
+        this.flush();
+
+        // 1. Draw Sun Disk (Normal Blending - visible against bright background)
+        // This ensures we see the sun itself even if additive blending washes out
+        this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+        
+        // Bright white/yellow center
+        this.drawGlow(sx, sy, 60, [1.0, 1.0, 0.9, 0.8 * intensity]);
         this.flush();
         
-        // Enable additive blending for lens flares
-        this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE);
+        // 2. Draw Flares (Additive Blending - glows)
+        this.gl.blendFunc(this.gl.ONE, this.gl.ONE);
         
-        // Draw flare elements along the line
-        // Element 1: Large soft glow at sun position
-        this.drawGlow(sx, sy, 150, [1.0, 0.9, 0.7, 0.4 * intensity]);
+        // Helper to premultiply alpha for additive blending
+        const c = (r, g, b, a) => [r * a, g * a, b * a, a];
         
-        // Element 2: Small bright spot
-        this.drawGlow(sx + dx * 0.2, sy + dy * 0.2, 10, [1.0, 1.0, 0.8, 0.3 * intensity]);
+        // Large soft glow around sun
+        this.drawGlow(sx, sy, 200, c(1.0, 0.8, 0.4, 0.6 * intensity));
         
-        // Element 3: Hexagon/Circle artifact
-        this.drawGlow(sx + dx * 0.5, sy + dy * 0.5, 30, [0.8, 1.0, 0.8, 0.15 * intensity]);
+        // Artifacts along the line
+        this.drawGlow(sx + dx * 0.2, sy + dy * 0.2, 20, c(1.0, 1.0, 0.8, 0.4 * intensity));
+        this.drawGlow(sx + dx * 0.5, sy + dy * 0.5, 40, c(0.8, 1.0, 0.8, 0.2 * intensity));
+        this.drawGlow(sx + dx * 1.2, sy + dy * 1.2, 80, c(0.7, 0.6, 1.0, 0.15 * intensity));
         
-        // Element 4: Distant large artifact
-        this.drawGlow(sx + dx * 1.2, sy + dy * 1.2, 60, [0.7, 0.6, 1.0, 0.1 * intensity]);
-        
-        // Element 5: Very distant small artifact
-        this.drawGlow(sx + dx * 1.5, sy + dy * 1.5, 20, [1.0, 0.9, 0.6, 0.2 * intensity]);
-        
-        // Flush flares
         this.flush();
         
         // Restore normal blending

@@ -641,7 +641,6 @@ class EditorUI {
         // Precipitation
         const precipitationOptions = [
             'none',
-            'clear',
             'rain-light',
             'rain-medium',
             'rain-heavy',
@@ -1314,7 +1313,6 @@ class EditorUI {
         // Precipitation
         const precipitationOptions = [
             'none',
-            'clear',
             'rain-light',
             'rain-medium',
             'rain-heavy',

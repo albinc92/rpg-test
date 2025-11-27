@@ -577,21 +577,28 @@ class DayNightCycle {
         // Sun arc height (y position)
         // Starts low (0.8), goes high (-0.2), ends low (0.8)
         const arcHeight = Math.sin(progress * Math.PI);
-        const y = 0.8 - (arcHeight * 1.0); // 0.8 (horizon) to -0.2 (zenith)
+        // const y = 0.8 - (arcHeight * 1.0); // 0.8 (horizon) to -0.2 (zenith)
+        const y = 0.8 - (arcHeight * 0.7); // 0.8 (horizon) to 0.1 (high noon) - Keep on screen!
         
-        // Calculate flare intensity based on specific time windows
-        // Window 1: 8 AM - 10 AM (Morning)
-        // Window 2: 2 PM - 4 PM (Afternoon)
+        // Calculate flare intensity based on sun height
+        // Visible from 6 AM to 6 PM (18:00)
         let intensity = 0;
         
-        if (time >= 8 && time <= 10) {
-            // Fade in 8-9, fade out 9-10 (Sine wave peak at 9)
-            intensity = Math.sin(((time - 8) / 2) * Math.PI);
-        } else if (time >= 14 && time <= 16) {
-            // Fade in 14-15, fade out 15-16 (Sine wave peak at 15)
-            intensity = Math.sin(((time - 14) / 2) * Math.PI);
+        if (time >= 6 && time <= 18) {
+            // Base intensity from sun height (0 to 1)
+            const sunHeight = Math.sin(((time - 6) / 12) * Math.PI);
+            
+            // Modulate to make it stronger at lower angles (morning/evening)
+            // and slightly weaker at noon
+            // 12:00 -> abs(12-12) = 0 -> factor 0.6
+            // 09:00 -> abs(9-12) = 3 -> factor 0.9
+            // 15:00 -> abs(15-12) = 3 -> factor 0.9
+            const angleFactor = 0.6 + (Math.abs(time - 12) / 6) * 0.4;
+            
+            intensity = sunHeight * angleFactor;
         }
         
+        console.log(`[DayNightCycle] Sun Pos: x=${x.toFixed(2)}, y=${y.toFixed(2)}, intensity=${intensity.toFixed(2)}`);
         return { x, y, intensity };
     }
 }

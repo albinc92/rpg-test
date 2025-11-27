@@ -300,7 +300,7 @@ class WeatherSystem {
             this.dynamicTimer = 0;
             
             // Randomly choose next weather
-            const weatherTypes = ['clear', 'rain-light', 'rain-medium'];
+            const weatherTypes = ['none', 'rain-light', 'rain-medium'];
             const randomIndex = Math.floor(Math.random() * weatherTypes.length);
             const newWeather = weatherTypes[randomIndex];
             

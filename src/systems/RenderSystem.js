@@ -289,16 +289,44 @@ class RenderSystem {
             if (game?.dayNightCycle) {
                 const weather = game.currentMap?.weather;
                 // Check if weather allows sun (not raining/snowing)
-                // Assuming 'none', 'clear', 'sunny' or null/undefined means clear weather
-                const isClearWeather = !weather || weather === 'none' || weather === 'clear' || weather === 'sunny';
+                // Assuming 'none', 'sunny' or null/undefined means clear weather
+                let isClearWeather = !weather || weather === 'none' || weather === 'sunny';
                 
-                if (isClearWeather) {
-                    const sunPos = game.dayNightCycle.getSunPosition();
-                    if (sunPos) {
-                        // Reset camera to identity for screen-space rendering
-                        this.webglRenderer.setCamera(0, 0);
-                        // Pass calculated intensity (fades out at noon)
-                        this.webglRenderer.drawLensFlare(sunPos.x, sunPos.y, sunPos.intensity);
+                // Handle object-based weather definition (e.g. { precipitation: 'none' })
+                if (typeof weather === 'object' && weather !== null) {
+                    const precip = weather.precipitation;
+                    isClearWeather = !precip || precip === 'none';
+                }
+                
+                // Always try to get sun position if dayNightCycle exists
+                const sunPos = game.dayNightCycle.getSunPosition();
+                
+                // Check time windows for lens flare (8-10am and 2-4pm)
+                const time = game.dayNightCycle.timeOfDay;
+                
+                // Calculate fade factor based on time windows to prevent popping
+                // Window 1: 8-10am (peak at 9am)
+                // Window 2: 2-4pm (peak at 3pm/15:00)
+                let timeFade = 0;
+                
+                if (time >= 8 && time < 10) {
+                    // Fade in 8-9, fade out 9-10. Triangle wave: 0 -> 1 -> 0
+                    timeFade = 1 - Math.abs((time - 8) - 1);
+                } else if (time >= 14 && time < 16) {
+                    // Fade in 14-15, fade out 15-16. Triangle wave: 0 -> 1 -> 0
+                    timeFade = 1 - Math.abs((time - 14) - 1);
+                }
+                
+                if (isClearWeather && timeFade > 0 && sunPos) {
+                    // Reset camera to identity for screen-space rendering
+                    this.webglRenderer.setCamera(0, 0);
+                    
+                    // Use calculated intensity combined with time fade
+                    const baseIntensity = Math.max(sunPos.intensity, 0.0); 
+                    const finalIntensity = baseIntensity * timeFade;
+                    
+                    if (finalIntensity > 0.01) {
+                        this.webglRenderer.drawLensFlare(sunPos.x, sunPos.y, finalIntensity);
                     }
                 }
             }
