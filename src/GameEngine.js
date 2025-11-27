@@ -146,6 +146,13 @@ class GameEngine {
         this.settingsManager.load();
         this.settings = this.settingsManager.getAll();
         
+        // Store the VSync state at boot time.
+        // This is critical because changing VSync requires a restart to affect the GPU/Electron flags.
+        // We must use this value for frame throttling logic, NOT the current settings value,
+        // otherwise switching VSync ON in-game would disable the throttle while the GPU is still unlocked,
+        // causing 2000+ FPS and crashes.
+        this.bootVSync = this.settings.vsync;
+        
         // Apply loaded settings to audio manager
         this.applyAudioSettings();
         
@@ -536,24 +543,54 @@ class GameEngine {
         this.canvas.addEventListener('mousedown', this.handleMouseClick);
         this.eventListeners.push({ target: this.canvas, type: 'mousedown', handler: this.handleMouseClick });
         
+        // Frame limiting variables
+        const MAX_FPS = 300; // Cap at 300 FPS to prevent GPU crash/overheating
+        const MIN_FRAME_TIME = 1000 / MAX_FPS;
+        
+        // Initialize lastTime to avoid NaN on first frame
+        this.lastTime = performance.now();
+
         const gameLoop = (currentTime) => {
-            const deltaTime = (currentTime - this.lastTime) / 1000;
+            // Handle first frame edge case or if lastTime is invalid
+            if (!this.lastTime) this.lastTime = currentTime;
+
+            // Calculate elapsed time since last frame
+            const elapsed = currentTime - this.lastTime;
+            
+            // If VSync was OFF at boot, we are in "unlocked" mode and MUST cap the frame rate
+            // to prevent resource exhaustion (GPU crashes).
+            // We use this.bootVSync because changing the setting in-game doesn't change the Electron flags until restart.
+            if (!this.bootVSync && elapsed < MIN_FRAME_TIME) {
+                requestAnimationFrame(gameLoop);
+                return;
+            }
+            
+            // Calculate delta time in seconds
+            const deltaTime = elapsed / 1000;
+            
+            // Update lastTime
+            // We use a simpler approach now to avoid the "70 FPS" issue caused by modulo arithmetic
+            // when the browser's rAF is slightly out of sync with our target.
             this.lastTime = currentTime;
+            
+            // Safety cap for deltaTime to prevent spiral of death on lag spikes
+            // If frame takes longer than 100ms (10fps), clamp it
+            const safeDeltaTime = Math.min(deltaTime, 0.1);
             
             // Set gameTime for animations (in milliseconds)
             this.gameTime = currentTime;
             
             if (!this.isPaused) {
-                this.update(deltaTime);
+                this.update(safeDeltaTime);
                 this.render();
-                this.updateFPS(deltaTime);
+                this.updateFPS(safeDeltaTime);
             } else {
                 // Still render when paused, just don't update game logic
                 this.render();
                 
                 // Update editor even when paused (for mouse tracking and preview)
                 if (this.editorManager && this.editorManager.isActive) {
-                    this.editorManager.update(deltaTime);
+                    this.editorManager.update(safeDeltaTime);
                 }
                 
                 // Show pause indicator (but not when editor is active)
