@@ -369,23 +369,54 @@ class MainMenuState extends GameState {
     constructor(stateManager) {
         super(stateManager);
         this.backgroundImage = null;
-        this.loadBackgroundImage();
+        this.backgroundVideo = null;
+        this.isVideoReady = false;
+        this.loadBackgrounds();
     }
     
-    loadBackgroundImage() {
+    loadBackgrounds() {
+        // Load fallback image
         this.backgroundImage = new Image();
         this.backgroundImage.onload = () => {
-            console.log('🖼️ Main menu background loaded successfully');
+            console.log('🖼️ Main menu background image loaded');
         };
         this.backgroundImage.onerror = () => {
-            console.warn('⚠️ Failed to load main menu background');
+            console.warn('⚠️ Failed to load main menu background image');
         };
         this.backgroundImage.src = '/assets/bg/main.png';
+
+        // Load video
+        this.backgroundVideo = document.createElement('video');
+        this.backgroundVideo.src = '/assets/bg/RPG_Menu_Looping_GIF_Creation.mp4';
+        this.backgroundVideo.loop = true;
+        this.backgroundVideo.muted = true; // Autoplay usually requires muted
+        this.backgroundVideo.playsInline = true;
+        
+        this.backgroundVideo.oncanplay = () => {
+            if (!this.isVideoReady) {
+                this.isVideoReady = true;
+                console.log('🎥 Main menu video ready');
+                // Try to play if we are already in the menu
+                if (this.stateManager.currentState === 'MAIN_MENU') {
+                    this.backgroundVideo.play().catch(e => console.warn('Video play failed:', e));
+                }
+            }
+        };
+        
+        this.backgroundVideo.onerror = (e) => {
+            console.warn('⚠️ Failed to load main menu video, using fallback image', e);
+            this.isVideoReady = false;
+        };
     }
     
     enter(data = {}) {
         this.selectedOption = 0;
         this.musicStarted = false;
+        
+        // Start video if ready
+        if (this.isVideoReady && this.backgroundVideo) {
+            this.backgroundVideo.play().catch(e => console.warn('Video play failed:', e));
+        }
         
         // Show touch controls if on mobile
         if (this.game.touchControlsUI) {
@@ -440,6 +471,11 @@ class MainMenuState extends GameState {
         // DON'T restart BGM - it should continue playing from where it was
         console.log('Main menu resumed - BGM should continue playing');
         
+        // Resume video if needed
+        if (this.isVideoReady && this.backgroundVideo && this.backgroundVideo.paused) {
+            this.backgroundVideo.play().catch(e => console.warn('Video play failed:', e));
+        }
+        
         // Do nothing - the main menu BGM should already be playing
         // The AudioManager handles volume changes from settings
     }
@@ -451,6 +487,11 @@ class MainMenuState extends GameState {
             // Clear any pending crossfades and stop the current BGM
             this.game.audioManager.clearAllCrossfades();
             this.game.audioManager.stopBGM();
+        }
+        
+        // Pause video
+        if (this.backgroundVideo) {
+            this.backgroundVideo.pause();
         }
     }
     
@@ -517,10 +558,24 @@ class MainMenuState extends GameState {
         const canvasWidth = this.game.CANVAS_WIDTH;
         const canvasHeight = this.game.CANVAS_HEIGHT;
         
-        // Draw background image if loaded, otherwise fallback to black
-        if (this.backgroundImage && this.backgroundImage.complete) {
+        // 1. Draw Background (Video or Image)
+        let bgSource = null;
+        let sourceWidth = 0;
+        let sourceHeight = 0;
+        
+        if (this.isVideoReady && !this.backgroundVideo.paused) {
+            bgSource = this.backgroundVideo;
+            sourceWidth = this.backgroundVideo.videoWidth;
+            sourceHeight = this.backgroundVideo.videoHeight;
+        } else if (this.backgroundImage && this.backgroundImage.complete) {
+            bgSource = this.backgroundImage;
+            sourceWidth = this.backgroundImage.width;
+            sourceHeight = this.backgroundImage.height;
+        }
+        
+        if (bgSource && sourceWidth > 0 && sourceHeight > 0) {
             // Scale background to fill the canvas while maintaining aspect ratio
-            const imgAspect = this.backgroundImage.width / this.backgroundImage.height;
+            const imgAspect = sourceWidth / sourceHeight;
             const canvasAspect = canvasWidth / canvasHeight;
             
             let drawWidth, drawHeight, offsetX, offsetY;
@@ -539,27 +594,40 @@ class MainMenuState extends GameState {
                 offsetY = (canvasHeight - drawHeight) / 2;
             }
             
-            ctx.drawImage(this.backgroundImage, offsetX, offsetY, drawWidth, drawHeight);
-            
-            // Add a semi-transparent overlay for better text readability
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-            
-            // Add inset shadow effect (vignette) - fades to black at edges
-            const gradient = ctx.createRadialGradient(
-                canvasWidth / 2, canvasHeight / 2, 0,
-                canvasWidth / 2, canvasHeight / 2, canvasWidth * 0.7
-            );
-            gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
-            gradient.addColorStop(0.7, 'rgba(0, 0, 0, 0.3)');
-            gradient.addColorStop(1, 'rgba(0, 0, 0, 0.9)');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+            ctx.drawImage(bgSource, offsetX, offsetY, drawWidth, drawHeight);
         } else {
             // Fallback background
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         }
+        
+        // 2. Global Overlay (Vignette & Darkening)
+        // Add a semi-transparent overlay for better text readability
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        // Add inset shadow effect (vignette) - fades to black at edges
+        const gradient = ctx.createRadialGradient(
+            canvasWidth / 2, canvasHeight / 2, 0,
+            canvasWidth / 2, canvasHeight / 2, canvasWidth * 0.8
+        );
+        gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        gradient.addColorStop(0.6, 'rgba(0, 0, 0, 0.2)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.9)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        // 3. Specific Darkening behind Menu Components (Contrast)
+        // Create a vertical gradient strip behind the menu area
+        const menuGradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+        menuGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        menuGradient.addColorStop(0.3, 'rgba(0, 0, 0, 0.0)');
+        menuGradient.addColorStop(0.4, 'rgba(0, 0, 0, 0.7)'); // Darken behind menu start
+        menuGradient.addColorStop(0.8, 'rgba(0, 0, 0, 0.7)'); // Darken behind menu end
+        menuGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        
+        ctx.fillStyle = menuGradient;
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
         // Use MenuRenderer for consistent styling
         const menuRenderer = this.stateManager.menuRenderer;
