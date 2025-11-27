@@ -544,41 +544,47 @@ class GameEngine {
         this.eventListeners.push({ target: this.canvas, type: 'mousedown', handler: this.handleMouseClick });
         
         // Frame limiting variables
-        const MAX_FPS = 300; // Cap at 300 FPS to prevent GPU crash/overheating
+        const MAX_FPS = 300; // Cap at 300 FPS
         const MIN_FRAME_TIME = 1000 / MAX_FPS;
         
-        // Initialize lastTime to avoid NaN on first frame
+        // Initialize lastTime
         this.lastTime = performance.now();
 
-        const gameLoop = (currentTime) => {
-            // Handle first frame edge case or if lastTime is invalid
-            if (!this.lastTime) this.lastTime = currentTime;
+        // Use MessageChannel for high-precision throttling (0ms delay)
+        // This avoids the 4ms clamp of setTimeout and the background throttling of requestAnimationFrame
+        const channel = new MessageChannel();
+        const port = channel.port2;
+        
+        const gameLoop = () => {
+            const now = performance.now();
+            
+            // Handle first frame edge case
+            if (!this.lastTime) this.lastTime = now;
 
             // Calculate elapsed time since last frame
-            const elapsed = currentTime - this.lastTime;
+            const elapsed = now - this.lastTime;
             
             // If VSync was OFF at boot, we are in "unlocked" mode and MUST cap the frame rate
-            // to prevent resource exhaustion (GPU crashes).
-            // We use this.bootVSync because changing the setting in-game doesn't change the Electron flags until restart.
-            if (!this.bootVSync && elapsed < MIN_FRAME_TIME) {
-                requestAnimationFrame(gameLoop);
-                return;
+            if (!this.bootVSync) {
+                if (elapsed < MIN_FRAME_TIME) {
+                    // Schedule next check ASAP without blocking
+                    port.postMessage(null);
+                    return;
+                }
             }
             
             // Calculate delta time in seconds
             const deltaTime = elapsed / 1000;
             
             // Update lastTime
-            // We use a simpler approach now to avoid the "70 FPS" issue caused by modulo arithmetic
-            // when the browser's rAF is slightly out of sync with our target.
-            this.lastTime = currentTime;
+            this.lastTime = now;
             
             // Safety cap for deltaTime to prevent spiral of death on lag spikes
             // If frame takes longer than 100ms (10fps), clamp it
             const safeDeltaTime = Math.min(deltaTime, 0.1);
             
             // Set gameTime for animations (in milliseconds)
-            this.gameTime = currentTime;
+            this.gameTime = now;
             
             if (!this.isPaused) {
                 this.update(safeDeltaTime);
@@ -605,10 +611,25 @@ class GameEngine {
                 }
             }
             
-            requestAnimationFrame(gameLoop);
+            // Schedule next frame
+            if (!this.bootVSync) {
+                // VSync OFF: Use high-precision scheduler
+                port.postMessage(null);
+            } else {
+                // VSync ON: Use standard rAF to align with refresh rate
+                requestAnimationFrame(gameLoop);
+            }
         };
         
-        requestAnimationFrame(gameLoop);
+        // Setup the message handler
+        channel.port1.onmessage = gameLoop;
+        
+        // Start the loop
+        if (!this.bootVSync) {
+            port.postMessage(null);
+        } else {
+            requestAnimationFrame(gameLoop);
+        }
     }
     
     /**

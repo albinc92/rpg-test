@@ -29,6 +29,8 @@ try {
 // Disable background throttling to prevent FPS drops when window loses focus
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
+// Force high performance GPU (Critical for unlocking FPS on some systems)
+app.commandLine.appendSwitch('force_high_performance_gpu');
 // Force 1:1 pixel mapping (ignore Windows scaling)
 app.commandLine.appendSwitch('force-device-scale-factor', '1');
 app.commandLine.appendSwitch('high-dpi-support', '1');
