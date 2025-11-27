@@ -29,8 +29,6 @@ try {
 // Disable background throttling to prevent FPS drops when window loses focus
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
-// Force high performance GPU
-app.commandLine.appendSwitch('force_high_performance_gpu');
 // Force 1:1 pixel mapping (ignore Windows scaling)
 app.commandLine.appendSwitch('force-device-scale-factor', '1');
 app.commandLine.appendSwitch('high-dpi-support', '1');
@@ -45,8 +43,8 @@ if (!settings.vsync) {
 } else {
   // VSync ON: Default behavior (usually locked to refresh rate)
   console.log('VSync is ON - Using default behavior');
-  // Explicitly enable VSync just in case
-  app.commandLine.appendSwitch('enable-gpu-vsync');
+  // We don't need to explicitly enable VSync as it's the default behavior.
+  // Passing 'enable-gpu-vsync' can sometimes cause crashes on certain drivers/Electron versions.
 }
 
 const createWindow = () => {

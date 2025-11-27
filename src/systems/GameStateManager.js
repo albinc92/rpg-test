@@ -1546,17 +1546,22 @@ class SettingsState extends GameState {
         this.currentCategory = 'Audio'; // Default category
         this.categories = ['Audio', 'Graphics', 'Gameplay'];
         
+        // Create a copy of settings for pending changes
+        this.pendingSettings = JSON.parse(JSON.stringify(this.game.settings));
+        this.isDirty = false;
+        this.showExitModal = false;
+        this.exitModalOption = 0; // 0: Save, 1: Discard, 2: Cancel
+        this.restartRequired = false;
+        
         this.resolutions = this.generateResolutions();
         
         // Ensure current resolution is valid for this display
-        if (!this.resolutions.includes(this.game.settings.resolution)) {
+        if (!this.resolutions.includes(this.pendingSettings.resolution)) {
             // If saved resolution is not in the list (e.g. changed monitor), 
             // default to the largest available resolution
             if (this.resolutions.length > 0) {
-                this.game.settings.resolution = this.resolutions[this.resolutions.length - 1];
-                // We update the setting in memory so the UI shows a valid value.
-                // We don't force apply it immediately to avoid jarring resizes when just opening the menu,
-                // unless the user interacts with it.
+                this.pendingSettings.resolution = this.resolutions[this.resolutions.length - 1];
+                this.isDirty = true;
             }
         }
         
@@ -1643,8 +1648,34 @@ class SettingsState extends GameState {
     }
     
     handleInput(inputManager) {
+        // Handle Exit Modal Input
+        if (this.showExitModal) {
+            if (inputManager.isJustPressed('left')) {
+                this.exitModalOption = (this.exitModalOption - 1 + 3) % 3;
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+            }
+            if (inputManager.isJustPressed('right')) {
+                this.exitModalOption = (this.exitModalOption + 1) % 3;
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+            }
+            if (inputManager.isJustPressed('confirm')) {
+                if (this.exitModalOption === 0) { // Save
+                    this.applyChanges();
+                    this.stateManager.popState();
+                } else if (this.exitModalOption === 1) { // Discard
+                    this.stateManager.popState();
+                } else { // Cancel
+                    this.showExitModal = false;
+                }
+            }
+            if (inputManager.isJustPressed('cancel')) {
+                this.showExitModal = false;
+            }
+            return;
+        }
+
         if (inputManager.isJustPressed('cancel')) {
-            this.stateManager.popState();
+            this.checkChangesAndExit();
             return;
         }
         
@@ -1700,6 +1731,21 @@ class SettingsState extends GameState {
         }
     }
     
+    checkChangesAndExit() {
+        // Check if there are actual changes compared to original settings
+        const hasChanges = JSON.stringify(this.pendingSettings) !== JSON.stringify(this.game.settings);
+        
+        if (hasChanges) {
+            this.showExitModal = true;
+            this.exitModalOption = 0; // Default to Save
+            
+            // Check for restart requirement again just in case
+            this.restartRequired = this.pendingSettings.vsync !== this.game.settings.vsync;
+        } else {
+            this.stateManager.popState();
+        }
+    }
+
     changeCategory(direction, keepFocus = false) {
         const currentIndex = this.categories.indexOf(this.currentCategory);
         let newIndex = currentIndex + direction;
@@ -1716,24 +1762,25 @@ class SettingsState extends GameState {
         const option = this.options[this.selectedOption];
         if (!option || !option.key) return;
         
-        const settings = this.game.settings;
+        // Use pendingSettings instead of live settings
+        const settings = this.pendingSettings;
+        let changed = false;
         
         if (option.type === 'slider') {
             const currentValue = settings[option.key];
             const newValue = Math.max(option.min, Math.min(option.max, currentValue + (direction * option.step)));
-            settings[option.key] = newValue;
-            
-            // Apply the setting change to audio manager
-            this.applyAudioSettings();
-            
-            // Play a test sound for volume adjustment feedback
-            if (option.key === 'effectsVolume' || option.key === 'masterVolume') {
-                this.game.audioManager?.playEffect('menu-navigation.mp3');
+            if (currentValue !== newValue) {
+                settings[option.key] = newValue;
+                changed = true;
+                
+                // Play a test sound for volume adjustment feedback (preview only)
+                if (option.key === 'effectsVolume' || option.key === 'masterVolume') {
+                    this.game.audioManager?.playEffect('menu-navigation.mp3');
+                }
             }
         } else if (option.type === 'toggle') {
             settings[option.key] = !settings[option.key];
-            if (option.key === 'isMuted') this.applyAudioSettings();
-            if (option.key === 'fullscreen') this.applyGraphicsSettings(option.key);
+            changed = true;
         } else if (option.type === 'select') {
             // Prevent changing if there's only one option
             if (!option.values || option.values.length <= 1) return;
@@ -1745,16 +1792,23 @@ class SettingsState extends GameState {
             
             if (newIndex < 0) newIndex = option.values.length - 1;
             if (newIndex >= option.values.length) newIndex = 0;
-            settings[option.key] = option.values[newIndex];
-            if (option.key === 'resolution') this.applyGraphicsSettings(option.key);
+            
+            if (settings[option.key] !== option.values[newIndex]) {
+                settings[option.key] = option.values[newIndex];
+                changed = true;
+            }
         }
         
-        // Save settings
-        // Debounce saving to avoid lag on sliders
-        if (this.saveTimeout) clearTimeout(this.saveTimeout);
-        this.saveTimeout = setTimeout(() => {
-            this.saveSettings();
-        }, 500);
+        if (changed) {
+            // Re-evaluate dirty state by comparing full objects
+            // This handles the case where user changes value and changes it back
+            this.isDirty = JSON.stringify(this.pendingSettings) !== JSON.stringify(this.game.settings);
+            
+            // Check if this change requires a restart
+            if (option.key === 'vsync') {
+                this.restartRequired = settings.vsync !== this.game.settings.vsync;
+            }
+        }
     }
     
     selectOption() {
@@ -1762,11 +1816,36 @@ class SettingsState extends GameState {
         
         if (option.type === 'action') {
             if (option.name === 'Back') {
-                this.stateManager.popState();
+                this.checkChangesAndExit();
             }
         } else if (option.type === 'toggle') {
             this.adjustSetting(1); // Toggle the setting
         }
+    }
+
+    applyChanges() {
+        console.log('[SettingsState] Applying changes...');
+        
+        // Apply pending settings to game settings
+        Object.assign(this.game.settings, this.pendingSettings);
+        
+        // Apply audio settings immediately
+        this.applyAudioSettings();
+        
+        // Apply graphics settings immediately (resolution, fullscreen)
+        // VSync requires restart, so we don't apply it here in a way that takes effect immediately
+        // but we do save it.
+        this.applyGraphicsSettings('resolution');
+        this.applyGraphicsSettings('fullscreen');
+        
+        // Save to disk
+        this.saveSettings();
+        
+        this.isDirty = false;
+        this.restartRequired = false;
+        
+        // Provide feedback
+        this.game.audioManager?.playEffect('menu-navigation.mp3'); // Use a success sound if available
     }
     
     applyAudioSettings() {
@@ -1866,18 +1945,22 @@ class SettingsState extends GameState {
         // Prepare options with formatted values for MenuRenderer
         const formattedOptions = this.options.map(option => {
             let value = '';
+            // Use pendingSettings for display
+            const settings = this.pendingSettings;
+            
             if (option.type === 'slider') {
-                value = `< ${this.game.settings[option.key]}% >`;
+                value = `< ${settings[option.key]}% >`;
             } else if (option.type === 'toggle') {
-                value = `< ${this.game.settings[option.key] ? 'ON' : 'OFF'} >`;
+                value = `< ${settings[option.key] ? 'ON' : 'OFF'} >`;
             } else if (option.type === 'select') {
                 // Only show arrows if there are multiple options
                 if (option.values && option.values.length > 1) {
-                    value = `< ${this.game.settings[option.key]} >`;
+                    value = `< ${settings[option.key]} >`;
                 } else {
-                    value = `${this.game.settings[option.key]}`;
+                    value = `${settings[option.key]}`;
                 }
             }
+            
             return {
                 name: option.name,
                 value: value
@@ -1900,6 +1983,64 @@ class SettingsState extends GameState {
             ? 'Joystick: Navigate • A: Select • B: Back'
             : 'Arrow Keys: Navigate • Left/Right: Adjust • Enter: Select • ESC: Back';
         menuRenderer.drawInstruction(ctx, instructions, canvasWidth, canvasHeight, 0.93);
+
+        // Draw Exit Modal
+        if (this.showExitModal) {
+            // Semi-transparent black background for modal
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+            
+            const modalWidth = canvasWidth * 0.5;
+            const modalHeight = canvasHeight * 0.4;
+            const modalX = (canvasWidth - modalWidth) / 2;
+            const modalY = (canvasHeight - modalHeight) / 2;
+            
+            // Modal Border
+            ctx.strokeStyle = '#4a9eff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(modalX, modalY, modalWidth, modalHeight);
+            
+            // Modal Background
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(modalX, modalY, modalWidth, modalHeight);
+            
+            // Title
+            ctx.fillStyle = '#fff';
+            ctx.font = `bold ${sizes.title * 0.6}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText('Unsaved Changes', canvasWidth / 2, modalY + 50);
+            
+            // Message
+            ctx.font = `${sizes.text}px Arial`;
+            ctx.fillStyle = '#ccc';
+            ctx.fillText('Do you want to save your changes?', canvasWidth / 2, modalY + 100);
+            
+            if (this.restartRequired) {
+                ctx.fillStyle = '#ff4444';
+                ctx.font = `italic ${sizes.text * 0.8}px Arial`;
+                ctx.fillText('Note: Application restart required.', canvasWidth / 2, modalY + 140);
+            }
+            
+            // Options
+            const options = ['Save', 'Discard', 'Cancel'];
+            const optionY = modalY + modalHeight - 60;
+            const optionSpacing = modalWidth / 3;
+            
+            options.forEach((opt, index) => {
+                const optX = modalX + (optionSpacing * index) + (optionSpacing / 2);
+                const isSelected = index === this.exitModalOption;
+                
+                if (isSelected) {
+                    ctx.fillStyle = '#4a9eff';
+                    ctx.font = `bold ${sizes.text}px Arial`;
+                    ctx.fillText(`> ${opt} <`, optX, optionY);
+                } else {
+                    ctx.fillStyle = '#888';
+                    ctx.font = `${sizes.text}px Arial`;
+                    ctx.fillText(opt, optX, optionY);
+                }
+            });
+        }
     }
 }
 
