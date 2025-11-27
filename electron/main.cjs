@@ -14,6 +14,10 @@ app.commandLine.appendSwitch('force_high_performance_gpu');
 // Force 1:1 pixel mapping (ignore Windows scaling)
 app.commandLine.appendSwitch('force-device-scale-factor', '1');
 app.commandLine.appendSwitch('high-dpi-support', '1');
+// Unlock FPS limits
+app.commandLine.appendSwitch('disable-frame-rate-limit');
+app.commandLine.appendSwitch('disable-gpu-vsync');
+app.commandLine.appendSwitch('max-gum-fps', '1000');
 
 const createWindow = () => {
   // Create the browser window.
