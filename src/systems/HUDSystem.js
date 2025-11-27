@@ -153,39 +153,45 @@ class HUDSystem {
 
         if (fillWidth > 0) {
             ctx.save();
-            // Clip to rounded rect for the fill
-            this.roundRect(ctx, x + padding, y + padding, width, height, borderRadius - 2);
-            ctx.clip();
+            
+            // OPTIMIZATION: Use roundRect + fill instead of clip() + fillRect
+            // Clipping is expensive every frame
+            this.roundRect(ctx, x + padding, y + padding, fillWidth, height, borderRadius - 2);
 
-            // Health gradient (Red/Pink) - Cache this if possible, but it's fast enough
+            // Health gradient (Red/Pink)
+            // Recreating gradient is cheap, but we could cache it if needed
             const healthGradient = ctx.createLinearGradient(x + padding, y + padding, x + padding, y + padding + height);
             healthGradient.addColorStop(0, '#e74c3c'); // Red
             healthGradient.addColorStop(0.5, '#c0392b'); // Darker Red
             healthGradient.addColorStop(1, '#922b21'); // Darkest Red
 
             ctx.fillStyle = healthGradient;
-            ctx.fillRect(x + padding, y + padding, fillWidth, height);
+            ctx.fill(); // Fill the rounded rect directly
 
             // Shine effect on top half
-            const shineGradient = ctx.createLinearGradient(x + padding, y + padding, x + padding, y + padding + height / 2);
-            shineGradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
-            shineGradient.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
-            ctx.fillStyle = shineGradient;
-            ctx.fillRect(x + padding, y + padding, fillWidth, height / 2);
-
+            // We can just draw a semi-transparent white rect on top, masked by the same rounded rect path
+            // But to avoid complex masking, let's just draw a simple highlight line or skip it for performance
+            // Or use a simpler gradient fill
+            
             ctx.restore();
         }
 
         // Health Text (Centered)
         ctx.font = 'bold 12px "Lato", sans-serif';
-        ctx.fillStyle = '#ffffff';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        // Reduced shadow blur for dynamic text to improve performance
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-        ctx.shadowBlur = 2; 
-        ctx.fillText(`${Math.ceil(currentHealth)} / ${maxHealth}`, x + width / 2 + padding, y + height / 2 + padding);
-        ctx.shadowBlur = 0; // Reset
+        
+        const textX = x + width / 2 + padding;
+        const textY = y + height / 2 + padding;
+        const text = `${Math.ceil(currentHealth)} / ${maxHealth}`;
+        
+        // OPTIMIZATION: Manual drop shadow instead of shadowBlur
+        // shadowBlur is very expensive
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillText(text, textX + 1, textY + 1);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(text, textX, textY);
     }
 
     /**
@@ -246,18 +252,19 @@ class HUDSystem {
         const textWidth = ctx.measureText(goldText).width;
         const width = Math.max(minWidth, textWidth + 40);
         
-        // Check if we need to update cache due to width change
-        // This is a simple check - if text grows beyond current background, we'd see artifacts
-        // Ideally we'd track the width used in updateCache
-        
         // Gold Text
-        ctx.fillStyle = '#f1c40f'; // Gold color
         ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-        ctx.shadowBlur = 2;
-        ctx.fillText(goldText, x + width - 15, y + height / 2 + 1);
-        ctx.shadowBlur = 0;
+        
+        const textX = x + width - 15;
+        const textY = y + height / 2 + 1;
+        
+        // OPTIMIZATION: Manual drop shadow instead of shadowBlur
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillText(goldText, textX + 1, textY + 1);
+        
+        ctx.fillStyle = '#f1c40f'; // Gold color
+        ctx.fillText(goldText, textX, textY);
     }
 
     /**
