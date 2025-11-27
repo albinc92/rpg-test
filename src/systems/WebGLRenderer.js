@@ -43,7 +43,9 @@ class WebGLRenderer {
             saturation: 1.0,
             temperature: 0.0,
             tint: [0, 0, 0, 0],
-            darknessColor: [1, 1, 1]
+            darknessColor: [1, 1, 1],
+            vignetteIntensity: 0.5, // Default vignette
+            aberrationIntensity: 0.5 // Default chromatic aberration
         };
         
         this.circleTexture = null;
@@ -246,11 +248,33 @@ class WebGLRenderer {
             uniform float u_saturation;
             uniform float u_temperature;
             uniform vec4 u_tint;
+            uniform float u_vignetteIntensity;
+            uniform float u_aberrationIntensity;
             
             varying vec2 v_texCoord;
             
             void main() {
-                vec4 texColor = texture2D(u_texture, v_texCoord);
+                // Chromatic Aberration
+                vec2 uv = v_texCoord;
+                vec2 center = vec2(0.5, 0.5);
+                vec2 dir = uv - center;
+                float dist = length(dir);
+                
+                vec4 texColor;
+                
+                if (u_aberrationIntensity > 0.0) {
+                    // Scale aberration by distance from center
+                    float aberration = u_aberrationIntensity * 0.015 * dist;
+                    
+                    float r = texture2D(u_texture, uv - dir * aberration).r;
+                    float g = texture2D(u_texture, uv).g;
+                    float b = texture2D(u_texture, uv + dir * aberration).b;
+                    float a = texture2D(u_texture, uv).a;
+                    
+                    texColor = vec4(r, g, b, a);
+                } else {
+                    texColor = texture2D(u_texture, uv);
+                }
                 
                 // Skip processing for transparent pixels (background)
                 if (texColor.a < 0.001) {
@@ -312,6 +336,14 @@ class WebGLRenderer {
                     color = mix(color, u_tint.rgb, u_tint.a);
                 }
                 
+                // Vignette
+                if (u_vignetteIntensity > 0.0) {
+                    // Soft vignette that gets stronger at edges
+                    float vignette = smoothstep(0.75, 0.25 * (1.0 - u_vignetteIntensity), dist);
+                    // Mix based on intensity (allow some transparency)
+                    color *= mix(1.0, vignette, u_vignetteIntensity);
+                }
+                
                 color = clamp(color, 0.0, 1.0);
                 
                 // Re-premultiply alpha
@@ -345,7 +377,9 @@ class WebGLRenderer {
             brightness: this.gl.getUniformLocation(this.postProcessProgram, 'u_brightness'),
             saturation: this.gl.getUniformLocation(this.postProcessProgram, 'u_saturation'),
             temperature: this.gl.getUniformLocation(this.postProcessProgram, 'u_temperature'),
-            tint: this.gl.getUniformLocation(this.postProcessProgram, 'u_tint')
+            tint: this.gl.getUniformLocation(this.postProcessProgram, 'u_tint'),
+            vignetteIntensity: this.gl.getUniformLocation(this.postProcessProgram, 'u_vignetteIntensity'),
+            aberrationIntensity: this.gl.getUniformLocation(this.postProcessProgram, 'u_aberrationIntensity')
         };
         
         return true;
@@ -554,6 +588,8 @@ class WebGLRenderer {
         if (!this.sceneFramebuffer || !this.postProcessProgram) {
             return;
         }
+
+        const p = this.dayNightParams;
         
         // Switch to default framebuffer (screen)
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
@@ -581,12 +617,13 @@ class WebGLRenderer {
         }
         
         // Set day/night uniforms
-        const p = this.dayNightParams;
         this.gl.uniform3fv(this.postProcessProgram.locations.darknessColor, p.darknessColor || [1, 1, 1]);
         this.gl.uniform1f(this.postProcessProgram.locations.brightness, p.brightness !== undefined ? p.brightness : 1.0);
         this.gl.uniform1f(this.postProcessProgram.locations.saturation, p.saturation !== undefined ? p.saturation : 1.0);
         this.gl.uniform1f(this.postProcessProgram.locations.temperature, p.temperature || 0.0);
         this.gl.uniform4fv(this.postProcessProgram.locations.tint, p.tint || [0, 0, 0, 0]);
+        this.gl.uniform1f(this.postProcessProgram.locations.vignetteIntensity, p.vignetteIntensity !== undefined ? p.vignetteIntensity : 0.5);
+        this.gl.uniform1f(this.postProcessProgram.locations.aberrationIntensity, p.aberrationIntensity !== undefined ? p.aberrationIntensity : 0.5);
         
         // Draw full-screen quad
         // We reuse the vertex buffer from sprite rendering, but we need to fill it with a quad
