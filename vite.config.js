@@ -1,6 +1,10 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  // Base public path when served in development or production.
+  // Setting this to './' allows the app to run from a file system path (Electron).
+  base: './',
+
   // Root directory where index.html is located
   root: '.',
   
