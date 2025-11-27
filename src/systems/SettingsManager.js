@@ -14,7 +14,9 @@ class SettingsManager {
             isMuted: false,
             showFPS: true,
             showDebug: false,
-            showDebugInfo: true
+            showDebugInfo: true,
+            resolution: '1280x720',
+            fullscreen: false
         };
         
         this.settings = { ...this.defaults };

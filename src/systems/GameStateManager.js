@@ -1538,19 +1538,50 @@ class SaveLoadState extends GameState {
 class SettingsState extends GameState {
     enter(data = {}) {
         this.selectedOption = 0;
-        this.options = [
-            { name: 'Master Volume', type: 'slider', key: 'masterVolume', min: 0, max: 100, step: 10 },
-            { name: 'BGM Volume', type: 'slider', key: 'musicVolume', min: 0, max: 100, step: 10 },
-            { name: 'Effect Volume', type: 'slider', key: 'effectsVolume', min: 0, max: 100, step: 10 },
-            { name: 'Mute Audio', type: 'toggle', key: 'isMuted' },
-            { name: 'Back', type: 'action' }
-        ];
-        // Settings menu does NOT handle BGM - it just adjusts volumes
+        this.currentCategory = 'Audio'; // Default category
+        this.categories = ['Audio', 'Graphics', 'Gameplay'];
+        
+        this.resolutions = ['1280x720', '1366x768', '1600x900', '1920x1080'];
+        
+        // Define options per category
+        this.allOptions = {
+            'Audio': [
+                { name: 'Master Volume', type: 'slider', key: 'masterVolume', min: 0, max: 100, step: 10 },
+                { name: 'BGM Volume', type: 'slider', key: 'musicVolume', min: 0, max: 100, step: 10 },
+                { name: 'Effect Volume', type: 'slider', key: 'effectsVolume', min: 0, max: 100, step: 10 },
+                { name: 'Mute Audio', type: 'toggle', key: 'isMuted' }
+            ],
+            'Graphics': [
+                { name: 'Resolution', type: 'select', key: 'resolution', values: this.resolutions },
+                { name: 'Fullscreen', type: 'toggle', key: 'fullscreen' },
+                { name: 'Show FPS', type: 'toggle', key: 'showFPS' }
+            ],
+            'Gameplay': [
+                { name: 'Show Debug Info', type: 'toggle', key: 'showDebugInfo' }
+            ]
+        };
+        
+        this.updateCurrentOptions();
         
         // Show touch controls if on mobile
         if (this.game.touchControlsUI) {
             this.game.touchControlsUI.show();
             this.game.touchControlsUI.updateButtonLabels('menu');
+        }
+    }
+    
+    updateCurrentOptions(keepFocus = false) {
+        // Get options for current category and add Back button
+        this.options = [
+            ...this.allOptions[this.currentCategory],
+            { name: 'Back', type: 'action' }
+        ];
+        // Reset selection when changing categories to avoid out of bounds
+        // If keepFocus is true, we stay on the tabs (-1)
+        if (!keepFocus) {
+            this.selectedOption = 0;
+        } else {
+            this.selectedOption = -1;
         }
     }
     
@@ -1560,27 +1591,68 @@ class SettingsState extends GameState {
             return;
         }
         
+        // Category navigation (L/R bumpers or similar concept)
+        if (inputManager.isJustPressed('pageUp')) {
+            this.changeCategory(-1, true);
+            return;
+        }
+        if (inputManager.isJustPressed('pageDown')) {
+            this.changeCategory(1, true);
+            return;
+        }
+        
         if (inputManager.isJustPressed('up')) {
-            this.selectedOption = Math.max(0, this.selectedOption - 1);
-            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            if (this.selectedOption > 0) {
+                this.selectedOption--;
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+            } else {
+                // Move "up" into category tabs
+                this.selectedOption = -1; 
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+            }
         }
         
         if (inputManager.isJustPressed('down')) {
-            this.selectedOption = Math.min(this.options.length - 1, this.selectedOption + 1);
-            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            if (this.selectedOption < this.options.length - 1) {
+                this.selectedOption++;
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+            }
         }
         
-        if (inputManager.isJustPressed('left')) {
-            this.adjustSetting(-1);
+        // Only adjust settings if we are selecting an option (not tabs)
+        if (this.selectedOption >= 0) {
+            if (inputManager.isJustPressed('left')) {
+                this.adjustSetting(-1);
+            }
+            
+            if (inputManager.isJustPressed('right')) {
+                this.adjustSetting(1);
+            }
+            
+            if (inputManager.isJustPressed('confirm')) {
+                this.selectOption();
+            }
+        } else {
+            // We are in tabs, left/right changes category
+            if (inputManager.isJustPressed('left')) {
+                this.changeCategory(-1, true);
+            }
+            if (inputManager.isJustPressed('right')) {
+                this.changeCategory(1, true);
+            }
         }
+    }
+    
+    changeCategory(direction, keepFocus = false) {
+        const currentIndex = this.categories.indexOf(this.currentCategory);
+        let newIndex = currentIndex + direction;
         
-        if (inputManager.isJustPressed('right')) {
-            this.adjustSetting(1);
-        }
+        if (newIndex < 0) newIndex = this.categories.length - 1;
+        if (newIndex >= this.categories.length) newIndex = 0;
         
-        if (inputManager.isJustPressed('confirm')) {
-            this.selectOption();
-        }
+        this.currentCategory = this.categories[newIndex];
+        this.updateCurrentOptions(keepFocus);
+        this.game.audioManager?.playEffect('menu-navigation.mp3');
     }
     
     adjustSetting(direction) {
@@ -1603,8 +1675,15 @@ class SettingsState extends GameState {
             }
         } else if (option.type === 'toggle') {
             settings[option.key] = !settings[option.key];
-            this.applyAudioSettings();
-            // Settings menu does NOT handle BGM - that's handled by main menu/maps only
+            if (option.key === 'isMuted') this.applyAudioSettings();
+            if (option.key === 'fullscreen') this.applyGraphicsSettings(option.key);
+        } else if (option.type === 'select') {
+            const currentIndex = option.values.indexOf(settings[option.key]);
+            let newIndex = currentIndex + direction;
+            if (newIndex < 0) newIndex = option.values.length - 1;
+            if (newIndex >= option.values.length) newIndex = 0;
+            settings[option.key] = option.values[newIndex];
+            if (option.key === 'resolution') this.applyGraphicsSettings(option.key);
         }
         
         // Save settings
@@ -1620,7 +1699,6 @@ class SettingsState extends GameState {
             }
         } else if (option.type === 'toggle') {
             this.adjustSetting(1); // Toggle the setting
-            // Settings menu does NOT handle BGM - that's handled by main menu/maps only
         }
     }
     
@@ -1634,13 +1712,24 @@ class SettingsState extends GameState {
             audioManager.setBGMVolume(settings.musicVolume / 100);
             audioManager.setEffectVolume(settings.effectsVolume / 100);
             audioManager.setMuted(settings.isMuted);
-            
-            console.log('[SettingsState] ✅ Audio settings applied:', {
-                master: settings.masterVolume / 100,
-                bgm: settings.musicVolume / 100,
-                effects: settings.effectsVolume / 100,
-                muted: settings.isMuted
-            });
+        }
+    }
+
+    applyGraphicsSettings(key) {
+        const settings = this.game.settings;
+        console.log(`[SettingsState] Applying graphics setting: ${key}`, settings[key]);
+        
+        if (window.electronAPI) {
+            if (key === 'fullscreen') {
+                console.log('[SettingsState] Calling electronAPI.setFullscreen', settings.fullscreen);
+                window.electronAPI.setFullscreen(settings.fullscreen);
+            } else if (key === 'resolution') {
+                const [width, height] = settings.resolution.split('x').map(Number);
+                console.log('[SettingsState] Calling electronAPI.setResolution', width, height);
+                window.electronAPI.setResolution(width, height);
+            }
+        } else {
+            console.warn('[SettingsState] electronAPI not available - cannot apply graphics settings');
         }
     }
     
@@ -1668,7 +1757,38 @@ class SettingsState extends GameState {
         menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.8);
         
         // Draw title
-        menuRenderer.drawTitle(ctx, 'Settings', canvasWidth, canvasHeight, 0.2);
+        menuRenderer.drawTitle(ctx, 'Settings', canvasWidth, canvasHeight, 0.15);
+        
+        // Draw Category Tabs
+        const tabWidth = canvasWidth * 0.2;
+        const tabHeight = sizes.menu * 1.5;
+        const totalTabsWidth = this.categories.length * tabWidth;
+        const startX = (canvasWidth - totalTabsWidth) / 2;
+        const tabY = canvasHeight * 0.25;
+        
+        this.categories.forEach((category, index) => {
+            const x = startX + (index * tabWidth);
+            const isSelected = category === this.currentCategory;
+            const isFocused = this.selectedOption === -1 && isSelected;
+            
+            // Tab Background
+            ctx.fillStyle = isSelected ? 'rgba(74, 158, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)';
+            if (isFocused) ctx.fillStyle = 'rgba(74, 158, 255, 0.6)'; // Highlight when focused
+            
+            ctx.fillRect(x, tabY, tabWidth - 4, tabHeight);
+            
+            // Tab Border
+            ctx.strokeStyle = isSelected ? '#4a9eff' : 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = isSelected ? 2 : 1;
+            ctx.strokeRect(x, tabY, tabWidth - 4, tabHeight);
+            
+            // Tab Text
+            ctx.fillStyle = isSelected ? '#fff' : 'rgba(255, 255, 255, 0.6)';
+            ctx.font = `${isSelected ? 'bold' : 'normal'} ${sizes.menu * 0.8}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(category, x + (tabWidth / 2), tabY + (tabHeight / 2));
+        });
         
         // Prepare options with formatted values for MenuRenderer
         const formattedOptions = this.options.map(option => {
@@ -1677,6 +1797,8 @@ class SettingsState extends GameState {
                 value = `< ${this.game.settings[option.key]}% >`;
             } else if (option.type === 'toggle') {
                 value = `< ${this.game.settings[option.key] ? 'ON' : 'OFF'} >`;
+            } else if (option.type === 'select') {
+                value = `< ${this.game.settings[option.key]} >`;
             }
             return {
                 name: option.name,
@@ -1691,8 +1813,8 @@ class SettingsState extends GameState {
             this.selectedOption,
             canvasWidth,
             canvasHeight,
-            0.32,  // Start Y (raised to avoid bottom touch controls)
-            0.11   // Line height (slightly tighter)
+            0.38,  // Start Y (lowered to make room for tabs)
+            0.10   // Line height
         );
         
         // Draw instructions

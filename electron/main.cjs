@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -16,6 +16,25 @@ const createWindow = () => {
       nodeIntegration: false, // Security best practice
       contextIsolation: true, // Security best practice
     },
+  });
+
+  // IPC Handlers
+  ipcMain.handle('set-fullscreen', (event, value) => {
+    mainWindow.setFullScreen(value);
+  });
+
+  ipcMain.handle('set-resolution', (event, width, height) => {
+    mainWindow.setSize(width, height);
+    mainWindow.center();
+  });
+
+  ipcMain.handle('get-resolution', () => {
+    const [width, height] = mainWindow.getSize();
+    return { width, height };
+  });
+
+  ipcMain.handle('is-fullscreen', () => {
+    return mainWindow.isFullScreen();
   });
 
   // In development, we can load the Vite dev server.
