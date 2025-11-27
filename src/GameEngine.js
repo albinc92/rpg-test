@@ -437,21 +437,6 @@ class GameEngine {
      * Handle debug key presses
      */
     handleDebugKeys = (e) => {
-        // Don't pause game with 'P' key if editor is active (P = Place in editor)
-        if (e.code === 'KeyP' && !this.editorManager?.isActive) {
-            this.isPaused = !this.isPaused;
-            console.log(`Game ${this.isPaused ? 'PAUSED' : 'UNPAUSED'}`);
-            
-            // Pause/resume audio
-            if (this.audioManager) {
-                if (this.isPaused) {
-                    this.audioManager.pauseAll();
-                } else {
-                    this.audioManager.resumeAll();
-                }
-            }
-        }
-        
         // F1 - Toggle debug info display
         if (e.code === 'F1') {
             this.settings.showDebugInfo = !this.settings.showDebugInfo;
@@ -607,7 +592,6 @@ class GameEngine {
                     this.ctx.font = '48px Arial';
                     this.ctx.textAlign = 'center';
                     this.ctx.fillText('PAUSED', this.CANVAS_WIDTH / 2, this.CANVAS_HEIGHT / 2);
-                    this.ctx.fillText('Press P to continue', this.CANVAS_WIDTH / 2, this.CANVAS_HEIGHT / 2 + 60);
                 }
             }
             

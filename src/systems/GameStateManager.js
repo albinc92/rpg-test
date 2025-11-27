@@ -700,7 +700,7 @@ class PlayingState extends GameState {
         if (isLoadedGame) {
             console.log('💾 Loaded game - player position already restored, map already loaded');
             // Everything is already loaded by SaveGameManager, don't do anything
-        } else if (isNewGame || !isResumingFromPause) {
+        } else if (!isResumingFromPause) {
             // For new games, set camera BEFORE loading map to prevent panning
             if (isNewGame) {
                 const camera = this.game.camera;
@@ -723,7 +723,7 @@ class PlayingState extends GameState {
         } else {
             console.log('🔄 Resuming gameplay - preserving player position');
             // Just ensure the map is loaded but don't reset player position
-            await this.game.loadMap(this.game.currentMapId);
+            // await this.game.loadMap(this.game.currentMapId);
         }
     }
     
