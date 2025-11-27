@@ -366,10 +366,15 @@ class GameEngine {
                     this.CANVAS_HEIGHT / this.BASE_HEIGHT
                 );
 
+                // With force-device-scale-factor=1, dpr should be 1, but we keep it for robustness
                 const dpr = window.devicePixelRatio || 1;
                 this.canvas.width = this.CANVAS_WIDTH * dpr;
                 this.canvas.height = this.CANVAS_HEIGHT * dpr;
+                
+                // Reset transform before scaling
+                this.ctx.setTransform(1, 0, 0, 1, 0, 0);
                 this.ctx.scale(dpr, dpr);
+                
                 this.ctx.imageSmoothingEnabled = true;
                 this.ctx.imageSmoothingQuality = 'high';
                 
