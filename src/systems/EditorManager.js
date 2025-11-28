@@ -3597,8 +3597,26 @@ class EditorManager {
         
         console.log(`[ZoneEditor] Click button ${button} at ${worldX}, ${worldY} (unscaled: ${unscaled.x}, ${unscaled.y})`);
         
-        // Left click: Add point
+        // Left click: Add point OR close loop if clicking start point
         if (button === 0) {
+            // Check if clicking near start point to close loop
+            if (this.currentZonePoints.length > 2) {
+                const startPoint = this.currentZonePoints[0];
+                // Convert start point to world coords for distance check
+                const startWorld = this.unscaledToWorld(startPoint.x, startPoint.y);
+                
+                // Distance check (allow 10px radius)
+                const dx = worldX - startWorld.x;
+                const dy = worldY - startWorld.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if (dist < 20) { // 20px snap radius
+                    console.log('[ZoneEditor] Clicked start point - closing loop');
+                    this.finishZone();
+                    return true;
+                }
+            }
+
             this.currentZonePoints.push({ x: unscaled.x, y: unscaled.y });
             console.log(`[ZoneEditor] Added point. Total: ${this.currentZonePoints.length}`);
             return true;
@@ -3606,7 +3624,19 @@ class EditorManager {
         
         // Right click: Close loop
         if (button === 2) {
-            if (this.currentZonePoints.length > 2) {
+            this.finishZone();
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * Finish creating the current zone
+     */
+    finishZone() {
+        if (this.currentZonePoints.length > 2) {
+            try {
                 // Create zone
                 const zone = {
                     points: [...this.currentZonePoints],
@@ -3619,22 +3649,21 @@ class EditorManager {
                 if (zone.type === 'spawn' && this.game.spawnManager) {
                     this.game.spawnManager.invalidateSpawnZoneCache();
                 }
-                
-                // Clear current points
+            } catch (err) {
+                console.error('[ZoneEditor] Error creating zone:', err);
+            } finally {
+                // ALWAYS clear points to prevent "stuck" dotted line
                 this.currentZonePoints = [];
-            } else {
-                console.log('[ZoneEditor] Need at least 3 points to create a zone');
-                // Optional: Cancel if right click with < 3 points?
-                // For now, just clear if they want to cancel
-                if (this.currentZonePoints.length > 0) {
-                    console.log('[ZoneEditor] Cancelled current zone');
-                    this.currentZonePoints = [];
-                }
             }
-            return true;
+        } else {
+            console.log('[ZoneEditor] Need at least 3 points to create a zone');
+            // Optional: Cancel if right click with < 3 points?
+            // For now, just clear if they want to cancel
+            if (this.currentZonePoints.length > 0) {
+                console.log('[ZoneEditor] Cancelled current zone');
+                this.currentZonePoints = [];
+            }
         }
-        
-        return false;
     }
 
     /**

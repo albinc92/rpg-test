@@ -727,7 +727,6 @@ class GameEngine {
 
         const player = this.player;
         const map = this.currentMap;
-        const margin = 0; // Trigger exactly at the edge (or slightly past)
         
         // Use UNSCALED map dimensions for logic (Player coordinates are unscaled)
         const mapWidth = map.width;
@@ -738,6 +737,11 @@ class GameEngine {
         const playerHeight = player.getHeight();
         const halfWidth = playerWidth / 2;
         const halfHeight = playerHeight / 2;
+
+        // Allow player to walk slightly past the edge before transitioning
+        // Trigger when the CENTER of the player crosses the boundary
+        // This feels more natural than "leading edge" (too early) or "trailing edge" (too late)
+        const margin = -halfHeight; 
 
         let nextMapId = null;
         let entryDirection = null;

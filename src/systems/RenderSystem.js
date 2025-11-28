@@ -522,13 +522,42 @@ class RenderSystem {
             // 3. Render objects on this layer (filtered by layerId)
             const layerSpriteObjects = objects.filter(obj => obj.layerId === layer.id);
             
-            // Add NPCs and player to top layer sprites only (or if no layer specified - legacy)
+            // Add NPCs and player to the appropriate layer
+            // Player usually belongs on zIndex 1 (Objects/Entities)
+            // If no zIndex 1 exists, fallback to Top Layer
             const isTopLayer = !layer || (layer && layer.zIndex === Math.max(...game.layerManager.getLayers(game.currentMapId).map(l => l.zIndex)));
+            const isObjectLayer = layer && layer.zIndex === 1;
+            
+            // Determine if player should be on this layer
+            // Priority: 1. Matches player.layerId (if set)
+            //           2. Is "Objects" layer (zIndex 1)
+            //           3. Is Top Layer (fallback if no Objects layer)
+            let shouldRenderPlayer = false;
+            if (player) {
+                if (player.layerId) {
+                    shouldRenderPlayer = (player.layerId === layer.id);
+                } else {
+                    const hasObjectLayer = game.layerManager.getLayers(game.currentMapId).some(l => l.zIndex === 1);
+                    shouldRenderPlayer = isObjectLayer || (!hasObjectLayer && isTopLayer);
+                }
+            }
+
             const spriteObjects = [...layerSpriteObjects];
             
-            if (isTopLayer) {
+            // Add NPCs to Object Layer (or Top if none)
+            if (isObjectLayer || (!game.layerManager.getLayers(game.currentMapId).some(l => l.zIndex === 1) && isTopLayer)) {
                 spriteObjects.push(...npcs);
-                if (player) spriteObjects.push(player);
+            }
+
+            if (shouldRenderPlayer) {
+                spriteObjects.push(player);
+            }
+
+            // Add adjacent objects that belong to this layer's zIndex
+            if (adjacentObjects && adjacentObjects.length > 0) {
+                const layerZ = layer ? layer.zIndex : 0;
+                const relevantAdjacent = adjacentObjects.filter(obj => obj._tempZIndex === layerZ);
+                spriteObjects.push(...relevantAdjacent);
             }
             
             // Determine objects for shadows
@@ -540,8 +569,9 @@ class RenderSystem {
             this.renderLayerObjects(spriteObjects, shadowObjects, game, layer, shouldDim);
         });
         
-        // Render objects without layerId (legacy objects) AND adjacent objects - always on top
-        const unassignedObjects = [...objects.filter(obj => !obj.layerId), ...adjacentObjects];
+        // Render objects without layerId (legacy objects) - always on top
+        // Note: adjacentObjects are now handled in the top layer loop above
+        const unassignedObjects = objects.filter(obj => !obj.layerId);
         if (unassignedObjects.length > 0) {
             // If we haven't rendered shadows yet (e.g. no layers rendered?), render them now
             // But usually layers cover everything. If unassigned objects exist, they are just sprites.
@@ -1013,17 +1043,31 @@ class RenderSystem {
             const unscaledOffsetX = offsetX / totalScale;
             const unscaledOffsetY = offsetY / totalScale;
 
+            const layers = game.layerManager.getLayers(mapId);
+            const layerZIndexMap = {};
+            if (layers) {
+                layers.forEach(l => layerZIndexMap[l.id] = l.zIndex);
+            }
+
             objects.forEach(obj => {
                 // Store original position
                 modifiedObjects.push({
                     obj: obj,
                     originalX: obj.x,
-                    originalY: obj.y
+                    originalY: obj.y,
+                    originalTempZ: obj._tempZIndex // Save just in case
                 });
 
                 // Apply offset
                 obj.x += unscaledOffsetX;
                 obj.y += unscaledOffsetY;
+                
+                // Attach temporary zIndex for sorting in renderWithLayers
+                // Default to 0 (Ground) if not found, or 1 (Objects) if undefined?
+                // Safest is 0.
+                obj._tempZIndex = (obj.layerId && layerZIndexMap[obj.layerId] !== undefined) 
+                    ? layerZIndexMap[obj.layerId] 
+                    : 0;
                 
                 collectedObjects.push(obj);
             });
@@ -1059,6 +1103,11 @@ class RenderSystem {
                 modifiedObjects.forEach(item => {
                     item.obj.x = item.originalX;
                     item.obj.y = item.originalY;
+                    if (item.originalTempZ !== undefined) {
+                        item.obj._tempZIndex = item.originalTempZ;
+                    } else {
+                        delete item.obj._tempZIndex;
+                    }
                 });
             }
         };
