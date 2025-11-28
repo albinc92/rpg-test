@@ -27,10 +27,11 @@ class MenuRenderer {
     drawPanel(ctx, x, y, width, height, alpha = 0.6) {
         ctx.save();
         
-        // Glass background (gradient for reflection)
-        const gradient = ctx.createLinearGradient(x, y, x + width, y + height);
-        gradient.addColorStop(0, `rgba(40, 40, 50, ${alpha})`);
-        gradient.addColorStop(1, `rgba(20, 20, 30, ${alpha})`);
+        // Unified background (Subtle vertical gradient)
+        // Changed from diagonal to vertical to avoid "split" look
+        const gradient = ctx.createLinearGradient(x, y, x, y + height);
+        gradient.addColorStop(0, `rgba(35, 35, 45, ${alpha})`);
+        gradient.addColorStop(1, `rgba(25, 25, 35, ${alpha})`);
         
         ctx.fillStyle = gradient;
         ctx.fillRect(x, y, width, height);
@@ -40,9 +41,9 @@ class MenuRenderer {
         ctx.lineWidth = 1;
         ctx.strokeRect(x, y, width, height);
 
-        // Top highlight (reflection)
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-        ctx.fillRect(x, y, width, height * 0.4);
+        // Top highlight (reflection) - REMOVED for cleaner look
+        // ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+        // ctx.fillRect(x, y, width, height * 0.4);
 
         // Inner glow/shadow - REDUCED BLUR FOR PERFORMANCE
         // High blur values (>10) can cause significant performance drops on some GPUs

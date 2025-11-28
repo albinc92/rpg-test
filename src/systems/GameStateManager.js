@@ -1658,6 +1658,9 @@ class SettingsState extends GameState {
         this.exitModalOption = 0; // 0: Save, 1: Discard, 2: Cancel
         this.restartRequired = false;
         
+        this.scrollOffset = 0;
+        this.maxVisibleOptions = 5; // Limit visible options to prevent overlap
+
         this.resolutions = this.generateResolutions();
         
         // Ensure current resolution is valid for this display
@@ -1738,10 +1741,9 @@ class SettingsState extends GameState {
     }
     
     updateCurrentOptions(keepFocus = false) {
-        // Get options for current category and add Back button
+        // Get options for current category (Back button is now separate)
         this.options = [
-            ...this.allOptions[this.currentCategory],
-            { name: 'Back', type: 'action' }
+            ...this.allOptions[this.currentCategory]
         ];
         // Reset selection when changing categories to avoid out of bounds
         // If keepFocus is true, we stay on the tabs (-1)
@@ -1804,8 +1806,12 @@ class SettingsState extends GameState {
         if (inputManager.isJustPressed('up')) {
             if (this.selectedOption > 0) {
                 this.selectedOption--;
+                // Scroll up if needed
+                if (this.selectedOption < this.scrollOffset) {
+                    this.scrollOffset = this.selectedOption;
+                }
                 this.game.audioManager?.playEffect('menu-navigation.mp3');
-            } else {
+            } else if (this.selectedOption === 0) {
                 // Move "up" into category tabs
                 this.selectedOption = -1; 
                 this.game.audioManager?.playEffect('menu-navigation.mp3');
@@ -1813,14 +1819,20 @@ class SettingsState extends GameState {
         }
         
         if (inputManager.isJustPressed('down')) {
-            if (this.selectedOption < this.options.length - 1) {
+            // Allow going one step past the last option (for the Back button)
+            if (this.selectedOption < this.options.length) {
                 this.selectedOption++;
+                // Scroll down if needed (but not for Back button)
+                if (this.selectedOption < this.options.length && 
+                    this.selectedOption >= this.scrollOffset + this.maxVisibleOptions) {
+                    this.scrollOffset = this.selectedOption - this.maxVisibleOptions + 1;
+                }
                 this.game.audioManager?.playEffect('menu-navigation.mp3');
             }
         }
         
-        // Only adjust settings if we are selecting an option (not tabs)
-        if (this.selectedOption >= 0) {
+        // Only adjust settings if we are selecting an option (not tabs and not Back button)
+        if (this.selectedOption >= 0 && this.selectedOption < this.options.length) {
             if (inputManager.isJustPressed('left')) {
                 this.adjustSetting(-1);
             }
@@ -1831,6 +1843,11 @@ class SettingsState extends GameState {
             
             if (inputManager.isJustPressed('confirm')) {
                 this.selectOption();
+            }
+        } else if (this.selectedOption === this.options.length) {
+            // Back button selected
+            if (inputManager.isJustPressed('confirm')) {
+                this.checkChangesAndExit();
             }
         } else {
             // We are in tabs, left/right changes category
@@ -2026,7 +2043,7 @@ class SettingsState extends GameState {
         const tabHeight = sizes.menu * 1.5;
         const totalTabsWidth = this.categories.length * tabWidth;
         const startX = (canvasWidth - totalTabsWidth) / 2;
-        const tabY = canvasHeight * 0.25;
+        const tabY = canvasHeight * 0.20; // Moved up from 0.25
         
         this.categories.forEach((category, index) => {
             const x = startX + (index * tabWidth);
@@ -2077,16 +2094,72 @@ class SettingsState extends GameState {
             };
         });
         
+        // Slice options for scrolling
+        const visibleOptions = formattedOptions.slice(this.scrollOffset, this.scrollOffset + this.maxVisibleOptions);
+        
+        // Calculate selected index relative to the visible slice
+        // If selectedOption is -1 (tabs) or options.length (back button), pass -1
+        let relativeSelectedIndex = -1;
+        if (this.selectedOption >= this.scrollOffset && this.selectedOption < this.scrollOffset + this.maxVisibleOptions) {
+            relativeSelectedIndex = this.selectedOption - this.scrollOffset;
+        }
+        
         // Draw settings options using MenuRenderer (centered vertically to avoid touch controls)
+        const settingsStartY = 0.32; 
+        const settingsSpacing = 0.085; // Reduced from 0.09 to tighten list
+        
         menuRenderer.drawSettingsOptions(
             ctx,
-            formattedOptions,
-            this.selectedOption,
+            visibleOptions,
+            relativeSelectedIndex,
             canvasWidth,
             canvasHeight,
-            0.38,  // Start Y (lowered to make room for tabs)
-            0.10   // Line height
+            settingsStartY,
+            settingsSpacing
         );
+        
+        // Draw scroll indicators
+        const panelHeight = visibleOptions.length * (canvasHeight * settingsSpacing) + canvasHeight * 0.1;
+        const panelY = canvasHeight * settingsStartY - canvasHeight * 0.05;
+        
+        menuRenderer.drawScrollIndicators(
+            ctx, 
+            canvasWidth, 
+            canvasHeight, 
+            this.scrollOffset > 0, 
+            this.scrollOffset + this.maxVisibleOptions < this.options.length,
+            panelY,
+            panelHeight
+        );
+        
+        // Draw separate Back button at the bottom
+        const backButtonY = canvasHeight * 0.85; // Moved up from 0.90 to be closer to options
+        const isBackSelected = this.selectedOption === this.options.length;
+        
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        if (isBackSelected) {
+            // Selected Back Button
+            ctx.fillStyle = '#4a9eff';
+            ctx.font = `bold ${sizes.menu}px 'Cinzel', serif`;
+            ctx.shadowColor = '#4a9eff';
+            ctx.shadowBlur = 10;
+            ctx.fillText('> Back <', canvasWidth / 2, backButtonY);
+            
+            // Selection box
+            const textWidth = ctx.measureText('> Back <').width + 40;
+            ctx.strokeStyle = 'rgba(74, 158, 255, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(canvasWidth / 2 - textWidth / 2, backButtonY - 20, textWidth, 40);
+        } else {
+            // Unselected Back Button
+            ctx.fillStyle = '#888';
+            ctx.font = `${sizes.menu}px 'Cinzel', serif`;
+            ctx.shadowBlur = 0;
+            ctx.fillText('Back', canvasWidth / 2, backButtonY);
+        }
+        ctx.shadowBlur = 0;
         
         // Draw instructions
         const instructions = this.game.inputManager.isMobile 
