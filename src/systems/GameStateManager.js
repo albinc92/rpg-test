@@ -1408,7 +1408,7 @@ class SaveLoadState extends GameState {
             menuRenderer.drawInstruction(ctx, 'Select a slot to save your progress', canvasWidth, canvasHeight, 0.22);
         }
         
-        const startY = canvasHeight * 0.28;
+        const startY = canvasHeight * 0.32; // Moved down to prevent clipping with instruction text
         const lineHeight = canvasHeight * 0.13; // Slightly taller for details
         
         // For save mode, show empty slot at top
