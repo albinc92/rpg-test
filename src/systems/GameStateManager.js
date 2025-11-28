@@ -441,12 +441,19 @@ class MainMenuState extends GameState {
         // Check if there are any save files
         this.hasSaveFiles = this.game.saveGameManager.hasSaves();
         
-        // Build options dynamically - Continue first if saves exist
-        if (this.hasSaveFiles) {
-            this.options = ['Continue', 'New Game', 'Load Game', 'Settings', 'Exit'];
-        } else {
-            // No saves - hide Load Game option
-            this.options = ['New Game', 'Settings', 'Exit'];
+        // Build options dynamically - Always show all options, but disable some
+        this.options = [
+            { text: 'Continue', disabled: !this.hasSaveFiles },
+            { text: 'Load Game', disabled: !this.hasSaveFiles },
+            { text: 'New Game', disabled: false },
+            { text: 'Settings', disabled: false },
+            { text: 'Exit', disabled: false }
+        ];
+        
+        // Ensure selected option is valid (not disabled)
+        this.selectedOption = 0;
+        if (this.options[this.selectedOption].disabled) {
+            this.navigate(1); // Find first enabled option
         }
         
         // Check what state we're coming from
@@ -514,19 +521,11 @@ class MainMenuState extends GameState {
         // Only start music when ENTERING main menu, not on every input
         
         if (inputManager.isJustPressed('up')) {
-            const newOption = Math.max(0, this.selectedOption - 1);
-            if (newOption !== this.selectedOption) {
-                this.selectedOption = newOption;
-                this.game.audioManager?.playEffect('menu-navigation.mp3');
-            }
+            this.navigate(-1);
         }
         
         if (inputManager.isJustPressed('down')) {
-            const newOption = Math.min(this.options.length - 1, this.selectedOption + 1);
-            if (newOption !== this.selectedOption) {
-                this.selectedOption = newOption;
-                this.game.audioManager?.playEffect('menu-navigation.mp3');
-            }
+            this.navigate(1);
         }
         
         if (inputManager.isJustPressed('confirm')) {
@@ -534,8 +533,33 @@ class MainMenuState extends GameState {
         }
     }
     
+    navigate(direction) {
+        let newIndex = this.selectedOption;
+        let attempts = 0;
+        const maxAttempts = this.options.length;
+        
+        do {
+            newIndex += direction;
+            
+            // Wrap around
+            if (newIndex < 0) newIndex = this.options.length - 1;
+            if (newIndex >= this.options.length) newIndex = 0;
+            
+            attempts++;
+        } while (this.options[newIndex].disabled && attempts < maxAttempts);
+        
+        // Only update if we found a valid option
+        if (!this.options[newIndex].disabled && newIndex !== this.selectedOption) {
+            this.selectedOption = newIndex;
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        }
+    }
+    
     async selectOption() {
-        const optionName = this.options[this.selectedOption];
+        const option = this.options[this.selectedOption];
+        if (option.disabled) return;
+        
+        const optionName = option.text;
         
         switch (optionName) {
             case 'Continue':

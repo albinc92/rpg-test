@@ -128,7 +128,13 @@ class MenuRenderer {
         
         options.forEach((option, index) => {
             const optionText = typeof option === 'string' ? option : option.text;
-            const optionColor = typeof option === 'object' && option.color ? option.color : '#ccc';
+            let optionColor = typeof option === 'object' && option.color ? option.color : '#ccc';
+            const isDisabled = typeof option === 'object' && option.disabled;
+            
+            if (isDisabled) {
+                optionColor = '#555';
+            }
+
             const y = menuStartY + index * menuSpacing;
             const isSelected = index === selectedIndex;
             
