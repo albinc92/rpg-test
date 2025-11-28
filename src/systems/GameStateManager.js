@@ -2157,6 +2157,16 @@ class SettingsState extends GameState {
         const canvasWidth = this.game.CANVAS_WIDTH;
         const canvasHeight = this.game.CANVAS_HEIGHT;
         
+        // If we are coming from the Main Menu (not in-game), we need to ensure the background is opaque black
+        // because the Main Menu state might not be rendering behind us, or we want to hide it.
+        // Check if PlayingState is NOT in the stack to determine if we are in "Main Menu Mode"
+        const isIngame = this.stateManager.isStateInStack('PLAYING');
+        
+        if (!isIngame) {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        }
+
         // Use MenuRenderer for consistent styling
         const menuRenderer = this.stateManager.menuRenderer;
         const sizes = menuRenderer.getFontSizes(canvasHeight);
