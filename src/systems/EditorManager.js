@@ -2369,7 +2369,7 @@ class EditorManager {
         const ctx = canvas.getContext('2d');
         const texture = this.loadedTextures[this.selectedTexture];
         
-        // Create brush pattern/stamp
+        // Create brush alpha mask
         const brushCanvas = document.createElement('canvas');
         const brushSize = this.brushSize;
         brushCanvas.width = brushSize * 2;
@@ -2377,29 +2377,39 @@ class EditorManager {
         const brushCtx = brushCanvas.getContext('2d');
         
         // Create brush mask based on shape and style
+        // We use grayscale values where white = fully visible, black = fully transparent
         if (this.brushShape === 'square') {
-            // Square brush - fill with opacity
+            // Square brush - uniform alpha
             brushCtx.fillStyle = `rgba(255, 255, 255, ${this.brushOpacity})`;
             brushCtx.fillRect(0, 0, brushSize * 2, brushSize * 2);
         } else {
-            // Circle brush - create radial gradient for brush based on style
+            // Circle brush - create radial gradient for soft edges
             let gradient;
             switch (this.brushStyle) {
                 case 'hard':
-                    // Sharp edges
-                    gradient = brushCtx.createRadialGradient(brushSize, brushSize, brushSize * 0.8, brushSize, brushSize, brushSize);
+                    // Sharp edges - solid center with small fade at edge
+                    gradient = brushCtx.createRadialGradient(brushSize, brushSize, brushSize * 0.85, brushSize, brushSize, brushSize);
                     gradient.addColorStop(0, `rgba(255, 255, 255, ${this.brushOpacity})`);
-                    gradient.addColorStop(0.99, `rgba(255, 255, 255, ${this.brushOpacity})`);
                     gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                    // Fill the center solid
+                    brushCtx.fillStyle = `rgba(255, 255, 255, ${this.brushOpacity})`;
+                    brushCtx.beginPath();
+                    brushCtx.arc(brushSize, brushSize, brushSize * 0.85, 0, Math.PI * 2);
+                    brushCtx.fill();
+                    // Add edge gradient
+                    brushCtx.fillStyle = gradient;
+                    brushCtx.fillRect(0, 0, brushSize * 2, brushSize * 2);
                     break;
                 
                 case 'very-soft':
-                    // Very gradual fade
+                    // Very gradual fade from center
                     gradient = brushCtx.createRadialGradient(brushSize, brushSize, 0, brushSize, brushSize, brushSize);
                     gradient.addColorStop(0, `rgba(255, 255, 255, ${this.brushOpacity})`);
-                    gradient.addColorStop(0.3, `rgba(255, 255, 255, ${this.brushOpacity * 0.8})`);
-                    gradient.addColorStop(0.6, `rgba(255, 255, 255, ${this.brushOpacity * 0.4})`);
+                    gradient.addColorStop(0.3, `rgba(255, 255, 255, ${this.brushOpacity * 0.7})`);
+                    gradient.addColorStop(0.6, `rgba(255, 255, 255, ${this.brushOpacity * 0.3})`);
                     gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                    brushCtx.fillStyle = gradient;
+                    brushCtx.fillRect(0, 0, brushSize * 2, brushSize * 2);
                     break;
                 
                 case 'soft':
@@ -2407,14 +2417,13 @@ class EditorManager {
                     // Medium soft edges
                     gradient = brushCtx.createRadialGradient(brushSize, brushSize, 0, brushSize, brushSize, brushSize);
                     gradient.addColorStop(0, `rgba(255, 255, 255, ${this.brushOpacity})`);
-                    gradient.addColorStop(0.7, `rgba(255, 255, 255, ${this.brushOpacity * 0.5})`);
+                    gradient.addColorStop(0.5, `rgba(255, 255, 255, ${this.brushOpacity * 0.6})`);
+                    gradient.addColorStop(0.8, `rgba(255, 255, 255, ${this.brushOpacity * 0.2})`);
                     gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                    brushCtx.fillStyle = gradient;
+                    brushCtx.fillRect(0, 0, brushSize * 2, brushSize * 2);
                     break;
             }
-            
-            // Fill brush with gradient mask
-            brushCtx.fillStyle = gradient;
-            brushCtx.fillRect(0, 0, brushSize * 2, brushSize * 2);
         }
         
         // Create a temporary canvas for this brush stroke
@@ -2423,18 +2432,19 @@ class EditorManager {
         tempCanvas.height = brushSize * 2;
         const tempCtx = tempCanvas.getContext('2d');
         
-        // Draw texture pattern on temp canvas
+        // First draw the texture pattern at full opacity
         const pattern = tempCtx.createPattern(texture, 'repeat');
         tempCtx.fillStyle = pattern;
         tempCtx.fillRect(0, 0, brushSize * 2, brushSize * 2);
         
-        // Apply brush mask using destination-in
+        // Then apply the brush mask using destination-in
+        // This keeps the texture pixels but applies the alpha from the brush mask
         tempCtx.globalCompositeOperation = 'destination-in';
         tempCtx.drawImage(brushCanvas, 0, 0);
         
         // Draw the masked texture onto the paint layer
         ctx.save();
-        ctx.globalCompositeOperation = 'source-over'; // Accumulate paint
+        ctx.globalCompositeOperation = 'source-over';
         ctx.drawImage(tempCanvas, worldX - brushSize, worldY - brushSize);
         ctx.restore();
         

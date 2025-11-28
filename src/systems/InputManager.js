@@ -33,7 +33,7 @@ class InputManager {
             // Actions
             'interact': ['Space', 'Enter'],
             'run': ['ShiftLeft', 'ShiftRight'],
-            'menu': ['Escape', 'Tab', 'KeyM', 'KeyP'],
+            'menu': ['Escape', 'Tab', 'KeyM'],
             'inventory': ['KeyI'],
             
             // UI Navigation
