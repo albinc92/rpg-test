@@ -479,6 +479,22 @@ class InputManager {
             movementInput: this.getMovementInput()
         };
     }
+    
+    /**
+     * Load key bindings from settings
+     */
+    loadBindings(bindings) {
+        if (!bindings) return;
+        
+        // Merge saved bindings with defaults
+        // We iterate over defaults to ensure we don't lose new actions if settings are old
+        for (const action in this.keyBindings) {
+            if (bindings[action]) {
+                this.keyBindings[action] = bindings[action];
+            }
+        }
+        console.log('[InputManager] Key bindings loaded');
+    }
 }
 
 // Export for use in other files

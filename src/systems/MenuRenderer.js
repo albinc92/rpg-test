@@ -198,19 +198,45 @@ class MenuRenderer {
      * @param {number} selectedIndex - Currently selected option index
      * @param {number} startY - Y position ratio (0-1) where menu starts
      * @param {number} spacing - Line height as ratio (0-1)
+     * @param {Object} scrollInfo - Optional scroll info { offset, total, maxVisible }
      */
-    drawSettingsOptions(ctx, options, selectedIndex, canvasWidth, canvasHeight, startY = 0.35, spacing = 0.12) {
+    drawSettingsOptions(ctx, options, selectedIndex, canvasWidth, canvasHeight, startY = 0.35, spacing = 0.12, scrollInfo = null) {
         const sizes = this.getFontSizes(canvasHeight);
         const menuStartY = canvasHeight * startY;
         const lineHeight = canvasHeight * spacing;
         
         // Draw panel background for settings
-        const panelWidth = canvasWidth * 0.6;
-        const panelHeight = options.length * lineHeight + canvasHeight * 0.1;
+        // Widen panel to 0.8 to match tabs (4 tabs * 0.2 width)
+        const panelWidth = canvasWidth * 0.8;
+        // Fixed height based on max visible options if scrolling is active, otherwise dynamic
+        const displayCount = scrollInfo ? scrollInfo.maxVisible : options.length;
+        const panelHeight = displayCount * lineHeight + canvasHeight * 0.1;
+        
         const panelX = (canvasWidth - panelWidth) / 2;
         const panelY = menuStartY - canvasHeight * 0.05;
         
         this.drawPanel(ctx, panelX, panelY, panelWidth, panelHeight);
+        
+        // Draw Scrollbar if needed
+        if (scrollInfo && scrollInfo.total > scrollInfo.maxVisible) {
+            const scrollbarWidth = 6;
+            const scrollbarX = panelX + panelWidth - 20;
+            const scrollbarY = panelY + 20;
+            const scrollbarHeight = panelHeight - 40;
+            
+            // Track
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.fillRect(scrollbarX, scrollbarY, scrollbarWidth, scrollbarHeight);
+            
+            // Thumb
+            const thumbHeight = Math.max(30, (scrollInfo.maxVisible / scrollInfo.total) * scrollbarHeight);
+            const maxScroll = scrollInfo.total - scrollInfo.maxVisible;
+            const scrollRatio = scrollInfo.offset / maxScroll;
+            const thumbY = scrollbarY + (scrollRatio * (scrollbarHeight - thumbHeight));
+            
+            ctx.fillStyle = '#4a9eff';
+            ctx.fillRect(scrollbarX, thumbY, scrollbarWidth, thumbHeight);
+        }
         
         options.forEach((option, index) => {
             const y = menuStartY + (index * lineHeight);

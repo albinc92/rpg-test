@@ -146,6 +146,11 @@ class GameEngine {
         this.settingsManager.load();
         this.settings = this.settingsManager.getAll();
         
+        // Apply saved key bindings
+        if (this.settings.keyBindings) {
+            this.inputManager.loadBindings(this.settings.keyBindings);
+        }
+        
         // Store the VSync state at boot time.
         // This is critical because changing VSync requires a restart to affect the GPU/Electron flags.
         // We must use this value for frame throttling logic, NOT the current settings value,

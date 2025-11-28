@@ -986,88 +986,6 @@ class PausedState extends GameState {
                 break;
         }
     }
-    
-    render(ctx) {
-        // Use the game's logical canvas dimensions
-        const canvasWidth = this.game.CANVAS_WIDTH;
-        const canvasHeight = this.game.CANVAS_HEIGHT;
-        
-        // Use MenuRenderer for consistent styling
-        const menuRenderer = this.stateManager.menuRenderer;
-        const sizes = menuRenderer.getFontSizes(canvasHeight);
-        
-        // Draw overlay
-        menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.7);
-        
-        // Draw title
-        menuRenderer.drawTitle(ctx, 'PAUSED', canvasWidth, canvasHeight, 0.25);
-        
-        // Draw menu options
-        menuRenderer.drawMenuOptions(
-            ctx, 
-            this.options, 
-            this.selectedOption, 
-            canvasWidth, 
-            canvasHeight,
-            0.45,  // Start Y position
-            0.10   // Spacing
-        );
-
-        // Draw Exit Confirmation Modal
-        if (this.showExitConfirm) {
-            // Semi-transparent black background for modal
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-            
-            const modalWidth = canvasWidth * 0.5;
-            const modalHeight = canvasHeight * 0.35;
-            const modalX = (canvasWidth - modalWidth) / 2;
-            const modalY = (canvasHeight - modalHeight) / 2;
-            
-            // Modal Border
-            ctx.strokeStyle = '#ff4444';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(modalX, modalY, modalWidth, modalHeight);
-            
-            // Modal Background
-            ctx.fillStyle = '#1a1a1a';
-            ctx.fillRect(modalX, modalY, modalWidth, modalHeight);
-            
-            // Title
-            ctx.fillStyle = '#fff';
-            ctx.font = `bold ${sizes.title * 0.6}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.fillText('Quit to Main Menu?', canvasWidth / 2, modalY + 50);
-            
-            // Message
-            ctx.font = `${sizes.text}px Arial`;
-            ctx.fillStyle = '#ccc';
-            ctx.fillText('Unsaved progress will be lost.', canvasWidth / 2, modalY + 100);
-            
-            // Options
-            const options = ['Yes', 'No'];
-            const optionY = modalY + modalHeight - 60;
-            const optionSpacing = modalWidth / 3;
-            
-            options.forEach((opt, index) => {
-                // Center the two options
-                const startX = modalX + (modalWidth - (optionSpacing * (options.length - 1))) / 2;
-                const optX = startX + (optionSpacing * index);
-                
-                const isSelected = index === this.exitConfirmOption;
-                
-                if (isSelected) {
-                    ctx.fillStyle = '#ff4444';
-                    ctx.font = `bold ${sizes.text}px Arial`;
-                    ctx.fillText(`> ${opt} <`, optX, optionY);
-                } else {
-                    ctx.fillStyle = '#888';
-                    ctx.font = `${sizes.text}px Arial`;
-                    ctx.fillText(opt, optX, optionY);
-                }
-            });
-        }
-    }
 }
 
 /**
@@ -1644,10 +1562,14 @@ class SettingsState extends GameState {
     enter(data = {}) {
         this.selectedOption = 0;
         this.currentCategory = 'Audio'; // Default category
-        this.categories = ['Audio', 'Graphics', 'Gameplay'];
+        this.categories = ['Audio', 'Graphics', 'Gameplay', 'Controls'];
+        
+        this.controlDevice = 'Keyboard'; // 'Keyboard' or 'Gamepad'
+        this.rebindingAction = null;
         
         // Store original settings for revert functionality
         this.originalSettings = JSON.parse(JSON.stringify(this.game.settings));
+        this.originalBindings = JSON.parse(JSON.stringify(this.game.inputManager.keyBindings));
         
         // We work directly on game.settings for instant preview
         // pendingSettings is now just an alias for game.settings to minimize code changes
@@ -1689,7 +1611,8 @@ class SettingsState extends GameState {
             ],
             'Gameplay': [
                 { name: 'Show Debug Info', type: 'toggle', key: 'showDebugInfo' }
-            ]
+            ],
+            'Controls': [] // Populated dynamically
         };
         
         this.updateCurrentOptions();
@@ -1741,6 +1664,11 @@ class SettingsState extends GameState {
     }
     
     updateCurrentOptions(keepFocus = false) {
+        // Dynamic population for Controls category
+        if (this.currentCategory === 'Controls') {
+            this.populateControlsOptions();
+        }
+
         // Get options for current category (Back button is now separate)
         this.options = [
             ...this.allOptions[this.currentCategory]
@@ -1753,8 +1681,116 @@ class SettingsState extends GameState {
             this.selectedOption = -1;
         }
     }
+
+    populateControlsOptions() {
+        const options = [];
+        
+        // Device Selector
+        options.push({ 
+            name: 'Input Device', 
+            type: 'select', 
+            key: 'controlDevice', 
+            values: ['Keyboard', 'Gamepad'] 
+        });
+        
+        if (this.controlDevice === 'Keyboard') {
+            // Keyboard Bindings
+            const bindings = this.game.inputManager.keyBindings;
+            // Define order of actions
+            const actions = [
+                'moveUp', 'moveDown', 'moveLeft', 'moveRight',
+                'interact', 'run', 'menu', 'inventory',
+                'confirm', 'cancel'
+            ];
+            
+            actions.forEach(action => {
+                const keys = bindings[action] || [];
+                options.push({
+                    name: this.formatActionName(action),
+                    type: 'binding',
+                    key: action,
+                    value: keys.join(' / ')
+                });
+            });
+        } else {
+            // Gamepad Bindings (Read-only view)
+            const mapping = this.game.inputManager.gamepadMapping;
+            // Invert mapping to show Action -> Button(s)
+            const actionToButtons = {};
+            
+            Object.entries(mapping).forEach(([btnIndex, actions]) => {
+                actions.forEach(action => {
+                    if (!actionToButtons[action]) actionToButtons[action] = [];
+                    actionToButtons[action].push(this.getButtonName(btnIndex));
+                });
+            });
+            
+            const actions = [
+                'moveUp', 'moveDown', 'moveLeft', 'moveRight',
+                'interact', 'run', 'menu', 'inventory',
+                'confirm', 'cancel'
+            ];
+            
+            actions.forEach(action => {
+                const buttons = actionToButtons[action] || [];
+                options.push({
+                    name: this.formatActionName(action),
+                    type: 'info', // Read-only
+                    value: buttons.join(' / ') || 'Unbound'
+                });
+            });
+        }
+        
+        this.allOptions['Controls'] = options;
+    }
+
+    formatActionName(action) {
+        // Convert camelCase to Title Case
+        const result = action.replace(/([A-Z])/g, " $1");
+        return result.charAt(0).toUpperCase() + result.slice(1);
+    }
+
+    getButtonName(index) {
+        const names = {
+            0: 'A / Cross',
+            1: 'B / Circle',
+            2: 'X / Square',
+            3: 'Y / Triangle',
+            4: 'LB', 5: 'RB',
+            6: 'LT', 7: 'RT',
+            8: 'Select', 9: 'Start',
+            10: 'L3', 11: 'R3',
+            12: 'D-Pad Up', 13: 'D-Pad Down',
+            14: 'D-Pad Left', 15: 'D-Pad Right'
+        };
+        return names[index] || `Btn ${index}`;
+    }
     
     handleInput(inputManager) {
+        // Handle Rebinding State
+        if (this.rebindingAction) {
+            // Check for any key press
+            // We need to find which key is currently pressed that wasn't pressed before
+            const pressedKey = Object.keys(inputManager.keys).find(
+                key => inputManager.keys[key] && !inputManager.prevKeys[key]
+            );
+            
+            if (pressedKey) {
+                if (pressedKey === 'Escape') {
+                    // Cancel rebinding
+                    this.rebindingAction = null;
+                } else {
+                    // Apply new binding
+                    console.log(`[Settings] Rebinding ${this.rebindingAction} to ${pressedKey}`);
+                    inputManager.setKeyBinding(this.rebindingAction, [pressedKey]);
+                    this.rebindingAction = null;
+                    this.updateCurrentOptions(true);
+                    this.game.audioManager?.playEffect('menu-navigation.mp3');
+                }
+            }
+            return; // Block other input
+        }
+
         // Handle Exit Modal Input
         if (this.showExitModal) {
             if (inputManager.isJustPressed('left')) {
@@ -1772,6 +1808,10 @@ class SettingsState extends GameState {
                 } else if (this.exitModalOption === 1) { // Discard
                     // Revert changes
                     Object.assign(this.game.settings, this.originalSettings);
+                    
+                    // Revert key bindings
+                    this.game.inputManager.loadBindings(this.originalBindings);
+                    
                     // Re-apply original settings to revert visuals
                     this.applyAudioSettings();
                     this.applyGraphicsSettings('resolution');
@@ -1862,7 +1902,12 @@ class SettingsState extends GameState {
     
     checkChangesAndExit() {
         // Check if there are actual changes compared to original settings
-        const hasChanges = JSON.stringify(this.originalSettings) !== JSON.stringify(this.game.settings);
+        let hasChanges = JSON.stringify(this.originalSettings) !== JSON.stringify(this.game.settings);
+        
+        // Check for key binding changes
+        if (!hasChanges) {
+            hasChanges = JSON.stringify(this.originalBindings) !== JSON.stringify(this.game.inputManager.keyBindings);
+        }
         
         if (hasChanges) {
             this.showExitModal = true;
@@ -1935,6 +1980,16 @@ class SettingsState extends GameState {
                 
                 if (option.key === 'resolution') this.applyGraphicsSettings(option.key);
             }
+        } else if (option.key === 'controlDevice') {
+            // Handle custom control device selector
+            const currentIndex = option.values.indexOf(this.controlDevice);
+            let newIndex = currentIndex + direction;
+            
+            if (newIndex < 0) newIndex = option.values.length - 1;
+            if (newIndex >= option.values.length) newIndex = 0;
+            
+            this.controlDevice = option.values[newIndex];
+            this.updateCurrentOptions(true);
         }
         
         if (changed) {
@@ -1958,11 +2013,18 @@ class SettingsState extends GameState {
             }
         } else if (option.type === 'toggle') {
             this.adjustSetting(1); // Toggle the setting
+        } else if (option.type === 'binding') {
+            // Start rebinding
+            this.rebindingAction = option.key;
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
         }
     }
 
     applyChanges() {
         console.log('[SettingsState] Saving changes...');
+        
+        // Update key bindings in settings
+        this.game.settings.keyBindings = this.game.inputManager.keyBindings;
         
         // Settings are already applied to game.settings during preview
         // We just need to save to disk
@@ -2085,7 +2147,17 @@ class SettingsState extends GameState {
                     value = `< ${settings[option.key]} >`;
                 } else {
                     value = `${settings[option.key]}`;
-                               }
+                }
+            } else if (option.key === 'controlDevice') {
+                value = `< ${this.controlDevice} >`;
+            } else if (option.type === 'binding') {
+                if (this.rebindingAction === option.key) {
+                    value = '> PRESS KEY <';
+                } else {
+                    value = option.value;
+                }
+            } else if (option.type === 'info') {
+                value = option.value;
             }
             
             return {
@@ -2115,21 +2187,12 @@ class SettingsState extends GameState {
             canvasWidth,
             canvasHeight,
             settingsStartY,
-            settingsSpacing
-        );
-        
-        // Draw scroll indicators
-        const panelHeight = visibleOptions.length * (canvasHeight * settingsSpacing) + canvasHeight * 0.1;
-        const panelY = canvasHeight * settingsStartY - canvasHeight * 0.05;
-        
-        menuRenderer.drawScrollIndicators(
-            ctx, 
-            canvasWidth, 
-            canvasHeight, 
-            this.scrollOffset > 0, 
-            this.scrollOffset + this.maxVisibleOptions < this.options.length,
-            panelY,
-            panelHeight
+            settingsSpacing,
+            {
+                offset: this.scrollOffset,
+                total: this.options.length,
+                maxVisible: this.maxVisibleOptions
+            }
         );
         
         // Draw separate Back button at the bottom
@@ -2162,9 +2225,14 @@ class SettingsState extends GameState {
         ctx.shadowBlur = 0;
         
         // Draw instructions
-        const instructions = this.game.inputManager.isMobile 
+        let instructions = this.game.inputManager.isMobile 
             ? 'Joystick: Navigate • A: Select • B: Back'
             : 'Arrow Keys: Navigate • Left/Right: Adjust • Enter: Select • ESC: Back';
+            
+        if (this.rebindingAction) {
+            instructions = 'Press any key to rebind... (ESC to cancel)';
+        }
+        
         menuRenderer.drawInstruction(ctx, instructions, canvasWidth, canvasHeight, 0.93);
 
         // Draw Exit Modal
