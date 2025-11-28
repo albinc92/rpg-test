@@ -228,10 +228,12 @@ class CollisionSystem {
     /**
      * Check if a point is inside any collision zone
      * Optionally checks actor bounds if provided (for more accurate collision)
+     * Optionally specify mapId to check zones on a different map
      */
-    checkZoneCollision(x, y, game, actor = null) {
-        // Get current map zones
-        const mapData = game.mapManager.maps[game.currentMapId];
+    checkZoneCollision(x, y, game, actor = null, mapId = null) {
+        // Get map zones (default to current map)
+        const targetMapId = mapId || game.currentMapId;
+        const mapData = game.mapManager.maps[targetMapId];
         if (!mapData || !mapData.zones) return false;
         
         let pointsToCheck = [{x, y}];
@@ -239,59 +241,44 @@ class CollisionSystem {
         // If actor provided, check multiple points around their collision bounds
         if (actor) {
             // Get scaled collision bounds (current position)
-            const bounds = actor.getCollisionBounds(game);
+            // Note: If checking adjacent map, x/y should be in that map's local space
+            // The actor's getCollisionBounds uses its current x/y.
+            // If we are checking adjacent map, we assume x/y passed in are already local.
+            // BUT actor.getCollisionBounds() will return global bounds (or bounds relative to actor.x/y).
+            // We need bounds centered at x,y.
             
             // Calculate scale factors
             const mapScale = mapData.scale || 1.0;
             const resolutionScale = game.resolutionScale || 1.0;
             const totalScale = mapScale * resolutionScale;
             
-            // Calculate unscaled dimensions
-            const unscaledWidth = bounds.width / totalScale;
-            const unscaledHeight = bounds.height / totalScale;
+            // We need to reconstruct bounds at the target x,y
+            // Assuming actor is a circle or rect, we can just use width/height
+            const width = actor.width * totalScale; // Approximate
+            const height = actor.height * totalScale; // Approximate
+            // Better: use actor.getCollisionBounds() and shift it?
+            // But getCollisionBounds depends on game state.
             
-            // Calculate offset of collision box center relative to actor center
-            // We use the CURRENT actor position to determine the offset
-            const currentScaledX = actor.getScaledX(game);
-            const currentScaledY = actor.getScaledY(game);
-            const boundsCenterX = bounds.x + bounds.width / 2;
-            const boundsCenterY = bounds.y + bounds.height / 2;
+            // Let's just use the passed x,y as center/base and check points around it
+            // Assuming x,y is the position we want to check (e.g. newX, newY)
             
-            const scaledOffsetX = boundsCenterX - currentScaledX;
-            const scaledOffsetY = boundsCenterY - currentScaledY;
+            const halfWidth = (actor.width * totalScale) / 2;
+            const halfHeight = (actor.height * totalScale) / 2;
             
-            const unscaledOffsetX = scaledOffsetX / totalScale;
-            const unscaledOffsetY = scaledOffsetY / totalScale;
-            
-            // Apply offset to NEW position (x,y)
-            const centerX = x + unscaledOffsetX;
-            const centerY = y + unscaledOffsetY;
-            
-            // Calculate unscaled bounds at new position
-            const left = centerX - unscaledWidth / 2;
-            const right = centerX + unscaledWidth / 2;
-            const top = centerY - unscaledHeight / 2;
-            const bottom = centerY + unscaledHeight / 2;
-            
-            // Add edge points to check list (corners and midpoints)
+            // Check 4 corners + center
             pointsToCheck = [
-                {x: centerX, y: centerY}, // Center
-                {x: left, y: top}, // Top-Left
-                {x: right, y: top}, // Top-Right
-                {x: left, y: bottom}, // Bottom-Left
-                {x: right, y: bottom}, // Bottom-Right
-                {x: centerX, y: top}, // Top-Center
-                {x: centerX, y: bottom}, // Bottom-Center
-                {x: left, y: centerY}, // Left-Center
-                {x: right, y: centerY} // Right-Center
+                {x: x, y: y}, // Center/Base
+                {x: x - halfWidth * 0.8, y: y}, // Left
+                {x: x + halfWidth * 0.8, y: y}, // Right
+                {x: x, y: y - halfHeight * 0.8}, // Top
+                {x: x, y: y + halfHeight * 0.8}  // Bottom
             ];
         }
         
-        for (const zone of mapData.zones) {
-            // Only check collision zones
-            if (zone.type !== 'collision') continue;
-            
-            // Check all sample points
+        // Filter for collision zones only
+        const collisionZones = mapData.zones.filter(z => z.type === 'collision');
+        
+        for (const zone of collisionZones) {
             for (const point of pointsToCheck) {
                 if (this.pointInPolygon(point, zone.points)) {
                     return true;
@@ -301,6 +288,7 @@ class CollisionSystem {
         
         return false;
     }
+
 
     /**
      * Check if a point is inside a polygon

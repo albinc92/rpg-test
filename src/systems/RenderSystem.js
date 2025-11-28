@@ -51,7 +51,7 @@ class RenderSystem {
     /**
      * Update camera position to follow target
      */
-    updateCamera(targetX, targetY, canvasWidth, canvasHeight, mapWidth, mapHeight) {
+    updateCamera(targetX, targetY, canvasWidth, canvasHeight, mapWidth, mapHeight, adjacentMaps = {}) {
         // Store old camera position to detect changes
         const oldCameraX = this.camera.x;
         const oldCameraY = this.camera.y;
@@ -65,14 +65,28 @@ class RenderSystem {
             this.camera.targetX = -(canvasWidth - mapWidth) / 2;
         } else {
             // Clamp camera target to map bounds (prevent showing void)
-            this.camera.targetX = Math.max(0, Math.min(this.camera.targetX, mapWidth - canvasWidth));
+            // UNLESS there is an adjacent map in that direction
+            let minX = 0;
+            let maxX = mapWidth - canvasWidth;
+            
+            if (adjacentMaps.west) minX = -Infinity; // Allow scrolling left
+            if (adjacentMaps.east) maxX = Infinity;  // Allow scrolling right
+            
+            this.camera.targetX = Math.max(minX, Math.min(this.camera.targetX, maxX));
         }
         
         if (mapHeight <= canvasHeight) {
             this.camera.targetY = -(canvasHeight - mapHeight) / 2;
         } else {
             // Clamp camera target to map bounds (prevent showing void)
-            this.camera.targetY = Math.max(0, Math.min(this.camera.targetY, mapHeight - canvasHeight));
+            // UNLESS there is an adjacent map in that direction
+            let minY = 0;
+            let maxY = mapHeight - canvasHeight;
+            
+            if (adjacentMaps.north) minY = -Infinity; // Allow scrolling up
+            if (adjacentMaps.south) maxY = Infinity;  // Allow scrolling down
+            
+            this.camera.targetY = Math.max(minY, Math.min(this.camera.targetY, maxY));
         }
         
         // Smooth camera movement (or snap instantly if flag is set)
@@ -85,18 +99,40 @@ class RenderSystem {
             this.camera.y += (this.camera.targetY - this.camera.y) * this.camera.smoothing;
         }
         
+        // Safety check for NaN
+        if (isNaN(this.camera.x)) {
+            console.error('[RenderSystem] ❌ Camera X is NaN! Resetting to 0');
+            this.camera.x = 0;
+        }
+        if (isNaN(this.camera.y)) {
+            console.error('[RenderSystem] ❌ Camera Y is NaN! Resetting to 0');
+            this.camera.y = 0;
+        }
+        
         // IMPORTANT: Also clamp the actual camera position after smoothing
         // This ensures the camera never goes outside map bounds, even during smooth movement
         if (mapWidth <= canvasWidth) {
             this.camera.x = -(canvasWidth - mapWidth) / 2;
         } else {
-            this.camera.x = Math.max(0, Math.min(this.camera.x, mapWidth - canvasWidth));
+            let minX = 0;
+            let maxX = mapWidth - canvasWidth;
+            
+            if (adjacentMaps.west) minX = -Infinity;
+            if (adjacentMaps.east) maxX = Infinity;
+            
+            this.camera.x = Math.max(minX, Math.min(this.camera.x, maxX));
         }
         
         if (mapHeight <= canvasHeight) {
             this.camera.y = -(canvasHeight - mapHeight) / 2;
         } else {
-            this.camera.y = Math.max(0, Math.min(this.camera.y, mapHeight - canvasHeight));
+            let minY = 0;
+            let maxY = mapHeight - canvasHeight;
+            
+            if (adjacentMaps.north) minY = -Infinity;
+            if (adjacentMaps.south) maxY = Infinity;
+            
+            this.camera.y = Math.max(minY, Math.min(this.camera.y, maxY));
         }
         
         // Invalidate light mask if camera moved at all
@@ -117,7 +153,7 @@ class RenderSystem {
     /**
      * Render the game world
      */
-    renderWorld(map, objects, npcs, player, game) {
+    renderWorld(map, objects, npcs, player, game, adjacentMapsData = {}) {
         // Initialize WebGL frame (if using WebGL)
         if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
             this.webglRenderer.beginFrame([0, 0, 0, 0]); // Clear to transparent
@@ -148,6 +184,9 @@ class RenderSystem {
         }
         
         this.ctx.translate(-this.camera.x, -this.camera.y);
+
+        // Render Adjacent Maps (Backgrounds only)
+        this.renderAdjacentMaps(adjacentMapsData, map, game);
         
         // Check if layer system is available and has layers
         const hasLayers = game?.layerManager && game.layerManager.hasLayers(game.currentMapId);
@@ -270,12 +309,58 @@ class RenderSystem {
         if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
             // Update day/night shader params
             if (game?.dayNightCycle) {
-                const params = game.dayNightCycle.getShaderParams();
-                this.webglRenderer.setDayNightParams(params);
+                // Check if current map has day/night cycle enabled
+                const isDayNightEnabled = game.currentMap && game.currentMap.dayNightCycle;
+                
+                if (isDayNightEnabled) {
+                    const params = game.dayNightCycle.getShaderParams();
+                    
+                    // Validate params to prevent black screen (NaN protection)
+                    if (!params.darknessColor || !Array.isArray(params.darknessColor) || params.darknessColor.some(c => isNaN(c))) {
+                        // console.warn('[RenderSystem] Invalid darkness color detected, resetting to white', params.darknessColor);
+                        params.darknessColor = [1.0, 1.0, 1.0];
+                    }
+                    
+                    // Force minimum brightness/darkness to prevent total black screen
+                    // Even at night, we should see something
+                    params.brightness = Math.max(0.2, isNaN(params.brightness) ? 1.0 : params.brightness);
+                    
+                    // Ensure darkness color isn't pitch black
+                    if (params.darknessColor) {
+                        params.darknessColor[0] = Math.max(0.1, params.darknessColor[0]);
+                        params.darknessColor[1] = Math.max(0.1, params.darknessColor[1]);
+                        params.darknessColor[2] = Math.max(0.1, params.darknessColor[2]);
+                    }
+
+                    if (isNaN(params.saturation)) params.saturation = 1.0;
+                    if (isNaN(params.temperature)) params.temperature = 0.0;
+                    
+                    this.webglRenderer.setDayNightParams(params);
+                } else {
+                    // Reset to neutral (Day) if disabled for this map
+                    this.webglRenderer.setDayNightParams({
+                        brightness: 1.0,
+                        contrast: 1.0,
+                        saturation: 1.0,
+                        temperature: 0.0,
+                        darknessColor: [1.0, 1.0, 1.0]
+                    });
+                }
             }
             
             // Update light mask
-            if (lightMask) {
+            let lightMask = null;
+            if (game?.lightManager) {
+                // Use logical canvas dimensions for light mask generation
+                const canvasWidth = game.CANVAS_WIDTH || 800; // Fallback if undefined
+                const canvasHeight = game.CANVAS_HEIGHT || 600;
+                
+                if (game.lightManager.getLightMask) {
+                    lightMask = game.lightManager.getLightMask(this.camera.x, this.camera.y, canvasWidth, canvasHeight);
+                }
+            }
+
+            if (lightMask && lightMask.width > 0 && lightMask.height > 0) {
                 const texture = this.webglRenderer.updateTexture('__light_mask__', lightMask);
                 this.webglRenderer.setLightMask(texture);
             } else {
@@ -358,7 +443,7 @@ class RenderSystem {
         const bottomLayerId = sortedLayers.length > 0 ? sortedLayers[0].id : null;
         
         // Render each layer from bottom to top
-        layersToRender.forEach(layer => {
+        layersToRender.forEach((layer, index) => {
             this.ctx.save();
             
             // Apply dimming for non-active layers in edit mode
@@ -377,20 +462,28 @@ class RenderSystem {
             const scaledHeight = map.height * mapScale * resolutionScale;
             
             // 1. Render layer background
-            if (layer.backgroundImage && layer.backgroundImage.complete) {
+            // Fallback: If layer has no background image but it's the base layer (index 0), use the map's main image
+            // This prevents black screens if the layer system isn't fully synced with the map data yet
+            let bgImage = layer.backgroundImage;
+            if (!bgImage && index === 0 && map.image) {
+                bgImage = map.image;
+                // console.warn('[RenderSystem] Layer 0 missing background, using map.image fallback');
+            }
+
+            if (bgImage && bgImage.complete) {
                 // Use WebGL or Canvas2D based on availability
                 if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
                     // WebGL path - batched GPU rendering
-                    const imageUrl = layer.backgroundImage.src || `layer_${layer.id}_bg`;
+                    const imageUrl = bgImage.src || `layer_${layer.id}_bg`;
                     this.webglRenderer.drawSprite(
                         0, 0, 
                         scaledWidth, scaledHeight,
-                        layer.backgroundImage,
+                        bgImage,
                         imageUrl
                     );
                 } else {
                     // Canvas2D fallback
-                    this.ctx.drawImage(layer.backgroundImage, 0, 0, scaledWidth, scaledHeight);
+                    this.ctx.drawImage(bgImage, 0, 0, scaledWidth, scaledHeight);
                 }
             }
             
@@ -822,5 +915,135 @@ class RenderSystem {
      */
     getCameraPosition() {
         return { x: this.camera.x, y: this.camera.y };
+    }
+
+    /**
+     * Render adjacent maps (backgrounds only)
+     */
+    renderAdjacentMaps(adjacentMaps, currentMap, game) {
+        if (!adjacentMaps || Object.keys(adjacentMaps).length === 0) return;
+
+        const resolutionScale = game.resolutionScale || 1.0;
+        const currentMapScale = currentMap.scale || 1.0;
+        const currentWidth = currentMap.width * currentMapScale * resolutionScale;
+        const currentHeight = currentMap.height * currentMapScale * resolutionScale;
+
+        // Helper to render a map image AND its objects at offset
+        const renderMapContent = (mapId, mapData, offsetX, offsetY) => {
+            if (!mapData || !mapData.image) return;
+            
+            const mapScale = mapData.scale || 1.0;
+            const width = mapData.width * mapScale * resolutionScale;
+            const height = mapData.height * mapScale * resolutionScale;
+            
+            // 1. Render Background
+            if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+                const imageUrl = mapData.image.src || `map_${mapData.id}_bg`;
+                this.webglRenderer.drawSprite(
+                    offsetX, offsetY, 
+                    width, height,
+                    mapData.image,
+                    imageUrl
+                );
+            } else {
+                this.ctx.drawImage(mapData.image, offsetX, offsetY, width, height);
+            }
+
+            // 2. Render Objects (if loaded)
+            if (game.objectManager && game.objectManager.objects[mapId]) {
+                const objects = game.objectManager.objects[mapId];
+                
+                // Save context/camera state
+                this.ctx.save();
+                
+                // Translate to adjacent map's local coordinate space
+                // Note: Objects are stored in their map's local coordinates
+                // We need to shift them by the map offset
+                this.ctx.translate(offsetX, offsetY);
+                
+                // Also need to shift WebGL rendering context?
+                // WebGLRenderer uses screen coordinates.
+                // We need to manually offset the objects during render
+                
+                // Sort objects by depth
+                const renderables = [];
+                const getDepth = (obj) => {
+                    const finalScale = obj.getFinalScale(game);
+                    const baseHeight = obj.spriteHeight || obj.fallbackHeight || 0;
+                    const renderedHeight = baseHeight * finalScale;
+                    const scaledY = obj.getScaledY(game);
+                    return scaledY + (renderedHeight / 2);
+                };
+                
+                objects.forEach(obj => {
+                    renderables.push({ obj: obj, depth: getDepth(obj) });
+                });
+                renderables.sort((a, b) => a.depth - b.depth);
+                
+                // Render objects
+                renderables.forEach(({ obj }) => {
+                    // Hack: Temporarily offset object position for rendering
+                    // This is dangerous if render() modifies state, but standard render shouldn't
+                    // Better: Pass offset to render method? No, render uses this.x/y
+                    
+                    // Alternative: Use ctx.translate for Canvas2D, but for WebGL we need to handle it.
+                    // WebGLRenderer.drawSprite takes screenX, screenY.
+                    // obj.render() calculates screenX based on this.x - camera.x
+                    // We want: (this.x + offsetX) - camera.x
+                    
+                    // Solution: Mock the camera position for these objects?
+                    // Or pass an offset to render()?
+                    
+                    // Let's try modifying the object's render method to accept an offset?
+                    // Too invasive.
+                    
+                    // Let's temporarily shift the object?
+                    const originalX = obj.x;
+                    const originalY = obj.y;
+                    
+                    // Apply offset (unscaled, because object.x/y are unscaled world coords)
+                    // offsetX is SCALED pixels. We need unscaled world units.
+                    // totalScale = mapScale * resolutionScale
+                    const totalScale = mapScale * resolutionScale;
+                    obj.x += offsetX / totalScale;
+                    obj.y += offsetY / totalScale;
+                    
+                    obj.render(this.ctx, game, this.webglRenderer);
+                    
+                    // Restore position
+                    obj.x = originalX;
+                    obj.y = originalY;
+                });
+                
+                this.ctx.restore();
+            }
+        };
+
+        // Render North
+        if (adjacentMaps.north) {
+            const mapData = adjacentMaps.north;
+            const mapScale = mapData.scale || 1.0;
+            const height = mapData.height * mapScale * resolutionScale;
+            // Assuming aligned left (x=0)
+            renderMapContent(currentMap.adjacentMaps.north, mapData, 0, -height);
+        }
+
+        // Render South
+        if (adjacentMaps.south) {
+            renderMapContent(currentMap.adjacentMaps.south, adjacentMaps.south, 0, currentHeight);
+        }
+
+        // Render West
+        if (adjacentMaps.west) {
+            const mapData = adjacentMaps.west;
+            const mapScale = mapData.scale || 1.0;
+            const width = mapData.width * mapScale * resolutionScale;
+            renderMapContent(currentMap.adjacentMaps.west, mapData, -width, 0);
+        }
+
+        // Render East
+        if (adjacentMaps.east) {
+            renderMapContent(currentMap.adjacentMaps.east, adjacentMaps.east, currentWidth, 0);
+        }
     }
 }

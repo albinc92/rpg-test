@@ -62,6 +62,7 @@ class LightManager {
             this.lights.push(light);
         });
         
+        this.maskNeedsUpdate = true;
         console.log(`[LightManager] ✅ Loaded ${this.lights.length} lights`);
     }
     
@@ -70,6 +71,7 @@ class LightManager {
      */
     clearLights() {
         this.lights = [];
+        this.maskNeedsUpdate = true;
         console.log(`[LightManager] Cleared all lights`);
     }
     

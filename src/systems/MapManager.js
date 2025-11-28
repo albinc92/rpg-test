@@ -19,8 +19,8 @@ class MapManager {
             this.maps[mapId] = {
                 ...mapData,
                 image: null,
-                width: 0,  // Set when image loads
-                height: 0  // Set when image loads
+                width: mapData.width || 0,  // Use JSON width if available, otherwise wait for image
+                height: mapData.height || 0  // Use JSON height if available, otherwise wait for image
             };
         }
         
@@ -39,8 +39,8 @@ class MapManager {
                     this.maps[mapId] = {
                         ...mapData,
                         image: null,
-                        width: 0,
-                        height: 0
+                        width: mapData.width || 0,
+                        height: mapData.height || 0
                     };
                 }
             }

@@ -142,6 +142,9 @@ class GameEngine {
         // Debug controls
         this.isPaused = false;
         
+        // Map transition state
+        this.isTransitioning = false;
+
         // Load saved settings using new SettingsManager
         this.settingsManager.load();
         this.settings = this.settingsManager.getAll();
@@ -689,7 +692,7 @@ class GameEngine {
         // Update player
         this.player.update(deltaTime, this);
         
-        // Update all objects on current map (NPCs, trees, chests, etc.)
+        // Update all objects on current map (NPCs, trees, chests, portals, etc.)
         this.objectManager.updateObjects(this.currentMapId, deltaTime, this);
         
         // Update camera
@@ -697,8 +700,151 @@ class GameEngine {
         
         // Check collisions
         this.checkPortalCollisions();
+        
+        // Check map transitions
+        this.checkMapTransitions();
     }
     
+    /**
+     * Check for map transitions at edges
+     */
+    checkMapTransitions() {
+        if (!this.player || !this.currentMap || !this.currentMap.adjacentMaps || this.isTransitioning) return;
+
+        const player = this.player;
+        const map = this.currentMap;
+        const margin = 5; // Margin to detect edge
+        
+        // Use UNSCALED map dimensions for logic
+        const mapWidth = map.width;
+        const mapHeight = map.height;
+        
+        // Use getWidth()/getHeight() for player dimensions
+        const playerWidth = player.getWidth();
+        const playerHeight = player.getHeight();
+
+        let nextMapId = null;
+        let entryDirection = null;
+
+        // Check North (Top edge)
+        if (player.y < margin && map.adjacentMaps.north) {
+            nextMapId = map.adjacentMaps.north;
+            entryDirection = 'north';
+        }
+        // Check South (Bottom edge)
+        else if (player.y > mapHeight - playerHeight - margin && map.adjacentMaps.south) {
+            nextMapId = map.adjacentMaps.south;
+            entryDirection = 'south';
+        }
+        // Check West (Left edge)
+        else if (player.x < margin && map.adjacentMaps.west) {
+            nextMapId = map.adjacentMaps.west;
+            entryDirection = 'west';
+        }
+        // Check East (Right edge)
+        else if (player.x > mapWidth - playerWidth - margin && map.adjacentMaps.east) {
+            nextMapId = map.adjacentMaps.east;
+            entryDirection = 'east';
+        }
+
+        if (nextMapId) {
+            this.transitionToMap(nextMapId, entryDirection);
+        }
+    }
+
+    /**
+     * Transition to an adjacent map
+     */
+    async transitionToMap(mapId, entryDirection) {
+        // Prevent multiple transitions
+        if (this.isTransitioning) return;
+        this.isTransitioning = true;
+
+        console.log(`🔗 Transitioning ${entryDirection} to map: ${mapId}`);
+
+        try {
+            // Pre-calculate new player position BEFORE loading map
+            // This ensures we know where to put the player immediately
+            const newMapData = this.mapManager.getMapData(mapId);
+            let newPlayerX = this.player.x;
+            let newPlayerY = this.player.y;
+            
+            if (newMapData) {
+                const padding = 10;
+                // Use UNSCALED dimensions for player positioning
+                // Player coordinates are in unscaled map units
+                const mapWidth = newMapData.width;
+                const mapHeight = newMapData.height;
+                
+                // Use getWidth()/getHeight() as .width/.height are undefined on GameObject
+                const playerWidth = this.player.getWidth();
+                const playerHeight = this.player.getHeight();
+                
+                console.log(`[Transition] Target Map: ${mapId}`);
+                console.log(`[Transition] Map Data (Unscaled): width=${mapWidth}, height=${mapHeight}`);
+                console.log(`[Transition] Player (Unscaled): x=${this.player.x}, y=${this.player.y}, w=${playerWidth}, h=${playerHeight}`);
+                
+                if (entryDirection === 'north') {
+                    newPlayerY = mapHeight - playerHeight - padding;
+                    console.log(`[Transition] Direction NORTH: Setting Y to ${newPlayerY}`);
+                } else if (entryDirection === 'south') {
+                    newPlayerY = padding;
+                    console.log(`[Transition] Direction SOUTH: Setting Y to ${newPlayerY}`);
+                } else if (entryDirection === 'west') {
+                    newPlayerX = mapWidth - playerWidth - padding;
+                    console.log(`[Transition] Direction WEST: Setting X to ${newPlayerX}`);
+                } else if (entryDirection === 'east') {
+                    newPlayerX = padding;
+                    console.log(`[Transition] Direction EAST: Setting X to ${newPlayerX}`);
+                }
+                
+                // Safety check for NaN/Undefined
+                if (isNaN(newPlayerX)) {
+                    console.error(`[Transition] ❌ Calculated X is NaN! Resetting to 100`);
+                    newPlayerX = 100;
+                }
+                if (isNaN(newPlayerY)) {
+                    console.error(`[Transition] ❌ Calculated Y is NaN! Resetting to 100`);
+                    newPlayerY = 100;
+                }
+            } else {
+                console.error(`[Transition] ❌ Could not find map data for ${mapId}`);
+            }
+
+            // Load the new map
+            // Pass the new position to loadMap so it can set it synchronously with map switch
+            await this.loadMap(mapId, { x: newPlayerX, y: newPlayerY });
+            
+            // Snap camera to new position immediately
+            if (this.camera) {
+                this.camera.snapToTarget = true;
+            }
+            
+            // Force a render update immediately to prevent black frame?
+            // The game loop will handle it, but we want to ensure camera is updated first
+            if (this.renderSystem) {
+                // Manually update camera to target
+                this.renderSystem.updateCamera(
+                    this.player.x + this.player.width/2, 
+                    this.player.y + this.player.height/2, 
+                    this.CANVAS_WIDTH, 
+                    this.CANVAS_HEIGHT, 
+                    this.currentMap.width * (this.currentMap.scale || 1) * this.resolutionScale, 
+                    this.currentMap.height * (this.currentMap.scale || 1) * this.resolutionScale,
+                    this.currentMap.adjacentMaps || {}
+                );
+            }
+
+        } catch (error) {
+            console.error('Failed to transition map:', error);
+        } finally {
+            // Add a small delay before allowing another transition to prevent bouncing
+            setTimeout(() => {
+                this.isTransitioning = false;
+            }, 500);
+        }
+    }
+
     /**
      * Render gameplay (called by PlayingState)
      */
@@ -710,12 +856,23 @@ class GameEngine {
         const npcs = this.objectManager.getNPCsForMap(this.currentMapId);
         const nonNPCObjects = allObjects.filter(obj => !(obj instanceof NPC || obj instanceof Spirit));
         
+        // Get adjacent map data for rendering
+        const adjacentMapsData = {};
+        if (this.currentMap.adjacentMaps) {
+            const adjacent = this.currentMap.adjacentMaps;
+            if (adjacent.north) adjacentMapsData.north = this.mapManager.getMapData(adjacent.north);
+            if (adjacent.south) adjacentMapsData.south = this.mapManager.getMapData(adjacent.south);
+            if (adjacent.east) adjacentMapsData.east = this.mapManager.getMapData(adjacent.east);
+            if (adjacent.west) adjacentMapsData.west = this.mapManager.getMapData(adjacent.west);
+        }
+
         this.renderSystem.renderWorld(
             this.currentMap,
             nonNPCObjects,
             npcs,
             this.player,
-            this
+            this,
+            adjacentMapsData
         );
         
         // Render UI elements (not affected by camera)
@@ -828,8 +985,10 @@ class GameEngine {
     
     /**
      * Load a map
+     * @param {string} mapId - ID of map to load
+     * @param {Object} spawnPosition - Optional {x, y} to set player position immediately
      */
-    async loadMap(mapId) {
+    async loadMap(mapId, spawnPosition = null) {
         const mapData = this.mapManager.getMapData(mapId);
         if (!mapData) {
             throw new Error(`Map not found: ${mapId}`);
@@ -847,13 +1006,29 @@ class GameEngine {
         this.currentMapId = mapId;
         this.currentMap = mapData;
         
+        // Set player position immediately if provided (prevents camera glitching during transition)
+        if (spawnPosition && this.player) {
+            this.player.x = spawnPosition.x;
+            this.player.y = spawnPosition.y;
+            // Also snap camera immediately if it exists
+            if (this.renderSystem && this.renderSystem.camera) {
+                this.renderSystem.camera.snapToTarget = true;
+            }
+        }
+        
         // Initialize layers for this map (creates base layer if doesn't exist)
         this.layerManager.initializeMapLayers(mapId);
         
         // Set base layer's background to the map image
-        const baseLayer = this.layerManager.getLayers(mapId)[0];
-        if (baseLayer && this.currentMap.image) {
-            baseLayer.backgroundImage = this.currentMap.image;
+        // FORCE update the background image every time we load the map
+        // This ensures that even if the layer already existed, it gets the correct image reference
+        const layers = this.layerManager.getLayers(mapId);
+        if (layers && layers.length > 0) {
+            const baseLayer = layers[0];
+            if (this.currentMap.image) {
+                baseLayer.backgroundImage = this.currentMap.image;
+                // console.log(`[GameEngine] Updated base layer background for ${mapId}`);
+            }
         }
         
         // Load all objects for this map (NPCs, trees, chests, portals, etc.)
@@ -874,7 +1049,15 @@ class GameEngine {
         }
         
         console.log('🎵 Requesting BGM:', bgmFilename);
-        this.audioManager.playBGM(bgmFilename); // AudioManager handles duplicate detection
+        // Use crossfade if switching maps (and not initial load)
+        if (this.audioManager.currentBGM && this.audioManager.currentBGM !== bgmFilename) {
+            // AudioManager.playBGM handles crossfade internally if implemented, 
+            // but let's check if we need to explicitly call a crossfade method
+            // Looking at AudioManager, playBGM calls crossfadeBGM if something is playing.
+            this.audioManager.playBGM(bgmFilename); 
+        } else {
+            this.audioManager.playBGM(bgmFilename);
+        }
         
         // Handle Ambience - extract just the filename from the full path
         let ambienceFilename = null;
@@ -887,7 +1070,18 @@ class GameEngine {
         
         // Initialize weather system for this map
         if (this.weatherSystem) {
-            this.weatherSystem.setWeather(mapData.weather || null);
+            // Check if weather is different to avoid restarting same weather
+            const currentPrecip = this.weatherSystem.precipitation;
+            const newPrecip = mapData.weather ? mapData.weather.precipitation : 'none';
+            
+            if (currentPrecip !== newPrecip) {
+                // TODO: Implement smooth weather transition in WeatherSystem
+                this.weatherSystem.setWeather(mapData.weather || null);
+            } else {
+                // Even if precipitation is same, update other params like wind/particles
+                // But maybe don't restart the system completely
+                this.weatherSystem.setWeather(mapData.weather || null);
+            }
         }
         
         // Initialize spawn system for this map
@@ -895,10 +1089,47 @@ class GameEngine {
             this.spawnManager.initialize(mapId);
         }
         
+        // Load adjacent maps for seamless transitions
+        this.loadAdjacentMaps();
+        
         console.log(`Loaded map: ${mapId}`);
     }
     
 
+    
+    /**
+     * Load adjacent maps for seamless transition
+     */
+    async loadAdjacentMaps() {
+        if (!this.currentMap || !this.currentMap.adjacentMaps) return;
+        
+        const adjacent = this.currentMap.adjacentMaps;
+        const promises = [];
+        
+        console.log('[GameEngine] Preloading adjacent maps:', adjacent);
+        
+        // Helper to load map AND its objects
+        const loadMapAndObjects = async (mapId) => {
+            // Load map image
+            await this.mapManager.loadMap(mapId);
+            // Load objects for this map (if not already loaded)
+            if (!this.objectManager.initializedMaps.has(mapId)) {
+                this.objectManager.loadObjectsForMap(mapId);
+            }
+        };
+
+        if (adjacent.north) promises.push(loadMapAndObjects(adjacent.north));
+        if (adjacent.south) promises.push(loadMapAndObjects(adjacent.south));
+        if (adjacent.east) promises.push(loadMapAndObjects(adjacent.east));
+        if (adjacent.west) promises.push(loadMapAndObjects(adjacent.west));
+        
+        try {
+            await Promise.all(promises);
+            console.log('[GameEngine] Adjacent maps and objects loaded');
+        } catch (error) {
+            console.error('[GameEngine] Failed to load adjacent maps:', error);
+        }
+    }
     
     /**
      * Update camera system
@@ -922,7 +1153,8 @@ class GameEngine {
             this.CANVAS_WIDTH,
             this.CANVAS_HEIGHT,
             actualMapWidth,
-            actualMapHeight
+            actualMapHeight,
+            this.currentMap.adjacentMaps || {}
         );
     }
     
@@ -1225,23 +1457,41 @@ class GameEngine {
     checkActorCollisions(newX, newY, movingActor, game) {
         // Check map boundaries first
         if (this.currentMap && movingActor.canBeBlocked) {
-            // Use actual rendered dimensions (includes all scaling)
-            const actorWidth = movingActor.getActualWidth(game || this);
-            const actorHeight = movingActor.getActualHeight(game || this);
+            // Use UNSCALED dimensions for boundary checks
+            // Player coordinates are in unscaled map units
+            const actorWidth = movingActor.getWidth();
+            const actorHeight = movingActor.getHeight();
             const halfWidth = actorWidth / 2;
             const halfHeight = actorHeight / 2;
             
-            // Calculate actual map bounds (accounting for both map scale and resolution scale)
-            const mapScale = this.currentMap.scale || 1.0;
-            const actualMapWidth = this.currentMap.width * mapScale * this.resolutionScale;
-            const actualMapHeight = this.currentMap.height * mapScale * this.resolutionScale;
+            // Use UNSCALED map dimensions
+            const mapWidth = this.currentMap.width;
+            const mapHeight = this.currentMap.height;
             
             // Check if actor would be outside map bounds
-            if (newX - halfWidth < 0 || 
-                newX + halfWidth > actualMapWidth ||
-                newY - halfHeight < 0 || 
-                newY + halfHeight > actualMapHeight) {
-                return { collides: true, object: 'map_boundary' };
+            // Allow walking off the edge IF there is an adjacent map in that direction
+            const adjacent = this.currentMap.adjacentMaps || {};
+            
+            // Check West (Left)
+            if (newX - halfWidth < 0) {
+                if (!adjacent.west) return { collides: true, object: 'map_boundary' };
+            }
+            
+            // Check East (Right)
+            if (newX + halfWidth > mapWidth) {
+                if (!adjacent.east) return { collides: true, object: 'map_boundary' };
+            }
+            
+            // Check North (Top)
+            if (newY - halfHeight < 0) {
+                // If no adjacent map, block
+                if (!adjacent.north) return { collides: true, object: 'map_boundary' };
+                // If adjacent map exists, allow passing
+            }
+            
+            // Check South (Bottom)
+            if (newY + halfHeight > mapHeight) {
+                if (!adjacent.south) return { collides: true, object: 'map_boundary' };
             }
         }
         
@@ -1304,6 +1554,96 @@ class GameEngine {
                 return { collides: true, object: obj };
             }
         }
+
+        // Check objects on adjacent maps (Seamless Collision)
+        if (this.currentMap && this.currentMap.adjacentMaps) {
+            const adjacent = this.currentMap.adjacentMaps;
+            const resolutionScale = this.resolutionScale || 1.0;
+            const currentMapScale = this.currentMap.scale || 1.0;
+            const currentWidth = this.currentMap.width * currentMapScale * resolutionScale;
+            const currentHeight = this.currentMap.height * currentMapScale * resolutionScale;
+
+            const checkAdjacentMap = (mapId, offsetX, offsetY) => {
+                // Transform actor position to adjacent map's local space
+                const localX = newX - offsetX;
+                const localY = newY - offsetY;
+
+                // 1. Check Objects
+                const adjObjects = this.getAllGameObjectsOnMap(mapId);
+                if (adjObjects) {
+                    for (let obj of adjObjects) {
+                        if (obj === movingActor) continue;
+                        if (!obj.blocksMovement || !obj.hasCollision) continue;
+                        if (movingActor.wouldCollideAt(localX, localY, obj, game || this)) {
+                            return { type: 'object', object: obj };
+                        }
+                    }
+                }
+
+                // 2. Check Vector Zones (CollisionSystem)
+                if (this.collisionSystem) {
+                    // Pass local coordinates and the adjacent mapId
+                    if (this.collisionSystem.checkZoneCollision(localX, localY, game || this, movingActor, mapId)) {
+                        return { type: 'vector_collision', object: 'vector_collision' };
+                    }
+                }
+
+                // 3. Check Painted Collision (EditorManager)
+                if (this.editorManager) {
+                    const collisionLayer = this.editorManager.getCollisionLayer(mapId);
+                    if (collisionLayer) {
+                         // Calculate current position in adjacent map's scaled space
+                         const mapData = this.mapManager.getMapData(mapId);
+                         const adjMapScale = mapData.scale || 1.0;
+                         
+                         const currentPosOverride = {
+                             x: (movingActor.x - offsetX) * adjMapScale * resolutionScale,
+                             y: (movingActor.y - offsetY) * adjMapScale * resolutionScale
+                         };
+                         
+                         if (this.checkPaintedCollision(localX, localY, movingActor, collisionLayer, game || this, currentPosOverride)) {
+                            return { type: 'painted_collision', object: 'painted_collision' };
+                         }
+                    }
+                }
+
+                return null;
+            };
+
+            // Check North
+            if (adjacent.north) {
+                const mapData = this.mapManager.getMapData(adjacent.north);
+                if (mapData) {
+                    const mapScale = mapData.scale || 1.0;
+                    const height = mapData.height * mapScale * resolutionScale;
+                    const collidedObj = checkAdjacentMap(adjacent.north, 0, -height);
+                    if (collidedObj) return { collides: true, object: collidedObj };
+                }
+            }
+
+            // Check South
+            if (adjacent.south) {
+                const collidedObj = checkAdjacentMap(adjacent.south, 0, currentHeight);
+                if (collidedObj) return { collides: true, object: collidedObj };
+            }
+
+            // Check West
+            if (adjacent.west) {
+                const mapData = this.mapManager.getMapData(adjacent.west);
+                if (mapData) {
+                    const mapScale = mapData.scale || 1.0;
+                    const width = mapData.width * mapScale * resolutionScale;
+                    const collidedObj = checkAdjacentMap(adjacent.west, -width, 0);
+                    if (collidedObj) return { collides: true, object: collidedObj };
+                }
+            }
+
+            // Check East
+            if (adjacent.east) {
+                const collidedObj = checkAdjacentMap(adjacent.east, currentWidth, 0);
+                if (collidedObj) return { collides: true, object: collidedObj };
+            }
+        }
         
         return { collides: false, object: null };
     }
@@ -1313,7 +1653,7 @@ class GameEngine {
      * OPTIMIZED: Cache image data to avoid expensive getImageData() calls every frame
      * SMOOTHING: Uses edge tolerance to allow sliding along collision boundaries
      */
-    checkPaintedCollision(newX, newY, movingActor, collisionLayer, game) {
+    checkPaintedCollision(newX, newY, movingActor, collisionLayer, game, currentPosOverride = null) {
         // ALWAYS read directly from the canvas (not the baked image)
         // The canvas has the actual painted data we need to check
         if (!collisionLayer._cachedImageData || collisionLayer._dataDirty) {
@@ -1348,8 +1688,8 @@ class GameEngine {
         const scaledNewX = newX * mapScale * resolutionScale;
         const scaledNewY = newY * mapScale * resolutionScale;
         
-        const currentX = movingActor.getScaledX(game);
-        const currentY = movingActor.getScaledY(game);
+        const currentX = currentPosOverride ? currentPosOverride.x : movingActor.getScaledX(game);
+        const currentY = currentPosOverride ? currentPosOverride.y : movingActor.getScaledY(game);
         const deltaX = scaledNewX - currentX;
         const deltaY = scaledNewY - currentY;
         

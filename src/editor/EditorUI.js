@@ -882,6 +882,39 @@ class EditorUI {
         spawnTableContainer.appendChild(addEntryForm);
         form.appendChild(spawnTableContainer);
 
+        // Adjacent Maps Section Header
+        const adjacentHeader = document.createElement('div');
+        adjacentHeader.textContent = '🔗 Adjacent Maps (Zelda-style Transition)';
+        adjacentHeader.style.cssText = 'font-size: 16px; font-weight: bold; color: #4a9eff; margin-top: 20px; margin-bottom: 12px; border-top: 1px solid #444; padding-top: 12px;';
+        form.appendChild(adjacentHeader);
+
+        // Initialize adjacentMaps object if it doesn't exist
+        if (!mapData.adjacentMaps) {
+            mapData.adjacentMaps = {
+                north: null,
+                south: null,
+                east: null,
+                west: null
+            };
+        }
+
+        // Get all map IDs for dropdowns
+        const allMapIds = Object.keys(this.editor.game.mapManager.maps);
+        const mapOptions = ['none', ...allMapIds];
+
+        // Helper to create map selector
+        const createMapSelector = (direction, label) => {
+            const currentValue = mapData.adjacentMaps[direction] || 'none';
+            return this.createConfigSelect(label, currentValue, mapOptions, (value) => {
+                mapData.adjacentMaps[direction] = value === 'none' ? null : value;
+            });
+        };
+
+        form.appendChild(createMapSelector('north', '⬆️ North Map'));
+        form.appendChild(createMapSelector('south', '⬇️ South Map'));
+        form.appendChild(createMapSelector('east', '➡️ East Map'));
+        form.appendChild(createMapSelector('west', '⬅️ West Map'));
+
         modal.appendChild(form);
 
         // Buttons
@@ -913,6 +946,11 @@ class EditorUI {
                 this.editor.game.spawnManager.initialize(this.editor.game.currentMapId);
             }
             
+            // Reload adjacent maps to ensure they are visible immediately
+            if (this.editor.game.loadAdjacentMaps) {
+                this.editor.game.loadAdjacentMaps();
+            }
+
             this.showNotification('✅ Map configuration saved!');
             backdrop.remove();
         };

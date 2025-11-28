@@ -18,6 +18,9 @@
     "width": 1536,
     "height": 1024,
     "lights": [],
+    "adjacentMaps": {
+      "north": "0-1"
+    },
     "zones": [
       {
         "points": [
@@ -497,8 +500,12 @@
     "ambience": "/assets/audio/ambience/forest-0.mp3",
     "dayNightCycle": true,
     "image": null,
-    "width": 0,
-    "height": 0
+    "width": 1536,
+    "height": 1024,
+    "adjacentMaps": {
+      "south": "0-0",
+      "north": "0-1-shop"
+    }
   },
   "0-1-shop": {
     "name": "Village Shop",
@@ -508,7 +515,10 @@
     "ambience": null,
     "dayNightCycle": false,
     "image": null,
-    "width": 0,
-    "height": 0
+    "width": 1536,
+    "height": 1024,
+    "adjacentMaps": {
+      "south": "0-1"
+    }
   }
 }
