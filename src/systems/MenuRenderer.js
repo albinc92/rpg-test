@@ -367,77 +367,7 @@ class MenuRenderer {
         });
     }
     
-    /**
-     * Draw confirmation dialog (Yes/No)
-     */
-    drawConfirmation(ctx, title, message, warning, selectedOption, canvasWidth, canvasHeight, yesColor = '#e74c3c') {
-        const sizes = this.getFontSizes(canvasHeight);
-        
-        // Darker overlay
-        this.drawOverlay(ctx, canvasWidth, canvasHeight, 0.9);
-        
-        // Dialog Box
-        const boxWidth = Math.min(600, canvasWidth * 0.8);
-        const boxHeight = canvasHeight * 0.4;
-        const boxX = (canvasWidth - boxWidth) / 2;
-        const boxY = (canvasHeight - boxHeight) / 2;
-        
-        this.drawPanel(ctx, boxX, boxY, boxWidth, boxHeight);
-        
-        // Title
-        ctx.fillStyle = yesColor;
-        ctx.font = `700 ${sizes.subtitle}px 'Cinzel', serif`;
-        ctx.textAlign = 'center';
-        ctx.shadowColor = yesColor;
-        ctx.shadowBlur = 10;
-        ctx.fillText(title, canvasWidth / 2, boxY + 50);
-        ctx.shadowBlur = 0;
-        
-        // Message
-        ctx.fillStyle = '#fff';
-        ctx.font = `${sizes.instruction}px 'Lato', sans-serif`;
-        ctx.fillText(message, canvasWidth / 2, boxY + 100);
-        
-        // Warning (if provided)
-        if (warning) {
-            ctx.fillStyle = '#aaa';
-            ctx.font = `italic ${sizes.instruction * 0.85}px 'Lato', sans-serif`;
-            ctx.fillText(warning, canvasWidth / 2, boxY + 140);
-        }
-        
-        // Options (Yes/No)
-        const options = ['Yes', 'No'];
-        const buttonY = boxY + boxHeight - 80;
-        const buttonSpacing = 150;
-        
-        options.forEach((option, index) => {
-            const x = canvasWidth / 2 + (index === 0 ? -buttonSpacing/2 : buttonSpacing/2);
-            const isSelected = index === selectedOption;
-            
-            // Button Box
-            const btnWidth = 100;
-            const btnHeight = 40;
-            
-            if (isSelected) {
-                ctx.fillStyle = index === 0 ? yesColor : '#4a9eff';
-                ctx.shadowColor = index === 0 ? yesColor : '#4a9eff';
-                ctx.shadowBlur = 10;
-                ctx.fillRect(x - btnWidth/2, buttonY - btnHeight/2, btnWidth, btnHeight);
-                ctx.fillStyle = '#fff';
-            } else {
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(x - btnWidth/2, buttonY - btnHeight/2, btnWidth, btnHeight);
-                ctx.fillStyle = '#aaa';
-                ctx.shadowBlur = 0;
-            }
-            
-            ctx.font = `700 ${sizes.menu}px 'Lato', sans-serif`;
-            ctx.fillText(option, x, buttonY);
-            ctx.shadowBlur = 0;
-        });
-    }
-    
+
     /**
      * Draw hint text at bottom of screen
      */
@@ -505,6 +435,267 @@ class MenuRenderer {
         if (canScrollDown) {
             ctx.fillText('▼', canvasWidth / 2, listY + listHeight + arrowOffset);
         }
+    }
+
+    /**
+     * Draw a save slot item
+     */
+    drawSaveSlot(ctx, x, y, width, height, save, isSelected, isEmpty = false) {
+        const sizes = this.getFontSizes(ctx.canvas.height);
+        
+        // Background Panel
+        if (isSelected) {
+            // Selected: Glass highlight
+            const gradient = ctx.createLinearGradient(x, y, x + width, y);
+            gradient.addColorStop(0, 'rgba(74, 158, 255, 0.1)');
+            gradient.addColorStop(0.5, 'rgba(74, 158, 255, 0.25)');
+            gradient.addColorStop(1, 'rgba(74, 158, 255, 0.1)');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x, y, width, height);
+            
+            // Border
+            ctx.strokeStyle = '#4a9eff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, width, height);
+            
+            // Glow
+            ctx.shadowColor = '#4a9eff';
+            ctx.shadowBlur = 10;
+        } else {
+            // Unselected: Darker glass
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fillRect(x, y, width, height);
+            
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x, y, width, height);
+            
+            ctx.shadowBlur = 0;
+        }
+        
+        // Content
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        if (isEmpty) {
+            // Empty Slot
+            ctx.fillStyle = isSelected ? '#fff' : '#888';
+            ctx.font = `${isSelected ? 'bold' : 'normal'} ${sizes.subtitle}px 'Cinzel', serif`;
+            ctx.fillText('[ Empty Slot - New Save ]', x + width / 2, y + height / 2);
+        } else {
+            // Save Data
+            const centerY = y + height / 2;
+            
+            // Name
+            ctx.fillStyle = isSelected ? '#fff' : '#ccc';
+            ctx.font = `bold ${sizes.subtitle}px 'Cinzel', serif`;
+            ctx.fillText(save.name, x + width / 2, centerY - height * 0.15);
+            
+            // Details
+            ctx.fillStyle = isSelected ? '#4a9eff' : '#888';
+            ctx.font = `${sizes.detail}px 'Lato', sans-serif`;
+            
+            // Format details
+            // We assume save object has formatted strings or we format them here. 
+            // The caller should probably pass formatted strings or the save object structure is known.
+            // Based on GameStateManager, save has: timestamp, playtime, mapName
+            
+            // We'll let the caller handle formatting or do it here if we have access to formatters.
+            // Since we don't have the formatters here easily, let's assume 'save' has a 'details' property 
+            // OR we pass the details string directly.
+            // Let's update the signature to take 'title' and 'details' instead of raw save object to be more generic.
+        }
+        
+        ctx.shadowBlur = 0;
+    }
+
+    /**
+     * Draw a generic list item with title and subtitle (details)
+     */
+    drawDetailedListItem(ctx, x, y, width, height, title, details, isSelected, isEmpty = false) {
+        const sizes = this.getFontSizes(ctx.canvas.height);
+        
+        // Background Panel
+        if (isSelected) {
+            // Selected: Glass highlight
+            const gradient = ctx.createLinearGradient(x, y, x + width, y);
+            gradient.addColorStop(0, 'rgba(74, 158, 255, 0.1)');
+            gradient.addColorStop(0.5, 'rgba(74, 158, 255, 0.25)');
+            gradient.addColorStop(1, 'rgba(74, 158, 255, 0.1)');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x, y, width, height);
+            
+            // Border
+            ctx.strokeStyle = '#4a9eff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, width, height);
+            
+            // Corner accents
+            const cornerSize = 6;
+            ctx.fillStyle = '#4a9eff';
+            ctx.fillRect(x, y, cornerSize, 2);
+            ctx.fillRect(x, y, 2, cornerSize);
+            ctx.fillRect(x + width - cornerSize, y, cornerSize, 2);
+            ctx.fillRect(x + width - 2, y, 2, cornerSize);
+            ctx.fillRect(x, y + height - 2, cornerSize, 2);
+            ctx.fillRect(x, y + height - cornerSize, 2, cornerSize);
+            ctx.fillRect(x + width - cornerSize, y + height - 2, cornerSize, 2);
+            ctx.fillRect(x + width - 2, y + height - cornerSize, 2, cornerSize);
+            
+        } else {
+            // Unselected: Darker glass
+            ctx.fillStyle = 'rgba(30, 30, 40, 0.6)';
+            ctx.fillRect(x, y, width, height);
+            
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x, y, width, height);
+        }
+        
+        // Content
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        if (isEmpty) {
+            // Empty Slot
+            ctx.fillStyle = isSelected ? '#fff' : '#888';
+            ctx.font = `${isSelected ? 'bold' : 'normal'} ${sizes.subtitle}px 'Cinzel', serif`;
+            if (isSelected) {
+                ctx.shadowColor = '#4a9eff';
+                ctx.shadowBlur = 10;
+            }
+            ctx.fillText(title, x + width / 2, y + height / 2);
+            ctx.shadowBlur = 0;
+        } else {
+            // Save Data
+            const centerY = y + height / 2;
+            
+            // Title (Name)
+            ctx.fillStyle = isSelected ? '#fff' : '#ccc';
+            ctx.font = `bold ${sizes.subtitle}px 'Cinzel', serif`;
+            if (isSelected) {
+                ctx.shadowColor = '#4a9eff';
+                ctx.shadowBlur = 10;
+            }
+            ctx.fillText(title, x + width / 2, centerY - height * 0.15);
+            ctx.shadowBlur = 0;
+            
+            // Details
+            ctx.fillStyle = isSelected ? '#4a9eff' : '#888';
+            ctx.font = `${sizes.detail}px 'Lato', sans-serif`;
+            ctx.fillText(details, x + width / 2, centerY + height * 0.25);
+        }
+    }
+
+    /**
+     * Draw a modal popup (e.g. for confirmations)
+     */
+    drawModal(ctx, title, message, options, selectedOption, canvasWidth, canvasHeight, warning = null) {
+        const sizes = this.getFontSizes(canvasHeight);
+        
+        // Semi-transparent black background for modal overlay
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        const modalWidth = canvasWidth * 0.5;
+        const modalHeight = canvasHeight * 0.4;
+        const modalX = (canvasWidth - modalWidth) / 2;
+        const modalY = (canvasHeight - modalHeight) / 2;
+        
+        // Modal Border
+        ctx.strokeStyle = '#4a9eff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(modalX, modalY, modalWidth, modalHeight);
+        
+        // Modal Background
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(modalX, modalY, modalWidth, modalHeight);
+        
+        // Title
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${sizes.title * 0.6}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText(title, canvasWidth / 2, modalY + 50);
+        
+        // Message
+        ctx.font = `${sizes.menu}px Arial`; // Using menu size for message text
+        ctx.fillStyle = '#ccc';
+        ctx.fillText(message, canvasWidth / 2, modalY + 100);
+        
+        // Warning (optional)
+        if (warning) {
+            ctx.fillStyle = '#ff4444';
+            ctx.font = `italic ${sizes.menu * 0.8}px Arial`;
+            ctx.fillText(warning, canvasWidth / 2, modalY + 140);
+        }
+        
+        // Options
+        const optionY = modalY + modalHeight - 60;
+        // Calculate spacing based on number of options
+        const optionSpacing = modalWidth / options.length;
+        
+        options.forEach((opt, index) => {
+            // Center the options within their allocated space
+            const optX = modalX + (optionSpacing * index) + (optionSpacing / 2);
+            const isSelected = index === selectedOption;
+            
+            // Button Box Dimensions
+            const btnWidth = optionSpacing * 0.8;
+            const btnHeight = sizes.menu * 2;
+            const btnX = optX - btnWidth / 2;
+            const btnY = optionY - btnHeight / 2 - sizes.menu * 0.3; // Adjust Y to center text
+            
+            if (isSelected) {
+                // Selected: Glass highlight (Square-ish shape)
+                const gradient = ctx.createLinearGradient(btnX, btnY, btnX + btnWidth, btnY + btnHeight);
+                gradient.addColorStop(0, 'rgba(74, 158, 255, 0.1)');
+                gradient.addColorStop(0.5, 'rgba(74, 158, 255, 0.25)');
+                gradient.addColorStop(1, 'rgba(74, 158, 255, 0.1)');
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(btnX, btnY, btnWidth, btnHeight);
+                
+                // Border
+                ctx.strokeStyle = '#4a9eff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
+                
+                // Corner accents
+                const cornerSize = 4;
+                ctx.fillStyle = '#4a9eff';
+                ctx.fillRect(btnX, btnY, cornerSize, 2);
+                ctx.fillRect(btnX, btnY, 2, cornerSize);
+                ctx.fillRect(btnX + btnWidth - cornerSize, btnY, cornerSize, 2);
+                ctx.fillRect(btnX + btnWidth - 2, btnY, 2, cornerSize);
+                ctx.fillRect(btnX, btnY + btnHeight - 2, cornerSize, 2);
+                ctx.fillRect(btnX, btnY + btnHeight - cornerSize, 2, cornerSize);
+                ctx.fillRect(btnX + btnWidth - cornerSize, btnY + btnHeight - 2, cornerSize, 2);
+                ctx.fillRect(btnX + btnWidth - 2, btnY + btnHeight - cornerSize, 2, cornerSize);
+                
+                // Text
+                ctx.fillStyle = '#fff';
+                ctx.font = `bold ${sizes.menu}px Arial`;
+                ctx.shadowColor = '#4a9eff';
+                ctx.shadowBlur = 10;
+                ctx.fillText(opt, optX, optionY);
+                ctx.shadowBlur = 0;
+            } else {
+                // Unselected: Darker glass
+                ctx.fillStyle = 'rgba(30, 30, 40, 0.6)';
+                ctx.fillRect(btnX, btnY, btnWidth, btnHeight);
+                
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
+                
+                // Text
+                ctx.fillStyle = '#888';
+                ctx.font = `${sizes.menu}px Arial`;
+                ctx.fillText(opt, optX, optionY);
+            }
+        });
     }
 }
 

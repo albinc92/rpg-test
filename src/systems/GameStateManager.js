@@ -1036,14 +1036,15 @@ class PausedState extends GameState {
         
         // Draw exit confirmation if active
         if (this.showExitConfirm) {
-            menuRenderer.drawConfirmation(
+            menuRenderer.drawModal(
                 ctx, 
                 'Quit to Main Menu?', 
                 'Are you sure you want to quit?', 
-                'Unsaved progress will be lost.', 
+                ['Yes', 'No'],
                 this.exitConfirmOption, 
                 canvasWidth, 
-                canvasHeight
+                canvasHeight,
+                'Unsaved progress will be lost.'
             );
         }
         
@@ -1099,15 +1100,15 @@ class SaveLoadState extends GameState {
                 return;
             }
             
-            if (inputManager.isJustPressed('up')) {
-                this.selectedOption = Math.max(0, this.selectedOption - 1);
+            // Use Left/Right for modal navigation
+            if (inputManager.isJustPressed('left')) {
+                this.selectedOption = (this.selectedOption - 1 + this.confirmOptions.length) % this.confirmOptions.length;
                 this.game.audioManager?.playEffect('menu-navigation.mp3');
                 return;
             }
             
-            if (inputManager.isJustPressed('down')) {
-                const maxOption = this.getMaxOption();
-                this.selectedOption = Math.min(maxOption, this.selectedOption + 1);
+            if (inputManager.isJustPressed('right')) {
+                this.selectedOption = (this.selectedOption + 1) % this.confirmOptions.length;
                 this.game.audioManager?.playEffect('menu-navigation.mp3');
                 return;
             }
@@ -1402,59 +1403,38 @@ class SaveLoadState extends GameState {
         // Title
         menuRenderer.drawTitle(ctx, title, canvasWidth, canvasHeight, 0.15);
         
-        // Instructions
+        // Subtitle / Context
         if (this.mode === 'save_list') {
-            menuRenderer.drawInstruction(ctx, 'Select empty slot for new save or overwrite existing', canvasWidth, canvasHeight, 0.22);
-            const saveInstructions = this.game.inputManager.isMobile 
-                ? 'A: Select | B: Back'
-                : 'Enter: Select | ESC: Back';
-            menuRenderer.drawInstruction(ctx, saveInstructions, canvasWidth, canvasHeight, 0.25);
-        } else {
-            const loadInstructions = this.game.inputManager.isMobile 
-                ? 'A: Load | X: Delete | B: Back'
-                : 'Enter: Load | Delete: Remove | ESC: Back';
-            menuRenderer.drawInstruction(ctx, loadInstructions, canvasWidth, canvasHeight, 0.22);
+            menuRenderer.drawInstruction(ctx, 'Select a slot to save your progress', canvasWidth, canvasHeight, 0.22);
         }
         
-        const startY = canvasHeight * 0.3;
-        const lineHeight = canvasHeight * 0.12;
+        const startY = canvasHeight * 0.28;
+        const lineHeight = canvasHeight * 0.13; // Slightly taller for details
         
         // For save mode, show empty slot at top
         if (this.mode === 'save_list') {
             const isSelected = showSelection && this.selectedOption === 0;
-            const boxWidth = canvasWidth * 0.8;
+            const boxWidth = canvasWidth * 0.7;
             const boxHeight = lineHeight * 0.85;
             const boxX = canvasWidth / 2 - boxWidth / 2;
             const boxY = startY - boxHeight * 0.5;
             
-            // Empty slot border (dashed, no background fill)
-            if (isSelected) {
-                ctx.strokeStyle = '#ffff00';
-                ctx.lineWidth = 2;
-                ctx.setLineDash([5, 5]);
-                ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
-                ctx.setLineDash([]);
-            } else {
-                ctx.strokeStyle = '#666';
-                ctx.lineWidth = 1;
-                ctx.setLineDash([5, 5]);
-                ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
-                ctx.setLineDash([]);
-            }
-            
-            // Empty slot text (centered)
-            ctx.textAlign = 'center';
-            ctx.fillStyle = isSelected ? '#ffff00' : '#888';
-            ctx.font = `bold ${sizes.subtitle}px Arial`;
-            ctx.fillText('[ Empty Slot - New Save ]', canvasWidth / 2, startY);
+            menuRenderer.drawDetailedListItem(
+                ctx, 
+                boxX, boxY, boxWidth, boxHeight,
+                '[ New Save ]', 
+                'Create a new save file', 
+                isSelected, 
+                true
+            );
         }
         
         // Save list
         if (this.saves.length === 0 && this.mode === 'load_list') {
             ctx.fillStyle = '#888';
-            ctx.font = `${sizes.subtitle}px Arial`;
+            ctx.font = `${sizes.subtitle}px 'Lato', sans-serif`;
             ctx.textAlign = 'center';
-            ctx.fillText('No save files', canvasWidth / 2, canvasHeight * 0.5);
+            ctx.fillText('No save files found', canvasWidth / 2, canvasHeight * 0.5);
         } else if (this.saves.length > 0) {
             const saveListStartY = this.mode === 'save_list' ? startY + lineHeight : startY;
             const visibleSaves = this.saves.slice(
@@ -1469,24 +1449,24 @@ class SaveLoadState extends GameState {
                 const isSelected = showSelection && displayIndex === this.selectedOption;
                 
                 // Responsive box dimensions
-                const boxWidth = canvasWidth * 0.8;
+                const boxWidth = canvasWidth * 0.7;
                 const boxHeight = lineHeight * 0.85;
                 const boxX = canvasWidth / 2 - boxWidth / 2;
                 const boxY = y - boxHeight * 0.5;
-                const centerX = canvasWidth / 2;
                 
-                // Save name (centered, yellow text when selected)
-                ctx.textAlign = 'center';
-                ctx.fillStyle = isSelected ? '#ffff00' : '#fff';
-                ctx.font = `bold ${sizes.subtitle}px Arial`;
-                ctx.fillText(save.name, centerX, y);
-                
-                // Save details (centered)
-                ctx.font = `${sizes.detail}px Arial`;
-                ctx.fillStyle = isSelected ? '#ffff00' : '#aaa';
+                // Format details
                 const dateStr = this.game.saveGameManager.formatDate(save.timestamp);
                 const playtimeStr = this.game.saveGameManager.formatPlaytime(save.playtime);
-                ctx.fillText(`${dateStr}  |  ${playtimeStr}  |  ${save.mapName}`, centerX, y + lineHeight * 0.35);
+                const details = `${dateStr}  •  ${playtimeStr}  •  ${save.mapName}`;
+                
+                menuRenderer.drawDetailedListItem(
+                    ctx,
+                    boxX, boxY, boxWidth, boxHeight,
+                    save.name,
+                    details,
+                    isSelected,
+                    false
+                );
             });
             
             // Scroll indicators
@@ -1503,122 +1483,50 @@ class SaveLoadState extends GameState {
             );
         }
         
-        // Back hint
-        menuRenderer.drawHint(ctx, 'Press ESC to go back', canvasWidth, canvasHeight);
+        // Instructions at bottom
+        let instructions = '';
+        if (this.mode === 'save_list') {
+            instructions = this.game.inputManager.isMobile 
+                ? 'Tap to Select • Back to Cancel'
+                : 'Enter: Save • ESC: Back';
+        } else {
+            instructions = this.game.inputManager.isMobile 
+                ? 'Tap to Load • Long Press to Delete'
+                : 'Enter: Load • Delete: Remove Save • ESC: Back';
+        }
+        menuRenderer.drawInstruction(ctx, instructions, canvasWidth, canvasHeight, 0.93);
     }
     
     renderDeleteConfirmation(ctx, canvasWidth, canvasHeight) {
-        // Use MenuRenderer for consistent styling
         const menuRenderer = this.stateManager.menuRenderer;
-        const sizes = menuRenderer.getFontSizes(canvasHeight);
+        const saveName = this.saveToDelete ? `"${this.saveToDelete.name}"` : '';
         
-        // Draw fully opaque overlay (no transparency)
-        ctx.fillStyle = 'rgba(0, 0, 0, 1.0)';
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-        
-        // Title at top with text shadow
-        ctx.fillStyle = '#000';
-        ctx.font = `bold ${sizes.title}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.fillText('Delete Save?', canvasWidth / 2 + 2, canvasHeight * 0.25 + 2);
-        
-        ctx.fillStyle = '#ff3333';
-        ctx.fillText('Delete Save?', canvasWidth / 2, canvasHeight * 0.25);
-        
-        // Save name with text shadow
-        ctx.fillStyle = '#000';
-        ctx.font = `bold ${sizes.subtitle}px Arial`;
-        if (this.saveToDelete) {
-            ctx.fillText(`"${this.saveToDelete.name}"`, canvasWidth / 2 + 2, canvasHeight * 0.38 + 2);
-        }
-        
-        ctx.fillStyle = '#fff';
-        if (this.saveToDelete) {
-            ctx.fillText(`"${this.saveToDelete.name}"`, canvasWidth / 2, canvasHeight * 0.38);
-        }
-        
-        // Warning message
-        menuRenderer.drawInstruction(ctx, 'This action cannot be undone!', canvasWidth, canvasHeight, 0.48);
-        
-        // Options (vertical like other menus) with text shadows
-        const menuStartY = canvasHeight * 0.58;
-        const menuSpacing = canvasHeight * 0.10;
-        
-        this.confirmOptions.forEach((option, index) => {
-            const y = menuStartY + index * menuSpacing;
-            const isSelected = index === this.selectedOption;
-            
-            // Text shadow
-            ctx.fillStyle = '#000';
-            ctx.font = `bold ${sizes.menu}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.fillText(option, canvasWidth / 2 + 2, y + 2);
-            
-            // Option text - all white, yellow when selected (like other menus)
-            ctx.fillStyle = isSelected ? '#ffff00' : '#fff';
-            ctx.fillText(option, canvasWidth / 2, y);
-        });
-        
-        // Controls hint at bottom
-        const hintText = this.game.inputManager.isMobile ? 'A: Select | B: Cancel' : 'Enter: Select | ESC: Cancel';
-        menuRenderer.drawHint(ctx, hintText, canvasWidth, canvasHeight, 0.85);
+        menuRenderer.drawModal(
+            ctx,
+            'Delete Save?',
+            saveName,
+            this.confirmOptions,
+            this.selectedOption,
+            canvasWidth,
+            canvasHeight,
+            'This action cannot be undone!'
+        );
     }
     
     renderOverwriteConfirmation(ctx, canvasWidth, canvasHeight) {
-        // Use MenuRenderer for consistent styling
         const menuRenderer = this.stateManager.menuRenderer;
-        const sizes = menuRenderer.getFontSizes(canvasHeight);
+        const saveName = this.saveToOverwrite ? `"${this.saveToOverwrite.name}"` : '';
         
-        // Draw fully opaque overlay (no transparency)
-        ctx.fillStyle = 'rgba(0, 0, 0, 1.0)';
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-        
-        // Title at top with text shadow
-        ctx.fillStyle = '#000';
-        ctx.font = `bold ${sizes.title}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.fillText('Overwrite Save?', canvasWidth / 2 + 2, canvasHeight * 0.25 + 2);
-        
-        ctx.fillStyle = '#FFA500';
-        ctx.fillText('Overwrite Save?', canvasWidth / 2, canvasHeight * 0.25);
-        
-        // Save name with text shadow
-        ctx.fillStyle = '#000';
-        ctx.font = `bold ${sizes.subtitle}px Arial`;
-        if (this.saveToOverwrite) {
-            ctx.fillText(`"${this.saveToOverwrite.name}"`, canvasWidth / 2 + 2, canvasHeight * 0.38 + 2);
-        }
-        
-        ctx.fillStyle = '#fff';
-        if (this.saveToOverwrite) {
-            ctx.fillText(`"${this.saveToOverwrite.name}"`, canvasWidth / 2, canvasHeight * 0.38);
-        }
-        
-        // Warning message
-        menuRenderer.drawInstruction(ctx, 'This will replace the existing save!', canvasWidth, canvasHeight, 0.48);
-        
-        // Options (vertical like other menus) with text shadows
-        const menuStartY = canvasHeight * 0.58;
-        const menuSpacing = canvasHeight * 0.10;
-        
-        this.confirmOptions.forEach((option, index) => {
-            const y = menuStartY + index * menuSpacing;
-            const isSelected = index === this.selectedOption;
-            
-            // Text shadow
-            ctx.fillStyle = '#000';
-            ctx.font = `bold ${sizes.menu}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.fillText(option, canvasWidth / 2 + 2, y + 2);
-            
-            // Option text - all white, yellow when selected (like other menus)
-            ctx.fillStyle = isSelected ? '#ffff00' : '#fff';
-            ctx.fillText(option, canvasWidth / 2, y);
-        });
-        
-        // Controls hint at bottom
-        const hintText = this.game.inputManager.isMobile ? 'A: Select | B: Cancel' : 'Enter: Select | ESC: Cancel';
-        menuRenderer.drawHint(ctx, hintText, canvasWidth, canvasHeight, 0.85);
+        menuRenderer.drawModal(
+            ctx,
+            'Overwrite Save?',
+            saveName,
+            this.confirmOptions,
+            this.selectedOption,
+            canvasWidth,
+            canvasHeight,
+            'This will replace the existing save!'
+        );
     }
 }
 
@@ -1860,6 +1768,7 @@ class SettingsState extends GameState {
 
         // Handle Exit Modal Input
         if (this.showExitModal) {
+            // Use Left/Right for modal navigation
             if (inputManager.isJustPressed('left')) {
                 this.exitModalOption = (this.exitModalOption - 1 + 3) % 3;
                 this.game.audioManager?.playEffect('menu-navigation.mp3');
@@ -2157,21 +2066,15 @@ class SettingsState extends GameState {
         const canvasWidth = this.game.CANVAS_WIDTH;
         const canvasHeight = this.game.CANVAS_HEIGHT;
         
-        // If we are coming from the Main Menu (not in-game), we need to ensure the background is opaque black
-        // because the Main Menu state might not be rendering behind us, or we want to hide it.
-        // Check if PlayingState is NOT in the stack to determine if we are in "Main Menu Mode"
-        const isIngame = this.stateManager.isStateInStack('PLAYING');
-        
-        if (!isIngame) {
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-        }
+        // Always draw opaque black background for Settings
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
         // Use MenuRenderer for consistent styling
         const menuRenderer = this.stateManager.menuRenderer;
         const sizes = menuRenderer.getFontSizes(canvasHeight);
         
-        // Draw overlay
+        // Draw overlay (still useful for vignette/scanlines if desired, but background is already black)
         menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.8);
         
         // Draw title
@@ -2280,20 +2183,55 @@ class SettingsState extends GameState {
         ctx.textBaseline = 'middle';
         
         if (isBackSelected) {
-            // Selected Back Button
+            // Selected Back Button (Glass style)
+            const btnWidth = 200;
+            const btnHeight = 50;
+            const btnX = canvasWidth / 2 - btnWidth / 2;
+            const btnY = backButtonY - btnHeight / 2;
+            
+            const gradient = ctx.createLinearGradient(btnX, btnY, btnX + btnWidth, btnY + btnHeight);
+            gradient.addColorStop(0, 'rgba(74, 158, 255, 0.1)');
+            gradient.addColorStop(0.5, 'rgba(74, 158, 255, 0.25)');
+            gradient.addColorStop(1, 'rgba(74, 158, 255, 0.1)');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(btnX, btnY, btnWidth, btnHeight);
+            
+            ctx.strokeStyle = '#4a9eff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
+            
+            // Corner accents
+            const cornerSize = 4;
             ctx.fillStyle = '#4a9eff';
+            ctx.fillRect(btnX, btnY, cornerSize, 2);
+            ctx.fillRect(btnX, btnY, 2, cornerSize);
+            ctx.fillRect(btnX + btnWidth - cornerSize, btnY, cornerSize, 2);
+            ctx.fillRect(btnX + btnWidth - 2, btnY, 2, cornerSize);
+            ctx.fillRect(btnX, btnY + btnHeight - 2, cornerSize, 2);
+            ctx.fillRect(btnX, btnY + btnHeight - cornerSize, 2, cornerSize);
+            ctx.fillRect(btnX + btnWidth - cornerSize, btnY + btnHeight - 2, cornerSize, 2);
+            ctx.fillRect(btnX + btnWidth - 2, btnY + btnHeight - cornerSize, 2, cornerSize);
+            
+            ctx.fillStyle = '#fff';
             ctx.font = `bold ${sizes.menu}px 'Cinzel', serif`;
             ctx.shadowColor = '#4a9eff';
             ctx.shadowBlur = 10;
-            ctx.fillText('> Back <', canvasWidth / 2, backButtonY);
-            
-            // Selection box
-            const textWidth = ctx.measureText('> Back <').width + 40;
-            ctx.strokeStyle = 'rgba(74, 158, 255, 0.5)';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(canvasWidth / 2 - textWidth / 2, backButtonY - 20, textWidth, 40);
+            ctx.fillText('Back', canvasWidth / 2, backButtonY);
         } else {
             // Unselected Back Button
+            const btnWidth = 200;
+            const btnHeight = 50;
+            const btnX = canvasWidth / 2 - btnWidth / 2;
+            const btnY = backButtonY - btnHeight / 2;
+            
+            ctx.fillStyle = 'rgba(30, 30, 40, 0.6)';
+            ctx.fillRect(btnX, btnY, btnWidth, btnHeight);
+            
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
+            
             ctx.fillStyle = '#888';
             ctx.font = `${sizes.menu}px 'Cinzel', serif`;
             ctx.shadowBlur = 0;
@@ -2314,60 +2252,17 @@ class SettingsState extends GameState {
 
         // Draw Exit Modal
         if (this.showExitModal) {
-            // Semi-transparent black background for modal
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-            
-            const modalWidth = canvasWidth * 0.5;
-            const modalHeight = canvasHeight * 0.4;
-            const modalX = (canvasWidth - modalWidth) / 2;
-            const modalY = (canvasHeight - modalHeight) / 2;
-            
-            // Modal Border
-            ctx.strokeStyle = '#4a9eff';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(modalX, modalY, modalWidth, modalHeight);
-            
-            // Modal Background
-            ctx.fillStyle = '#1a1a1a';
-            ctx.fillRect(modalX, modalY, modalWidth, modalHeight);
-            
-            // Title
-            ctx.fillStyle = '#fff';
-            ctx.font = `bold ${sizes.title * 0.6}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.fillText('Unsaved Changes', canvasWidth / 2, modalY + 50);
-            
-            // Message
-            ctx.font = `${sizes.text}px Arial`;
-            ctx.fillStyle = '#ccc';
-            ctx.fillText('Do you want to save your changes?', canvasWidth / 2, modalY + 100);
-            
-            if (this.restartRequired) {
-                ctx.fillStyle = '#ff4444';
-                ctx.font = `italic ${sizes.text * 0.8}px Arial`;
-                ctx.fillText('Note: Application restart required.', canvasWidth / 2, modalY + 140);
-            }
-            
-            // Options
-            const options = ['Save', 'Discard', 'Cancel'];
-            const optionY = modalY + modalHeight - 60;
-            const optionSpacing = modalWidth / 3;
-            
-            options.forEach((opt, index) => {
-                const optX = modalX + (optionSpacing * index) + (optionSpacing / 2);
-                const isSelected = index === this.exitModalOption;
-                
-                if (isSelected) {
-                    ctx.fillStyle = '#4a9eff';
-                    ctx.font = `bold ${sizes.text}px Arial`;
-                    ctx.fillText(`> ${opt} <`, optX, optionY);
-                } else {
-                    ctx.fillStyle = '#888';
-                    ctx.font = `${sizes.text}px Arial`;
-                    ctx.fillText(opt, optX, optionY);
-                }
-            });
+            const warning = this.restartRequired ? 'Note: Application restart required.' : null;
+            menuRenderer.drawModal(
+                ctx,
+                'Unsaved Changes',
+                'Do you want to save your changes?',
+                ['Save', 'Discard', 'Cancel'],
+                this.exitModalOption,
+                canvasWidth,
+                canvasHeight,
+                warning
+            );
         }
     }
 }
