@@ -726,23 +726,23 @@ class GameEngine {
         let nextMapId = null;
         let entryDirection = null;
 
-        // Check North (Top edge)
-        if (player.y < margin && map.adjacentMaps.north) {
+        // Check North (Top edge) - Only if moving North
+        if (player.y < margin && map.adjacentMaps.north && player.inputY < 0) {
             nextMapId = map.adjacentMaps.north;
             entryDirection = 'north';
         }
-        // Check South (Bottom edge)
-        else if (player.y > mapHeight - playerHeight - margin && map.adjacentMaps.south) {
+        // Check South (Bottom edge) - Only if moving South
+        else if (player.y > mapHeight - playerHeight - margin && map.adjacentMaps.south && player.inputY > 0) {
             nextMapId = map.adjacentMaps.south;
             entryDirection = 'south';
         }
-        // Check West (Left edge)
-        else if (player.x < margin && map.adjacentMaps.west) {
+        // Check West (Left edge) - Only if moving West
+        else if (player.x < margin && map.adjacentMaps.west && player.inputX < 0) {
             nextMapId = map.adjacentMaps.west;
             entryDirection = 'west';
         }
-        // Check East (Right edge)
-        else if (player.x > mapWidth - playerWidth - margin && map.adjacentMaps.east) {
+        // Check East (Right edge) - Only if moving East
+        else if (player.x > mapWidth - playerWidth - margin && map.adjacentMaps.east && player.inputX > 0) {
             nextMapId = map.adjacentMaps.east;
             entryDirection = 'east';
         }
@@ -753,95 +753,134 @@ class GameEngine {
     }
 
     /**
-     * Transition to an adjacent map
+     * Transition to an adjacent map (Seamless Version)
+     * Instead of loading and snapping, we shift coordinates to create an infinite world illusion
      */
     async transitionToMap(mapId, entryDirection) {
         // Prevent multiple transitions
         if (this.isTransitioning) return;
         this.isTransitioning = true;
 
-        console.log(`🔗 Transitioning ${entryDirection} to map: ${mapId}`);
+        console.log(`🔗 Seamless Transition ${entryDirection} to map: ${mapId}`);
 
         try {
-            // Pre-calculate new player position BEFORE loading map
-            // This ensures we know where to put the player immediately
             const newMapData = this.mapManager.getMapData(mapId);
-            let newPlayerX = this.player.x;
-            let newPlayerY = this.player.y;
-            
-            if (newMapData) {
-                const padding = 10;
-                // Use UNSCALED dimensions for player positioning
-                // Player coordinates are in unscaled map units
-                const mapWidth = newMapData.width;
-                const mapHeight = newMapData.height;
-                
-                // Use getWidth()/getHeight() as .width/.height are undefined on GameObject
-                const playerWidth = this.player.getWidth();
-                const playerHeight = this.player.getHeight();
-                
-                console.log(`[Transition] Target Map: ${mapId}`);
-                console.log(`[Transition] Map Data (Unscaled): width=${mapWidth}, height=${mapHeight}`);
-                console.log(`[Transition] Player (Unscaled): x=${this.player.x}, y=${this.player.y}, w=${playerWidth}, h=${playerHeight}`);
-                
-                if (entryDirection === 'north') {
-                    newPlayerY = mapHeight - playerHeight - padding;
-                    console.log(`[Transition] Direction NORTH: Setting Y to ${newPlayerY}`);
-                } else if (entryDirection === 'south') {
-                    newPlayerY = padding;
-                    console.log(`[Transition] Direction SOUTH: Setting Y to ${newPlayerY}`);
-                } else if (entryDirection === 'west') {
-                    newPlayerX = mapWidth - playerWidth - padding;
-                    console.log(`[Transition] Direction WEST: Setting X to ${newPlayerX}`);
-                } else if (entryDirection === 'east') {
-                    newPlayerX = padding;
-                    console.log(`[Transition] Direction EAST: Setting X to ${newPlayerX}`);
-                }
-                
-                // Safety check for NaN/Undefined
-                if (isNaN(newPlayerX)) {
-                    console.error(`[Transition] ❌ Calculated X is NaN! Resetting to 100`);
-                    newPlayerX = 100;
-                }
-                if (isNaN(newPlayerY)) {
-                    console.error(`[Transition] ❌ Calculated Y is NaN! Resetting to 100`);
-                    newPlayerY = 100;
-                }
-            } else {
-                console.error(`[Transition] ❌ Could not find map data for ${mapId}`);
+            if (!newMapData) {
+                throw new Error(`Map data not found for ${mapId}`);
             }
 
-            // Load the new map
-            // Pass the new position to loadMap so it can set it synchronously with map switch
-            await this.loadMap(mapId, { x: newPlayerX, y: newPlayerY });
+            // 1. Calculate Coordinate Shift
+            // We need to shift the player and camera so they are relative to the NEW map's origin
+            let shiftX = 0;
+            let shiftY = 0;
             
-            // Snap camera to new position immediately
-            if (this.camera) {
-                this.camera.snapToTarget = true;
+            const currentMapWidth = this.currentMap.width;
+            const currentMapHeight = this.currentMap.height;
+            const newMapWidth = newMapData.width;
+            const newMapHeight = newMapData.height;
+            
+            if (entryDirection === 'north') {
+                // Moving UP. New map is above.
+                // Old Y=0 is New Y=Height
+                // Shift = +NewHeight
+                shiftY = newMapHeight;
+            } else if (entryDirection === 'south') {
+                // Moving DOWN. New map is below.
+                // Old Y=Height is New Y=0
+                // Shift = -OldHeight
+                shiftY = -currentMapHeight;
+            } else if (entryDirection === 'west') {
+                // Moving LEFT. New map is left.
+                // Old X=0 is New X=Width
+                // Shift = +NewWidth
+                shiftX = newMapWidth;
+            } else if (entryDirection === 'east') {
+                // Moving RIGHT. New map is right.
+                // Old X=Width is New X=0
+                // Shift = -OldWidth
+                shiftX = -currentMapWidth;
+            }
+
+            console.log(`[Transition] Shift: x=${shiftX}, y=${shiftY}`);
+
+            // 2. Load the new map data (but don't reset camera/player yet)
+            // We manually do what loadMap does, but preserve state
+            
+            // Load map image if not loaded
+            await this.mapManager.loadMap(mapId);
+            
+            const previousMapId = this.currentMapId;
+            this.currentMapId = mapId;
+            this.currentMap = newMapData;
+            
+            // 3. Apply Coordinate Shift to Player
+            this.player.x += shiftX;
+            this.player.y += shiftY;
+            
+            // 4. Apply Coordinate Shift to Camera
+            // This is critical for the "seamless" look. The camera must move exactly as much as the player
+            // so the relative position on screen stays identical.
+            if (this.renderSystem && this.renderSystem.camera) {
+                this.renderSystem.camera.x += shiftX;
+                this.renderSystem.camera.y += shiftY;
+                this.renderSystem.camera.targetX += shiftX;
+                this.renderSystem.camera.targetY += shiftY;
             }
             
-            // Force a render update immediately to prevent black frame?
-            // The game loop will handle it, but we want to ensure camera is updated first
-            if (this.renderSystem) {
-                // Manually update camera to target
-                this.renderSystem.updateCamera(
-                    this.player.x + this.player.width/2, 
-                    this.player.y + this.player.height/2, 
-                    this.CANVAS_WIDTH, 
-                    this.CANVAS_HEIGHT, 
-                    this.currentMap.width * (this.currentMap.scale || 1) * this.resolutionScale, 
-                    this.currentMap.height * (this.currentMap.scale || 1) * this.resolutionScale,
-                    this.currentMap.adjacentMaps || {}
-                );
+            // 5. Initialize Systems for New Map
+            
+            // Layers
+            this.layerManager.initializeMapLayers(mapId);
+            const layers = this.layerManager.getLayers(mapId);
+            if (layers && layers.length > 0 && this.currentMap.image) {
+                layers[0].backgroundImage = this.currentMap.image;
             }
+            
+            // Objects
+            this.objectManager.loadObjectsForMap(mapId);
+            
+            // Lights
+            if (this.lightManager) {
+                if (newMapData.lights) {
+                    this.lightManager.loadLights(newMapData.lights);
+                } else {
+                    this.lightManager.clearLights();
+                }
+            }
+            
+            // Audio (Seamless crossfade)
+            let bgmFilename = null;
+            if (newMapData.music) bgmFilename = newMapData.music.split('/').pop();
+            if (this.audioManager.currentBGM !== bgmFilename) {
+                this.audioManager.playBGM(bgmFilename);
+            }
+            
+            let ambienceFilename = null;
+            if (newMapData.ambience) ambienceFilename = newMapData.ambience.split('/').pop();
+            this.audioManager.playAmbience(ambienceFilename);
+            
+            // Weather
+            if (this.weatherSystem) {
+                this.weatherSystem.setWeather(newMapData.weather || null);
+            }
+            
+            // Spawns
+            if (this.spawnManager) {
+                this.spawnManager.initialize(mapId);
+            }
+            
+            // Preload next set of adjacent maps
+            this.loadAdjacentMaps();
+            
+            console.log(`✅ Seamless transition complete to ${mapId}`);
 
         } catch (error) {
-            console.error('Failed to transition map:', error);
+            console.error('❌ Transition failed:', error);
         } finally {
             // Add a small delay before allowing another transition to prevent bouncing
             setTimeout(() => {
                 this.isTransitioning = false;
-            }, 500);
+            }, 200);
         }
     }
 
