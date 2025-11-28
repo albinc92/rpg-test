@@ -636,6 +636,10 @@ class MenuRenderer {
         // Calculate spacing based on number of options
         const optionSpacing = modalWidth / options.length;
         
+        // Ensure text alignment is centered for buttons
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
         options.forEach((opt, index) => {
             // Center the options within their allocated space
             const optX = modalX + (optionSpacing * index) + (optionSpacing / 2);
@@ -643,9 +647,9 @@ class MenuRenderer {
             
             // Button Box Dimensions
             const btnWidth = optionSpacing * 0.8;
-            const btnHeight = sizes.menu * 2;
+            const btnHeight = sizes.menu * 2.2; // Slightly taller
             const btnX = optX - btnWidth / 2;
-            const btnY = optionY - btnHeight / 2 - sizes.menu * 0.3; // Adjust Y to center text
+            const btnY = optionY - btnHeight / 2; // Exact center
             
             if (isSelected) {
                 // Selected: Glass highlight (Square-ish shape)
@@ -679,7 +683,7 @@ class MenuRenderer {
                 ctx.font = `bold ${sizes.menu}px Arial`;
                 ctx.shadowColor = '#4a9eff';
                 ctx.shadowBlur = 10;
-                ctx.fillText(opt, optX, optionY);
+                ctx.fillText(opt, optX, optionY); // Draw at exact center
                 ctx.shadowBlur = 0;
             } else {
                 // Unselected: Darker glass
@@ -693,7 +697,7 @@ class MenuRenderer {
                 // Text
                 ctx.fillStyle = '#888';
                 ctx.font = `${sizes.menu}px Arial`;
-                ctx.fillText(opt, optX, optionY);
+                ctx.fillText(opt, optX, optionY); // Draw at exact center
             }
         });
     }
