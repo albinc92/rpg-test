@@ -186,18 +186,24 @@ class RenderSystem {
         this.ctx.translate(-this.camera.x, -this.camera.y);
 
         // Render Adjacent Maps (Backgrounds only)
-        this.renderAdjacentMaps(adjacentMapsData, map, game);
+        this.renderAdjacentBackgrounds(adjacentMapsData, map, game);
         
+        // Collect objects from adjacent maps with offsets applied
+        const { objects: adjacentObjects, restore: restoreAdjacentObjects } = this.collectAdjacentObjects(adjacentMapsData, map, game);
+
         // Check if layer system is available and has layers
         const hasLayers = game?.layerManager && game.layerManager.hasLayers(game.currentMapId);
         
         if (hasLayers) {
             // Render with layer system
-            this.renderWithLayers(map, objects, npcs, player, game);
+            this.renderWithLayers(map, objects, npcs, player, game, adjacentObjects);
         } else {
             // Fallback: Render without layers (legacy)
-            this.renderLegacy(map, objects, npcs, player, game);
+            this.renderLegacy(map, objects, npcs, player, game, adjacentObjects);
         }
+        
+        // Restore adjacent objects to their original positions
+        restoreAdjacentObjects();
         
         // Collect and sort all renderable objects by y position (for depth sorting)
         const renderables = [];
@@ -421,7 +427,7 @@ class RenderSystem {
     /**
      * Render world with layer system
      */
-    renderWithLayers(map, objects, npcs, player, game) {
+    renderWithLayers(map, objects, npcs, player, game, adjacentObjects = []) {
         const layers = game.layerManager.getLayers(game.currentMapId);
         const activeLayerId = game.layerManager.activeLayerId;
         const isEditorActive = game.editorManager && game.editorManager.isActive;
@@ -433,7 +439,7 @@ class RenderSystem {
         
         // Prepare list of ALL objects for shadow rendering (Global Shadow Pass)
         // This ensures all shadows are rendered in a single pass to prevent accumulation
-        const allShadowObjects = [...objects, ...npcs];
+        const allShadowObjects = [...objects, ...npcs, ...adjacentObjects];
         if (player) allShadowObjects.push(player);
         
         // Identify the bottom-most visible layer to render shadows on
@@ -534,8 +540,8 @@ class RenderSystem {
             this.renderLayerObjects(spriteObjects, shadowObjects, game, layer, shouldDim);
         });
         
-        // Render objects without layerId (legacy objects) - always on top
-        const unassignedObjects = objects.filter(obj => !obj.layerId);
+        // Render objects without layerId (legacy objects) AND adjacent objects - always on top
+        const unassignedObjects = [...objects.filter(obj => !obj.layerId), ...adjacentObjects];
         if (unassignedObjects.length > 0) {
             // If we haven't rendered shadows yet (e.g. no layers rendered?), render them now
             // But usually layers cover everything. If unassigned objects exist, they are just sprites.
@@ -666,7 +672,7 @@ class RenderSystem {
     /**
      * Legacy rendering without layers
      */
-    renderLegacy(map, objects, npcs, player, game) {
+    renderLegacy(map, objects, npcs, player, game, adjacentObjects = []) {
         // Render map background (with scale applied)
         if (map && map.image && map.image.complete) {
             // Use GLOBAL GAME SCALE if available
@@ -778,6 +784,11 @@ class RenderSystem {
         }
         
         objects.forEach(obj => {
+            renderables.push({ obj: obj, depth: getDepth(obj, game) });
+        });
+        
+        // Add adjacent objects
+        adjacentObjects.forEach(obj => {
             renderables.push({ obj: obj, depth: getDepth(obj, game) });
         });
         
@@ -922,24 +933,23 @@ class RenderSystem {
     /**
      * Render adjacent maps (backgrounds only)
      */
-    renderAdjacentMaps(adjacentMaps, currentMap, game) {
+    renderAdjacentBackgrounds(adjacentMaps, currentMap, game) {
         if (!adjacentMaps || Object.keys(adjacentMaps).length === 0) return;
 
         const resolutionScale = game.resolutionScale || 1.0;
-        // Use GLOBAL GAME SCALE if available, otherwise fallback to map scale
         const currentMapScale = game.GAME_SCALE || currentMap.scale || 1.0;
         const currentWidth = currentMap.width * currentMapScale * resolutionScale;
         const currentHeight = currentMap.height * currentMapScale * resolutionScale;
 
-        // Helper to render a map image AND its objects at offset
-        const renderMapContent = (mapId, mapData, offsetX, offsetY) => {
+        // Helper to render a map background at offset
+        const renderMapBackground = (mapData, offsetX, offsetY) => {
             if (!mapData || !mapData.image) return;
             
             const mapScale = game.GAME_SCALE || mapData.scale || 1.0;
             const width = mapData.width * mapScale * resolutionScale;
             const height = mapData.height * mapScale * resolutionScale;
             
-            // 1. Render Background
+            // Render Background
             if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
                 const imageUrl = mapData.image.src || `map_${mapData.id}_bg`;
                 this.webglRenderer.drawSprite(
@@ -951,75 +961,6 @@ class RenderSystem {
             } else {
                 this.ctx.drawImage(mapData.image, offsetX, offsetY, width, height);
             }
-
-            // 2. Render Objects (if loaded)
-            if (game.objectManager && game.objectManager.objects[mapId]) {
-                const objects = game.objectManager.objects[mapId];
-                
-                // Save context/camera state
-                this.ctx.save();
-                
-                // Translate to adjacent map's local coordinate space
-                // Note: Objects are stored in their map's local coordinates
-                // We need to shift them by the map offset
-                this.ctx.translate(offsetX, offsetY);
-                
-                // Also need to shift WebGL rendering context?
-                // WebGLRenderer uses screen coordinates.
-                // We need to manually offset the objects during render
-                
-                // Sort objects by depth
-                const renderables = [];
-                const getDepth = (obj) => {
-                    const finalScale = obj.getFinalScale(game);
-                    const baseHeight = obj.spriteHeight || obj.fallbackHeight || 0;
-                    const renderedHeight = baseHeight * finalScale;
-                    const scaledY = obj.getScaledY(game);
-                    return scaledY + (renderedHeight / 2);
-                };
-                
-                objects.forEach(obj => {
-                    renderables.push({ obj: obj, depth: getDepth(obj) });
-                });
-                renderables.sort((a, b) => a.depth - b.depth);
-                
-                // Render objects
-                renderables.forEach(({ obj }) => {
-                    // Hack: Temporarily offset object position for rendering
-                    // This is dangerous if render() modifies state, but standard render shouldn't
-                    // Better: Pass offset to render method? No, render uses this.x/y
-                    
-                    // Alternative: Use ctx.translate for Canvas2D, but for WebGL we need to handle it.
-                    // WebGLRenderer.drawSprite takes screenX, screenY.
-                    // obj.render() calculates screenX based on this.x - camera.x
-                    // We want: (this.x + offsetX) - camera.x
-                    
-                    // Solution: Mock the camera position for these objects?
-                    // Or pass an offset to render()?
-                    
-                    // Let's try modifying the object's render method to accept an offset?
-                    // Too invasive.
-                    
-                    // Let's temporarily shift the object?
-                    const originalX = obj.x;
-                    const originalY = obj.y;
-                    
-                    // Apply offset (unscaled, because object.x/y are unscaled world coords)
-                    // offsetX is SCALED pixels. We need unscaled world units.
-                    // totalScale = mapScale * resolutionScale
-                    const totalScale = mapScale * resolutionScale;
-                    obj.x += offsetX / totalScale;
-                    obj.y += offsetY / totalScale;
-                    
-                    obj.render(this.ctx, game, this.webglRenderer);
-                    
-                    // Restore position
-                    obj.x = originalX;
-                    obj.y = originalY;
-                });
-                
-                this.ctx.restore();
-            }
         };
 
         // Render North
@@ -1027,13 +968,12 @@ class RenderSystem {
             const mapData = adjacentMaps.north;
             const mapScale = game.GAME_SCALE || mapData.scale || 1.0;
             const height = mapData.height * mapScale * resolutionScale;
-            // Assuming aligned left (x=0)
-            renderMapContent(currentMap.adjacentMaps.north, mapData, 0, -height);
+            renderMapBackground(mapData, 0, -height);
         }
 
         // Render South
         if (adjacentMaps.south) {
-            renderMapContent(currentMap.adjacentMaps.south, adjacentMaps.south, 0, currentHeight);
+            renderMapBackground(adjacentMaps.south, 0, currentHeight);
         }
 
         // Render West
@@ -1041,12 +981,86 @@ class RenderSystem {
             const mapData = adjacentMaps.west;
             const mapScale = game.GAME_SCALE || mapData.scale || 1.0;
             const width = mapData.width * mapScale * resolutionScale;
-            renderMapContent(currentMap.adjacentMaps.west, mapData, -width, 0);
+            renderMapBackground(mapData, -width, 0);
         }
 
         // Render East
         if (adjacentMaps.east) {
-            renderMapContent(currentMap.adjacentMaps.east, adjacentMaps.east, currentWidth, 0);
+            renderMapBackground(adjacentMaps.east, currentWidth, 0);
         }
+    }
+
+    /**
+     * Collect objects from adjacent maps and apply offsets
+     * Returns { objects: [], restore: function }
+     */
+    collectAdjacentObjects(adjacentMaps, currentMap, game) {
+        if (!adjacentMaps || Object.keys(adjacentMaps).length === 0) return { objects: [], restore: () => {} };
+
+        const resolutionScale = game.resolutionScale || 1.0;
+        const currentMapScale = game.GAME_SCALE || currentMap.scale || 1.0;
+        const currentWidth = currentMap.width * currentMapScale * resolutionScale;
+        const currentHeight = currentMap.height * currentMapScale * resolutionScale;
+        const totalScale = currentMapScale * resolutionScale;
+
+        const collectedObjects = [];
+        const modifiedObjects = []; // Track objects we modified to restore them later
+
+        const processMap = (mapId, mapData, offsetX, offsetY) => {
+            if (!game.objectManager || !game.objectManager.objects[mapId]) return;
+            
+            const objects = game.objectManager.objects[mapId];
+            const unscaledOffsetX = offsetX / totalScale;
+            const unscaledOffsetY = offsetY / totalScale;
+
+            objects.forEach(obj => {
+                // Store original position
+                modifiedObjects.push({
+                    obj: obj,
+                    originalX: obj.x,
+                    originalY: obj.y
+                });
+
+                // Apply offset
+                obj.x += unscaledOffsetX;
+                obj.y += unscaledOffsetY;
+                
+                collectedObjects.push(obj);
+            });
+        };
+
+        // North
+        if (adjacentMaps.north) {
+            const mapData = adjacentMaps.north;
+            const height = mapData.height * totalScale;
+            processMap(currentMap.adjacentMaps.north, mapData, 0, -height);
+        }
+
+        // South
+        if (adjacentMaps.south) {
+            processMap(currentMap.adjacentMaps.south, adjacentMaps.south, 0, currentHeight);
+        }
+
+        // West
+        if (adjacentMaps.west) {
+            const mapData = adjacentMaps.west;
+            const width = mapData.width * totalScale;
+            processMap(currentMap.adjacentMaps.west, mapData, -width, 0);
+        }
+
+        // East
+        if (adjacentMaps.east) {
+            processMap(currentMap.adjacentMaps.east, adjacentMaps.east, currentWidth, 0);
+        }
+
+        return {
+            objects: collectedObjects,
+            restore: () => {
+                modifiedObjects.forEach(item => {
+                    item.obj.x = item.originalX;
+                    item.obj.y = item.originalY;
+                });
+            }
+        };
     }
 }

@@ -700,6 +700,15 @@ class GameEngine {
         // Update all objects on current map (NPCs, trees, chests, portals, etc.)
         this.objectManager.updateObjects(this.currentMapId, deltaTime, this);
         
+        // Update objects on adjacent maps (for seamless simulation)
+        if (this.currentMap && this.currentMap.adjacentMaps) {
+            Object.values(this.currentMap.adjacentMaps).forEach(adjMapId => {
+                if (adjMapId) {
+                    this.objectManager.updateObjects(adjMapId, deltaTime, this);
+                }
+            });
+        }
+        
         // Update camera
         this.updateCamera();
         
