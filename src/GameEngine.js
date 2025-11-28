@@ -880,7 +880,23 @@ class GameEngine {
             
             // Spawns
             if (this.spawnManager) {
-                this.spawnManager.initialize(mapId);
+                // Activate the new current map (it might already be active from adjacent loading)
+                this.spawnManager.activateMap(mapId);
+                
+                // Cleanup distant maps
+                // 1. Calculate new active set (Current + Neighbors)
+                const activeSet = new Set([mapId]);
+                if (newMapData.adjacentMaps) {
+                    Object.values(newMapData.adjacentMaps).forEach(id => activeSet.add(id));
+                }
+                
+                // 2. Deactivate any map currently active that is NOT in the new set
+                // We access the internal map of active spawns
+                for (const activeMapId of this.spawnManager.activeMaps.keys()) {
+                    if (!activeSet.has(activeMapId)) {
+                        this.spawnManager.deactivateMap(activeMapId);
+                    }
+                }
             }
             
             // Preload next set of adjacent maps
@@ -1139,7 +1155,7 @@ class GameEngine {
         
         // Initialize spawn system for this map
         if (this.spawnManager) {
-            this.spawnManager.initialize(mapId);
+            this.spawnManager.activateMap(mapId);
         }
         
         // Load adjacent maps for seamless transitions
@@ -1161,13 +1177,17 @@ class GameEngine {
         
         console.log('[GameEngine] Preloading adjacent maps:', adjacent);
         
-        // Helper to load map AND its objects
+        // Helper to load map AND its objects AND activate spawns
         const loadMapAndObjects = async (mapId) => {
             // Load map image
             await this.mapManager.loadMap(mapId);
             // Load objects for this map (if not already loaded)
             if (!this.objectManager.initializedMaps.has(mapId)) {
                 this.objectManager.loadObjectsForMap(mapId);
+            }
+            // Activate spawn system for this map
+            if (this.spawnManager) {
+                this.spawnManager.activateMap(mapId);
             }
         };
 
@@ -1178,7 +1198,7 @@ class GameEngine {
         
         try {
             await Promise.all(promises);
-            console.log('[GameEngine] Adjacent maps and objects loaded');
+            console.log('[GameEngine] Adjacent maps, objects, and spawns loaded');
         } catch (error) {
             console.error('[GameEngine] Failed to load adjacent maps:', error);
         }
@@ -1505,12 +1525,17 @@ class GameEngine {
     }
     
     /**
-     * Check actor collisions with other objects and map boundaries
-     * Now properly accounts for all sprite scaling (object × resolution × map)
+     * Check for collisions with map boundaries and objects
      */
     checkActorCollisions(newX, newY, movingActor, game) {
+        // Determine which map this actor belongs to
+        const mapId = movingActor.mapId || this.currentMapId;
+        const mapData = this.mapManager.maps[mapId];
+        
+        if (!mapData) return { collides: false };
+
         // Check map boundaries first
-        if (this.currentMap && movingActor.canBeBlocked) {
+        if (movingActor.canBeBlocked) {
             // Use UNSCALED dimensions for boundary checks
             // Player coordinates are in unscaled map units
             const actorWidth = movingActor.getWidth();
@@ -1519,12 +1544,12 @@ class GameEngine {
             const halfHeight = actorHeight / 2;
             
             // Use UNSCALED map dimensions
-            const mapWidth = this.currentMap.width;
-            const mapHeight = this.currentMap.height;
+            const mapWidth = mapData.width;
+            const mapHeight = mapData.height;
             
             // Check if actor would be outside map bounds
             // Allow walking off the edge IF there is an adjacent map in that direction
-            const adjacent = this.currentMap.adjacentMaps || {};
+            const adjacent = mapData.adjacentMaps || {};
             
             // Check West (Left)
             if (newX - halfWidth < 0) {
@@ -1551,47 +1576,25 @@ class GameEngine {
         
         // Check vector collision zones
         if (movingActor.canBeBlocked && this.collisionSystem) {
-            if (this.collisionSystem.checkZoneCollision(newX, newY, this, movingActor)) {
+            // Pass mapId to collision system
+            if (this.collisionSystem.checkZoneCollision(newX, newY, this, movingActor, mapId)) {
                 return { collides: true, object: 'vector_collision' };
             }
         }
         
         // Check painted collision areas
         if (movingActor.canBeBlocked && this.editorManager) {
-            const collisionLayer = this.editorManager.getCollisionLayer(this.currentMapId);
+            const collisionLayer = this.editorManager.getCollisionLayer(mapId);
             if (collisionLayer) {
-                // One-time debug to confirm system is active
-                if (!this._collisionSystemDebug) {
-                    this._collisionSystemDebug = true;
-                    console.log('✅ [Painted Collision System] Active and checking collisions');
-                    console.log('   - Map ID:', this.currentMapId);
-                    console.log('   - Canvas size:', collisionLayer.width, 'x', collisionLayer.height);
-                    console.log('   - Actor position:', Math.floor(movingActor.x), Math.floor(movingActor.y));
-                }
-                
                 // Check if the actor's collision bounds intersect with painted collision
                 if (this.checkPaintedCollision(newX, newY, movingActor, collisionLayer, game || this)) {
                     return { collides: true, object: 'painted_collision' };
                 }
-            } else {
-                // Debug: No collision layer found
-                if (!this._noCollisionLayerWarning) {
-                    this._noCollisionLayerWarning = true;
-                    console.warn('⚠️ [Painted Collision] No collision layer found for map', this.currentMapId);
-                }
-            }
-        } else {
-            // Debug: Conditions not met
-            if (!this._collisionCheckSkipped) {
-                this._collisionCheckSkipped = true;
-                console.warn('⚠️ [Painted Collision] Check skipped:');
-                console.warn('   - canBeBlocked:', movingActor.canBeBlocked);
-                console.warn('   - editorManager exists:', !!this.editorManager);
             }
         }
         
-        // Get all objects that could block movement on current map
-        const allObjects = this.getAllGameObjectsOnMap(this.currentMapId);
+        // Get all objects that could block movement on the actor's map
+        const allObjects = this.getAllGameObjectsOnMap(mapId);
         
         for (let obj of allObjects) {
             // Skip self-collision
@@ -1608,98 +1611,8 @@ class GameEngine {
                 return { collides: true, object: obj };
             }
         }
-
-        // Check objects on adjacent maps (Seamless Collision)
-        if (this.currentMap && this.currentMap.adjacentMaps) {
-            const adjacent = this.currentMap.adjacentMaps;
-            const resolutionScale = this.resolutionScale || 1.0;
-            const currentMapScale = this.currentMap.scale || 1.0;
-            const currentWidth = this.currentMap.width * currentMapScale * resolutionScale;
-            const currentHeight = this.currentMap.height * currentMapScale * resolutionScale;
-
-            const checkAdjacentMap = (mapId, offsetX, offsetY) => {
-                // Transform actor position to adjacent map's local space
-                const localX = newX - offsetX;
-                const localY = newY - offsetY;
-
-                // 1. Check Objects
-                const adjObjects = this.getAllGameObjectsOnMap(mapId);
-                if (adjObjects) {
-                    for (let obj of adjObjects) {
-                        if (obj === movingActor) continue;
-                        if (!obj.blocksMovement || !obj.hasCollision) continue;
-                        if (movingActor.wouldCollideAt(localX, localY, obj, game || this)) {
-                            return { type: 'object', object: obj };
-                        }
-                    }
-                }
-
-                // 2. Check Vector Zones (CollisionSystem)
-                if (this.collisionSystem) {
-                    // Pass local coordinates and the adjacent mapId
-                    if (this.collisionSystem.checkZoneCollision(localX, localY, game || this, movingActor, mapId)) {
-                        return { type: 'vector_collision', object: 'vector_collision' };
-                    }
-                }
-
-                // 3. Check Painted Collision (EditorManager)
-                if (this.editorManager) {
-                    const collisionLayer = this.editorManager.getCollisionLayer(mapId);
-                    if (collisionLayer) {
-                         // Calculate current position in adjacent map's scaled space
-                         const mapData = this.mapManager.getMapData(mapId);
-                         const adjMapScale = mapData.scale || 1.0;
-                         
-                         const currentPosOverride = {
-                             x: (movingActor.x - offsetX) * adjMapScale * resolutionScale,
-                             y: (movingActor.y - offsetY) * adjMapScale * resolutionScale
-                         };
-                         
-                         if (this.checkPaintedCollision(localX, localY, movingActor, collisionLayer, game || this, currentPosOverride)) {
-                            return { type: 'painted_collision', object: 'painted_collision' };
-                         }
-                    }
-                }
-
-                return null;
-            };
-
-            // Check North
-            if (adjacent.north) {
-                const mapData = this.mapManager.getMapData(adjacent.north);
-                if (mapData) {
-                    const mapScale = mapData.scale || 1.0;
-                    const height = mapData.height * mapScale * resolutionScale;
-                    const collidedObj = checkAdjacentMap(adjacent.north, 0, -height);
-                    if (collidedObj) return { collides: true, object: collidedObj };
-                }
-            }
-
-            // Check South
-            if (adjacent.south) {
-                const collidedObj = checkAdjacentMap(adjacent.south, 0, currentHeight);
-                if (collidedObj) return { collides: true, object: collidedObj };
-            }
-
-            // Check West
-            if (adjacent.west) {
-                const mapData = this.mapManager.getMapData(adjacent.west);
-                if (mapData) {
-                    const mapScale = mapData.scale || 1.0;
-                    const width = mapData.width * mapScale * resolutionScale;
-                    const collidedObj = checkAdjacentMap(adjacent.west, -width, 0);
-                    if (collidedObj) return { collides: true, object: collidedObj };
-                }
-            }
-
-            // Check East
-            if (adjacent.east) {
-                const collidedObj = checkAdjacentMap(adjacent.east, currentWidth, 0);
-                if (collidedObj) return { collides: true, object: collidedObj };
-            }
-        }
         
-        return { collides: false, object: null };
+        return { collides: false };
     }
     
     /**

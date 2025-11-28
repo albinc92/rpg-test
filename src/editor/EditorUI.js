@@ -694,7 +694,7 @@ class EditorUI {
             
             // Reinitialize spawn system immediately when density changes
             if (this.editor.game.spawnManager) {
-                this.editor.game.spawnManager.initialize(this.editor.game.currentMapId);
+                this.editor.game.spawnManager.refreshMap(this.editor.game.currentMapId);
             }
         }, { min: 0, step: 1 });
         densityContainer.appendChild(densityField);
@@ -751,7 +751,7 @@ class EditorUI {
                         
                         // Reinitialize spawn system immediately
                         if (this.editor.game.spawnManager) {
-                            this.editor.game.spawnManager.initialize(this.editor.game.currentMapId);
+                            this.editor.game.spawnManager.refreshMap(this.editor.game.currentMapId);
                         }
                     };
                     
@@ -872,7 +872,7 @@ class EditorUI {
             
             // Reinitialize spawn system immediately
             if (this.editor.game.spawnManager) {
-                this.editor.game.spawnManager.initialize(this.editor.game.currentMapId);
+                this.editor.game.spawnManager.refreshMap(this.editor.game.currentMapId);
             }
             
             this.showNotification('✅ Spawn entry added!');
@@ -943,7 +943,7 @@ class EditorUI {
             // Reinitialize spawn system with new spawn configuration
             if (this.editor.game.spawnManager) {
                 console.log('[EditorUI] Reinitializing spawn system with new configuration');
-                this.editor.game.spawnManager.initialize(this.editor.game.currentMapId);
+                this.editor.game.spawnManager.refreshMap(this.editor.game.currentMapId);
             }
             
             // Reload adjacent maps to ensure they are visible immediately
