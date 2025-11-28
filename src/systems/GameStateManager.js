@@ -914,6 +914,7 @@ class PausedState extends GameState {
         console.log('Current BGM:', this.game.audioManager?.currentBGM?.src || 'none');
         this.selectedOption = 0;
         this.options = ['Resume', 'Save/Load', 'Settings', 'Main Menu'];
+        this.inputCooldown = 0.2; // Add cooldown
         
         this.showExitConfirm = false;
         this.exitConfirmOption = 1; // Default to No
@@ -923,8 +924,16 @@ class PausedState extends GameState {
             this.game.touchControlsUI.updateButtonLabels('menu');
         }
     }
+
+    update(deltaTime) {
+        if (this.inputCooldown > 0) {
+            this.inputCooldown -= deltaTime;
+        }
+    }
     
     handleInput(inputManager) {
+        if (this.inputCooldown > 0) return;
+
         if (this.showExitConfirm) {
             if (inputManager.isJustPressed('cancel')) {
                 this.showExitConfirm = false;
@@ -2337,6 +2346,7 @@ class InventoryState extends GameState {
         this.selectedOption = 0;
         this.scrollOffset = 0;
         this.maxVisibleItems = 8;
+        this.inputCooldown = 0.2; // Add cooldown to prevent immediate closing
         
         // Get items from inventory manager
         this.items = this.game.inventoryManager.getAllSlots();
@@ -2348,7 +2358,15 @@ class InventoryState extends GameState {
         }
     }
     
+    update(deltaTime) {
+        if (this.inputCooldown > 0) {
+            this.inputCooldown -= deltaTime;
+        }
+    }
+    
     handleInput(inputManager) {
+        if (this.inputCooldown > 0) return;
+
         if (inputManager.isJustPressed('cancel') || inputManager.isJustPressed('inventory') || inputManager.isJustPressed('menu')) {
             this.stateManager.popState();
             return;
