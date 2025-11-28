@@ -390,6 +390,16 @@ class ObjectManager {
     }
 
     /**
+     * Clear all objects and reset state
+     */
+    clear() {
+        this.objects = {};
+        this.initializedMaps.clear();
+        this.objectRegistry.clear();
+        console.log('[ObjectManager] All objects cleared');
+    }
+
+    /**
      * Get all objects across all maps (for debugging)
      */
     getAllObjects() {

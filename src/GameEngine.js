@@ -1513,6 +1513,39 @@ class GameEngine {
         
         console.log('✅ GameEngine cleanup complete');
     }
+    
+    /**
+     * Reset game state for a new game or when exiting to main menu
+     */
+    resetGame() {
+        console.log('🔄 Resetting game state...');
+        
+        // Reset player
+        this.initializePlayer();
+        
+        // Reset map state
+        this.currentMapId = '0-0'; // Default start map
+        this.currentMap = null;
+        
+        // Clear managers
+        if (this.objectManager) this.objectManager.clear();
+        if (this.spawnManager) this.spawnManager.clear();
+        if (this.lightManager) this.lightManager.clearLights();
+        if (this.weatherSystem) this.weatherSystem.setWeather('clear');
+        if (this.dayNightCycle) this.dayNightCycle.setTime(12); // Reset to noon
+        
+        // Reset playtime
+        this.playtime = 0;
+        
+        // Reset camera
+        if (this.camera) {
+            this.camera.x = 0;
+            this.camera.y = 0;
+            this.camera.target = this.player;
+        }
+        
+        console.log('✅ Game state reset complete');
+    }
 }
 
 // Export for use

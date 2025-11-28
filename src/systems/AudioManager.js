@@ -198,6 +198,10 @@ class AudioManager {
             
             // Start playing the new track
             const playPromise = newBGM.play();
+            
+            // Update current BGM immediately to prevent stacking
+            this.currentBGM = safeFilename;
+            
             if (playPromise !== undefined) {
                 playPromise.then(() => {
                     console.log(`[AudioManager] ✅ BGM '${safeFilename}' loaded successfully, starting crossfade`);
@@ -205,6 +209,10 @@ class AudioManager {
                 }).catch(error => {
                     console.error(`[AudioManager] ❌ Failed to play BGM '${safeFilename}':`, error);
                     this.audioElements.delete(newBGM);
+                    // Revert currentBGM if playback failed
+                    if (this.currentBGM === safeFilename) {
+                        this.currentBGM = null;
+                    }
                 });
             }
         };
@@ -259,7 +267,7 @@ class AudioManager {
                 
                 // Set new audio as current
                 this.bgmAudio = newAudio;
-                this.currentBGM = newFilename;
+                // this.currentBGM = newFilename; // Already set in playBGM
                 newAudio.volume = this.calculateBGMVolume();
                 
                 console.log(`[AudioManager] Crossfade complete, now playing: ${newFilename}`);
@@ -269,7 +277,14 @@ class AudioManager {
 
     // Crossfade out current BGM (for stopping)
     crossfadeBGMOut(duration = this.DEFAULT_CROSSFADE_DURATION) {
-        if (!this.bgmAudio || this.bgmAudio.paused) return;
+        if (!this.bgmAudio || this.bgmAudio.paused) {
+            this.currentBGM = null; // Ensure currentBGM is cleared if nothing is playing
+            return;
+        }
+
+        // If we're already fading out, don't start another one
+        // But DO clear currentBGM so new tracks can start
+        this.currentBGM = null;
 
         const steps = 50;
         const stepTime = duration / steps;
@@ -309,12 +324,12 @@ class AudioManager {
     stopBGM() {
         if (this.bgmAudio && !this.bgmAudio.paused) {
             console.log(`[AudioManager] Stopping BGM: ${this.currentBGM}`);
-            this.bgmAudio.pause();
-            this.bgmAudio.currentTime = 0;
+            this.crossfadeBGMOut(1000);
+        } else {
+            // Reset currentBGM to allow new BGM to start even if nothing was playing
+            this.currentBGM = null;
+            console.log('[AudioManager] BGM stopped and tracking cleared');
         }
-        // Reset currentBGM to allow new BGM to start
-        this.currentBGM = null;
-        console.log('[AudioManager] BGM stopped and tracking cleared');
     }
 
     pauseBGM() {

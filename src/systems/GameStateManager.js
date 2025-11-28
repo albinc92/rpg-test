@@ -98,6 +98,20 @@ class GameStateManager {
     }
     
     /**
+     * Clear the state stack (e.g. when returning to main menu)
+     */
+    clearStack() {
+        // Exit all states in the stack from top to bottom
+        while (this.stateStack.length > 0) {
+            const stackItem = this.stateStack.pop();
+            const state = this.states[stackItem.state];
+            if (state && state.exit) {
+                state.exit();
+            }
+        }
+    }
+
+    /**
      * Pop the current state and return to previous
      */
     popState() {
@@ -536,8 +550,8 @@ class MainMenuState extends GameState {
                 }
                 break;
             case 'New Game':
-                // Start new game - reset playtime
-                this.game.playtime = 0;
+                // Start new game - reset everything
+                this.game.resetGame();
                 this.stateManager.changeState('PLAYING', { isNewGame: true });
                 break;
             case 'Load Game':
@@ -901,6 +915,9 @@ class PausedState extends GameState {
         this.selectedOption = 0;
         this.options = ['Resume', 'Save/Load', 'Settings', 'Main Menu'];
         
+        this.showExitConfirm = false;
+        this.exitConfirmOption = 1; // Default to No
+        
         // Touch controls are already visible, just ensure menu labels
         if (this.game.touchControlsUI && this.game.touchControlsUI.isVisible()) {
             this.game.touchControlsUI.updateButtonLabels('menu');
@@ -908,6 +925,30 @@ class PausedState extends GameState {
     }
     
     handleInput(inputManager) {
+        if (this.showExitConfirm) {
+            if (inputManager.isJustPressed('cancel')) {
+                this.showExitConfirm = false;
+                return;
+            }
+            
+            if (inputManager.isJustPressed('left') || inputManager.isJustPressed('right')) {
+                this.exitConfirmOption = this.exitConfirmOption === 0 ? 1 : 0;
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+            }
+            
+            if (inputManager.isJustPressed('confirm')) {
+                if (this.exitConfirmOption === 0) { // Yes
+                    this.stateManager.clearStack();
+                    // Reset game state when exiting to main menu
+                    this.game.resetGame();
+                    this.stateManager.changeState('MAIN_MENU');
+                } else { // No
+                    this.showExitConfirm = false;
+                }
+            }
+            return;
+        }
+
         if (inputManager.isJustPressed('menu') || inputManager.isJustPressed('cancel')) {
             this.stateManager.popState();
             return;
@@ -915,10 +956,12 @@ class PausedState extends GameState {
         
         if (inputManager.isJustPressed('up')) {
             this.selectedOption = Math.max(0, this.selectedOption - 1);
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
         }
         
         if (inputManager.isJustPressed('down')) {
             this.selectedOption = Math.min(this.options.length - 1, this.selectedOption + 1);
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
         }
         
         if (inputManager.isJustPressed('confirm')) {
@@ -938,7 +981,8 @@ class PausedState extends GameState {
                 this.stateManager.pushState('SETTINGS');
                 break;
             case 3: // Main Menu
-                this.stateManager.changeState('MAIN_MENU');
+                this.showExitConfirm = true;
+                this.exitConfirmOption = 1; // Default to No
                 break;
         }
     }
@@ -950,6 +994,7 @@ class PausedState extends GameState {
         
         // Use MenuRenderer for consistent styling
         const menuRenderer = this.stateManager.menuRenderer;
+        const sizes = menuRenderer.getFontSizes(canvasHeight);
         
         // Draw overlay
         menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.7);
@@ -967,6 +1012,61 @@ class PausedState extends GameState {
             0.45,  // Start Y position
             0.10   // Spacing
         );
+
+        // Draw Exit Confirmation Modal
+        if (this.showExitConfirm) {
+            // Semi-transparent black background for modal
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+            
+            const modalWidth = canvasWidth * 0.5;
+            const modalHeight = canvasHeight * 0.35;
+            const modalX = (canvasWidth - modalWidth) / 2;
+            const modalY = (canvasHeight - modalHeight) / 2;
+            
+            // Modal Border
+            ctx.strokeStyle = '#ff4444';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(modalX, modalY, modalWidth, modalHeight);
+            
+            // Modal Background
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(modalX, modalY, modalWidth, modalHeight);
+            
+            // Title
+            ctx.fillStyle = '#fff';
+            ctx.font = `bold ${sizes.title * 0.6}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText('Quit to Main Menu?', canvasWidth / 2, modalY + 50);
+            
+            // Message
+            ctx.font = `${sizes.text}px Arial`;
+            ctx.fillStyle = '#ccc';
+            ctx.fillText('Unsaved progress will be lost.', canvasWidth / 2, modalY + 100);
+            
+            // Options
+            const options = ['Yes', 'No'];
+            const optionY = modalY + modalHeight - 60;
+            const optionSpacing = modalWidth / 3;
+            
+            options.forEach((opt, index) => {
+                // Center the two options
+                const startX = modalX + (modalWidth - (optionSpacing * (options.length - 1))) / 2;
+                const optX = startX + (optionSpacing * index);
+                
+                const isSelected = index === this.exitConfirmOption;
+                
+                if (isSelected) {
+                    ctx.fillStyle = '#ff4444';
+                    ctx.font = `bold ${sizes.text}px Arial`;
+                    ctx.fillText(`> ${opt} <`, optX, optionY);
+                } else {
+                    ctx.fillStyle = '#888';
+                    ctx.font = `${sizes.text}px Arial`;
+                    ctx.fillText(opt, optX, optionY);
+                }
+            });
+        }
     }
 }
 
@@ -1968,7 +2068,7 @@ class SettingsState extends GameState {
                     value = `< ${settings[option.key]} >`;
                 } else {
                     value = `${settings[option.key]}`;
-                }
+                               }
             }
             
             return {

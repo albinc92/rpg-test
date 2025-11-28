@@ -644,6 +644,18 @@ class SpawnManager {
     }
 
     /**
+     * Clear all spawn data (used for game reset)
+     */
+    clear() {
+        this.clearSpawns();
+        this.spawnTable = [];
+        this.currentMapId = null;
+        this.spawnZoneCache = null;
+        this.spawnZoneCacheValid = false;
+        console.log('[SpawnManager] Full reset complete');
+    }
+
+    /**
      * Get spawn statistics for debugging
      */
     getStats() {
