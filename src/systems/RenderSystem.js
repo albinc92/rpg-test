@@ -197,8 +197,9 @@ class RenderSystem {
         // Restore adjacent objects to their original positions
         restoreAdjacentObjects();
 
-        // Render vector zones if debug mode is enabled
-        if (game.settings && game.settings.showDebugInfo) {
+        // Render vector zones if debug mode is enabled (but NOT if editor is active - editor renders them itself)
+        const editorIsActive = game.editorManager && game.editorManager.isActive;
+        if (game.settings && game.settings.showDebugInfo && !editorIsActive) {
             this.renderVectorZones(game);
         }
         
