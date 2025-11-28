@@ -191,61 +191,11 @@ class RenderSystem {
         // Collect objects from adjacent maps with offsets applied
         const { objects: adjacentObjects, restore: restoreAdjacentObjects } = this.collectAdjacentObjects(adjacentMapsData, map, game);
 
-        // Check if layer system is available and has layers
-        const hasLayers = game?.layerManager && game.layerManager.hasLayers(game.currentMapId);
-        
-        if (hasLayers) {
-            // Render with layer system
-            this.renderWithLayers(map, objects, npcs, player, game, adjacentObjects);
-        } else {
-            // Fallback: Render without layers (legacy)
-            this.renderLegacy(map, objects, npcs, player, game, adjacentObjects);
-        }
+        // Render all objects with simple depth sorting (no layers)
+        this.renderMapAndObjects(map, objects, npcs, player, game, adjacentObjects);
         
         // Restore adjacent objects to their original positions
         restoreAdjacentObjects();
-        
-        // Collect and sort all renderable objects by y position (for depth sorting)
-        const renderables = [];
-        
-        // Helper function to get render depth based on collision box center
-        // This ensures accurate depth sorting for both ground-based and floating objects
-        const getDepth = (obj, game) => {
-            // Get collision circle which returns the true center of the collision box
-            // This accounts for collision offsets and expansion, not just sprite center
-            const collisionCircle = obj.getCollisionCircle(game);
-            return collisionCircle.centerY;
-        };
-        
-        // Add NPCs
-        npcs.forEach(npc => {
-            renderables.push({ obj: npc, depth: getDepth(npc, game) });
-        });
-        
-        // Add player
-        if (player) {
-            renderables.push({ obj: player, depth: getDepth(player, game) });
-        }
-        
-        // Add interactive objects
-        objects.forEach(obj => {
-            renderables.push({ obj: obj, depth: getDepth(obj, game) });
-        });
-        
-        // Sort by depth position for proper rendering (lower depth = render first = behind)
-        renderables.sort((a, b) => a.depth - b.depth);
-        
-        // Render all objects in sorted order
-        renderables.forEach(({ obj }) => {
-            obj.render(this.ctx, game, this.webglRenderer);
-        });
-        
-        // Render debug collision boxes if debug mode OR editor collision mode is enabled
-        const showCollision = (game.settings && game.settings.showDebugInfo) || 
-                             (game.editorManager && game.editorManager.isActive && game.editorManager.showCollisionBoxes);
-        if (showCollision) {
-            this.renderDebugCollisionBoxes(renderables, game);
-        }
 
         // Render vector zones if debug mode is enabled
         if (game.settings && game.settings.showDebugInfo) {
@@ -425,284 +375,9 @@ class RenderSystem {
     }
     
     /**
-     * Render world with layer system
+     * Render map background and all objects with simple depth sorting
      */
-    renderWithLayers(map, objects, npcs, player, game, adjacentObjects = []) {
-        const layers = game.layerManager.getLayers(game.currentMapId);
-        const activeLayerId = game.layerManager.activeLayerId;
-        const isEditorActive = game.editorManager && game.editorManager.isActive;
-        const showAllMode = isEditorActive && game.editorManager.layerPanel && game.editorManager.layerPanel.isShowAllMode();
-        
-        // Determine which layers to render - always show all visible layers
-        // In edit mode, non-active layers will be dimmed
-        const layersToRender = layers.filter(layer => layer.visible);
-        
-        // Prepare list of ALL objects for shadow rendering (Global Shadow Pass)
-        // This ensures all shadows are rendered in a single pass to prevent accumulation
-        const allShadowObjects = [...objects, ...npcs, ...adjacentObjects];
-        if (player) allShadowObjects.push(player);
-        
-        // Identify the bottom-most visible layer to render shadows on
-        // Assuming layers are sorted by zIndex (or at least the first one is bottom)
-        // If layers are not sorted, we should sort them or find min zIndex
-        const sortedLayers = [...layersToRender].sort((a, b) => a.zIndex - b.zIndex);
-        const bottomLayerId = sortedLayers.length > 0 ? sortedLayers[0].id : null;
-        
-        // Render each layer from bottom to top
-        layersToRender.forEach((layer, index) => {
-            this.ctx.save();
-            
-            // Apply dimming for non-active layers in edit mode
-            const isActiveLayer = layer.id === activeLayerId;
-            const shouldDim = isEditorActive && !showAllMode && !isActiveLayer;
-            
-            if (shouldDim) {
-                this.ctx.globalAlpha = 0.4; // Dim non-active layers
-            } else {
-                this.ctx.globalAlpha = layer.opacity;
-            }
-            
-            // Use GLOBAL GAME SCALE if available
-            const mapScale = game.GAME_SCALE || map.scale || 1.0;
-            const resolutionScale = game?.resolutionScale || 1.0;
-            const scaledWidth = map.width * mapScale * resolutionScale;
-            const scaledHeight = map.height * mapScale * resolutionScale;
-            
-            // 1. Render layer background
-            // Fallback: If layer has no background image but it's the base layer (index 0), use the map's main image
-            // This prevents black screens if the layer system isn't fully synced with the map data yet
-            let bgImage = layer.backgroundImage;
-            if (!bgImage && index === 0 && map.image) {
-                bgImage = map.image;
-                // console.warn('[RenderSystem] Layer 0 missing background, using map.image fallback');
-            }
-
-            if (bgImage && bgImage.complete) {
-                // Use WebGL or Canvas2D based on availability
-                if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
-                    // WebGL path - batched GPU rendering
-                    const imageUrl = bgImage.src || `layer_${layer.id}_bg`;
-                    this.webglRenderer.drawSprite(
-                        0, 0, 
-                        scaledWidth, scaledHeight,
-                        bgImage,
-                        imageUrl
-                    );
-                } else {
-                    // Canvas2D fallback
-                    this.ctx.drawImage(bgImage, 0, 0, scaledWidth, scaledHeight);
-                }
-            }
-            
-            // 2. Render paint canvas (prefer baked image for performance)
-            // Paint layer should always be UNDER objects on the same layer
-            if (layer.paintImageReady && layer.paintImage) {
-                // Use WebGL if available for better performance
-                if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
-                    const imageUrl = `paint_layer_${layer.id}`;
-                    this.webglRenderer.drawSprite(0, 0, scaledWidth, scaledHeight, layer.paintImage, imageUrl);
-                } else {
-                    this.ctx.drawImage(layer.paintImage, 0, 0);
-                }
-            } else if (layer.paintCanvas) {
-                // Paint canvas is being actively edited
-                // MUST render to WebGL canvas (background layer) so it stays UNDER sprites
-                if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
-                    // Use a temporary cache key for the live paint canvas
-                    const imageUrl = `paint_canvas_${layer.id}`;
-                    this.webglRenderer.drawSprite(0, 0, scaledWidth, scaledHeight, layer.paintCanvas, imageUrl);
-                } else {
-                    // Canvas2D fallback
-                    this.ctx.drawImage(layer.paintCanvas, 0, 0);
-                }
-            }
-            
-            this.ctx.restore();
-            
-            // 3. Render objects on this layer (filtered by layerId)
-            const layerSpriteObjects = objects.filter(obj => obj.layerId === layer.id);
-            
-            // Add NPCs and player to the appropriate layer
-            // Player usually belongs on zIndex 1 (Objects/Entities)
-            // If no zIndex 1 exists, fallback to Top Layer
-            const isTopLayer = !layer || (layer && layer.zIndex === Math.max(...game.layerManager.getLayers(game.currentMapId).map(l => l.zIndex)));
-            const isObjectLayer = layer && layer.zIndex === 1;
-            
-            // Determine if player should be on this layer
-            // Priority: 1. Matches player.layerId (if set)
-            //           2. Is "Objects" layer (zIndex 1)
-            //           3. Is Top Layer (fallback if no Objects layer)
-            let shouldRenderPlayer = false;
-            if (player) {
-                if (player.layerId) {
-                    shouldRenderPlayer = (player.layerId === layer.id);
-                } else {
-                    const hasObjectLayer = game.layerManager.getLayers(game.currentMapId).some(l => l.zIndex === 1);
-                    shouldRenderPlayer = isObjectLayer || (!hasObjectLayer && isTopLayer);
-                }
-            }
-
-            const spriteObjects = [...layerSpriteObjects];
-            
-            // Add NPCs to Object Layer (or Top if none)
-            if (isObjectLayer || (!game.layerManager.getLayers(game.currentMapId).some(l => l.zIndex === 1) && isTopLayer)) {
-                spriteObjects.push(...npcs);
-            }
-
-            if (shouldRenderPlayer) {
-                spriteObjects.push(player);
-            }
-
-            // Add adjacent objects that belong to this layer's zIndex
-            if (adjacentObjects && adjacentObjects.length > 0) {
-                const layerZ = layer ? layer.zIndex : 0;
-                const relevantAdjacent = adjacentObjects.filter(obj => obj._tempZIndex === layerZ);
-                spriteObjects.push(...relevantAdjacent);
-            }
-            
-            // Determine objects for shadows
-            // Render ALL shadows on the bottom-most visible layer ONLY
-            // This puts all shadows on the "ground" and prevents accumulation across layers
-            const shouldRenderShadows = layer.id === bottomLayerId;
-            const shadowObjects = shouldRenderShadows ? allShadowObjects : [];
-            
-            this.renderLayerObjects(spriteObjects, shadowObjects, game, layer, shouldDim);
-        });
-        
-        // Render objects without layerId (legacy objects) - always on top
-        // Note: adjacentObjects are now handled in the top layer loop above
-        const unassignedObjects = objects.filter(obj => !obj.layerId);
-        if (unassignedObjects.length > 0) {
-            // If we haven't rendered shadows yet (e.g. no layers rendered?), render them now
-            // But usually layers cover everything. If unassigned objects exist, they are just sprites.
-            this.renderLayerObjects(unassignedObjects, [], game, null, false);
-        }
-        
-        // Render collision layer (if editor has painted collision areas)
-        // Only show when debug mode (F1) OR editor is active with collision boxes enabled
-        if (game?.editorManager) {
-            const showCollisions = (game.settings && game.settings.showDebugInfo) || 
-                                  (game.editorManager.isActive && game.editorManager.showCollisionBoxes);
-            
-            const collisionLayer = game.editorManager.getCollisionLayer(game.currentMapId);
-            if (collisionLayer && showCollisions) {
-                // Use baked image if available for performance
-                const imageSource = (collisionLayer._imageReady && collisionLayer._bakedImage) ? collisionLayer._bakedImage : collisionLayer;
-                
-                // Use WebGL if available
-                if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
-                    // Flush any pending draws first so we can draw collision with custom alpha
-                    this.webglRenderer.flush();
-                    
-                    const imageUrl = `collision_layer_${game.currentMapId}`;
-                    const texture = this.webglRenderer.textures.get(imageUrl) || this.webglRenderer.loadTexture(imageSource, imageUrl);
-                    
-                    // Manually draw with alpha by flushing immediately
-                    this.webglRenderer.currentTexture = texture;
-                    this.webglRenderer.batchVertices.push(0, 0, collisionLayer.width, 0, collisionLayer.width, collisionLayer.height, 0, collisionLayer.height);
-                    this.webglRenderer.batchTexCoords.push(0, 0, 1, 0, 1, 1, 0, 1);
-                    this.webglRenderer.currentBatchSize = 1;
-                    this.webglRenderer.flushWithAlpha(0.3);
-                } else {
-                    // Canvas2D fallback
-                    this.ctx.save();
-                    this.ctx.globalAlpha = 0.3;
-                    this.ctx.drawImage(imageSource, 0, 0);
-                    this.ctx.restore();
-                }
-            }
-            
-            // Render spawn zones if enabled (F1 debug mode OR editor)
-            const showSpawnZones = (game.settings && game.settings.showDebugInfo) ||
-                                   (game.editorManager.isActive && game.editorManager.showSpawnZones);
-            const spawnLayer = game.editorManager.getSpawnLayer(game.currentMapId);
-            if (spawnLayer && showSpawnZones) {
-                // Use baked image if available for performance
-                const imageSource = (spawnLayer._imageReady && spawnLayer._bakedImage) ? spawnLayer._bakedImage : spawnLayer;
-                
-                // Use WebGL if available
-                if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
-                    // Flush any pending draws first so we can draw spawn with custom alpha
-                    this.webglRenderer.flush();
-                    
-                    const imageUrl = `spawn_layer_${game.currentMapId}`;
-                    const texture = this.webglRenderer.textures.get(imageUrl) || this.webglRenderer.loadTexture(imageSource, imageUrl);
-                    
-                    // Manually draw with alpha by flushing immediately
-                    this.webglRenderer.currentTexture = texture;
-                    this.webglRenderer.batchVertices.push(0, 0, spawnLayer.width, 0, spawnLayer.width, spawnLayer.height, 0, spawnLayer.height);
-                    this.webglRenderer.batchTexCoords.push(0, 0, 1, 0, 1, 1, 0, 1);
-                    this.webglRenderer.currentBatchSize = 1;
-                    this.webglRenderer.flushWithAlpha(0.5);
-                } else {
-                    // Canvas2D fallback
-                    this.ctx.save();
-                    this.ctx.globalAlpha = 0.5;
-                    this.ctx.drawImage(imageSource, 0, 0);
-                    this.ctx.restore();
-                }
-            }
-        }
-    }
-    
-    /**
-     * Render objects on a specific layer with depth sorting
-     * @param {Array} spriteObjects - Objects to render sprites for
-     * @param {Array} shadowObjects - Objects to render shadows for (can be different list)
-     */
-    renderLayerObjects(spriteObjects, shadowObjects, game, layer, shouldDim) {
-        // SHADOW PASS: Render shadows for ALL provided shadowObjects
-        // This is usually called only for the bottom layer with ALL game objects
-        if (this.webglRenderer && this.webglRenderer.initialized && shadowObjects && shadowObjects.length > 0) {
-            this.webglRenderer.beginShadowPass();
-            
-            // Render shadows for all objects in the shadow list
-            // No depth sorting needed for shadows as they are flattened and MAX blended
-            shadowObjects.forEach(obj => {
-                // Force render to only draw shadow (GameObject checks renderingShadows flag)
-                obj.render(this.ctx, game, this.webglRenderer);
-            });
-            
-            this.webglRenderer.endShadowPass();
-        }
-        
-        // SPRITE PASS: Render sprites for spriteObjects (depth sorted)
-        const renderables = [];
-        
-        // Helper function to get render depth
-        const getDepth = (obj, game) => {
-            const finalScale = obj.getFinalScale(game);
-            const baseHeight = obj.spriteHeight || obj.fallbackHeight || 0;
-            const renderedHeight = baseHeight * finalScale;
-            const scaledY = obj.getScaledY(game);
-            return scaledY + (renderedHeight / 2);
-        };
-        
-        // Add sprite objects to render list
-        spriteObjects.forEach(obj => {
-            renderables.push({ obj: obj, depth: getDepth(obj, game) });
-        });
-        
-        // Sort by depth
-        renderables.sort((a, b) => a.depth - b.depth);
-        
-        // Render with dimming if needed
-        this.ctx.save();
-        if (shouldDim) {
-            this.ctx.globalAlpha = 0.4;
-        }
-        
-        renderables.forEach(({ obj }) => {
-            obj.render(this.ctx, game, this.webglRenderer);
-        });
-        
-        this.ctx.restore();
-    }
-    
-    /**
-     * Legacy rendering without layers
-     */
-    renderLegacy(map, objects, npcs, player, game, adjacentObjects = []) {
+    renderMapAndObjects(map, objects, npcs, player, game, adjacentObjects = []) {
         // Render map background (with scale applied)
         if (map && map.image && map.image.complete) {
             // Use GLOBAL GAME SCALE if available
@@ -798,10 +473,16 @@ class RenderSystem {
         // Collect and sort all renderable objects
         const renderables = [];
         const getDepth = (obj, game) => {
-            const finalScale = obj.getFinalScale(game);
+            // Use collision circle center for depth sorting (intentional design choice)
+            if (obj.getCollisionCircle) {
+                const collisionCircle = obj.getCollisionCircle(game);
+                return collisionCircle.centerY;
+            }
+            // Fallback to sprite center
+            const finalScale = obj.getFinalScale ? obj.getFinalScale(game) : 1.0;
             const baseHeight = obj.spriteHeight || obj.fallbackHeight || 0;
             const renderedHeight = baseHeight * finalScale;
-            const scaledY = obj.getScaledY(game);
+            const scaledY = obj.getScaledY ? obj.getScaledY(game) : obj.y;
             return scaledY + (renderedHeight / 2);
         };
         
@@ -1043,31 +724,17 @@ class RenderSystem {
             const unscaledOffsetX = offsetX / totalScale;
             const unscaledOffsetY = offsetY / totalScale;
 
-            const layers = game.layerManager.getLayers(mapId);
-            const layerZIndexMap = {};
-            if (layers) {
-                layers.forEach(l => layerZIndexMap[l.id] = l.zIndex);
-            }
-
             objects.forEach(obj => {
                 // Store original position
                 modifiedObjects.push({
                     obj: obj,
                     originalX: obj.x,
-                    originalY: obj.y,
-                    originalTempZ: obj._tempZIndex // Save just in case
+                    originalY: obj.y
                 });
 
                 // Apply offset
                 obj.x += unscaledOffsetX;
                 obj.y += unscaledOffsetY;
-                
-                // Attach temporary zIndex for sorting in renderWithLayers
-                // Default to 0 (Ground) if not found, or 1 (Objects) if undefined?
-                // Safest is 0.
-                obj._tempZIndex = (obj.layerId && layerZIndexMap[obj.layerId] !== undefined) 
-                    ? layerZIndexMap[obj.layerId] 
-                    : 0;
                 
                 collectedObjects.push(obj);
             });
@@ -1103,11 +770,6 @@ class RenderSystem {
                 modifiedObjects.forEach(item => {
                     item.obj.x = item.originalX;
                     item.obj.y = item.originalY;
-                    if (item.originalTempZ !== undefined) {
-                        item.obj._tempZIndex = item.originalTempZ;
-                    } else {
-                        delete item.obj._tempZIndex;
-                    }
                 });
             }
         };
