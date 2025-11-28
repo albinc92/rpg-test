@@ -108,7 +108,8 @@ class GameObject {
      */
     getScaledX(game) {
         const resolutionScale = game?.resolutionScale || 1.0;
-        const mapScale = game?.currentMap?.scale || 1.0;
+        // Use GLOBAL GAME SCALE if available
+        const mapScale = game?.GAME_SCALE || game?.currentMap?.scale || 1.0;
         return this.x * mapScale * resolutionScale;
     }
     
@@ -117,7 +118,8 @@ class GameObject {
      */
     getScaledY(game) {
         const resolutionScale = game?.resolutionScale || 1.0;
-        const mapScale = game?.currentMap?.scale || 1.0;
+        // Use GLOBAL GAME SCALE if available
+        const mapScale = game?.GAME_SCALE || game?.currentMap?.scale || 1.0;
         return this.y * mapScale * resolutionScale;
     }
     

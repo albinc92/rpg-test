@@ -456,7 +456,8 @@ class RenderSystem {
                 this.ctx.globalAlpha = layer.opacity;
             }
             
-            const mapScale = map.scale || 1.0;
+            // Use GLOBAL GAME SCALE if available
+            const mapScale = game.GAME_SCALE || map.scale || 1.0;
             const resolutionScale = game?.resolutionScale || 1.0;
             const scaledWidth = map.width * mapScale * resolutionScale;
             const scaledHeight = map.height * mapScale * resolutionScale;
@@ -668,7 +669,8 @@ class RenderSystem {
     renderLegacy(map, objects, npcs, player, game) {
         // Render map background (with scale applied)
         if (map && map.image && map.image.complete) {
-            const mapScale = map.scale || 1.0;
+            // Use GLOBAL GAME SCALE if available
+            const mapScale = game.GAME_SCALE || map.scale || 1.0;
             const resolutionScale = game?.resolutionScale || 1.0;
             const scaledWidth = map.width * mapScale * resolutionScale;
             const scaledHeight = map.height * mapScale * resolutionScale;
@@ -689,7 +691,7 @@ class RenderSystem {
                 // Use WebGL if available for better performance
                 if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
                     const imageUrl = `paint_legacy_${game.currentMapId}`;
-                    const mapScale = map.scale || 1.0;
+                    const mapScale = game.GAME_SCALE || map.scale || 1.0;
                     const resolutionScale = game?.resolutionScale || 1.0;
                     const scaledWidth = map.width * mapScale * resolutionScale;
                     const scaledHeight = map.height * mapScale * resolutionScale;
@@ -924,7 +926,8 @@ class RenderSystem {
         if (!adjacentMaps || Object.keys(adjacentMaps).length === 0) return;
 
         const resolutionScale = game.resolutionScale || 1.0;
-        const currentMapScale = currentMap.scale || 1.0;
+        // Use GLOBAL GAME SCALE if available, otherwise fallback to map scale
+        const currentMapScale = game.GAME_SCALE || currentMap.scale || 1.0;
         const currentWidth = currentMap.width * currentMapScale * resolutionScale;
         const currentHeight = currentMap.height * currentMapScale * resolutionScale;
 
@@ -932,7 +935,7 @@ class RenderSystem {
         const renderMapContent = (mapId, mapData, offsetX, offsetY) => {
             if (!mapData || !mapData.image) return;
             
-            const mapScale = mapData.scale || 1.0;
+            const mapScale = game.GAME_SCALE || mapData.scale || 1.0;
             const width = mapData.width * mapScale * resolutionScale;
             const height = mapData.height * mapScale * resolutionScale;
             
@@ -1022,7 +1025,7 @@ class RenderSystem {
         // Render North
         if (adjacentMaps.north) {
             const mapData = adjacentMaps.north;
-            const mapScale = mapData.scale || 1.0;
+            const mapScale = game.GAME_SCALE || mapData.scale || 1.0;
             const height = mapData.height * mapScale * resolutionScale;
             // Assuming aligned left (x=0)
             renderMapContent(currentMap.adjacentMaps.north, mapData, 0, -height);
@@ -1036,7 +1039,7 @@ class RenderSystem {
         // Render West
         if (adjacentMaps.west) {
             const mapData = adjacentMaps.west;
-            const mapScale = mapData.scale || 1.0;
+            const mapScale = game.GAME_SCALE || mapData.scale || 1.0;
             const width = mapData.width * mapScale * resolutionScale;
             renderMapContent(currentMap.adjacentMaps.west, mapData, -width, 0);
         }

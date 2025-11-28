@@ -44,6 +44,11 @@ class GameEngine {
         
         console.log(`[GameEngine] Resolution scale: ${this.resolutionScale.toFixed(3)} (${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT} / ${this.BASE_WIDTH}x${this.BASE_HEIGHT})`);
         
+        // GLOBAL GAME SCALE
+        // This enforces a consistent world scale across all maps for seamless transitions.
+        // Map-specific 'scale' properties in JSON will be ignored in favor of this.
+        this.GAME_SCALE = 3.0;
+
         this.setupCanvas();
         
         // Data loader (must be created first)
@@ -713,36 +718,38 @@ class GameEngine {
 
         const player = this.player;
         const map = this.currentMap;
-        const margin = 5; // Margin to detect edge
+        const margin = 0; // Trigger exactly at the edge (or slightly past)
         
-        // Use UNSCALED map dimensions for logic
+        // Use UNSCALED map dimensions for logic (Player coordinates are unscaled)
         const mapWidth = map.width;
         const mapHeight = map.height;
         
-        // Use getWidth()/getHeight() for player dimensions
+        // Use getWidth()/getHeight() for player dimensions (Unscaled)
         const playerWidth = player.getWidth();
         const playerHeight = player.getHeight();
+        const halfWidth = playerWidth / 2;
+        const halfHeight = playerHeight / 2;
 
         let nextMapId = null;
         let entryDirection = null;
 
-        // Check North (Top edge) - Only if moving North
-        if (player.y < margin && map.adjacentMaps.north && player.inputY < 0) {
+        // Check North (Top edge) - Trigger when player center moves past top margin
+        if (player.y < margin + halfHeight && map.adjacentMaps.north && player.inputY < 0) {
             nextMapId = map.adjacentMaps.north;
             entryDirection = 'north';
         }
-        // Check South (Bottom edge) - Only if moving South
-        else if (player.y > mapHeight - playerHeight - margin && map.adjacentMaps.south && player.inputY > 0) {
+        // Check South (Bottom edge) - Trigger when player center moves past bottom margin
+        else if (player.y > mapHeight - halfHeight - margin && map.adjacentMaps.south && player.inputY > 0) {
             nextMapId = map.adjacentMaps.south;
             entryDirection = 'south';
         }
-        // Check West (Left edge) - Only if moving West
-        else if (player.x < margin && map.adjacentMaps.west && player.inputX < 0) {
+        // Check West (Left edge)
+        else if (player.x < margin + halfWidth && map.adjacentMaps.west && player.inputX < 0) {
             nextMapId = map.adjacentMaps.west;
             entryDirection = 'west';
         }
-        // Check East (Right edge) - Only if moving East
-        else if (player.x > mapWidth - playerWidth - margin && map.adjacentMaps.east && player.inputX > 0) {
+        // Check East (Right edge)
+        else if (player.x > mapWidth - halfWidth - margin && map.adjacentMaps.east && player.inputX > 0) {
             nextMapId = map.adjacentMaps.east;
             entryDirection = 'east';
         }
@@ -774,6 +781,8 @@ class GameEngine {
             let shiftX = 0;
             let shiftY = 0;
             
+            // Use UNSCALED dimensions for coordinate shifting
+            // Player coordinates are unscaled, so shift must be unscaled
             const currentMapWidth = this.currentMap.width;
             const currentMapHeight = this.currentMap.height;
             const newMapWidth = newMapData.width;
@@ -801,7 +810,7 @@ class GameEngine {
                 shiftX = -currentMapWidth;
             }
 
-            console.log(`[Transition] Shift: x=${shiftX}, y=${shiftY}`);
+            console.log(`[Transition] Shift: x=${shiftX}, y=${shiftY} (Unscaled)`);
 
             // 2. Load the new map data (but don't reset camera/player yet)
             // We manually do what loadMap does, but preserve state
@@ -818,13 +827,18 @@ class GameEngine {
             this.player.y += shiftY;
             
             // 4. Apply Coordinate Shift to Camera
+            // Camera coordinates are SCALED, so we must scale the shift
             // This is critical for the "seamless" look. The camera must move exactly as much as the player
             // so the relative position on screen stays identical.
+            const scale = this.GAME_SCALE;
+            const scaledShiftX = shiftX * scale * this.resolutionScale;
+            const scaledShiftY = shiftY * scale * this.resolutionScale;
+            
             if (this.renderSystem && this.renderSystem.camera) {
-                this.renderSystem.camera.x += shiftX;
-                this.renderSystem.camera.y += shiftY;
-                this.renderSystem.camera.targetX += shiftX;
-                this.renderSystem.camera.targetY += shiftY;
+                this.renderSystem.camera.x += scaledShiftX;
+                this.renderSystem.camera.y += scaledShiftY;
+                this.renderSystem.camera.targetX += scaledShiftX;
+                this.renderSystem.camera.targetY += scaledShiftY;
             }
             
             // 5. Initialize Systems for New Map
@@ -1177,7 +1191,8 @@ class GameEngine {
         if (!this.player || !this.currentMap) return;
         
         // Calculate actual map dimensions (accounting for both map scale and resolution scale)
-        const mapScale = this.currentMap.scale || 1.0;
+        // Use GLOBAL GAME SCALE
+        const mapScale = this.GAME_SCALE || this.currentMap.scale || 1.0;
         const actualMapWidth = this.currentMap.width * mapScale * this.resolutionScale;
         const actualMapHeight = this.currentMap.height * mapScale * this.resolutionScale;
         
