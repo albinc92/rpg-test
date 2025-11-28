@@ -236,6 +236,13 @@ class EditorManager {
                 if (this.ui) this.ui.updateViewMenu();
             }
             
+            // Toggle spawn zones visibility
+            else if (e.key === 'z' || e.key === 'Z') {
+                this.showSpawnZones = !this.showSpawnZones;
+                console.log('[EditorManager] Spawn Zones:', this.showSpawnZones ? 'ON' : 'OFF');
+                if (this.ui) this.ui.updateViewMenu();
+            }
+            
             // Toggle layer panel
             else if (e.key === 'l' || e.key === 'L') {
                 if (this.layerPanel) {
@@ -264,7 +271,13 @@ class EditorManager {
             }
             else if (e.key === 'b' || e.key === 'B') {
                 this.setTool('paint');
+                if (this.ui) this.ui.showPaintToolPanel();
                 console.log('[EditorManager] Tool: PAINT');
+            }
+            else if (e.key === 'k' || e.key === 'K') {
+                this.setTool('zone');
+                if (this.ui) this.ui.showZoneToolPanel();
+                console.log('[EditorManager] Tool: ZONE');
             }
             
             // Toggle snap to grid
@@ -2345,23 +2358,9 @@ class EditorManager {
             return;
         }
         
-        // Initialize paint canvas for active layer if needed
-        if (this.game.layerManager && this.game.layerManager.hasLayers(mapId)) {
-            const activeLayerId = this.game.layerManager.activeLayerId;
-            if (activeLayerId) {
-                const mapData = this.game.mapManager.maps[mapId];
-                if (mapData) {
-                    const mapScale = mapData.scale || 1.0;
-                    const resolutionScale = this.game.resolutionScale || 1.0;
-                    const scaledWidth = mapData.width * mapScale * resolutionScale;
-                    const scaledHeight = mapData.height * mapScale * resolutionScale;
-                    
-                    // Ensure the active layer has a paint canvas
-                    if (!this.game.layerManager.getPaintCanvas(mapId, activeLayerId)) {
-                        this.game.layerManager.initializePaintCanvas(mapId, activeLayerId, scaledWidth, scaledHeight);
-                    }
-                }
-            }
+        // Initialize paint canvas if needed (use legacy paint layer system)
+        if (!this.paintLayers[mapId]) {
+            this.initializePaintLayer(mapId);
         }
         
         const canvas = this.getPaintLayer(mapId);
@@ -2440,13 +2439,9 @@ class EditorManager {
         ctx.restore();
         
         // Invalidate WebGL texture cache so the updated canvas renders immediately
-        // This ensures the paint stroke is visible while painting
         if (this.game?.renderSystem?.webglRenderer) {
-            const activeLayerId = this.game.layerManager?.activeLayerId;
-            if (activeLayerId) {
-                const paintCanvasKey = `paint_canvas_${activeLayerId}`;
-                this.game.renderSystem.webglRenderer.invalidateTexture(paintCanvasKey);
-            }
+            const paintCanvasKey = `paint_legacy_${mapId}`;
+            this.game.renderSystem.webglRenderer.invalidateTexture(paintCanvasKey);
         }
     }
 
@@ -2838,16 +2833,6 @@ class EditorManager {
                     canvas._imageReady = false;
                     canvas._bakedImage = null;
                     console.log('[Smooth] Invalidated spawn baked image');
-                } else {
-                    const activeLayerId = this.game.layerManager?.activeLayerId;
-                    if (activeLayerId) {
-                        const layer = this.game.layerManager.getLayer(mapId, activeLayerId);
-                        if (layer) {
-                            layer.paintImageReady = false;
-                            layer.paintImage = null;
-                            console.log('[Smooth] Invalidated texture layer paint image');
-                        }
-                    }
                 }
                 
                 // Invalidate WebGL texture cache
@@ -2861,12 +2846,9 @@ class EditorManager {
                         this.game.renderSystem.webglRenderer.invalidateTexture(key);
                         console.log('[Smooth] Invalidated WebGL texture:', key);
                     } else {
-                        const activeLayerId = this.game.layerManager?.activeLayerId;
-                        if (activeLayerId) {
-                            const key = `paint_canvas_${activeLayerId}`;
-                            this.game.renderSystem.webglRenderer.invalidateTexture(key);
-                            console.log('[Smooth] Invalidated WebGL texture:', key);
-                        }
+                        const key = `paint_legacy_${mapId}`;
+                        this.game.renderSystem.webglRenderer.invalidateTexture(key);
+                        console.log('[Smooth] Invalidated WebGL texture:', key);
                     }
                 }
                 
@@ -3124,29 +3106,7 @@ class EditorManager {
             
             canvas = this.getPaintLayer(mapId);
             if (!canvas) {
-                // Initialize paint layer if needed
-                this.initializePaintLayer(mapId);
-                
-                // Also initialize for active layer if using layer system
-                if (this.game.layerManager && this.game.layerManager.hasLayers(mapId)) {
-                    const activeLayerId = this.game.layerManager.activeLayerId;
-                    if (activeLayerId !== null) {
-                        const mapData = this.game.mapManager.maps[mapId];
-                        if (mapData) {
-                            const mapScale = mapData.scale || 1.0;
-                            const resolutionScale = this.game.resolutionScale || 1.0;
-                            const scaledWidth = mapData.width * mapScale * resolutionScale;
-                            const scaledHeight = mapData.height * mapScale * resolutionScale;
-                            
-                            if (!this.game.layerManager.getPaintCanvas(mapId, activeLayerId)) {
-                                this.game.layerManager.initializePaintCanvas(mapId, activeLayerId, scaledWidth, scaledHeight);
-                            }
-                        }
-                    }
-                }
-                
-                canvas = this.getPaintLayer(mapId);
-                if (!canvas) return;
+                return;
             }
             
             // Texture flood fill: find connected transparent/matching pixels and paint texture
@@ -3415,15 +3375,7 @@ class EditorManager {
         const mapId = this.game.currentMapId;
         
         // Invalidate baked images when starting to paint
-        if (this.paintMode === 'texture' && this.game.layerManager) {
-            const activeLayerId = this.game.layerManager.activeLayerId;
-            if (activeLayerId !== null) {
-                const layer = this.game.layerManager.getLayer(mapId, activeLayerId);
-                if (layer) {
-                    layer.paintImageReady = false; // Fall back to canvas while painting
-                }
-            }
-        } else if (this.paintMode === 'collision') {
+        if (this.paintMode === 'collision') {
             const canvas = this.collisionLayers[mapId];
             if (canvas) {
                 canvas._imageReady = false; // Fall back to canvas while painting
@@ -3516,34 +3468,23 @@ class EditorManager {
             this.paintStartState = null;
         }
         
-        // Bake the paint canvas to an image for better performance
-        if (this.paintMode === 'texture' && this.game.layerManager) {
-            const activeLayerId = this.game.layerManager.activeLayerId;
-            if (activeLayerId !== null) {
-                this.game.layerManager.bakeLayerPaint(this.game.currentMapId, activeLayerId);
-            }
-        } else if (this.paintMode === 'collision') {
-            // Bake collision layer to image
+        // Bake layers to images for better rendering performance
+        if (this.paintMode === 'collision') {
             this.bakeCollisionLayer(this.game.currentMapId);
         } else if (this.paintMode === 'spawn') {
-            // Bake spawn zone layer to image
             this.bakeSpawnLayer(this.game.currentMapId);
         }
+        // Texture paint layer doesn't need baking - it renders directly
     }
 
     /**
      * Get paint layer for a map (called by RenderSystem)
      */
     getPaintLayer(mapId) {
-        // If layer system is enabled, return the active layer's paint canvas
-        if (this.game.layerManager && this.game.layerManager.hasLayers(mapId)) {
-            const activeLayerId = this.game.layerManager.activeLayerId;
-            if (activeLayerId) {
-                return this.game.layerManager.getPaintCanvas(mapId, activeLayerId);
-            }
+        // Use legacy paint layer system
+        if (!this.paintLayers[mapId]) {
+            this.initializePaintLayer(mapId);
         }
-        
-        // Fallback to legacy paint layer system
         return this.paintLayers[mapId];
     }
 
