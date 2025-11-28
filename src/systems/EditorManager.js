@@ -2269,6 +2269,26 @@ class EditorManager {
     }
 
     /**
+     * Clear paint layer for a map
+     */
+    clearPaintLayer(mapId, mode = 'texture') {
+        let layer;
+        if (mode === 'texture') {
+            layer = this.paintLayers[mapId];
+        } else if (mode === 'collision') {
+            layer = this.collisionLayers[mapId];
+        } else if (mode === 'spawn') {
+            layer = this.spawnLayers[mapId];
+        }
+        
+        if (layer) {
+            const ctx = layer.getContext('2d');
+            ctx.clearRect(0, 0, layer.width, layer.height);
+            console.log(`[EditorManager] Cleared ${mode} layer for map ${mapId}`);
+        }
+    }
+
+    /**
      * Load a texture for painting
      */
     loadTexture(texturePath, textureName) {

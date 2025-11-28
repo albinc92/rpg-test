@@ -3517,7 +3517,9 @@ class EditorUI {
             position: fixed;
             right: 20px;
             top: 80px;
-            width: 250px;
+            width: 280px;
+            max-height: 80vh;
+            overflow-y: auto;
             background: rgba(0, 0, 0, 0.95);
             border: 2px solid #4a9eff;
             border-radius: 8px;
@@ -3535,24 +3537,232 @@ class EditorUI {
         title.textContent = '🖌️ Paint Tool';
         title.style.cssText = 'margin: 0; color: #4a9eff; border-bottom: 1px solid #444; padding-bottom: 8px;';
         panel.appendChild(title);
+
+        // === PAINT MODE SECTION ===
+        const modeSection = this.createPaintSection('Paint Mode');
+        const modeButtons = document.createElement('div');
+        modeButtons.style.cssText = 'display: flex; gap: 4px;';
         
-        // Instructions
+        const modes = [
+            { id: 'texture', label: '🎨 Texture', title: 'Paint textures onto the map' },
+            { id: 'collision', label: '🚧 Collision', title: 'Paint collision areas' },
+            { id: 'spawn', label: '🌱 Spawn', title: 'Paint spawn zones' }
+        ];
+        
+        modes.forEach(mode => {
+            const btn = document.createElement('button');
+            btn.textContent = mode.label;
+            btn.title = mode.title;
+            btn.style.cssText = `
+                flex: 1;
+                padding: 6px 4px;
+                background: ${this.editor.paintMode === mode.id ? '#4a9eff' : '#333'};
+                color: white;
+                border: 1px solid #555;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 11px;
+            `;
+            btn.onclick = () => {
+                this.editor.paintMode = mode.id;
+                this.showPaintToolPanel(); // Refresh panel
+            };
+            modeButtons.appendChild(btn);
+        });
+        modeSection.appendChild(modeButtons);
+        panel.appendChild(modeSection);
+
+        // === TOOL ACTION SECTION ===
+        const actionSection = this.createPaintSection('Action');
+        const actionButtons = document.createElement('div');
+        actionButtons.style.cssText = 'display: flex; gap: 4px;';
+        
+        const actions = [
+            { id: 'paint', label: '🖌️ Paint' },
+            { id: 'erase', label: '🧹 Erase' }
+        ];
+        
+        actions.forEach(action => {
+            const btn = document.createElement('button');
+            btn.textContent = action.label;
+            btn.style.cssText = `
+                flex: 1;
+                padding: 6px 8px;
+                background: ${this.editor.toolAction === action.id ? '#4a9eff' : '#333'};
+                color: white;
+                border: 1px solid #555;
+                border-radius: 4px;
+                cursor: pointer;
+            `;
+            btn.onclick = () => {
+                this.editor.toolAction = action.id;
+                this.showPaintToolPanel(); // Refresh panel
+            };
+            actionButtons.appendChild(btn);
+        });
+        actionSection.appendChild(actionButtons);
+        panel.appendChild(actionSection);
+
+        // === TEXTURE SELECTION (only for texture mode) ===
+        if (this.editor.paintMode === 'texture') {
+            const textureSection = this.createPaintSection('Texture');
+            const textureGrid = document.createElement('div');
+            textureGrid.style.cssText = `
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 4px;
+                max-height: 150px;
+                overflow-y: auto;
+                padding: 4px;
+                background: #1a1a1a;
+                border-radius: 4px;
+            `;
+            
+            // Load textures from assets/texture folder
+            this.loadTexturesForPanel(textureGrid);
+            
+            textureSection.appendChild(textureGrid);
+            panel.appendChild(textureSection);
+        }
+
+        // === BRUSH SIZE ===
+        const sizeSection = this.createPaintSection(`Brush Size: ${this.editor.brushSize}px`);
+        sizeSection.id = 'brush-size-section';
+        const sizeSlider = document.createElement('input');
+        sizeSlider.type = 'range';
+        sizeSlider.min = '8';
+        sizeSlider.max = '256';
+        sizeSlider.value = this.editor.brushSize;
+        sizeSlider.style.cssText = 'width: 100%;';
+        sizeSlider.oninput = (e) => {
+            this.editor.brushSize = parseInt(e.target.value);
+            sizeSection.querySelector('label').textContent = `Brush Size: ${this.editor.brushSize}px`;
+        };
+        sizeSection.appendChild(sizeSlider);
+        panel.appendChild(sizeSection);
+
+        // === BRUSH SHAPE ===
+        const shapeSection = this.createPaintSection('Brush Shape');
+        const shapeButtons = document.createElement('div');
+        shapeButtons.style.cssText = 'display: flex; gap: 4px;';
+        
+        const shapes = [
+            { id: 'circle', label: '⚫ Circle' },
+            { id: 'square', label: '⬛ Square' }
+        ];
+        
+        shapes.forEach(shape => {
+            const btn = document.createElement('button');
+            btn.textContent = shape.label;
+            btn.style.cssText = `
+                flex: 1;
+                padding: 6px 8px;
+                background: ${this.editor.brushShape === shape.id ? '#4a9eff' : '#333'};
+                color: white;
+                border: 1px solid #555;
+                border-radius: 4px;
+                cursor: pointer;
+            `;
+            btn.onclick = () => {
+                this.editor.brushShape = shape.id;
+                this.showPaintToolPanel(); // Refresh panel
+            };
+            shapeButtons.appendChild(btn);
+        });
+        shapeSection.appendChild(shapeButtons);
+        panel.appendChild(shapeSection);
+
+        // === BRUSH STYLE (softness) ===
+        const styleSection = this.createPaintSection('Brush Softness');
+        const styleButtons = document.createElement('div');
+        styleButtons.style.cssText = 'display: flex; gap: 4px;';
+        
+        const styles = [
+            { id: 'hard', label: 'Hard' },
+            { id: 'soft', label: 'Soft' },
+            { id: 'very-soft', label: 'V. Soft' }
+        ];
+        
+        styles.forEach(style => {
+            const btn = document.createElement('button');
+            btn.textContent = style.label;
+            btn.style.cssText = `
+                flex: 1;
+                padding: 6px 8px;
+                background: ${this.editor.brushStyle === style.id ? '#4a9eff' : '#333'};
+                color: white;
+                border: 1px solid #555;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 12px;
+            `;
+            btn.onclick = () => {
+                this.editor.brushStyle = style.id;
+                this.showPaintToolPanel(); // Refresh panel
+            };
+            styleButtons.appendChild(btn);
+        });
+        styleSection.appendChild(styleButtons);
+        panel.appendChild(styleSection);
+
+        // === BRUSH OPACITY ===
+        const opacitySection = this.createPaintSection(`Opacity: ${Math.round(this.editor.brushOpacity * 100)}%`);
+        opacitySection.id = 'brush-opacity-section';
+        const opacitySlider = document.createElement('input');
+        opacitySlider.type = 'range';
+        opacitySlider.min = '5';
+        opacitySlider.max = '100';
+        opacitySlider.value = Math.round(this.editor.brushOpacity * 100);
+        opacitySlider.style.cssText = 'width: 100%;';
+        opacitySlider.oninput = (e) => {
+            this.editor.brushOpacity = parseInt(e.target.value) / 100;
+            opacitySection.querySelector('label').textContent = `Opacity: ${e.target.value}%`;
+        };
+        opacitySection.appendChild(opacitySlider);
+        panel.appendChild(opacitySection);
+
+        // === INSTRUCTIONS ===
         const instructions = document.createElement('div');
         instructions.innerHTML = `
-            <div style="font-size: 12px; color: #888; margin-top: 8px; line-height: 1.4;">
+            <div style="font-size: 11px; color: #888; margin-top: 8px; line-height: 1.4; border-top: 1px solid #444; padding-top: 8px;">
                 <strong>Controls:</strong><br>
                 • Left Click: Paint<br>
                 • Shift + Click: Erase<br>
-                • Esc: Cancel
+                • [ / ]: Decrease/Increase brush size<br>
+                • Scroll: Adjust brush size
             </div>
         `;
         panel.appendChild(instructions);
         
+        // === BUTTONS ===
+        const buttonRow = document.createElement('div');
+        buttonRow.style.cssText = 'display: flex; gap: 8px; margin-top: 8px;';
+
+        // Clear layer button
+        const clearBtn = document.createElement('button');
+        clearBtn.textContent = '🗑️ Clear Layer';
+        clearBtn.style.cssText = `
+            flex: 1;
+            padding: 8px;
+            background: #8b0000;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        `;
+        clearBtn.onclick = () => {
+            if (confirm(`Clear all ${this.editor.paintMode} paint on this map?`)) {
+                this.editor.clearPaintLayer(this.game.currentMapId, this.editor.paintMode);
+                this.showNotification(`${this.editor.paintMode} layer cleared`);
+            }
+        };
+        buttonRow.appendChild(clearBtn);
+
         // Close button
         const closeBtn = document.createElement('button');
         closeBtn.textContent = 'Close';
         closeBtn.style.cssText = `
-            margin-top: 8px;
+            flex: 1;
             padding: 8px;
             background: #555;
             color: white;
@@ -3564,9 +3774,172 @@ class EditorUI {
             panel.remove();
             this.editor.setTool('select');
         };
-        panel.appendChild(closeBtn);
+        buttonRow.appendChild(closeBtn);
+        
+        panel.appendChild(buttonRow);
         
         document.body.appendChild(panel);
+    }
+
+    /**
+     * Create a section for the paint panel
+     */
+    createPaintSection(labelText) {
+        const section = document.createElement('div');
+        section.style.cssText = 'display: flex; flex-direction: column; gap: 6px;';
+        
+        const label = document.createElement('label');
+        label.textContent = labelText;
+        label.style.cssText = 'font-size: 12px; color: #aaa;';
+        section.appendChild(label);
+        
+        return section;
+    }
+
+    /**
+     * Load textures for the paint panel
+     */
+    async loadTexturesForPanel(container) {
+        // Get textures from the texture folder
+        const textureFiles = [
+            'grass.png',
+            // Add more textures here as they're added to the folder
+        ];
+        
+        // Also check if editor has cached textures
+        if (this.editor.textures && this.editor.textures.length > 0) {
+            this.editor.textures.forEach(tex => {
+                if (!textureFiles.includes(tex.name)) {
+                    textureFiles.push(tex.name);
+                }
+            });
+        }
+        
+        for (const filename of textureFiles) {
+            const texturePath = `assets/texture/${filename}`;
+            
+            const textureBtn = document.createElement('div');
+            textureBtn.style.cssText = `
+                width: 50px;
+                height: 50px;
+                border: 2px solid ${this.editor.selectedTexture === texturePath ? '#4a9eff' : '#333'};
+                border-radius: 4px;
+                cursor: pointer;
+                background-size: cover;
+                background-position: center;
+                background-image: url('${texturePath}');
+            `;
+            textureBtn.title = filename;
+            
+            textureBtn.onclick = () => {
+                this.editor.loadTexture(texturePath, filename);
+                this.showPaintToolPanel(); // Refresh to show selection
+                this.showNotification(`Selected texture: ${filename}`);
+            };
+            
+            container.appendChild(textureBtn);
+        }
+        
+        // Add "Load Custom" button
+        const addBtn = document.createElement('div');
+        addBtn.style.cssText = `
+            width: 50px;
+            height: 50px;
+            border: 2px dashed #555;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #555;
+        `;
+        addBtn.textContent = '+';
+        addBtn.title = 'Load custom texture';
+        addBtn.onclick = () => this.showTextureManager();
+        container.appendChild(addBtn);
+    }
+
+    /**
+     * Show Texture Manager for adding custom textures
+     */
+    showTextureManager() {
+        const existing = document.getElementById('texture-manager-panel');
+        if (existing) existing.remove();
+        
+        const panel = document.createElement('div');
+        panel.id = 'texture-manager-panel';
+        panel.style.cssText = `
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.95);
+            border: 2px solid #4a9eff;
+            border-radius: 8px;
+            color: white;
+            font-family: Arial, sans-serif;
+            z-index: 1002;
+            padding: 20px;
+        `;
+        
+        panel.innerHTML = `
+            <h3 style="margin: 0 0 16px 0; color: #4a9eff;">🎨 Texture Manager</h3>
+            <p style="color: #888; font-size: 12px; margin-bottom: 16px;">
+                Add texture images to <code>assets/texture/</code> folder, then refresh this panel.
+            </p>
+            <div id="texture-list" style="
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 8px;
+                margin-bottom: 16px;
+                max-height: 300px;
+                overflow-y: auto;
+                padding: 8px;
+                background: #1a1a1a;
+                border-radius: 4px;
+            "></div>
+            <div style="display: flex; gap: 8px;">
+                <button id="refresh-textures-btn" style="
+                    flex: 1;
+                    padding: 10px;
+                    background: #4a9eff;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                ">🔄 Refresh</button>
+                <button id="close-texture-manager-btn" style="
+                    flex: 1;
+                    padding: 10px;
+                    background: #555;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                ">Close</button>
+            </div>
+        `;
+        
+        document.body.appendChild(panel);
+        
+        // Load textures into the grid
+        const textureList = panel.querySelector('#texture-list');
+        this.loadTexturesForPanel(textureList);
+        
+        // Event handlers
+        panel.querySelector('#refresh-textures-btn').onclick = () => {
+            textureList.innerHTML = '';
+            this.loadTexturesForPanel(textureList);
+            this.showNotification('Textures refreshed');
+        };
+        
+        panel.querySelector('#close-texture-manager-btn').onclick = () => {
+            panel.remove();
+        };
     }
 
     /**
