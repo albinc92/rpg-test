@@ -986,6 +986,40 @@ class PausedState extends GameState {
                 break;
         }
     }
+
+    render(ctx) {
+        const canvasWidth = this.game.CANVAS_WIDTH;
+        const canvasHeight = this.game.CANVAS_HEIGHT;
+        const menuRenderer = this.stateManager.menuRenderer;
+        
+        // Draw overlay
+        menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.7);
+        
+        // Draw title
+        menuRenderer.drawTitle(ctx, 'Paused', canvasWidth, canvasHeight, 0.25);
+        
+        // Draw options
+        menuRenderer.drawMenuOptions(ctx, this.options, this.selectedOption, canvasWidth, canvasHeight, 0.45, 0.1);
+        
+        // Draw exit confirmation if active
+        if (this.showExitConfirm) {
+            menuRenderer.drawConfirmation(
+                ctx, 
+                'Quit to Main Menu?', 
+                'Are you sure you want to quit?', 
+                'Unsaved progress will be lost.', 
+                this.exitConfirmOption, 
+                canvasWidth, 
+                canvasHeight
+            );
+        }
+        
+        // Draw instructions
+        const instructions = this.game.inputManager.isMobile 
+            ? 'Tap to Select'
+            : 'Arrow Keys: Navigate • Enter: Select • ESC: Resume';
+        menuRenderer.drawInstruction(ctx, instructions, canvasWidth, canvasHeight, 0.9);
+    }
 }
 
 /**

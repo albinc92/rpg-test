@@ -33,7 +33,7 @@ class InputManager {
             // Actions
             'interact': ['Space', 'Enter'],
             'run': ['ShiftLeft', 'ShiftRight'],
-            'menu': ['Escape', 'Tab'],
+            'menu': ['Escape', 'Tab', 'KeyM', 'KeyP'],
             'inventory': ['KeyI'],
             
             // UI Navigation
@@ -68,7 +68,7 @@ class InputManager {
             0: ['confirm', 'interact'], // A / Cross
             1: ['cancel', 'run'],       // B / Circle
             2: ['delete'],              // X / Square
-            3: ['inventory', 'menu'],   // Y / Triangle
+            3: ['inventory'],           // Y / Triangle
             8: ['menu'],                // Select / Share
             9: ['menu'],                // Start / Options
             12: ['up', 'moveUp'],       // D-Pad Up
