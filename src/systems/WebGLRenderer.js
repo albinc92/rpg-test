@@ -762,57 +762,69 @@ class WebGLRenderer {
         let x3 = x, y3 = y + height;           // bottom-left
         
         // BILLBOARD MODE: Pre-apply perspective transformation on CPU
-        // This ensures ALL vertices use the SAME scale factor, keeping the sprite rectangular
+        // Goal: The sprite's BASE (bottom) should land exactly where the ground would be
+        // after perspective transformation, then the sprite extends upward keeping its shape
         if (this.billboardMode && this.perspectiveStrength > 0) {
-            // Use the sprite's BOTTOM Y (feet position) for consistent perspective
-            const baseY = y + height; // Bottom of sprite = where it touches ground
+            // Sprite base position (where feet touch ground)
+            const baseX = x + width / 2;  // Center X of sprite base
+            const baseY = y + height;     // Bottom Y of sprite = ground contact point
             
-            // Transform baseY to NDC-like space (0 at bottom of logical canvas, 1 at top)
-            // We need to account for camera position stored in viewMatrix
+            // Get camera info for screen-space calculations
             const cameraX = this.viewMatrix ? -this.viewMatrix[12] : 0;
             const cameraY = this.viewMatrix ? -this.viewMatrix[13] : 0;
             const zoom = this.viewMatrix ? this.viewMatrix[0] : 1;
             
-            // Screen position of sprite base
+            // === CALCULATE WHERE THE GROUND POINT ENDS UP AFTER PERSPECTIVE ===
+            // This must match EXACTLY what the vertex shader does to ground points
+            
+            // Step 1: Transform base to screen space (same as shader's a_position * viewMatrix)
+            const screenBaseX = (baseX - cameraX) * zoom;
             const screenBaseY = (baseY - cameraY) * zoom;
             
-            // Normalize to 0-1 range (0 = bottom of screen, 1 = top)
+            // Step 2: Calculate normalized Y and depth (same as shader)
             const normalizedY = 1.0 - (screenBaseY / this.logicalHeight);
-            const depth = Math.max(0, Math.min(1, normalizedY));
+            const depth = Math.max(0.0, Math.min(1.0, normalizedY));
             
-            // Calculate uniform perspective scale for this sprite
+            // Step 3: Calculate W for perspective division (same as shader)
             const perspectiveW = 1.0 + (depth * this.perspectiveStrength);
+            
+            // Step 4: Calculate how perspective shifts the position
+            // The shader does: gl_Position = vec4(pos.xy, 0.0, perspectiveW)
+            // Then GPU does perspective division: final_xy = pos.xy / perspectiveW
+            // But we're in world coords, so we need to account for the projection too
+            
+            // Convert to NDC (before perspective division)
+            const ndcBaseX = (screenBaseX / this.logicalWidth) * 2.0 - 1.0;
+            const ndcBaseY = 1.0 - (screenBaseY / this.logicalHeight) * 2.0;
+            
+            // After perspective division by W
+            const perspNdcX = ndcBaseX / perspectiveW;
+            const perspNdcY = ndcBaseY / perspectiveW;
+            
+            // Convert back to screen space  
+            const perspScreenX = (perspNdcX + 1.0) * 0.5 * this.logicalWidth;
+            const perspScreenY = (1.0 - perspNdcY) * 0.5 * this.logicalHeight;
+            
+            // Convert back to world space - THIS is where the ground point appears
+            const perspWorldX = perspScreenX / zoom + cameraX;
+            const perspWorldY = perspScreenY / zoom + cameraY;
+            
+            // === NOW BUILD THE SPRITE FROM THAT TRANSFORMED BASE ===
+            // Scale the sprite size by the same factor (smaller in distance)
             const scale = 1.0 / perspectiveW;
-            
-            // Find sprite center for scaling
-            const centerX = x + width / 2;
-            const centerY = y + height / 2;
-            
-            // Apply perspective: scale and shift toward vanishing point (center-top)
-            // Vanishing point X is at canvas center
-            const vanishX = this.logicalWidth / 2 + cameraX;
-            
-            // Scale sprite size
             const scaledWidth = width * scale;
             const scaledHeight = height * scale;
             
-            // Shift X toward vanishing point based on depth
-            const xShift = (vanishX - centerX) * (1 - scale);
-            const newCenterX = centerX + xShift;
-            
-            // Shift Y up (toward horizon) based on depth
-            const yShift = (baseY - centerY) * (1 - scale); 
-            const newCenterY = centerY + yShift;
-            
-            // Recalculate corners with new center and scaled size
-            x0 = newCenterX - scaledWidth / 2;
-            y0 = newCenterY - scaledHeight / 2;
-            x1 = newCenterX + scaledWidth / 2;
-            y1 = newCenterY - scaledHeight / 2;
-            x2 = newCenterX + scaledWidth / 2;
-            y2 = newCenterY + scaledHeight / 2;
-            x3 = newCenterX - scaledWidth / 2;
-            y3 = newCenterY + scaledHeight / 2;
+            // Sprite extends upward from the transformed base position
+            // The base (bottom center) is at perspWorldX, perspWorldY
+            x0 = perspWorldX - scaledWidth / 2;  // top-left X
+            y0 = perspWorldY - scaledHeight;      // top-left Y (sprite extends UP from base)
+            x1 = perspWorldX + scaledWidth / 2;  // top-right X
+            y1 = perspWorldY - scaledHeight;      // top-right Y
+            x2 = perspWorldX + scaledWidth / 2;  // bottom-right X
+            y2 = perspWorldY;                     // bottom-right Y (at base)
+            x3 = perspWorldX - scaledWidth / 2;  // bottom-left X
+            y3 = perspWorldY;                     // bottom-left Y (at base)
         }
         
         // Push vertex positions (top-left, top-right, bottom-right, bottom-left)
