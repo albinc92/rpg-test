@@ -114,6 +114,11 @@ class GameEngine {
             this.weatherSystem.setWebGLRenderer(this.renderSystem.webglRenderer);
         }
         
+        // Perspective system for fake 3D depth effect (Diablo 2 style)
+        this.perspectiveSystem = new PerspectiveSystem();
+        // Can be toggled: this.perspectiveSystem.setEnabled(true/false)
+        // Can be tuned: this.perspectiveSystem.configure({ horizonScale: 0.65, perspectiveStrength: 0.35 })
+        
         // Light system for dynamic lighting
         this.lightManager = new LightManager(this);
         
@@ -168,6 +173,14 @@ class GameEngine {
         
         // Apply loaded settings to audio manager
         this.applyAudioSettings();
+        
+        // Apply perspective settings from saved settings
+        if (this.perspectiveSystem) {
+            this.perspectiveSystem.setEnabled(this.settings.perspectiveEnabled !== false);
+            if (this.settings.perspectiveStrength !== undefined) {
+                this.perspectiveSystem.configure({ perspectiveStrength: this.settings.perspectiveStrength });
+            }
+        }
         
         // Apply loaded graphics settings (Resolution/Fullscreen)
         // We need to do this after a short delay to ensure Electron window is ready
@@ -455,6 +468,47 @@ class GameEngine {
             this.settings.showDebugInfo = !this.settings.showDebugInfo;
             console.log(`Debug info ${this.settings.showDebugInfo ? 'ENABLED' : 'DISABLED'}`);
             e.preventDefault(); // Prevent browser's help menu
+        }
+        
+        // F3 - Toggle perspective system (Diablo 2 style fake 3D)
+        if (e.code === 'F3' && !e.shiftKey && !e.ctrlKey) {
+            if (this.perspectiveSystem) {
+                this.perspectiveSystem.setEnabled(!this.perspectiveSystem.enabled);
+                console.log(`🎮 Perspective ${this.perspectiveSystem.enabled ? 'ENABLED' : 'DISABLED'}`);
+                // Save to settings
+                this.settings.perspectiveEnabled = this.perspectiveSystem.enabled;
+                this.settingsManager.set('perspectiveEnabled', this.perspectiveSystem.enabled);
+                this.settingsManager.save();
+            }
+            e.preventDefault();
+        }
+        
+        // Shift+F3 - Increase perspective strength
+        if (e.shiftKey && e.code === 'F3') {
+            if (this.perspectiveSystem) {
+                const newStrength = Math.min(1.0, this.perspectiveSystem.perspectiveStrength + 0.1);
+                this.perspectiveSystem.configure({ perspectiveStrength: newStrength });
+                console.log(`📐 Perspective strength: ${(newStrength * 100).toFixed(0)}%`);
+                // Save to settings
+                this.settings.perspectiveStrength = newStrength;
+                this.settingsManager.set('perspectiveStrength', newStrength);
+                this.settingsManager.save();
+            }
+            e.preventDefault();
+        }
+        
+        // Ctrl+F3 - Decrease perspective strength
+        if (e.ctrlKey && e.code === 'F3') {
+            if (this.perspectiveSystem) {
+                const newStrength = Math.max(0, this.perspectiveSystem.perspectiveStrength - 0.1);
+                this.perspectiveSystem.configure({ perspectiveStrength: newStrength });
+                console.log(`📐 Perspective strength: ${(newStrength * 100).toFixed(0)}%`);
+                // Save to settings
+                this.settings.perspectiveStrength = newStrength;
+                this.settingsManager.set('perspectiveStrength', newStrength);
+                this.settingsManager.save();
+            }
+            e.preventDefault();
         }
         
         // F5 - Clear audio cache and debug

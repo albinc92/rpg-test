@@ -68,6 +68,7 @@ async function loadGameScripts() {
         await loadScript('/src/systems/DayNightShader.js'); // NEW: WebGL shader for day/night lighting
         await loadScript('/src/systems/DayNightCycle.js'); // NEW: Day/night cycle system
         await loadScript('/src/systems/WeatherSystem.js'); // NEW: Weather effects system
+        await loadScript('/src/systems/PerspectiveSystem.js'); // NEW: Fake 3D perspective (Diablo 2 style)
         await loadScript('/src/systems/SpawnManager.js'); // NEW: Spirit spawning system
         await loadScript('/src/systems/PerformanceMonitor.js');
         await loadScript('/src/systems/SaveGameManager.js');

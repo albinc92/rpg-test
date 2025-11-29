@@ -156,6 +156,11 @@ class RenderSystem {
     renderWorld(map, objects, npcs, player, game, adjacentMapsData = {}) {
         // Initialize WebGL frame (if using WebGL)
         if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+            // Update perspective settings
+            if (game.perspectiveSystem) {
+                game.perspectiveSystem.updateRenderer(this.webglRenderer);
+            }
+            
             this.webglRenderer.beginFrame([0, 0, 0, 0]); // Clear to transparent
             // Pass canvas dimensions for zoom-around-center support
             this.webglRenderer.setCamera(

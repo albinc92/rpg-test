@@ -52,6 +52,9 @@ class WebGLRenderer {
         this.circleTexture = null;
         this.glowTexture = null;
         
+        // Perspective strength for fake 3D effect (0.0 = disabled)
+        this.perspectiveStrength = 0.0;
+        
         this.initialize();
     }
     
@@ -183,9 +186,28 @@ class WebGLRenderer {
             attribute vec2 a_texCoord;
             uniform mat4 u_projection;
             uniform mat4 u_view;
+            uniform float u_perspectiveStrength; // 0.0 = none, usually around 0.5-1.0 for effect
+            
             varying vec2 v_texCoord;
+            
             void main() {
                 gl_Position = u_projection * u_view * vec4(a_position, 0.0, 1.0);
+                
+                // Fake 3D Perspective Distortion
+                // We manipulate the W component to create perspective divide
+                // In our ortho projection: Y=+1 is TOP, Y=-1 is BOTTOM
+                
+                if (u_perspectiveStrength > 0.0) {
+                    // Calculate depth factor (0.0 at bottom, 1.0 at top)
+                    // gl_Position.y is in clip space (-1 to 1)
+                    float depth = (gl_Position.y + 1.0) * 0.5;
+                    
+                    // Apply perspective
+                    // Objects at top (depth 1.0) get higher W -> smaller size
+                    // Objects at bottom (depth 0.0) get W=1.0 -> normal size
+                    gl_Position.w = 1.0 + (depth * u_perspectiveStrength);
+                }
+                
                 v_texCoord = a_texCoord;
             }
         `;
@@ -225,7 +247,8 @@ class WebGLRenderer {
             view: this.gl.getUniformLocation(this.spriteProgram, 'u_view'),
             texture: this.gl.getUniformLocation(this.spriteProgram, 'u_texture'),
             alpha: this.gl.getUniformLocation(this.spriteProgram, 'u_alpha'),
-            tint: this.gl.getUniformLocation(this.spriteProgram, 'u_tint')
+            tint: this.gl.getUniformLocation(this.spriteProgram, 'u_tint'),
+            perspectiveStrength: this.gl.getUniformLocation(this.spriteProgram, 'u_perspectiveStrength')
         };
         
         return true;
@@ -453,6 +476,14 @@ class WebGLRenderer {
         }
     }
     
+    /**
+     * Set the perspective strength for fake 3D effect
+     * @param {number} strength - 0.0 = disabled, 0.3-0.5 = subtle, 1.0 = strong
+     */
+    setPerspective(strength) {
+        this.perspectiveStrength = strength || 0.0;
+    }
+    
     createOrthoMatrix(left, right, bottom, top, near, far) {
         const lr = 1 / (left - right);
         const bt = 1 / (bottom - top);
@@ -477,6 +508,18 @@ class WebGLRenderer {
         
         this.gl.clearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        
+        this.gl.useProgram(this.spriteProgram);
+        
+        // Set uniforms
+        if (this.projectionMatrix) {
+            this.gl.uniformMatrix4fv(this.spriteProgram.locations.projection, false, this.projectionMatrix);
+        }
+        
+        // Set perspective strength
+        if (this.spriteProgram.locations.perspectiveStrength) {
+            this.gl.uniform1f(this.spriteProgram.locations.perspectiveStrength, this.perspectiveStrength || 0.0);
+        }
         
         this.batchVertices = [];
         this.batchTexCoords = [];
