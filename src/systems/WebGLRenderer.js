@@ -24,6 +24,7 @@ class WebGLRenderer {
         this.batchTexCoords = [];
         this.currentBatchSize = 0;
         this.currentTexture = null;
+        this.currentAlpha = 1.0;
         
         this.viewMatrix = null;
         this.projectionMatrix = null;
@@ -481,6 +482,7 @@ class WebGLRenderer {
         this.batchTexCoords = [];
         this.currentBatchSize = 0;
         this.currentTexture = null;
+        this.currentAlpha = 1.0;
     }
     
     beginShadowPass() {
@@ -708,9 +710,12 @@ class WebGLRenderer {
         
         const texture = this.textures.get(imageUrl) || this.loadTexture(image, imageUrl);
         
-        if (this.currentTexture !== texture || this.currentBatchSize >= this.maxBatchSize) {
+        if (this.currentTexture !== texture || 
+            this.currentBatchSize >= this.maxBatchSize ||
+            Math.abs(this.currentAlpha - alpha) > 0.001) {
             this.flush();
             this.currentTexture = texture;
+            this.currentAlpha = alpha;
         }
         
         // Vertex positions
@@ -784,7 +789,7 @@ class WebGLRenderer {
     }
 
     flush() {
-        this.flushWithAlpha(1.0);
+        this.flushWithAlpha(this.currentAlpha);
     }
     
     flushWithAlpha(alpha = 1.0) {
