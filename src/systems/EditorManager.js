@@ -2450,7 +2450,7 @@ class EditorManager {
         
         // Invalidate WebGL texture cache so the updated canvas renders immediately
         if (this.game?.renderSystem?.webglRenderer) {
-            const paintCanvasKey = `paint_legacy_${mapId}`;
+            const paintCanvasKey = `paint_layer_${mapId}`;
             this.game.renderSystem.webglRenderer.invalidateTexture(paintCanvasKey);
         }
     }
@@ -2852,7 +2852,7 @@ class EditorManager {
                         this.game.renderSystem.webglRenderer.invalidateTexture(key);
                         console.log('[Smooth] Invalidated WebGL texture:', key);
                     } else {
-                        const key = `paint_legacy_${mapId}`;
+                        const key = `paint_layer_${mapId}`;
                         this.game.renderSystem.webglRenderer.invalidateTexture(key);
                         console.log('[Smooth] Invalidated WebGL texture:', key);
                     }

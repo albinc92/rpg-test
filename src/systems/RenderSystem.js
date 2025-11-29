@@ -407,7 +407,8 @@ class RenderSystem {
             if (paintLayer) {
                 // Use WebGL if available for better performance
                 if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
-                    const imageUrl = `paint_legacy_${game.currentMapId}`;
+                    // Use consistent cache key for paint layers (same key whether current or adjacent)
+                    const imageUrl = `paint_layer_${game.currentMapId}`;
                     const mapScale = game.GAME_SCALE || map.scale || 1.0;
                     const resolutionScale = game?.resolutionScale || 1.0;
                     const scaledWidth = map.width * mapScale * resolutionScale;
