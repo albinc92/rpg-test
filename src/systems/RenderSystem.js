@@ -656,8 +656,9 @@ class RenderSystem {
                 this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
                 this.ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
             } else if (zone.type === 'spawn') {
-                this.ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
-                this.ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
+                // Blue to match painted spawn zones
+                this.ctx.strokeStyle = 'rgba(0, 100, 255, 0.8)';
+                this.ctx.fillStyle = 'rgba(0, 100, 255, 0.3)';
             } else {
                 continue;
             }

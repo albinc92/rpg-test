@@ -351,7 +351,8 @@ class SpawnManager {
                                 const a = pixels[index + 3];
                                 
                                 // Check if pixel is blue (spawn zone color)
-                                const isBlue = (r < 50 && g > 50 && g < 150 && b > 200 && a > 128);
+                                // Robust check: Blue channel is significantly stronger than Red and Green
+                                const isBlue = (b > r + 50 && b > g + 50 && a > 128);
                                 
                                 if (isBlue) {
                                     spawnPoints.push({ x: cx, y: cy });

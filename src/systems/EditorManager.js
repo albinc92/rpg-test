@@ -3662,8 +3662,8 @@ class EditorManager {
         const getZoneColors = (type) => {
             if (type === 'spawn') {
                 return {
-                    fill: 'rgba(0, 255, 0, 0.3)',
-                    stroke: '#00ff00'
+                    fill: 'rgba(0, 100, 255, 0.3)',
+                    stroke: 'rgba(0, 100, 255, 0.8)'
                 };
             }
             // Default to collision (red)
