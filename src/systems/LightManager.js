@@ -215,7 +215,11 @@ class LightManager {
         
         // Center: Full color
         gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${a})`);
-        // Falloff - Linear gradient from center to edge
+        // Logarithmic-ish falloff for elongated fading
+        gradient.addColorStop(0.2, `rgba(${r}, ${g}, ${b}, ${a * 0.7})`); // Bright core
+        gradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${a * 0.3})`); // Mid drop
+        gradient.addColorStop(0.8, `rgba(${r}, ${g}, ${b}, ${a * 0.1})`); // Long tail
+        // Edge: Transparent
         gradient.addColorStop(1.0, `rgba(${r}, ${g}, ${b}, 0)`);
         
         // Draw the light mask

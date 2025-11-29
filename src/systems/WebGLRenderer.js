@@ -1106,10 +1106,10 @@ class WebGLRenderer {
         this.drawGlow(sx + dx * 2.5, sy + dy * 2.5, 20, c(0.2, 0.2, 1.0, 0.3 * intensity)); // Small blue dot
         
         // 4. Far side (past center) - Elongated tail extending EXTREMELY far out
-        this.drawGlow(sx + dx * 4.5, sy + dy * 4.5, 100, c(0.5, 0.3, 0.9, 0.12 * intensity)); // Large purple soft
-        this.drawGlow(sx + dx * 6.0, sy + dy * 6.0, 50, c(0.2, 0.9, 0.8, 0.15 * intensity)); // Cyan
-        this.drawGlow(sx + dx * 9.0, sy + dy * 9.0, 140, c(0.6, 0.4, 0.9, 0.08 * intensity)); // Very large faint violet
-        this.drawGlow(sx + dx * 12.0, sy + dy * 12.0, 80, c(0.9, 0.8, 0.3, 0.12 * intensity)); // Distant yellow
+        this.drawGlow(sx + dx * 6.0, sy + dy * 6.0, 100, c(0.5, 0.3, 0.9, 0.12 * intensity)); // Large purple soft
+        this.drawGlow(sx + dx * 9.0, sy + dy * 9.0, 50, c(0.2, 0.9, 0.8, 0.15 * intensity)); // Cyan
+        this.drawGlow(sx + dx * 15.0, sy + dy * 15.0, 140, c(0.6, 0.4, 0.9, 0.08 * intensity)); // Very large faint violet
+        this.drawGlow(sx + dx * 25.0, sy + dy * 25.0, 80, c(0.9, 0.8, 0.3, 0.12 * intensity)); // Distant yellow
         
         this.flush();
         
