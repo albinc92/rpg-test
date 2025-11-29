@@ -3677,6 +3677,12 @@ class EditorUI {
         const styleButtons = document.createElement('div');
         styleButtons.style.cssText = 'display: flex; gap: 4px;';
         
+        // Force hard brush for collision/spawn modes
+        const isHardEdgeOnly = this.editor.paintMode === 'collision' || this.editor.paintMode === 'spawn';
+        if (isHardEdgeOnly && this.editor.brushStyle !== 'hard') {
+            this.editor.brushStyle = 'hard';
+        }
+        
         const styles = [
             { id: 'hard', label: 'Hard' },
             { id: 'soft', label: 'Soft' },
@@ -3686,20 +3692,27 @@ class EditorUI {
         styles.forEach(style => {
             const btn = document.createElement('button');
             btn.textContent = style.label;
+            
+            const isDisabled = isHardEdgeOnly && style.id !== 'hard';
+            
             btn.style.cssText = `
                 flex: 1;
                 padding: 6px 8px;
                 background: ${this.editor.brushStyle === style.id ? '#4a9eff' : '#333'};
-                color: white;
+                color: ${isDisabled ? '#666' : 'white'};
                 border: 1px solid #555;
                 border-radius: 4px;
-                cursor: pointer;
+                cursor: ${isDisabled ? 'not-allowed' : 'pointer'};
                 font-size: 12px;
+                opacity: ${isDisabled ? '0.5' : '1'};
             `;
-            btn.onclick = () => {
-                this.editor.brushStyle = style.id;
-                this.showPaintToolPanel(); // Refresh panel
-            };
+            
+            if (!isDisabled) {
+                btn.onclick = () => {
+                    this.editor.brushStyle = style.id;
+                    this.showPaintToolPanel(); // Refresh panel
+                };
+            }
             styleButtons.appendChild(btn);
         });
         styleSection.appendChild(styleButtons);
