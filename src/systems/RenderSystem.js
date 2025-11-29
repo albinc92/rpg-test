@@ -520,6 +520,26 @@ class RenderSystem {
             }
         }
         
+        // SHADOW PASS: Render shadows for ALL objects
+        // This ensures all shadows are rendered in a single pass to prevent accumulation
+        if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+            const allShadowObjects = [...objects, ...npcs, ...adjacentObjects];
+            if (player) allShadowObjects.push(player);
+            
+            if (allShadowObjects.length > 0) {
+                this.webglRenderer.beginShadowPass();
+
+                // Render shadows for all objects in the shadow list
+                // No depth sorting needed for shadows as they are flattened and MAX blended
+                allShadowObjects.forEach(obj => {
+                    // Force render to only draw shadow (GameObject checks renderingShadows flag)
+                    obj.render(this.ctx, game, this.webglRenderer);
+                });
+
+                this.webglRenderer.endShadowPass();
+            }
+        }
+
         // Collect and sort all renderable objects
         const renderables = [];
         const getDepth = (obj, game) => {
