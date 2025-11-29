@@ -72,8 +72,10 @@ class WebGLRenderer {
             
             this.gl.disable(this.gl.DEPTH_TEST);
             this.gl.enable(this.gl.BLEND);
-            // Use standard alpha blending (source-over)
-            this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+            // Use premultiplied alpha blending (source-over)
+            // Since we load textures with UNPACK_PREMULTIPLY_ALPHA_WEBGL=true,
+            // we must use ONE instead of SRC_ALPHA for the source factor.
+            this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
             
             if (!this.createSpriteShader()) {
                 return;
@@ -195,7 +197,9 @@ class WebGLRenderer {
             varying vec2 v_texCoord;
             void main() {
                 vec4 color = texture2D(u_texture, v_texCoord);
-                gl_FragColor = vec4(color.rgb * u_tint, color.a * u_alpha);
+                // Since we use premultiplied alpha, we must multiply RGB by alpha as well
+                // to maintain the premultiplied state when opacity changes
+                gl_FragColor = vec4(color.rgb * u_tint * u_alpha, color.a * u_alpha);
             }
         `;
         
@@ -500,17 +504,17 @@ class WebGLRenderer {
         // RGB: Normal alpha blending
         // Alpha: MAX blending to prevent shadow stacking
         if (this.gl.blendEquationSeparate && this.gl.blendFuncSeparate) {
-            // RGB channels: normal alpha blend (FUNC_ADD with SRC_ALPHA, ONE_MINUS_SRC_ALPHA)
+            // RGB channels: normal alpha blend (FUNC_ADD with ONE, ONE_MINUS_SRC_ALPHA)
             // Alpha channel: MAX blend (take maximum alpha, don't add)
             this.gl.blendEquationSeparate(this.gl.FUNC_ADD, this.gl.MAX);
             this.gl.blendFuncSeparate(
-                this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA,  // RGB: normal alpha blend
+                this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA,        // RGB: premultiplied alpha blend
                 this.gl.ONE, this.gl.ONE                          // Alpha: MAX blend (ignored when using MAX equation)
             );
         } else {
             // Fallback: use standard blending (will have stacking)
             console.warn('Separate blend equations not supported, shadows may stack');
-            this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+            this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
         }
         
         this.renderingShadows = true;
@@ -524,7 +528,7 @@ class WebGLRenderer {
         
         // Restore normal alpha blending for both RGB and Alpha
         this.gl.blendEquation(this.gl.FUNC_ADD);
-        this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+        this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
         
         // Switch back to scene framebuffer (if active) or screen
         if (this.sceneFramebuffer) {
@@ -1068,7 +1072,7 @@ class WebGLRenderer {
 
         // 1. Draw Sun Disk (Normal Blending - visible against bright background)
         // This ensures we see the sun itself even if additive blending washes out
-        this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+        this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
         
         // Bright white/yellow center
         this.drawGlow(sx, sy, 60, [1.0, 1.0, 0.9, 0.8 * intensity]);
@@ -1091,7 +1095,7 @@ class WebGLRenderer {
         this.flush();
         
         // Restore normal blending
-        this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+        this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
     }
 
     getCircleTexture() {
