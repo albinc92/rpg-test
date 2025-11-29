@@ -1092,10 +1092,22 @@ class WebGLRenderer {
         // Large soft glow around sun
         this.drawGlow(sx, sy, 200, c(1.0, 0.8, 0.4, 0.6 * intensity));
         
-        // Artifacts along the line
-        this.drawGlow(sx + dx * 0.2, sy + dy * 0.2, 20, c(1.0, 1.0, 0.8, 0.4 * intensity));
-        this.drawGlow(sx + dx * 0.5, sy + dy * 0.5, 40, c(0.8, 1.0, 0.8, 0.2 * intensity));
-        this.drawGlow(sx + dx * 1.2, sy + dy * 1.2, 80, c(0.7, 0.6, 1.0, 0.15 * intensity));
+        // Artifacts along the line - Extended for realistic lens flare
+        // 1. Close to sun (small, intense)
+        this.drawGlow(sx + dx * 0.3, sy + dy * 0.3, 40, c(1.0, 0.9, 0.7, 0.4 * intensity));
+        
+        // 2. Mid range (greenish/yellowish)
+        this.drawGlow(sx + dx * 0.8, sy + dy * 0.8, 60, c(0.8, 1.0, 0.8, 0.2 * intensity));
+        this.drawGlow(sx + dx * 1.1, sy + dy * 1.1, 30, c(1.0, 0.8, 0.9, 0.25 * intensity)); // Pinkish ring
+        
+        // 3. Near center (blue/purple)
+        this.drawGlow(sx + dx * 1.5, sy + dy * 1.5, 20, c(0.5, 0.5, 1.0, 0.4 * intensity)); // Small blue dot
+        
+        // 4. Far side (past center) - Elongated tail extending far out
+        this.drawGlow(sx + dx * 2.0, sy + dy * 2.0, 100, c(0.7, 0.6, 1.0, 0.15 * intensity)); // Large purple soft
+        this.drawGlow(sx + dx * 2.5, sy + dy * 2.5, 50, c(0.6, 1.0, 0.9, 0.2 * intensity)); // Cyan
+        this.drawGlow(sx + dx * 3.2, sy + dy * 3.2, 140, c(0.9, 0.8, 1.0, 0.1 * intensity)); // Very large faint violet
+        this.drawGlow(sx + dx * 4.0, sy + dy * 4.0, 80, c(1.0, 0.9, 0.5, 0.15 * intensity)); // Distant yellow
         
         this.flush();
         

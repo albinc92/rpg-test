@@ -173,7 +173,7 @@ class LightManager {
         // Reset blend mode
         ctx.globalCompositeOperation = 'source-over';
         
-        console.log(`[LightManager] Generated mask with ${lightsRendered} lights at camera(${cameraX.toFixed(0)}, ${cameraY.toFixed(0)})`);
+        // console.log(`[LightManager] Generated mask with ${lightsRendered} lights at camera(${cameraX.toFixed(0)}, ${cameraY.toFixed(0)})`);
         
         this.maskNeedsUpdate = false;
     }
