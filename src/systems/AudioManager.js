@@ -196,22 +196,34 @@ class AudioManager {
             newBGM.loop = true;
             newBGM.volume = 0; // Start at 0 for crossfade in
             
+            // Capture old BGM before updating reference
+            const oldBGM = this.bgmAudio;
+            
+            // Update current BGM reference immediately to prevent race conditions
+            // This ensures subsequent calls know about this new BGM even before it starts playing
+            this.bgmAudio = newBGM;
+            
             // Start playing the new track
             const playPromise = newBGM.play();
             
-            // Update current BGM immediately to prevent stacking
+            // Update current BGM filename immediately to prevent stacking
             this.currentBGM = safeFilename;
             
             if (playPromise !== undefined) {
                 playPromise.then(() => {
                     console.log(`[AudioManager] ✅ BGM '${safeFilename}' loaded successfully, starting crossfade`);
-                    this.crossfadeBGM(this.bgmAudio, newBGM, crossfadeDuration, safeFilename);
+                    this.crossfadeBGM(oldBGM, newBGM, crossfadeDuration, safeFilename);
                 }).catch(error => {
                     console.error(`[AudioManager] ❌ Failed to play BGM '${safeFilename}':`, error);
                     this.audioElements.delete(newBGM);
-                    // Revert currentBGM if playback failed
+                    // Revert currentBGM if playback failed and we haven't switched to another one
                     if (this.currentBGM === safeFilename) {
                         this.currentBGM = null;
+                        // If we reverted, we might want to restore oldBGM if it was still playing?
+                        // But for now, just clearing is safer than playing wrong audio
+                        if (this.bgmAudio === newBGM) {
+                            this.bgmAudio = oldBGM;
+                        }
                     }
                 });
             }
@@ -265,9 +277,8 @@ class AudioManager {
                     oldAudio.currentTime = 0;
                 }
                 
-                // Set new audio as current
-                this.bgmAudio = newAudio;
-                // this.currentBGM = newFilename; // Already set in playBGM
+                // Ensure new audio volume is set correctly
+                // Note: this.bgmAudio is already updated in playBGM
                 newAudio.volume = this.calculateBGMVolume();
                 
                 console.log(`[AudioManager] Crossfade complete, now playing: ${newFilename}`);

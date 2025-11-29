@@ -708,7 +708,7 @@ class GameEngine {
                     id: playerLightId,
                     x: this.player.x,
                     y: this.player.y,
-                    radius: 450, 
+                    radius: 600, // Increased from 450
                     color: { r: 255, g: 200, b: 150, a: 0.5 }, // Warm lantern light
                     flicker: { enabled: true, speed: 3.0, intensity: 0.1 },
                     // Runtime state required for rendering
