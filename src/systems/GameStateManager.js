@@ -503,12 +503,9 @@ class MainMenuState extends GameState {
     
     exit() {
         // Stop main menu BGM to ensure it doesn't continue playing
-        console.log('🚪 MAIN MENU EXITED - stopping main menu BGM');
-        if (this.game.audioManager) {
-            // Clear any pending crossfades and stop the current BGM
-            this.game.audioManager.clearAllCrossfades();
-            this.game.audioManager.stopBGM();
-        }
+        console.log('🚪 MAIN MENU EXITED');
+        // REMOVED stopBGM() - Let the next state handle BGM changes via playBGM()
+        // This prevents crossfade conflicts where stopBGM() fades out the NEW track
         
         // Pause video
         if (this.backgroundVideo) {

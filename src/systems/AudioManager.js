@@ -211,6 +211,23 @@ class AudioManager {
             
             if (playPromise !== undefined) {
                 playPromise.then(() => {
+                    // Check if we've been superseded by another BGM request
+                    if (this.currentBGM !== safeFilename) {
+                        console.log(`[AudioManager] BGM '${safeFilename}' superseded by '${this.currentBGM}', skipping crossfade`);
+                        // Cleanup the track we were supposed to replace (oldBGM)
+                        // because the new request (which superseded us) will handle fading out OUR newBGM
+                        // but nobody is handling oldBGM anymore if we abort.
+                        if (oldBGM && !oldBGM.paused) {
+                            oldBGM.pause();
+                            oldBGM.currentTime = 0;
+                        }
+                        // We also need to ensure our newBGM (which is playing at volume 0) 
+                        // is properly tracked or stopped? 
+                        // Actually, the superseding request captured OUR newBGM as its oldBGM.
+                        // So it will fade it out (from 0 to 0) and stop it.
+                        return;
+                    }
+
                     console.log(`[AudioManager] ✅ BGM '${safeFilename}' loaded successfully, starting crossfade`);
                     this.crossfadeBGM(oldBGM, newBGM, crossfadeDuration, safeFilename);
                 }).catch(error => {
@@ -247,6 +264,10 @@ class AudioManager {
         const crossfadeId = `bgm_${Date.now()}`;
         this.activeCrossfades.add(crossfadeId);
 
+        // Capture starting volume of old audio to prevent volume jumps
+        const startVolumeOld = oldAudio ? oldAudio.volume : 0;
+        const targetVolumeNew = this.calculateBGMVolume();
+
         const fadeInterval = setInterval(() => {
             if (!this.activeCrossfades.has(crossfadeId)) {
                 clearInterval(fadeInterval);
@@ -258,12 +279,13 @@ class AudioManager {
             
             // Fade out old audio
             if (oldAudio && !oldAudio.paused) {
-                oldAudio.volume = Math.max(0, this.calculateBGMVolume() * (1 - progress));
+                // Fade from current volume down to 0
+                oldAudio.volume = Math.max(0, startVolumeOld * (1 - progress));
             }
             
             // Fade in new audio
             if (newAudio && !newAudio.paused) {
-                newAudio.volume = Math.min(this.calculateBGMVolume(), this.calculateBGMVolume() * progress);
+                newAudio.volume = Math.min(targetVolumeNew, targetVolumeNew * progress);
             }
             
             if (currentStep >= steps) {
