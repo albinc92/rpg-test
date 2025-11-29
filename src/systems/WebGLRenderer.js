@@ -1094,23 +1094,23 @@ class WebGLRenderer {
         
         // Artifacts along the line - Extended for realistic lens flare
         // 1. Close to sun (small, intense)
-        this.drawGlow(sx + dx * 0.2, sy + dy * 0.2, 40, c(1.0, 0.8, 0.5, 0.3 * intensity)); // Orange/Gold
+        this.drawGlow(sx + dx * 0.3, sy + dy * 0.3, 50, c(1.0, 0.5, 0.0, 0.5 * intensity)); // Deep Orange
         
-        // 2. Mid range (greenish/yellowish) - Pushed away from center
-        this.drawGlow(sx + dx * 0.6, sy + dy * 0.6, 60, c(0.4, 0.8, 0.4, 0.15 * intensity)); // Green
+        // 2. Mid range (greenish) - Pushed away from center
+        this.drawGlow(sx + dx * 0.6, sy + dy * 0.6, 70, c(0.0, 1.0, 0.2, 0.3 * intensity)); // Bright Green
         
-        // GAP AROUND CENTER (0.8 - 1.5) to avoid obstructing view
+        // GAP AROUND CENTER (0.8 - 2.0) to avoid obstructing view
         
         // 3. Past center (blue/purple) - Pushed further out
-        this.drawGlow(sx + dx * 2.0, sy + dy * 2.0, 30, c(0.8, 0.4, 0.8, 0.2 * intensity)); // Pinkish ring
-        this.drawGlow(sx + dx * 2.5, sy + dy * 2.5, 20, c(0.2, 0.2, 1.0, 0.3 * intensity)); // Small blue dot
+        this.drawGlow(sx + dx * 2.2, sy + dy * 2.2, 40, c(0.0, 0.2, 1.0, 0.6 * intensity)); // Deep Blue (High Alpha)
+        this.drawGlow(sx + dx * 3.5, sy + dy * 3.5, 60, c(1.0, 0.0, 1.0, 0.4 * intensity)); // Magenta
         
         // 4. Far side (past center) - Elongated tail extending EXTREMELY far out
-        this.drawGlow(sx + dx * 6.0, sy + dy * 6.0, 100, c(0.5, 0.3, 0.9, 0.12 * intensity)); // Large purple soft
-        this.drawGlow(sx + dx * 9.0, sy + dy * 9.0, 50, c(0.2, 0.9, 0.8, 0.15 * intensity)); // Cyan
-        this.drawGlow(sx + dx * 15.0, sy + dy * 15.0, 140, c(0.6, 0.4, 0.9, 0.08 * intensity)); // Very large faint violet
-        this.drawGlow(sx + dx * 25.0, sy + dy * 25.0, 80, c(0.9, 0.8, 0.3, 0.12 * intensity)); // Distant yellow
-        
+        this.drawGlow(sx + dx * 5.5, sy + dy * 5.5, 120, c(0.5, 0.0, 0.8, 0.3 * intensity)); // Purple
+        this.drawGlow(sx + dx * 8.0, sy + dy * 8.0, 80, c(0.0, 1.0, 1.0, 0.4 * intensity)); // Cyan
+        this.drawGlow(sx + dx * 12.0, sy + dy * 12.0, 160, c(0.8, 0.8, 0.0, 0.25 * intensity)); // Yellow
+        this.drawGlow(sx + dx * 18.0, sy + dy * 18.0, 100, c(1.0, 0.0, 0.0, 0.2 * intensity)); // Red Distant
+
         this.flush();
         
         // Restore normal blending
