@@ -1094,22 +1094,22 @@ class WebGLRenderer {
         
         // Artifacts along the line - Extended for realistic lens flare
         // 1. Close to sun (small, intense)
-        this.drawGlow(sx + dx * 0.3, sy + dy * 0.3, 50, c(1.0, 0.5, 0.0, 0.5 * intensity)); // Deep Orange
+        this.drawGlow(sx + dx * 0.2, sy + dy * 0.2, 50, c(1.0, 0.5, 0.0, 0.5 * intensity)); // Deep Orange
         
-        // 2. Mid range (greenish) - Pushed away from center
-        this.drawGlow(sx + dx * 0.6, sy + dy * 0.6, 70, c(0.0, 1.0, 0.2, 0.3 * intensity)); // Bright Green
+        // 2. Mid range (greenish) - Pushed closer to sun (away from center)
+        this.drawGlow(sx + dx * 0.4, sy + dy * 0.4, 70, c(0.0, 1.0, 0.2, 0.3 * intensity)); // Bright Green
         
-        // GAP AROUND CENTER (0.8 - 2.0) to avoid obstructing view
+        // GAP AROUND CENTER (0.5 - 3.0) - HUGE GAP to keep player clear
         
-        // 3. Past center (blue/purple) - Pushed further out
-        this.drawGlow(sx + dx * 2.2, sy + dy * 2.2, 40, c(0.0, 0.2, 1.0, 0.6 * intensity)); // Deep Blue (High Alpha)
-        this.drawGlow(sx + dx * 3.5, sy + dy * 3.5, 60, c(1.0, 0.0, 1.0, 0.4 * intensity)); // Magenta
+        // 3. Past center (blue/purple) - Pushed WAY further out
+        this.drawGlow(sx + dx * 3.0, sy + dy * 3.0, 40, c(0.0, 0.2, 1.0, 0.6 * intensity)); // Deep Blue
+        this.drawGlow(sx + dx * 4.5, sy + dy * 4.5, 60, c(1.0, 0.0, 1.0, 0.4 * intensity)); // Magenta
         
         // 4. Far side (past center) - Elongated tail extending EXTREMELY far out
-        this.drawGlow(sx + dx * 5.5, sy + dy * 5.5, 120, c(0.5, 0.0, 0.8, 0.3 * intensity)); // Purple
-        this.drawGlow(sx + dx * 8.0, sy + dy * 8.0, 80, c(0.0, 1.0, 1.0, 0.4 * intensity)); // Cyan
-        this.drawGlow(sx + dx * 12.0, sy + dy * 12.0, 160, c(0.8, 0.8, 0.0, 0.25 * intensity)); // Yellow
-        this.drawGlow(sx + dx * 18.0, sy + dy * 18.0, 100, c(1.0, 0.0, 0.0, 0.2 * intensity)); // Red Distant
+        this.drawGlow(sx + dx * 7.0, sy + dy * 7.0, 120, c(0.5, 0.0, 0.8, 0.3 * intensity)); // Purple
+        this.drawGlow(sx + dx * 10.0, sy + dy * 10.0, 80, c(0.0, 1.0, 1.0, 0.4 * intensity)); // Cyan
+        this.drawGlow(sx + dx * 15.0, sy + dy * 15.0, 160, c(0.8, 0.8, 0.0, 0.25 * intensity)); // Yellow
+        this.drawGlow(sx + dx * 22.0, sy + dy * 22.0, 100, c(1.0, 0.0, 0.0, 0.2 * intensity)); // Red Distant
 
         this.flush();
         

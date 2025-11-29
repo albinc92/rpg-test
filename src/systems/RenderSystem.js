@@ -354,9 +354,9 @@ class RenderSystem {
                 if (time >= 8 && time < 10) {
                     // Fade in 8-9, fade out 9-10. Triangle wave: 0 -> 1 -> 0
                     timeFade = 1 - Math.abs((time - 8) - 1);
-                } else if (time >= 14 && time < 16) {
-                    // Fade in 14-15, fade out 15-16. Triangle wave: 0 -> 1 -> 0
-                    timeFade = 1 - Math.abs((time - 14) - 1);
+                } else if (time >= 15 && time < 17) {
+                    // Fade in 15-16, fade out 16-17. Triangle wave: 0 -> 1 -> 0
+                    timeFade = 1 - Math.abs((time - 15) - 1);
                 }
                 
                 if (isClearWeather && timeFade > 0 && sunPos) {

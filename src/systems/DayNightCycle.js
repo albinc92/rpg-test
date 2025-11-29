@@ -571,14 +571,13 @@ class DayNightCycle {
         const progress = (time - 6) / 12;
         
         // Sun moves from right to left (1.0 to 0.0) to match shadow logic (East=Right)
-        // 6 AM = Right (1.0), 6 PM = Left (0.0) - Full 180 degree arc
-        const x = 1.0 - progress;
+        // Extended range (-0.2 to 1.2) so it starts/ends off-screen
+        const x = 1.2 - (progress * 1.4);
         
         // Sun arc height (y position)
-        // Starts low (0.8), goes high (-0.2), ends low (0.8)
+        // Starts low (0.9), goes high (-0.3), ends low (0.9)
         const arcHeight = Math.sin(progress * Math.PI);
-        // const y = 0.8 - (arcHeight * 1.0); // 0.8 (horizon) to -0.2 (zenith)
-        const y = 0.8 - (arcHeight * 0.7); // 0.8 (horizon) to 0.1 (high noon) - Keep on screen!
+        const y = 0.9 - (arcHeight * 1.2); // Goes off-screen at noon (-0.3)
         
         // Calculate flare intensity based on sun height
         // Visible from 6 AM to 6 PM (18:00)
