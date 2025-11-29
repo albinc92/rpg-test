@@ -546,6 +546,12 @@ class RenderSystem {
             }
         }
 
+        // Begin sprite pass - sprites render upright (Pin-Up Projection)
+        // Their position is transformed by perspective, but their shape stays rectangular
+        if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+            this.webglRenderer.beginSpritePass();
+        }
+
         // Collect and sort all renderable objects
         const renderables = [];
         const getDepth = (obj, game) => {
@@ -584,6 +590,11 @@ class RenderSystem {
         renderables.forEach(({ obj }) => {
             obj.render(this.ctx, game, this.webglRenderer);
         });
+
+        // End sprite pass - return to normal perspective mode
+        if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+            this.webglRenderer.endSpritePass();
+        }
         
         // Render debug collision boxes if enabled
         const showCollision = (game.settings && game.settings.showDebugInfo) || 

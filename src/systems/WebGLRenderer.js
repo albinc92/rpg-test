@@ -193,22 +193,24 @@ class WebGLRenderer {
             uniform mat4 u_projection;
             uniform mat4 u_view;
             uniform float u_perspectiveStrength; // 0.0 = none, 0.3-0.5 = typical
+            uniform float u_billboardMode; // 0.0 = normal (distort shape), 1.0 = billboard (pre-transformed on CPU)
             
             varying vec2 v_texCoord;
             
             void main() {
                 gl_Position = u_projection * u_view * vec4(a_position, 0.0, 1.0);
                 
-                // Fake 3D Perspective Distortion
-                // Manipulate W component to create perspective divide
-                // This affects the ENTIRE scene (map + objects) uniformly
-                if (u_perspectiveStrength > 0.0) {
-                    // depth: 0 at bottom, 1 at top
+                // Fake 3D Perspective Distortion (only for non-billboard sprites)
+                // Billboard sprites are pre-transformed on CPU to stay rectangular
+                if (u_perspectiveStrength > 0.0 && u_billboardMode < 0.5) {
+                    // depth: 0 at bottom, 1 at top (in NDC space)
                     float depth = (gl_Position.y + 1.0) * 0.5;
                     
-                    // Higher W = smaller after perspective divide
-                    // Objects at top get higher W -> smaller
-                    gl_Position.w = 1.0 + (depth * u_perspectiveStrength);
+                    // Calculate the W value for perspective
+                    float perspectiveW = 1.0 + (depth * u_perspectiveStrength);
+                    
+                    // Apply perspective via W component (creates trapezoid)
+                    gl_Position.w = perspectiveW;
                 }
                 
                 v_texCoord = a_texCoord;
@@ -251,8 +253,12 @@ class WebGLRenderer {
             texture: this.gl.getUniformLocation(this.spriteProgram, 'u_texture'),
             alpha: this.gl.getUniformLocation(this.spriteProgram, 'u_alpha'),
             tint: this.gl.getUniformLocation(this.spriteProgram, 'u_tint'),
-            perspectiveStrength: this.gl.getUniformLocation(this.spriteProgram, 'u_perspectiveStrength')
+            perspectiveStrength: this.gl.getUniformLocation(this.spriteProgram, 'u_perspectiveStrength'),
+            billboardMode: this.gl.getUniformLocation(this.spriteProgram, 'u_billboardMode')
         };
+        
+        // Initialize billboard mode to off (normal perspective for map)
+        this.billboardMode = false;
         
         return true;
     }
@@ -487,6 +493,41 @@ class WebGLRenderer {
         this.perspectiveStrength = strength || 0.0;
     }
     
+    /**
+     * Begin billboard/sprite pass - sprites render upright (Pin-Up Projection)
+     * Position is transformed by perspective, but shape is not distorted
+     */
+    beginSpritePass() {
+        if (!this.initialized) return;
+        
+        // Flush any pending ground/background draws with normal perspective
+        this.flush();
+        
+        // Enable billboard mode
+        this.billboardMode = true;
+        
+        // Update shader uniform immediately
+        this.gl.useProgram(this.spriteProgram);
+        this.gl.uniform1f(this.spriteProgram.locations.billboardMode, 1.0);
+    }
+    
+    /**
+     * End billboard/sprite pass - return to normal perspective mode
+     */
+    endSpritePass() {
+        if (!this.initialized) return;
+        
+        // Flush any sprites drawn in billboard mode
+        this.flush();
+        
+        // Disable billboard mode
+        this.billboardMode = false;
+        
+        // Update shader uniform immediately
+        this.gl.useProgram(this.spriteProgram);
+        this.gl.uniform1f(this.spriteProgram.locations.billboardMode, 0.0);
+    }
+    
     createOrthoMatrix(left, right, bottom, top, near, far) {
         const lr = 1 / (left - right);
         const bt = 1 / (bottom - top);
@@ -522,6 +563,12 @@ class WebGLRenderer {
         // Set perspective strength for fake 3D effect
         if (this.spriteProgram.locations.perspectiveStrength) {
             this.gl.uniform1f(this.spriteProgram.locations.perspectiveStrength, this.perspectiveStrength || 0.0);
+        }
+        
+        // Start in normal mode (not billboard) - map/ground gets full perspective distortion
+        this.billboardMode = false;
+        if (this.spriteProgram.locations.billboardMode) {
+            this.gl.uniform1f(this.spriteProgram.locations.billboardMode, 0.0);
         }
         
         this.batchVertices = [];
@@ -708,8 +755,68 @@ class WebGLRenderer {
             this.currentAlpha = alpha;
         }
         
-        // Vertex positions
-        this.batchVertices.push(x, y, x + width, y, x + width, y + height, x, y + height);
+        // Calculate vertex positions
+        let x0 = x, y0 = y;                    // top-left
+        let x1 = x + width, y1 = y;            // top-right  
+        let x2 = x + width, y2 = y + height;   // bottom-right
+        let x3 = x, y3 = y + height;           // bottom-left
+        
+        // BILLBOARD MODE: Pre-apply perspective transformation on CPU
+        // This ensures ALL vertices use the SAME scale factor, keeping the sprite rectangular
+        if (this.billboardMode && this.perspectiveStrength > 0) {
+            // Use the sprite's BOTTOM Y (feet position) for consistent perspective
+            const baseY = y + height; // Bottom of sprite = where it touches ground
+            
+            // Transform baseY to NDC-like space (0 at bottom of logical canvas, 1 at top)
+            // We need to account for camera position stored in viewMatrix
+            const cameraX = this.viewMatrix ? -this.viewMatrix[12] : 0;
+            const cameraY = this.viewMatrix ? -this.viewMatrix[13] : 0;
+            const zoom = this.viewMatrix ? this.viewMatrix[0] : 1;
+            
+            // Screen position of sprite base
+            const screenBaseY = (baseY - cameraY) * zoom;
+            
+            // Normalize to 0-1 range (0 = bottom of screen, 1 = top)
+            const normalizedY = 1.0 - (screenBaseY / this.logicalHeight);
+            const depth = Math.max(0, Math.min(1, normalizedY));
+            
+            // Calculate uniform perspective scale for this sprite
+            const perspectiveW = 1.0 + (depth * this.perspectiveStrength);
+            const scale = 1.0 / perspectiveW;
+            
+            // Find sprite center for scaling
+            const centerX = x + width / 2;
+            const centerY = y + height / 2;
+            
+            // Apply perspective: scale and shift toward vanishing point (center-top)
+            // Vanishing point X is at canvas center
+            const vanishX = this.logicalWidth / 2 + cameraX;
+            
+            // Scale sprite size
+            const scaledWidth = width * scale;
+            const scaledHeight = height * scale;
+            
+            // Shift X toward vanishing point based on depth
+            const xShift = (vanishX - centerX) * (1 - scale);
+            const newCenterX = centerX + xShift;
+            
+            // Shift Y up (toward horizon) based on depth
+            const yShift = (baseY - centerY) * (1 - scale); 
+            const newCenterY = centerY + yShift;
+            
+            // Recalculate corners with new center and scaled size
+            x0 = newCenterX - scaledWidth / 2;
+            y0 = newCenterY - scaledHeight / 2;
+            x1 = newCenterX + scaledWidth / 2;
+            y1 = newCenterY - scaledHeight / 2;
+            x2 = newCenterX + scaledWidth / 2;
+            y2 = newCenterY + scaledHeight / 2;
+            x3 = newCenterX - scaledWidth / 2;
+            y3 = newCenterY + scaledHeight / 2;
+        }
+        
+        // Push vertex positions (top-left, top-right, bottom-right, bottom-left)
+        this.batchVertices.push(x0, y0, x1, y1, x2, y2, x3, y3);
         
         // Texture coordinates with optional flipping
         const u0 = flipX ? 1 : 0;
@@ -797,6 +904,9 @@ class WebGLRenderer {
         this.gl.uniformMatrix4fv(this.spriteProgram.locations.view, false, this.viewMatrix || this.createIdentityMatrix());
         this.gl.uniform1f(this.spriteProgram.locations.alpha, alpha);
         this.gl.uniform3f(this.spriteProgram.locations.tint, 1.0, 1.0, 1.0);
+        
+        // Set billboard mode uniform - controls whether sprites get shape distortion
+        this.gl.uniform1f(this.spriteProgram.locations.billboardMode, this.billboardMode ? 1.0 : 0.0);
         
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.batchVertices), this.gl.DYNAMIC_DRAW);
