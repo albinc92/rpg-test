@@ -126,7 +126,6 @@ class GameObject {
     /**
      * Get final render scale (object scale × resolution scale)
      * This combines per-object artistic scale with screen-size adaptation
-     * Note: Perspective scaling is now handled globally by the WebGL shader
      */
     getFinalScale(game) {
         const resolutionScale = game?.resolutionScale || 1.0;

@@ -113,11 +113,17 @@ class WebGLRenderer {
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.shadowFramebuffer);
         
         // Create texture to render shadows to
+        // Make it larger to account for perspective expansion (shadows at top converge inward,
+        // but shadows at bottom can extend beyond normal screen bounds)
+        const shadowScale = 1.5; // 50% larger to catch edge shadows
+        this.shadowWidth = Math.ceil(this.logicalWidth * shadowScale);
+        this.shadowHeight = Math.ceil(this.logicalHeight * shadowScale);
+        
         this.shadowTexture = this.gl.createTexture();
         this.gl.bindTexture(this.gl.TEXTURE_2D, this.shadowTexture);
         this.gl.texImage2D(
             this.gl.TEXTURE_2D, 0, this.gl.RGBA,
-            this.logicalWidth, this.logicalHeight, 0,
+            this.shadowWidth, this.shadowHeight, 0,
             this.gl.RGBA, this.gl.UNSIGNED_BYTE, null
         );
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
@@ -186,7 +192,7 @@ class WebGLRenderer {
             attribute vec2 a_texCoord;
             uniform mat4 u_projection;
             uniform mat4 u_view;
-            uniform float u_perspectiveStrength; // 0.0 = none, usually around 0.5-1.0 for effect
+            uniform float u_perspectiveStrength; // 0.0 = none, 0.3-0.5 = typical
             
             varying vec2 v_texCoord;
             
@@ -194,17 +200,14 @@ class WebGLRenderer {
                 gl_Position = u_projection * u_view * vec4(a_position, 0.0, 1.0);
                 
                 // Fake 3D Perspective Distortion
-                // We manipulate the W component to create perspective divide
-                // In our ortho projection: Y=+1 is TOP, Y=-1 is BOTTOM
-                
+                // Manipulate W component to create perspective divide
+                // This affects the ENTIRE scene (map + objects) uniformly
                 if (u_perspectiveStrength > 0.0) {
-                    // Calculate depth factor (0.0 at bottom, 1.0 at top)
-                    // gl_Position.y is in clip space (-1 to 1)
+                    // depth: 0 at bottom, 1 at top
                     float depth = (gl_Position.y + 1.0) * 0.5;
                     
-                    // Apply perspective
-                    // Objects at top (depth 1.0) get higher W -> smaller size
-                    // Objects at bottom (depth 0.0) get W=1.0 -> normal size
+                    // Higher W = smaller after perspective divide
+                    // Objects at top get higher W -> smaller
                     gl_Position.w = 1.0 + (depth * u_perspectiveStrength);
                 }
                 
@@ -516,7 +519,7 @@ class WebGLRenderer {
             this.gl.uniformMatrix4fv(this.spriteProgram.locations.projection, false, this.projectionMatrix);
         }
         
-        // Set perspective strength
+        // Set perspective strength for fake 3D effect
         if (this.spriteProgram.locations.perspectiveStrength) {
             this.gl.uniform1f(this.spriteProgram.locations.perspectiveStrength, this.perspectiveStrength || 0.0);
         }
@@ -528,103 +531,47 @@ class WebGLRenderer {
         this.currentAlpha = 1.0;
     }
     
+    /**
+     * Begin shadow rendering pass
+     * Shadows are rendered directly to the scene buffer with perspective applied
+     * Uses MAX blending on alpha channel to prevent shadow stacking
+     */
     beginShadowPass() {
-        if (!this.initialized || !this.shadowFramebuffer) return;
+        if (!this.initialized) return;
         
         // Flush any pending draws
         this.flush();
         
-        // Switch to shadow framebuffer
-        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.shadowFramebuffer);
-        
-        // Set viewport to match shadow framebuffer size
-        // This is CRITICAL: if we don't do this, it uses the screen viewport
-        // which might be larger (High DPI) or different, causing shadows to drift or clip
-        this.gl.viewport(0, 0, this.logicalWidth, this.logicalHeight);
-        
-        this.gl.clearColor(0, 0, 0, 0);
-        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        // Stay on the current framebuffer (scene) - shadows get perspective this way
+        // Just change the blend mode to prevent shadow stacking
         
         // Use separate blend equations for RGB and Alpha
         // RGB: Normal alpha blending
         // Alpha: MAX blending to prevent shadow stacking
         if (this.gl.blendEquationSeparate && this.gl.blendFuncSeparate) {
-            // RGB channels: normal alpha blend (FUNC_ADD with ONE, ONE_MINUS_SRC_ALPHA)
-            // Alpha channel: MAX blend (take maximum alpha, don't add)
             this.gl.blendEquationSeparate(this.gl.FUNC_ADD, this.gl.MAX);
             this.gl.blendFuncSeparate(
-                this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA,        // RGB: premultiplied alpha blend
-                this.gl.ONE, this.gl.ONE                          // Alpha: MAX blend (ignored when using MAX equation)
+                this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA,  // RGB: premultiplied alpha blend
+                this.gl.ONE, this.gl.ONE                    // Alpha: MAX blend
             );
-        } else {
-            // Fallback: use standard blending (will have stacking)
-            console.warn('Separate blend equations not supported, shadows may stack');
-            this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
         }
         
         this.renderingShadows = true;
     }
     
     endShadowPass() {
-        if (!this.initialized || !this.shadowFramebuffer) return;
+        if (!this.initialized) return;
         
         // Flush shadow draws
         this.flush();
         
-        // Restore normal alpha blending for both RGB and Alpha
+        // Restore normal alpha blending
         this.gl.blendEquation(this.gl.FUNC_ADD);
         this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
         
-        // Switch back to scene framebuffer (if active) or screen
-        if (this.sceneFramebuffer) {
-            this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.sceneFramebuffer);
-            this.gl.viewport(0, 0, this.logicalWidth, this.logicalHeight);
-        } else {
-            this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-            this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-        }
-        
         this.renderingShadows = false;
         
-        // Composite shadow texture to main framebuffer
-        this.compositeShadows();
-    }
-    
-    compositeShadows() {
-        // Draw the shadow texture to the main framebuffer
-        // This composites all shadows at once, preventing stacking
-        const texture = this.shadowTexture;
-        if (!texture) return;
-        
-        // Save current state
-        const prevTexture = this.currentTexture;
-        const prevViewMatrix = this.viewMatrix;
-        
-        // Use identity view matrix (no camera transform for full-screen quad)
-        this.viewMatrix = this.createIdentityMatrix();
-        this.currentTexture = texture;
-        
-        // Draw full-screen quad with shadow texture
-        // IMPORTANT: Flip Y coordinates because framebuffer textures are upside down
-        this.batchVertices.push(
-            0, 0,
-            this.logicalWidth, 0,
-            this.logicalWidth, this.logicalHeight,
-            0, this.logicalHeight
-        );
-        this.batchTexCoords.push(
-            0, 1,  // Bottom-left (flipped from 0,0)
-            1, 1,  // Bottom-right (flipped from 1,0)
-            1, 0,  // Top-right (flipped from 1,1)
-            0, 0   // Top-left (flipped from 0,1)
-        );
-        this.currentBatchSize = 1;
-        
-        this.flush();
-        
-        // Restore state
-        this.currentTexture = prevTexture;
-        this.viewMatrix = prevViewMatrix;
+        // No need to composite - shadows are already in the scene buffer with perspective!
     }
     
     endFrame() {
