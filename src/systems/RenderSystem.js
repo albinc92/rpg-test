@@ -728,8 +728,9 @@ class RenderSystem {
         const currentWidth = currentMap.width * currentMapScale * resolutionScale;
         const currentHeight = currentMap.height * currentMapScale * resolutionScale;
 
-        // Helper to render a map background at offset
-        const renderMapBackground = (mapData, offsetX, offsetY) => {
+        // Helper to render a map background and paint layer at offset
+        // mapId is the string key (e.g., "0-0") since mapData doesn't have an id property
+        const renderMapBackground = (mapId, mapData, offsetX, offsetY) => {
             if (!mapData || !mapData.image) return;
             
             const mapScale = game.GAME_SCALE || mapData.scale || 1.0;
@@ -738,7 +739,7 @@ class RenderSystem {
             
             // Render Background
             if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
-                const imageUrl = mapData.image.src || `map_${mapData.id}_bg`;
+                const imageUrl = mapData.image.src || `map_${mapId}_bg`;
                 this.webglRenderer.drawSprite(
                     offsetX, offsetY, 
                     width, height,
@@ -748,32 +749,49 @@ class RenderSystem {
             } else {
                 this.ctx.drawImage(mapData.image, offsetX, offsetY, width, height);
             }
+            
+            // Render Paint Layer for adjacent map (if exists and has content)
+            if (game?.editorManager) {
+                // Check if paint layer exists without creating a new empty one
+                const paintLayer = game.editorManager.paintLayers[mapId];
+                if (paintLayer) {
+                    if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+                        const imageUrl = `paint_layer_${mapId}`;
+                        this.webglRenderer.drawSprite(offsetX, offsetY, width, height, paintLayer, imageUrl);
+                    } else {
+                        this.ctx.drawImage(paintLayer, offsetX, offsetY, width, height);
+                    }
+                }
+            }
         };
 
+        // Get the adjacent map IDs from the current map's adjacentMaps config
+        const adjacentIds = currentMap.adjacentMaps || {};
+
         // Render North
-        if (adjacentMaps.north) {
+        if (adjacentMaps.north && adjacentIds.north) {
             const mapData = adjacentMaps.north;
             const mapScale = game.GAME_SCALE || mapData.scale || 1.0;
             const height = mapData.height * mapScale * resolutionScale;
-            renderMapBackground(mapData, 0, -height);
+            renderMapBackground(adjacentIds.north, mapData, 0, -height);
         }
 
         // Render South
-        if (adjacentMaps.south) {
-            renderMapBackground(adjacentMaps.south, 0, currentHeight);
+        if (adjacentMaps.south && adjacentIds.south) {
+            renderMapBackground(adjacentIds.south, adjacentMaps.south, 0, currentHeight);
         }
 
         // Render West
-        if (adjacentMaps.west) {
+        if (adjacentMaps.west && adjacentIds.west) {
             const mapData = adjacentMaps.west;
             const mapScale = game.GAME_SCALE || mapData.scale || 1.0;
             const width = mapData.width * mapScale * resolutionScale;
-            renderMapBackground(mapData, -width, 0);
+            renderMapBackground(adjacentIds.west, mapData, -width, 0);
         }
 
         // Render East
-        if (adjacentMaps.east) {
-            renderMapBackground(adjacentMaps.east, currentWidth, 0);
+        if (adjacentMaps.east && adjacentIds.east) {
+            renderMapBackground(adjacentIds.east, adjacentMaps.east, currentWidth, 0);
         }
     }
 
