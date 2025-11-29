@@ -1332,17 +1332,17 @@ class GameEngine {
             // Opacity based on time windows
             if (timeOfDay >= 8 && timeOfDay < 17) {
                 // FULL DAYTIME (8 AM - 5 PM): Strong shadows
-                shadowOpacity = 0.3;
+                shadowOpacity = 0.5;
                 
             } else if (timeOfDay >= 5 && timeOfDay < 8) {
                 // DAWN (5 AM - 8 AM): Fade in from 0 to full (3 hours like dusk)
                 const dawnProgress = (timeOfDay - 5) / 3; // 0 to 1
-                shadowOpacity = 0.3 * dawnProgress;
+                shadowOpacity = 0.5 * dawnProgress;
                 
             } else if (timeOfDay >= 17 && timeOfDay < 20) {
                 // DUSK (5 PM - 8 PM): Fade out from full to 0
                 const duskProgress = (timeOfDay - 17) / 3; // 0 to 1
-                shadowOpacity = 0.3 * (1 - duskProgress);
+                shadowOpacity = 0.5 * (1 - duskProgress);
             }
             
         } else {
@@ -1376,14 +1376,14 @@ class GameEngine {
                 if (timeOfDay >= 20 && timeOfDay < 21) {
                     // Evening fade in (8-9 PM)
                     const fadeIn = timeOfDay - 20; // 0 to 1
-                    shadowOpacity = 0.08 * fadeIn; // Dimmer moon shadows
+                    shadowOpacity = 0.25 * fadeIn; // Dimmer moon shadows
                 } else if (timeOfDay >= 4 && timeOfDay < 5) {
                     // Pre-dawn fade out (4-5 AM)
                     const fadeOut = 1 - (timeOfDay - 4); // 1 to 0
-                    shadowOpacity = 0.08 * fadeOut; // Dimmer moon shadows
+                    shadowOpacity = 0.25 * fadeOut; // Dimmer moon shadows
                 } else {
                     // Full moon shadows (9 PM - 4 AM)
-                    shadowOpacity = 0.08; // Reduced from 0.15 - subtler moon shadows
+                    shadowOpacity = 0.25; // Reduced from 0.15 - subtler moon shadows
                 }
             } else {
                 // Cloudy/rainy/snowy night: no moon visible, no shadows

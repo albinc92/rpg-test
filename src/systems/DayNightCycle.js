@@ -593,9 +593,9 @@ class DayNightCycle {
             // 12:00 -> abs(12-12) = 0 -> factor 0.6
             // 09:00 -> abs(9-12) = 3 -> factor 0.9
             // 15:00 -> abs(15-12) = 3 -> factor 0.9
-            const angleFactor = 0.6 + (Math.abs(time - 12) / 6) * 0.4;
+            const angleFactor = 0.8 + (Math.abs(time - 12) / 6) * 0.6;
             
-            intensity = sunHeight * angleFactor;
+            intensity = sunHeight * angleFactor * 1.5; // Boost overall intensity
         }
         
         console.log(`[DayNightCycle] Sun Pos: x=${x.toFixed(2)}, y=${y.toFixed(2)}, intensity=${intensity.toFixed(2)}`);
