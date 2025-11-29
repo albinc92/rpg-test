@@ -215,9 +215,7 @@ class LightManager {
         
         // Center: Full color
         gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${a})`);
-        // Falloff
-        gradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${a * 0.5})`);
-        // Edge: Transparent
+        // Falloff - Linear gradient from center to edge
         gradient.addColorStop(1.0, `rgba(${r}, ${g}, ${b}, 0)`);
         
         // Draw the light mask

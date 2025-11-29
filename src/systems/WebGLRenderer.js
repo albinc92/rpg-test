@@ -1094,20 +1094,22 @@ class WebGLRenderer {
         
         // Artifacts along the line - Extended for realistic lens flare
         // 1. Close to sun (small, intense)
-        this.drawGlow(sx + dx * 0.3, sy + dy * 0.3, 40, c(1.0, 0.9, 0.7, 0.4 * intensity));
+        this.drawGlow(sx + dx * 0.2, sy + dy * 0.2, 40, c(1.0, 0.8, 0.5, 0.3 * intensity)); // Orange/Gold
         
-        // 2. Mid range (greenish/yellowish)
-        this.drawGlow(sx + dx * 0.8, sy + dy * 0.8, 60, c(0.8, 1.0, 0.8, 0.2 * intensity));
-        this.drawGlow(sx + dx * 1.1, sy + dy * 1.1, 30, c(1.0, 0.8, 0.9, 0.25 * intensity)); // Pinkish ring
+        // 2. Mid range (greenish/yellowish) - Pushed away from center
+        this.drawGlow(sx + dx * 0.6, sy + dy * 0.6, 60, c(0.4, 0.8, 0.4, 0.15 * intensity)); // Green
         
-        // 3. Near center (blue/purple)
-        this.drawGlow(sx + dx * 1.5, sy + dy * 1.5, 20, c(0.5, 0.5, 1.0, 0.4 * intensity)); // Small blue dot
+        // GAP AROUND CENTER (0.8 - 1.5) to avoid obstructing view
         
-        // 4. Far side (past center) - Elongated tail extending far out
-        this.drawGlow(sx + dx * 2.0, sy + dy * 2.0, 100, c(0.7, 0.6, 1.0, 0.15 * intensity)); // Large purple soft
-        this.drawGlow(sx + dx * 2.5, sy + dy * 2.5, 50, c(0.6, 1.0, 0.9, 0.2 * intensity)); // Cyan
-        this.drawGlow(sx + dx * 3.2, sy + dy * 3.2, 140, c(0.9, 0.8, 1.0, 0.1 * intensity)); // Very large faint violet
-        this.drawGlow(sx + dx * 4.0, sy + dy * 4.0, 80, c(1.0, 0.9, 0.5, 0.15 * intensity)); // Distant yellow
+        // 3. Past center (blue/purple) - Pushed further out
+        this.drawGlow(sx + dx * 2.0, sy + dy * 2.0, 30, c(0.8, 0.4, 0.8, 0.2 * intensity)); // Pinkish ring
+        this.drawGlow(sx + dx * 2.5, sy + dy * 2.5, 20, c(0.2, 0.2, 1.0, 0.3 * intensity)); // Small blue dot
+        
+        // 4. Far side (past center) - Elongated tail extending EXTREMELY far out
+        this.drawGlow(sx + dx * 4.5, sy + dy * 4.5, 100, c(0.5, 0.3, 0.9, 0.12 * intensity)); // Large purple soft
+        this.drawGlow(sx + dx * 6.0, sy + dy * 6.0, 50, c(0.2, 0.9, 0.8, 0.15 * intensity)); // Cyan
+        this.drawGlow(sx + dx * 9.0, sy + dy * 9.0, 140, c(0.6, 0.4, 0.9, 0.08 * intensity)); // Very large faint violet
+        this.drawGlow(sx + dx * 12.0, sy + dy * 12.0, 80, c(0.9, 0.8, 0.3, 0.12 * intensity)); // Distant yellow
         
         this.flush();
         

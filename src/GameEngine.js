@@ -697,43 +697,32 @@ class GameEngine {
         // Update player
         this.player.update(deltaTime, this);
         
-        // Manage player light (lantern) at night
+        // Manage player light (lantern) - ALWAYS ACTIVE
         if (this.lightManager) {
             const playerLightId = 'player_lantern';
             let playerLight = this.lightManager.getLightById(playerLightId);
             
-            // Determine if it should be on (Night time: 19:30 - 05:30)
-            const timeOfDay = this.dayNightCycle ? this.dayNightCycle.timeOfDay : 12;
-            const isNight = timeOfDay >= 19.5 || timeOfDay < 5.5;
+            if (!playerLight) {
+                // Create light if it doesn't exist
+                playerLight = {
+                    id: playerLightId,
+                    x: this.player.x,
+                    y: this.player.y,
+                    radius: 450, 
+                    color: { r: 255, g: 200, b: 150, a: 0.5 }, // Warm lantern light
+                    flicker: { enabled: true, speed: 3.0, intensity: 0.1 },
+                    // Runtime state required for rendering
+                    _flickerOffset: Math.random() * Math.PI * 2,
+                    _currentIntensity: 1.0
+                };
+                this.lightManager.addLight(playerLight);
+            }
             
-            if (isNight) {
-                if (!playerLight) {
-                    // Create light if it doesn't exist
-                    playerLight = {
-                        id: playerLightId,
-                        x: this.player.x,
-                        y: this.player.y,
-                        radius: 300, 
-                        color: { r: 255, g: 200, b: 150, a: 0.7 }, // Warm lantern light
-                        flicker: { enabled: true, speed: 3.0, intensity: 0.1 },
-                        // Runtime state required for rendering
-                        _flickerOffset: Math.random() * Math.PI * 2,
-                        _currentIntensity: 1.0
-                    };
-                    this.lightManager.addLight(playerLight);
-                } else {
-                    // Update position to follow player
-                    if (playerLight.x !== this.player.x || playerLight.y !== this.player.y) {
-                        playerLight.x = this.player.x;
-                        playerLight.y = this.player.y;
-                        this.lightManager.maskNeedsUpdate = true;
-                    }
-                }
-            } else {
-                // Remove light during day
-                if (playerLight) {
-                    this.lightManager.removeLight(playerLightId);
-                }
+            // Update position to follow player
+            if (playerLight.x !== this.player.x || playerLight.y !== this.player.y) {
+                playerLight.x = this.player.x;
+                playerLight.y = this.player.y;
+                this.lightManager.maskNeedsUpdate = true;
             }
         }
         
