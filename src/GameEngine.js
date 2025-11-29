@@ -711,6 +711,7 @@ class GameEngine {
                     radius: 600, // Increased from 450
                     color: { r: 255, g: 200, b: 150, a: 0.5 }, // Warm lantern light
                     flicker: { enabled: true, speed: 3.0, intensity: 0.1 },
+                    castsShadows: false, // Player's light should NOT cast shadows
                     // Runtime state required for rendering
                     _flickerOffset: Math.random() * Math.PI * 2,
                     _currentIntensity: 1.0

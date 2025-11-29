@@ -225,6 +225,9 @@ class GameObject {
                 const SHADOW_LENGTH_FACTOR = 40.0; 
                 
                 lights.forEach(light => {
+                    // Skip lights that don't cast shadows (e.g., player's lantern)
+                    if (light.castsShadows === false) return;
+                    
                     // Calculate vector from light to object
                     const dx = worldX - light.x;
                     const dy = worldY - light.y;
