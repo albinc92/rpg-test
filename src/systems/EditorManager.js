@@ -2576,10 +2576,8 @@ class EditorManager {
             this.game.renderSystem.webglRenderer.invalidateTexture(spawnKey);
         }
         
-        // Invalidate spawn zone cache in spawn manager to force rebuild
-        if (this.game.spawnManager) {
-            this.game.spawnManager.invalidateSpawnZoneCache();
-        }
+        // NOTE: We do NOT invalidate spawn zone cache here anymore because it's too expensive
+        // to do on every mouse move. It is now handled in stopPainting() (onMouseUp).
     }
 
     /**
@@ -2633,10 +2631,8 @@ class EditorManager {
                 }
             }
             
-            // Invalidate spawn zone cache if erasing spawn zones
-            if (this.paintMode === 'spawn' && this.game.spawnManager) {
-                this.game.spawnManager.invalidateSpawnZoneCache();
-            }
+            // NOTE: We do NOT invalidate spawn zone cache here anymore because it's too expensive
+            // to do on every mouse move. It is now handled in stopPainting() (onMouseUp).
             
             return;
         }
@@ -3482,6 +3478,10 @@ class EditorManager {
         if (this.paintMode === 'collision') {
             this.bakeCollisionLayer(this.game.currentMapId);
         } else if (this.paintMode === 'spawn') {
+            // Invalidate spawn zone cache now that painting is done
+            if (this.game.spawnManager) {
+                this.game.spawnManager.invalidateSpawnZoneCache();
+            }
             this.bakeSpawnLayer(this.game.currentMapId);
         }
         // Texture paint layer doesn't need baking - it renders directly

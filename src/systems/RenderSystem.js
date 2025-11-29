@@ -467,7 +467,56 @@ class RenderSystem {
                     console.log('[RenderSystem] Collision layer rendered (Canvas2D)');
                 }
             } else if (collisionLayer) {
-                console.log('[RenderSystem] Collision layer exists but showCollisions is false');
+                // console.log('[RenderSystem] Collision layer exists but showCollisions is false');
+            }
+
+            // Render spawn layer (if editor has painted spawn zones)
+            // Only show when debug mode (F1) OR editor is active with spawn zones enabled
+            const showSpawnZones = (game.settings && game.settings.showDebugInfo) || 
+                                  (game.editorManager.isActive && game.editorManager.showSpawnZones);
+            
+            const spawnLayer = game.editorManager.getSpawnLayer(game.currentMapId);
+            if (spawnLayer && showSpawnZones) {
+                // Use baked image if available for performance
+                const imageSource = (spawnLayer._imageReady && spawnLayer._bakedImage) ? spawnLayer._bakedImage : spawnLayer;
+                
+                // Use WebGL if available
+                if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+                    const imageUrl = `spawn_layer_${game.currentMapId}`;
+                    this.webglRenderer.drawSprite(0, 0, spawnLayer.width, spawnLayer.height, imageSource, imageUrl, 0.3);
+                } else {
+                    // Canvas2D fallback with outline effect
+                    this.ctx.save();
+                    
+                    // First, draw the semi-transparent blue fill
+                    this.ctx.globalAlpha = 0.3;
+                    this.ctx.globalCompositeOperation = 'source-over';
+                    this.ctx.drawImage(imageSource, 0, 0);
+                    
+                    // Then draw a border by using canvas filters/effects
+                    this.ctx.globalAlpha = 1.0;
+                    
+                    // Create a temp canvas for the outline
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = imageSource.width;
+                    tempCanvas.height = imageSource.height;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    
+                    // Copy spawn layer to temp
+                    tempCtx.drawImage(imageSource, 0, 0);
+                    
+                    // Create outline by subtracting a slightly eroded version
+                    tempCtx.globalCompositeOperation = 'destination-out';
+                    tempCtx.drawImage(imageSource, -2, 0);
+                    tempCtx.drawImage(imageSource, 2, 0);
+                    tempCtx.drawImage(imageSource, 0, -2);
+                    tempCtx.drawImage(imageSource, 0, 2);
+                    
+                    // Draw the outline
+                    this.ctx.drawImage(tempCanvas, 0, 0);
+                    
+                    this.ctx.restore();
+                }
             }
         }
         

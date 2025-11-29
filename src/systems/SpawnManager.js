@@ -268,6 +268,22 @@ class SpawnManager {
     }
 
     /**
+     * Invalidate and rebuild spawn caches for all active maps
+     * Called by EditorManager when painting spawn zones
+     */
+    invalidateSpawnZoneCache() {
+        console.log('[SpawnManager] Invalidating spawn zone cache...');
+        for (const [mapId, config] of this.activeMaps) {
+            const mapData = this.game.mapManager.maps[mapId];
+            if (!mapData) continue;
+            
+            const spawnLayer = this.game.editorManager.getSpawnLayer(mapId);
+            config.spawnZoneCache = this.buildSpawnZoneCache(mapId, spawnLayer, mapData);
+            console.log(`[SpawnManager] Rebuilt cache for map ${mapId}: ${config.spawnZoneCache.length} points`);
+        }
+    }
+
+    /**
      * Refresh spawns for a map (e.g. after editing spawn zones)
      */
     refreshMap(mapId) {
