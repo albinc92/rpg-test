@@ -1360,6 +1360,13 @@ class WebGLRenderer {
         if (intensity <= 0.01) return;
         
         this.flush();
+        
+        // IMPORTANT: Disable perspective for lens flare - it's a screen-space effect
+        // rendered "on the camera lens", not in the 3D world
+        const savedPerspective = this.perspectiveStrength;
+        this.perspectiveStrength = 0;
+        this.gl.useProgram(this.spriteProgram);
+        this.gl.uniform1f(this.spriteProgram.locations.perspectiveStrength, 0);
 
         // 1. Draw Sun Disk (Normal Blending - visible against bright background)
         // This ensures we see the sun itself even if additive blending washes out
@@ -1401,6 +1408,10 @@ class WebGLRenderer {
         
         // Restore normal blending
         this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
+        
+        // Restore perspective strength
+        this.perspectiveStrength = savedPerspective;
+        this.gl.uniform1f(this.spriteProgram.locations.perspectiveStrength, savedPerspective);
     }
 
     getCircleTexture() {
