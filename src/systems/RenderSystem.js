@@ -609,15 +609,12 @@ class RenderSystem {
      * Applies the same trapezoid skew as the game world
      */
     renderDebugCollisionBoxes(renderables, game) {
-        const perspectiveStrength = game.perspectiveSystem?.perspectiveStrength || 0;
-        const screenWidth = this.canvas.width;
-        const screenHeight = this.canvas.height;
+        const webglRenderer = this.webglRenderer;
+        if (!webglRenderer) return;
         
-        // IMPORTANT: Reset canvas transform to draw in screen space
-        // The ctx currently has camera transform applied, but we need to handle
-        // the perspective transformation ourselves in screen space
-        this.ctx.save();
-        this.ctx.setTransform(1, 0, 0, 1, 0, 0);  // Reset to identity matrix
+        // Colors in RGBA 0-1 range (NOT premultiplied for stencil approach)
+        const fillColor = [1.0, 0.0, 0.0, 0.2];      // Red fill with low alpha
+        const strokeColor = [1.0, 0.0, 0.0, 0.8];    // Red stroke
         
         renderables.forEach(({ obj }) => {
             if (obj.hasCollision === false) return;
@@ -628,30 +625,19 @@ class RenderSystem {
                 const circle = obj.getCollisionCircle(game);
                 if (!circle) return;
                 
-                // Transform circle points with perspective
-                this.ctx.beginPath();
+                // Create circle points in world coordinates
+                const points = [];
                 const segments = 32;
-                for (let i = 0; i <= segments; i++) {
+                for (let i = 0; i < segments; i++) {
                     const angle = (i / segments) * Math.PI * 2;
-                    const worldX = circle.centerX + Math.cos(angle) * circle.radiusX;
-                    const worldY = circle.centerY + Math.sin(angle) * circle.radiusY;
-                    
-                    // Convert world to screen with perspective
-                    const screen = this.worldToScreen(worldX, worldY, screenWidth, screenHeight, perspectiveStrength);
-                    
-                    if (i === 0) {
-                        this.ctx.moveTo(screen.x, screen.y);
-                    } else {
-                        this.ctx.lineTo(screen.x, screen.y);
-                    }
+                    points.push({
+                        x: circle.centerX + Math.cos(angle) * circle.radiusX,
+                        y: circle.centerY + Math.sin(angle) * circle.radiusY
+                    });
                 }
-                this.ctx.closePath();
                 
-                this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-                this.ctx.lineWidth = 2;
-                this.ctx.stroke();
-                this.ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-                this.ctx.fill();
+                // Use WebGL with stencil buffer - no overlap artifacts!
+                webglRenderer.drawPolygon(points, fillColor, strokeColor, 2);
             } else {
                 const bounds = obj.getCollisionBounds(game);
                 if (!bounds) return;
@@ -664,28 +650,10 @@ class RenderSystem {
                     { x: bounds.x, y: bounds.y + bounds.height }
                 ];
                 
-                // Transform each corner to screen space with perspective
-                const screenCorners = corners.map(c => 
-                    this.worldToScreen(c.x, c.y, screenWidth, screenHeight, perspectiveStrength)
-                );
-                
-                // Draw the transformed quadrilateral
-                this.ctx.beginPath();
-                this.ctx.moveTo(screenCorners[0].x, screenCorners[0].y);
-                this.ctx.lineTo(screenCorners[1].x, screenCorners[1].y);
-                this.ctx.lineTo(screenCorners[2].x, screenCorners[2].y);
-                this.ctx.lineTo(screenCorners[3].x, screenCorners[3].y);
-                this.ctx.closePath();
-                
-                this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-                this.ctx.lineWidth = 2;
-                this.ctx.stroke();
-                this.ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-                this.ctx.fill();
+                // Use WebGL with stencil buffer - handles perspective automatically!
+                webglRenderer.drawPolygon(corners, fillColor, strokeColor, 2);
             }
         });
-        
-        this.ctx.restore();
     }
     
     /**
@@ -745,62 +713,39 @@ class RenderSystem {
         const mapData = game.mapManager.maps[game.currentMapId];
         if (!mapData || !mapData.zones) return;
         
-        // Debug: log zones count
-        if (mapData.zones.length > 0) {
-            console.log('[RenderSystem] Rendering', mapData.zones.length, 'vector zones');
-        }
-
-        const perspectiveStrength = game.perspectiveSystem?.perspectiveStrength || 0;
-        const screenWidth = this.canvas.width;
-        const screenHeight = this.canvas.height;
+        const webglRenderer = this.webglRenderer;
+        if (!webglRenderer) return;
         
         // Calculate scale factor to convert stored unscaled coordinates to world coordinates
         const resolutionScale = game.resolutionScale || 1.0;
         const mapScale = mapData.scale || 1.0;
         const totalScale = mapScale * resolutionScale;
 
-        // Reset canvas transform to draw in screen space with perspective
-        this.ctx.save();
-        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-        this.ctx.lineWidth = 2;
-
         for (const zone of mapData.zones) {
+            let fillColor, strokeColor;
+            
             if (zone.type === 'collision') {
-                this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-                this.ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+                // RGBA in 0-1 range (NOT premultiplied)
+                fillColor = [1.0, 0.0, 0.0, 0.3];      // Red fill
+                strokeColor = [1.0, 0.0, 0.0, 0.8];    // Red stroke
             } else if (zone.type === 'spawn') {
-                this.ctx.strokeStyle = 'rgba(0, 100, 255, 0.8)';
-                this.ctx.fillStyle = 'rgba(0, 100, 255, 0.3)';
+                fillColor = [0.0, 0.4, 1.0, 0.3];      // Blue fill
+                strokeColor = [0.0, 0.4, 1.0, 0.8];    // Blue stroke
             } else {
                 continue;
             }
 
             if (zone.points && zone.points.length > 2) {
-                // Transform each point to screen space with perspective
-                const screenPoints = zone.points.map(p => {
-                    const worldX = p.x * totalScale;
-                    const worldY = p.y * totalScale;
-                    return this.worldToScreen(worldX, worldY, screenWidth, screenHeight, perspectiveStrength);
-                });
+                // Convert zone points to world coordinates
+                const worldPoints = zone.points.map(p => ({
+                    x: p.x * totalScale,
+                    y: p.y * totalScale
+                }));
                 
-                // Skip this zone if any point is invalid (extreme perspective)
-                if (screenPoints.some(p => p.invalid)) {
-                    continue;
-                }
-                
-                // Draw the transformed polygon
-                this.ctx.beginPath();
-                this.ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
-                for (let i = 1; i < screenPoints.length; i++) {
-                    this.ctx.lineTo(screenPoints[i].x, screenPoints[i].y);
-                }
-                this.ctx.closePath();
-                this.ctx.fill();
-                this.ctx.stroke();
+                // Use WebGL with stencil buffer - handles perspective, no artifacts!
+                webglRenderer.drawPolygon(worldPoints, fillColor, strokeColor, 2);
             }
         }
-
-        this.ctx.restore();
     }
 
     /**

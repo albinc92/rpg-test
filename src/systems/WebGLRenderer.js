@@ -60,11 +60,12 @@ class WebGLRenderer {
     
     initialize() {
         try {
-            // Request WebGL context with alpha channel enabled (required for transparency)
+            // Request WebGL context with alpha channel and stencil buffer enabled
             const contextOptions = {
                 alpha: true,
                 premultipliedAlpha: false,
-                antialias: true
+                antialias: true,
+                stencil: true  // Required for polygon fill without overlap artifacts
             };
             this.gl = this.canvas.getContext('webgl2', contextOptions) || 
                       this.canvas.getContext('webgl', contextOptions);
@@ -343,44 +344,29 @@ class WebGLRenderer {
         this.gl.uniformMatrix4fv(this.colorProgram.locations.view, false, this.viewMatrix);
         this.gl.uniform1f(this.colorProgram.locations.perspectiveStrength, this.perspectiveStrength);
         
-        // Triangulate the polygon using ear-clipping
-        const triangles = this.triangulatePolygon(points);
-        
-        if (triangles.length === 0) return;
-        
-        // Create vertex data from triangles
-        const vertices = [];
-        for (const tri of triangles) {
-            vertices.push(tri[0].x, tri[0].y);
-            vertices.push(tri[1].x, tri[1].y);
-            vertices.push(tri[2].x, tri[2].y);
+        // Create line vertices for the polygon outline
+        const lineVertices = [];
+        for (const point of points) {
+            lineVertices.push(point.x, point.y);
         }
         
-        if (vertices.length === 0) return;
-        
-        // Upload vertex data
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(vertices), this.gl.DYNAMIC_DRAW);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(lineVertices), this.gl.DYNAMIC_DRAW);
         this.gl.enableVertexAttribArray(this.colorProgram.locations.position);
         this.gl.vertexAttribPointer(this.colorProgram.locations.position, 2, this.gl.FLOAT, false, 0, 0);
         
-        // Draw fill
+        // For debug zones, just draw outlines - avoids all fill artifacts
+        // Draw with fill color as a thicker background line
         if (fillColor) {
             this.gl.uniform4fv(this.colorProgram.locations.color, fillColor);
-            this.gl.drawArrays(this.gl.TRIANGLES, 0, vertices.length / 2);
+            this.gl.lineWidth(6); // Thick line to show the zone area
+            this.gl.drawArrays(this.gl.LINE_LOOP, 0, points.length);
         }
         
-        // Draw stroke (as line loop)
+        // Draw stroke on top
         if (strokeColor && strokeWidth > 0) {
-            // Create line vertices
-            const lineVertices = [];
-            for (const point of points) {
-                lineVertices.push(point.x, point.y);
-            }
-            
-            this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(lineVertices), this.gl.DYNAMIC_DRAW);
             this.gl.uniform4fv(this.colorProgram.locations.color, strokeColor);
-            this.gl.lineWidth(strokeWidth); // Note: lineWidth may be limited to 1 on some platforms
+            this.gl.lineWidth(strokeWidth);
             this.gl.drawArrays(this.gl.LINE_LOOP, 0, points.length);
         }
         

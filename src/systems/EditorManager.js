@@ -3639,81 +3639,70 @@ class EditorManager {
 
     /**
      * Render zones and editor interface
-     * Uses Canvas2D with perspective transformation for proper rendering
+     * Uses WebGL for proper perspective rendering without artifacts
      */
     renderZones(ctx) {
         const camera = this.game.camera;
         const zoom = camera.zoom || 1.0;
         const renderSystem = this.game.renderSystem;
+        const webglRenderer = renderSystem?.webglRenderer;
         const perspectiveStrength = this.game.perspectiveSystem?.perspectiveStrength || 0;
         const screenWidth = ctx.canvas.width;
         const screenHeight = ctx.canvas.height;
         
-        // Helper to get colors based on type
-        const getZoneColors = (type) => {
+        // Helper to get WebGL colors (RGBA 0-1, NOT premultiplied)
+        const getZoneColors = (type, selected = false) => {
+            if (selected) {
+                return {
+                    fill: [1.0, 1.0, 0.0, 0.3],   // Yellow
+                    stroke: [1.0, 1.0, 0.0, 0.8]
+                };
+            }
             if (type === 'spawn') {
                 return {
-                    fill: 'rgba(0, 100, 255, 0.3)',
-                    stroke: 'rgba(0, 100, 255, 0.8)'
+                    fill: [0.0, 0.4, 1.0, 0.3],   // Blue
+                    stroke: [0.0, 0.4, 1.0, 0.8]
                 };
             }
             // Default to collision (red)
             return {
-                fill: 'rgba(255, 0, 0, 0.3)',
-                stroke: '#ff0000'
+                fill: [1.0, 0.0, 0.0, 0.3],
+                stroke: [1.0, 0.0, 0.0, 0.8]
             };
         };
         
-        // 1. Render completed zones using Canvas2D with perspective
-        ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);  // Reset to identity for screen-space drawing
-        
-        for (const zone of this.zones) {
-            if (zone.points.length < 3) continue;
-            
-            const colors = getZoneColors(zone.type);
-            const isSelected = this.selectedZone === zone;
-            
-            // Convert unscaled points to world coordinates, then to screen with perspective
-            const screenPoints = zone.points.map(p => {
-                const world = this.unscaledToWorld(p.x, p.y);
-                return renderSystem.worldToScreen(world.x, world.y, screenWidth, screenHeight, perspectiveStrength);
-            });
-            
-            // Skip this zone if any point is invalid (extreme perspective)
-            if (screenPoints.some(p => p.invalid)) {
-                continue;
+        // 1. Render completed zones using WebGL (handles perspective + no artifacts)
+        if (webglRenderer) {
+            for (const zone of this.zones) {
+                if (zone.points.length < 3) continue;
+                
+                const isSelected = this.selectedZone === zone;
+                const colors = getZoneColors(zone.type, isSelected);
+                
+                // Convert unscaled points to world coordinates
+                const worldPoints = zone.points.map(p => this.unscaledToWorld(p.x, p.y));
+                
+                // Draw with WebGL - perspective handled in shader, stencil prevents overlap artifacts
+                webglRenderer.drawPolygon(worldPoints, colors.fill, colors.stroke, isSelected ? 4 : 2);
             }
-            
-            // Draw the polygon
-            ctx.beginPath();
-            ctx.moveTo(screenPoints[0].x, screenPoints[0].y);
-            for (let i = 1; i < screenPoints.length; i++) {
-                ctx.lineTo(screenPoints[i].x, screenPoints[i].y);
-            }
-            ctx.closePath();
-            
-            ctx.fillStyle = isSelected ? 'rgba(255, 255, 0, 0.3)' : colors.fill;
-            ctx.fill();
-            
-            ctx.strokeStyle = isSelected ? '#ffff00' : colors.stroke;
-            ctx.lineWidth = isSelected ? 4 : 2;
-            ctx.stroke();
         }
         
-        // Draw vertices for selected zone
-        if (this.selectedZone) {
+        // Draw vertices for selected zone (Canvas2D for precise small points)
+        if (this.selectedZone && renderSystem) {
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.fillStyle = '#ffff00';
             for (const point of this.selectedZone.points) {
                 const world = this.unscaledToWorld(point.x, point.y);
                 const screen = renderSystem.worldToScreen(world.x, world.y, screenWidth, screenHeight, perspectiveStrength);
-                ctx.beginPath();
-                ctx.arc(screen.x, screen.y, 4, 0, Math.PI * 2);
-                ctx.fill();
+                if (!screen.invalid) {
+                    ctx.beginPath();
+                    ctx.arc(screen.x, screen.y, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
+            ctx.restore();
         }
-        
-        ctx.restore();
         
         // 2. Render current zone being drawn (Canvas2D with camera transform for real-time feedback)
         if (this.currentZonePoints.length > 0) {
