@@ -855,6 +855,59 @@ class WebGLRenderer {
     }
     
     /**
+     * Transform a screen position back to world coordinates (inverse of transformWorldToScreen)
+     * This is used for mouse picking in fake 3D mode
+     * @param {number} screenX - Screen X position (0 to logicalWidth)
+     * @param {number} screenY - Screen Y position (0 to logicalHeight)
+     * @param {number} cameraX - Camera X offset
+     * @param {number} cameraY - Camera Y offset
+     * @returns {Object} { worldX, worldY } - Approximate world position
+     */
+    transformScreenToWorld(screenX, screenY, cameraX, cameraY) {
+        // Default result (no perspective) - simple camera addition
+        let worldX = screenX + cameraX;
+        let worldY = screenY + cameraY;
+        
+        // Apply inverse perspective transformation if enabled
+        if (this.perspectiveStrength > 0 && this.viewMatrix && this.projectionMatrix) {
+            const vm = this.viewMatrix;
+            const pm = this.projectionMatrix;
+            const zoom = vm[0];
+            
+            // This is an iterative approximation since the perspective transform
+            // is not easily invertible (depth depends on Y which changes with perspective)
+            
+            // Start with a guess: the non-perspective world position
+            let guessWorldX = screenX + cameraX;
+            let guessWorldY = screenY + cameraY;
+            
+            // Iterate to refine the guess (usually converges in 3-5 iterations)
+            for (let i = 0; i < 5; i++) {
+                // Transform our guess to screen space
+                const transformed = this.transformWorldToScreen(guessWorldX, guessWorldY, cameraX, cameraY);
+                
+                // Calculate error
+                const errorX = screenX - transformed.screenX;
+                const errorY = screenY - transformed.screenY;
+                
+                // If error is small enough, we're done
+                if (Math.abs(errorX) < 0.5 && Math.abs(errorY) < 0.5) {
+                    break;
+                }
+                
+                // Adjust guess based on error (scale by zoom to convert screen to world units)
+                guessWorldX += errorX / zoom;
+                guessWorldY += errorY / zoom;
+            }
+            
+            worldX = guessWorldX;
+            worldY = guessWorldY;
+        }
+        
+        return { worldX, worldY };
+    }
+    
+    /**
      * Get current perspective parameters for external systems (like LightManager)
      * @returns {Object} { enabled, strength, viewMatrix, projectionMatrix, logicalWidth, logicalHeight }
      */

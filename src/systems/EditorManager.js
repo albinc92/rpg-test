@@ -586,8 +586,24 @@ class EditorManager {
             worldCanvasY = (mouseCanvasY - centerY) / zoom + centerY;
         }
 
-        const worldX = worldCanvasX + camera.x;
-        const worldY = worldCanvasY + camera.y;
+        let worldX = worldCanvasX + camera.x;
+        let worldY = worldCanvasY + camera.y;
+
+        // If perspective mode is active, use inverse perspective transform
+        // This allows clicking on objects where they visually appear
+        const webglRenderer = this.game.renderSystem?.webglRenderer;
+        if (webglRenderer) {
+            const perspectiveParams = webglRenderer.getPerspectiveParams();
+            if (perspectiveParams.enabled) {
+                // Transform screen click position to world coordinates accounting for perspective
+                const worldPos = webglRenderer.transformScreenToWorld(
+                    mouseCanvasX, mouseCanvasY,
+                    camera.x, camera.y
+                );
+                worldX = worldPos.worldX;
+                worldY = worldPos.worldY;
+            }
+        }
 
         // Store unsnapped coordinates (always available for multi-select)
         this.mouseWorldXUnsnapped = worldX;
