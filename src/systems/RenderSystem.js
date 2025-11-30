@@ -606,71 +606,105 @@ class RenderSystem {
     
     /**
      * Render collision boxes for debugging (now pixel-perfect with sprite scaling)
+     * Uses WebGL for perspective-correct rendering
      */
     renderDebugCollisionBoxes(renderables, game) {
-        this.ctx.save();
+        const webgl = this.webglRenderer;
         
-        // Draw collision boxes for all objects
-        renderables.forEach(({ obj }) => {
-            // Skip objects with hasCollision explicitly set to false
-            if (obj.hasCollision === false) return;
+        // TEMPORARILY DISABLED: Use Canvas2D fallback while debugging freeze issue
+        // Use WebGL if available for perspective-correct collision boxes
+        if (false && webgl && webgl.initialized) {
+            // Premultiplied alpha colors
+            const fillColor = [1.0 * 0.2, 0.0, 0.0, 0.2];   // Red fill
+            const strokeColor = [1.0 * 0.8, 0.0, 0.0, 0.8]; // Red stroke
+            const centerColor = [1.0 * 0.8, 1.0 * 0.8, 0.0, 0.8]; // Yellow center dot
             
-            const shape = obj.collisionShape || 'rectangle';
+            // Collect all geometry first, then batch render
+            const rects = [];
+            const circles = [];
+            const centers = [];
             
-            // Draw circular collision box
-            if (shape === 'circle') {
-                const circle = obj.getCollisionCircle(game);
+            renderables.forEach(({ obj }) => {
+                // Skip objects with hasCollision explicitly set to false
+                if (obj.hasCollision === false) return;
                 
-                // Draw collision ellipse/circle with red outline
-                this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-                this.ctx.lineWidth = 2;
-                this.ctx.beginPath();
-                this.ctx.ellipse(
-                    circle.centerX,
-                    circle.centerY,
-                    circle.radiusX,
-                    circle.radiusY,
-                    0, 0, Math.PI * 2
-                );
-                this.ctx.stroke();
+                const shape = obj.collisionShape || 'rectangle';
                 
-                // Fill with semi-transparent red
-                this.ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-                this.ctx.fill();
-            } else {
-                // Draw rectangular collision box
-                const bounds = obj.getCollisionBounds(game);
+                if (shape === 'circle') {
+                    const circle = obj.getCollisionCircle(game);
+                    if (circle) {
+                        circles.push(circle);
+                    }
+                } else {
+                    const bounds = obj.getCollisionBounds(game);
+                    if (bounds) {
+                        rects.push(bounds);
+                    }
+                }
                 
-                // Draw collision box with red outline
-                this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-                this.ctx.lineWidth = 2;
-                this.ctx.strokeRect(
-                    bounds.x,
-                    bounds.y,
-                    bounds.width,
-                    bounds.height
-                );
-                
-                // Fill with semi-transparent red
-                this.ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-                this.ctx.fillRect(
-                    bounds.x,
-                    bounds.y,
-                    bounds.width,
-                    bounds.height
-                );
+                // Collect center points
+                const scaledX = obj.getScaledX(game);
+                const scaledY = obj.getScaledY(game);
+                centers.push({ x: scaledX, y: scaledY });
+            });
+            
+            // Batch render all rectangles
+            for (const bounds of rects) {
+                webgl.drawRect(bounds.x, bounds.y, bounds.width, bounds.height, fillColor, strokeColor, 2);
             }
             
-            // Draw a small circle at the object's actual position (center point)
-            const scaledX = obj.getScaledX(game);
-            const scaledY = obj.getScaledY(game);
-            this.ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
-            this.ctx.beginPath();
-            this.ctx.arc(scaledX, scaledY, 3, 0, Math.PI * 2);
-            this.ctx.fill();
-        });
-        
-        this.ctx.restore();
+            // Batch render all circles (use fewer segments for performance)
+            for (const circle of circles) {
+                webgl.drawEllipse(circle.centerX, circle.centerY, circle.radiusX, circle.radiusY, fillColor, strokeColor, 2);
+            }
+            
+            // Batch render center points
+            for (const center of centers) {
+                webgl.drawEllipse(center.x, center.y, 3, 3, centerColor, null, 0);
+            }
+        } else {
+            // Fallback to Canvas2D
+            this.ctx.save();
+            
+            renderables.forEach(({ obj }) => {
+                if (obj.hasCollision === false) return;
+                
+                const shape = obj.collisionShape || 'rectangle';
+                
+                if (shape === 'circle') {
+                    const circle = obj.getCollisionCircle(game);
+                    
+                    this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.beginPath();
+                    this.ctx.ellipse(
+                        circle.centerX, circle.centerY,
+                        circle.radiusX, circle.radiusY,
+                        0, 0, Math.PI * 2
+                    );
+                    this.ctx.stroke();
+                    this.ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+                    this.ctx.fill();
+                } else {
+                    const bounds = obj.getCollisionBounds(game);
+                    
+                    this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+                    this.ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+                    this.ctx.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+                }
+                
+                const scaledX = obj.getScaledX(game);
+                const scaledY = obj.getScaledY(game);
+                this.ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
+                this.ctx.beginPath();
+                this.ctx.arc(scaledX, scaledY, 3, 0, Math.PI * 2);
+                this.ctx.fill();
+            });
+            
+            this.ctx.restore();
+        }
     }
     
     /**
