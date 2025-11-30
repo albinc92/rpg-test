@@ -60,6 +60,9 @@ const createWindow = () => {
     },
   });
 
+  // Open DevTools automatically for debugging
+  mainWindow.webContents.openDevTools();
+
   // IPC Handlers
   ipcMain.handle('set-fullscreen', (event, value) => {
     mainWindow.setFullScreen(value);

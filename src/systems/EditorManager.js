@@ -609,6 +609,10 @@ class EditorManager {
         this.mouseWorldXUnsnapped = worldX;
         this.mouseWorldYUnsnapped = worldY;
 
+        // Store canvas coordinates for drag selection (logical canvas space, no zoom/camera)
+        this.mouseCanvasX = mouseCanvasX;
+        this.mouseCanvasY = mouseCanvasY;
+
         // Apply grid snap if enabled (for placement/painting)
         if (this.snapToGrid) {
             this.mouseWorldX = Math.round(worldX / this.gridSize) * this.gridSize;
@@ -1112,25 +1116,11 @@ class EditorManager {
         
         const camera = this.game.camera;
         const zoom = camera.zoom || 1.0;
-        const canvas = this.game.canvas;
         
         ctx.save();
         
-        // Apply the same transformation that RenderSystem uses for the world
-        if (zoom !== 1.0) {
-            const canvasWidth = this.game.CANVAS_WIDTH;
-            const canvasHeight = this.game.CANVAS_HEIGHT;
-            
-            // Scale around center point (same as RenderSystem)
-            ctx.translate(canvasWidth / 2, canvasHeight / 2);
-            ctx.scale(zoom, zoom);
-            ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
-        }
-        
-        // Apply camera translation (same as RenderSystem)
-        ctx.translate(-camera.x, -camera.y);
-        
-        // Now draw in world coordinates
+        // Selection box coordinates are already in canvas space (after zoom adjustment)
+        // So we draw directly without any transforms
         const x = Math.min(this.multiSelectStart.x, this.multiSelectEnd.x);
         const y = Math.min(this.multiSelectStart.y, this.multiSelectEnd.y);
         const width = Math.abs(this.multiSelectEnd.x - this.multiSelectStart.x);
@@ -1142,8 +1132,8 @@ class EditorManager {
         
         // Draw blue border
         ctx.strokeStyle = '#0078ff';
-        ctx.lineWidth = 2 / zoom; // Scale line width inversely with zoom
-        ctx.setLineDash([5 / zoom, 5 / zoom]); // Scale dash pattern inversely with zoom
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
         ctx.strokeRect(x, y, width, height);
         
         ctx.restore();
@@ -1609,9 +1599,9 @@ class EditorManager {
         }
         
         if (this.selectedTool === 'select' && e.buttons === 1) {
-            // Update multi-select box if dragging from empty space (use unsnapped coords)
+            // Update multi-select box if dragging from empty space (use canvas coords)
             if (this.isMultiSelecting) {
-                this.multiSelectEnd = { x: this.mouseWorldXUnsnapped, y: this.mouseWorldYUnsnapped };
+                this.multiSelectEnd = { x: this.mouseCanvasX, y: this.mouseCanvasY };
                 return;
             }
             
@@ -1731,17 +1721,25 @@ class EditorManager {
      * Perform multi-select based on selection box
      */
     performMultiSelect() {
-        // Selection box is in scaled coordinates, convert to unscaled
-        const startUnscaled = this.worldToUnscaled(this.multiSelectStart.x, this.multiSelectStart.y);
-        const endUnscaled = this.worldToUnscaled(this.multiSelectEnd.x, this.multiSelectEnd.y);
+        const camera = this.game.camera;
+        const zoom = camera.zoom || 1.0;
+        const canvasWidth = this.game.CANVAS_WIDTH;
+        const canvasHeight = this.game.CANVAS_HEIGHT;
+        const centerX = canvasWidth / 2;
+        const centerY = canvasHeight / 2;
         
-        const minX = Math.min(startUnscaled.x, endUnscaled.x);
-        const maxX = Math.max(startUnscaled.x, endUnscaled.x);
-        const minY = Math.min(startUnscaled.y, endUnscaled.y);
-        const maxY = Math.max(startUnscaled.y, endUnscaled.y);
+        const webglRenderer = this.game.renderSystem?.webglRenderer;
+        const perspectiveParams = webglRenderer?.getPerspectiveParams();
+        const perspectiveEnabled = perspectiveParams?.enabled;
         
-        console.log('[MULTISELECT] Box (unscaled):', minX.toFixed(1), minY.toFixed(1), 'to', maxX.toFixed(1), maxY.toFixed(1));
-        console.log('[MULTISELECT] Size:', (maxX - minX).toFixed(1), 'x', (maxY - minY).toFixed(1));
+        // Selection box is in logical canvas coordinates
+        const minCanvasX = Math.min(this.multiSelectStart.x, this.multiSelectEnd.x);
+        const maxCanvasX = Math.max(this.multiSelectStart.x, this.multiSelectEnd.x);
+        const minCanvasY = Math.min(this.multiSelectStart.y, this.multiSelectEnd.y);
+        const maxCanvasY = Math.max(this.multiSelectStart.y, this.multiSelectEnd.y);
+        
+        console.log('[MULTISELECT] Box (canvas):', minCanvasX.toFixed(1), minCanvasY.toFixed(1), 'to', maxCanvasX.toFixed(1), maxCanvasY.toFixed(1));
+        console.log('[MULTISELECT] perspective:', perspectiveEnabled, 'zoom:', zoom);
         
         // Find all objects within selection box
         const objects = this.game.objectManager.getObjectsForMap(this.game.currentMapId);
@@ -1750,10 +1748,46 @@ class EditorManager {
         console.log('[MULTISELECT] Total objects on map:', objects.length);
         
         for (const obj of objects) {
-            // Check if object center is within selection box (both in unscaled coordinates)
-            if (obj.x >= minX && obj.x <= maxX && obj.y >= minY && obj.y <= maxY) {
+            // Get object's canvas position (where it appears on screen)
+            let objCanvasX, objCanvasY;
+            
+            // Get scaled world position (same as getVisualBounds)
+            const mapScale = this.game.GAME_SCALE || this.game.currentMap?.scale || 1.0;
+            const resolutionScale = this.game.resolutionScale || 1.0;
+            const scaledX = obj.x * mapScale * resolutionScale;
+            const scaledY = obj.y * mapScale * resolutionScale;
+            
+            if (perspectiveEnabled && webglRenderer) {
+                // Transform object's world position to canvas position using perspective
+                const screenPos = webglRenderer.transformWorldToScreen(
+                    scaledX, scaledY,
+                    camera.x, camera.y
+                );
+                objCanvasX = screenPos.screenX;
+                objCanvasY = screenPos.screenY;
+            } else {
+                // Convert world position to canvas position (with camera offset)
+                const rawCanvasX = scaledX - camera.x;
+                const rawCanvasY = scaledY - camera.y;
+                
+                // Apply zoom transformation (zoom around center)
+                objCanvasX = (rawCanvasX - centerX) * zoom + centerX;
+                objCanvasY = (rawCanvasY - centerY) * zoom + centerY;
+            }
+            
+            // Debug: log first few objects
+            if (objects.indexOf(obj) < 3) {
+                console.log('[MULTISELECT] Object:', obj.name || obj.objectType, 
+                    'world:', scaledX.toFixed(1), scaledY.toFixed(1),
+                    'canvas:', objCanvasX.toFixed(1), objCanvasY.toFixed(1),
+                    'box:', minCanvasX.toFixed(1), '-', maxCanvasX.toFixed(1), ',', minCanvasY.toFixed(1), '-', maxCanvasY.toFixed(1));
+            }
+            
+            // Check if object's canvas position is within selection box
+            if (objCanvasX >= minCanvasX && objCanvasX <= maxCanvasX && 
+                objCanvasY >= minCanvasY && objCanvasY <= maxCanvasY) {
                 this.selectedObjects.push(obj);
-                console.log('[MULTISELECT] Selected:', obj.name || obj.objectType, 'at', obj.x.toFixed(1), obj.y.toFixed(1));
+                console.log('[MULTISELECT] Selected:', obj.name || obj.objectType, 'at canvas', objCanvasX.toFixed(1), objCanvasY.toFixed(1));
             }
         }
         
@@ -1949,10 +1983,11 @@ class EditorManager {
             }
         }
         
-        // Clicked empty space - start multi-select or deselect (use scaled coordinates for visual box)
-        console.log('[MULTISELECT] Starting at world:', worldX, worldY);
-        this.multiSelectStart = { x: worldX, y: worldY };
-        this.multiSelectEnd = { x: worldX, y: worldY }; // Initialize to same position
+        // Clicked empty space - start multi-select or deselect
+        // Use canvas coordinates for the selection box (drawn directly on canvas)
+        console.log('[MULTISELECT] Starting at canvas:', this.mouseCanvasX, this.mouseCanvasY);
+        this.multiSelectStart = { x: this.mouseCanvasX, y: this.mouseCanvasY };
+        this.multiSelectEnd = { x: this.mouseCanvasX, y: this.mouseCanvasY }; // Initialize to same position
         this.isMultiSelecting = true;
         this.selectObject(null);
         return true;
