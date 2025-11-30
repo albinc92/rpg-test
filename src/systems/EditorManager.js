@@ -866,9 +866,11 @@ class EditorManager {
         
         ctx.save();
         
-        // For lights with perspective, we'll use absolute screen coordinates
-        // so don't apply zoom transformation
-        if (!perspectiveActive || !isLight) {
+        // For lights with perspective, reset to identity transform 
+        // because we use absolute screen coordinates
+        if (perspectiveActive && isLight) {
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+        } else {
             // Apply zoom transformation (same as renderMultiSelectBox)
             if (zoom !== 1.0) {
                 const canvasWidth = this.game.CANVAS_WIDTH;
@@ -1030,8 +1032,10 @@ class EditorManager {
         // Second pass: render lights (with perspective if active)
         ctx.save();
         
-        // For lights with perspective, don't apply zoom (use absolute screen coords)
-        if (!perspectiveActive && zoom !== 1.0) {
+        // For lights with perspective, reset to identity (use absolute screen coords)
+        if (perspectiveActive) {
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+        } else if (zoom !== 1.0) {
             const canvasWidth = this.game.CANVAS_WIDTH;
             const canvasHeight = this.game.CANVAS_HEIGHT;
             
