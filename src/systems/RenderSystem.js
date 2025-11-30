@@ -605,106 +605,130 @@ class RenderSystem {
     }
     
     /**
-     * Render collision boxes for debugging (now pixel-perfect with sprite scaling)
-     * Uses WebGL for perspective-correct rendering
+     * Render collision boxes for debugging with perspective transformation
+     * Applies the same trapezoid skew as the game world
      */
     renderDebugCollisionBoxes(renderables, game) {
-        const webgl = this.webglRenderer;
+        const perspectiveStrength = game.perspectiveSystem?.perspectiveStrength || 0;
+        const screenWidth = this.canvas.width;
+        const screenHeight = this.canvas.height;
         
-        // TEMPORARILY DISABLED: Use Canvas2D fallback while debugging freeze issue
-        // Use WebGL if available for perspective-correct collision boxes
-        if (false && webgl && webgl.initialized) {
-            // Premultiplied alpha colors
-            const fillColor = [1.0 * 0.2, 0.0, 0.0, 0.2];   // Red fill
-            const strokeColor = [1.0 * 0.8, 0.0, 0.0, 0.8]; // Red stroke
-            const centerColor = [1.0 * 0.8, 1.0 * 0.8, 0.0, 0.8]; // Yellow center dot
+        // IMPORTANT: Reset canvas transform to draw in screen space
+        // The ctx currently has camera transform applied, but we need to handle
+        // the perspective transformation ourselves in screen space
+        this.ctx.save();
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);  // Reset to identity matrix
+        
+        renderables.forEach(({ obj }) => {
+            if (obj.hasCollision === false) return;
             
-            // Collect all geometry first, then batch render
-            const rects = [];
-            const circles = [];
-            const centers = [];
+            const shape = obj.collisionShape || 'rectangle';
             
-            renderables.forEach(({ obj }) => {
-                // Skip objects with hasCollision explicitly set to false
-                if (obj.hasCollision === false) return;
+            if (shape === 'circle') {
+                const circle = obj.getCollisionCircle(game);
+                if (!circle) return;
                 
-                const shape = obj.collisionShape || 'rectangle';
-                
-                if (shape === 'circle') {
-                    const circle = obj.getCollisionCircle(game);
-                    if (circle) {
-                        circles.push(circle);
-                    }
-                } else {
-                    const bounds = obj.getCollisionBounds(game);
-                    if (bounds) {
-                        rects.push(bounds);
-                    }
-                }
-                
-                // Collect center points
-                const scaledX = obj.getScaledX(game);
-                const scaledY = obj.getScaledY(game);
-                centers.push({ x: scaledX, y: scaledY });
-            });
-            
-            // Batch render all rectangles
-            for (const bounds of rects) {
-                webgl.drawRect(bounds.x, bounds.y, bounds.width, bounds.height, fillColor, strokeColor, 2);
-            }
-            
-            // Batch render all circles (use fewer segments for performance)
-            for (const circle of circles) {
-                webgl.drawEllipse(circle.centerX, circle.centerY, circle.radiusX, circle.radiusY, fillColor, strokeColor, 2);
-            }
-            
-            // Batch render center points
-            for (const center of centers) {
-                webgl.drawEllipse(center.x, center.y, 3, 3, centerColor, null, 0);
-            }
-        } else {
-            // Fallback to Canvas2D
-            this.ctx.save();
-            
-            renderables.forEach(({ obj }) => {
-                if (obj.hasCollision === false) return;
-                
-                const shape = obj.collisionShape || 'rectangle';
-                
-                if (shape === 'circle') {
-                    const circle = obj.getCollisionCircle(game);
-                    
-                    this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-                    this.ctx.lineWidth = 2;
-                    this.ctx.beginPath();
-                    this.ctx.ellipse(
-                        circle.centerX, circle.centerY,
-                        circle.radiusX, circle.radiusY,
-                        0, 0, Math.PI * 2
-                    );
-                    this.ctx.stroke();
-                    this.ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-                    this.ctx.fill();
-                } else {
-                    const bounds = obj.getCollisionBounds(game);
-                    
-                    this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-                    this.ctx.lineWidth = 2;
-                    this.ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
-                    this.ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-                    this.ctx.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
-                }
-                
-                const scaledX = obj.getScaledX(game);
-                const scaledY = obj.getScaledY(game);
-                this.ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
+                // Transform circle points with perspective
                 this.ctx.beginPath();
-                this.ctx.arc(scaledX, scaledY, 3, 0, Math.PI * 2);
+                const segments = 32;
+                for (let i = 0; i <= segments; i++) {
+                    const angle = (i / segments) * Math.PI * 2;
+                    const worldX = circle.centerX + Math.cos(angle) * circle.radiusX;
+                    const worldY = circle.centerY + Math.sin(angle) * circle.radiusY;
+                    
+                    // Convert world to screen with perspective
+                    const screen = this.worldToScreen(worldX, worldY, screenWidth, screenHeight, perspectiveStrength);
+                    
+                    if (i === 0) {
+                        this.ctx.moveTo(screen.x, screen.y);
+                    } else {
+                        this.ctx.lineTo(screen.x, screen.y);
+                    }
+                }
+                this.ctx.closePath();
+                
+                this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+                this.ctx.lineWidth = 2;
+                this.ctx.stroke();
+                this.ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
                 this.ctx.fill();
-            });
+            } else {
+                const bounds = obj.getCollisionBounds(game);
+                if (!bounds) return;
+                
+                // Get the 4 corners in world space
+                const corners = [
+                    { x: bounds.x, y: bounds.y },
+                    { x: bounds.x + bounds.width, y: bounds.y },
+                    { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
+                    { x: bounds.x, y: bounds.y + bounds.height }
+                ];
+                
+                // Transform each corner to screen space with perspective
+                const screenCorners = corners.map(c => 
+                    this.worldToScreen(c.x, c.y, screenWidth, screenHeight, perspectiveStrength)
+                );
+                
+                // Draw the transformed quadrilateral
+                this.ctx.beginPath();
+                this.ctx.moveTo(screenCorners[0].x, screenCorners[0].y);
+                this.ctx.lineTo(screenCorners[1].x, screenCorners[1].y);
+                this.ctx.lineTo(screenCorners[2].x, screenCorners[2].y);
+                this.ctx.lineTo(screenCorners[3].x, screenCorners[3].y);
+                this.ctx.closePath();
+                
+                this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+                this.ctx.lineWidth = 2;
+                this.ctx.stroke();
+                this.ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+                this.ctx.fill();
+            }
+        });
+        
+        this.ctx.restore();
+    }
+    
+    /**
+     * Convert world coordinates to screen coordinates with perspective
+     * This applies the same transformation as the WebGL shader
+     */
+    worldToScreen(worldX, worldY, screenWidth, screenHeight, perspectiveStrength) {
+        const zoom = this.camera.zoom || 1.0;
+        const centerX = screenWidth / 2;
+        const centerY = screenHeight / 2;
+        
+        // Match WebGL view matrix transformation exactly:
+        // tx = centerX - centerX * zoom - cameraX * zoom
+        // ty = centerY - centerY * zoom - cameraY * zoom
+        // screenPos = worldPos * zoom + t
+        const tx = centerX - centerX * zoom - this.camera.x * zoom;
+        const ty = centerY - centerY * zoom - this.camera.y * zoom;
+        
+        let screenX = worldX * zoom + tx;
+        let screenY = worldY * zoom + ty;
+        
+        // Now apply perspective transformation (same math as WebGL shader)
+        if (perspectiveStrength > 0) {
+            // Convert to clip space (-1 to 1)
+            const clipX = (screenX / screenWidth) * 2 - 1;
+            const clipY = 1 - (screenY / screenHeight) * 2;  // Flip Y for clip space
             
-            this.ctx.restore();
+            // Calculate depth: 0 at bottom, 1 at top (matches shader)
+            const depth = (clipY + 1.0) * 0.5;
+            
+            // Calculate perspective divisor (same as shader)
+            const w = 1.0 + (depth * perspectiveStrength);
+            
+            // Apply perspective divide
+            const perspClipX = clipX / w;
+            const perspClipY = clipY / w;
+            
+            // Convert back to screen coordinates
+            screenX = (perspClipX + 1) * 0.5 * screenWidth;
+            screenY = (1 - perspClipY) * 0.5 * screenHeight;
         }
+        
+        return { x: screenX, y: screenY };
     }
     
     /**
