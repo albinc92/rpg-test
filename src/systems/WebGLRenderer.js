@@ -751,8 +751,8 @@ class WebGLRenderer {
     
     /**
      * Begin shadow rendering pass
-     * Shadows are rendered directly to the scene buffer with perspective applied
-     * Uses MAX blending on alpha channel to prevent shadow stacking
+     * Shadows are rendered to shadow buffer with same projection as scene (for perspective)
+     * Uses MAX blending on alpha to prevent stacking
      */
     beginShadowPass() {
         if (!this.initialized) return;
@@ -760,19 +760,28 @@ class WebGLRenderer {
         // Flush any pending draws
         this.flush();
         
-        // Stay on the current framebuffer (scene) - shadows get perspective this way
-        // Just change the blend mode to prevent shadow stacking
+        // Switch to shadow framebuffer
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.shadowFramebuffer);
         
-        // Use separate blend equations for RGB and Alpha
-        // RGB: Normal alpha blending
-        // Alpha: MAX blending to prevent shadow stacking
-        if (this.gl.blendEquationSeparate && this.gl.blendFuncSeparate) {
-            this.gl.blendEquationSeparate(this.gl.FUNC_ADD, this.gl.MAX);
-            this.gl.blendFuncSeparate(
-                this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA,  // RGB: premultiplied alpha blend
-                this.gl.ONE, this.gl.ONE                    // Alpha: MAX blend
-            );
-        }
+        // Set viewport with offset so shadows render in the center of the larger buffer
+        const offsetX = (this.shadowWidth - this.logicalWidth) / 2;
+        const offsetY = (this.shadowHeight - this.logicalHeight) / 2;
+        this.gl.viewport(offsetX, offsetY, this.logicalWidth, this.logicalHeight);
+        
+        // Clear the entire shadow buffer to transparent
+        this.gl.viewport(0, 0, this.shadowWidth, this.shadowHeight);
+        this.gl.clearColor(0, 0, 0, 0);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        
+        // Set viewport back to centered region for rendering
+        this.gl.viewport(offsetX, offsetY, this.logicalWidth, this.logicalHeight);
+        
+        // Keep using the same projection matrix so perspective works identically
+        // The viewport offset handles centering in the larger buffer
+        
+        // Use MAX blending - shadows won't stack, we just take the maximum alpha
+        this.gl.blendEquation(this.gl.MAX);
+        this.gl.blendFunc(this.gl.ONE, this.gl.ONE);
         
         this.renderingShadows = true;
     }
@@ -783,13 +792,98 @@ class WebGLRenderer {
         // Flush shadow draws
         this.flush();
         
-        // Restore normal alpha blending
+        // Switch back to scene framebuffer
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.sceneFramebuffer);
+        this.gl.viewport(0, 0, this.logicalWidth, this.logicalHeight);
+        
+        // Restore normal alpha blending for scene
         this.gl.blendEquation(this.gl.FUNC_ADD);
         this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
         
         this.renderingShadows = false;
         
-        // No need to composite - shadows are already in the scene buffer with perspective!
+        // Now composite the shadow buffer onto the scene with darken blend
+        this.compositeShadows();
+    }
+    
+    /**
+     * Composite the shadow buffer onto the scene
+     * Uses a darkening blend: dst = dst * (1 - shadow.a)
+     */
+    compositeShadows() {
+        // Darken destination based on shadow alpha
+        // blend: result.rgb = dst.rgb * (1 - src.a)
+        this.gl.blendEquation(this.gl.FUNC_ADD);
+        this.gl.blendFunc(this.gl.ZERO, this.gl.ONE_MINUS_SRC_ALPHA);
+        
+        // Draw shadow texture as full-screen quad
+        this.gl.useProgram(this.spriteProgram);
+        
+        this.gl.activeTexture(this.gl.TEXTURE0);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.shadowTexture);
+        this.gl.uniform1i(this.spriteProgram.locations.texture, 0);
+        
+        // Use identity view and simple ortho projection for screen-space quad
+        const identityMatrix = this.createIdentityMatrix();
+        const quadProjection = new Float32Array([
+            2 / this.logicalWidth, 0, 0, 0,
+            0, -2 / this.logicalHeight, 0, 0,
+            0, 0, 1, 0,
+            -1, 1, 0, 1
+        ]);
+        
+        this.gl.uniformMatrix4fv(this.spriteProgram.locations.projection, false, quadProjection);
+        this.gl.uniformMatrix4fv(this.spriteProgram.locations.view, false, identityMatrix);
+        this.gl.uniform1f(this.spriteProgram.locations.alpha, 1.0);
+        this.gl.uniform3f(this.spriteProgram.locations.tint, 1.0, 1.0, 1.0);
+        this.gl.uniform1f(this.spriteProgram.locations.billboardMode, 1.0); // No perspective on composite
+        this.gl.uniform1f(this.spriteProgram.locations.perspectiveStrength, 0.0);
+        
+        // Shadow buffer is larger, so we need to sample the center portion
+        // But since we used same projection, shadows are in same position as scene
+        // The viewport offset during rendering placed them correctly
+        const offsetX = (this.shadowWidth - this.logicalWidth) / 2;
+        const offsetY = (this.shadowHeight - this.logicalHeight) / 2;
+        
+        // Full-screen quad vertices
+        const vertices = new Float32Array([
+            0, 0,
+            this.logicalWidth, 0,
+            this.logicalWidth, this.logicalHeight,
+            0, this.logicalHeight
+        ]);
+        
+        // Texture coords - sample center of shadow buffer
+        // WebGL textures have Y=0 at bottom, but our rendering has Y=0 at top
+        // So we need to flip: v = 1 - v
+        const u0 = offsetX / this.shadowWidth;
+        const u1 = (offsetX + this.logicalWidth) / this.shadowWidth;
+        const v0 = 1.0 - (offsetY + this.logicalHeight) / this.shadowHeight;  // top of screen = bottom of texture
+        const v1 = 1.0 - offsetY / this.shadowHeight;  // bottom of screen = top of texture
+        
+        const texCoords = new Float32Array([
+            u0, v1,  // top-left of screen
+            u1, v1,  // top-right of screen
+            u1, v0,  // bottom-right of screen  
+            u0, v0   // bottom-left of screen
+        ]);
+        
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, vertices, this.gl.DYNAMIC_DRAW);
+        this.gl.enableVertexAttribArray(this.spriteProgram.locations.position);
+        this.gl.vertexAttribPointer(this.spriteProgram.locations.position, 2, this.gl.FLOAT, false, 0, 0);
+        
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.texCoordBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, texCoords, this.gl.DYNAMIC_DRAW);
+        this.gl.enableVertexAttribArray(this.spriteProgram.locations.texCoord);
+        this.gl.vertexAttribPointer(this.spriteProgram.locations.texCoord, 2, this.gl.FLOAT, false, 0, 0);
+        
+        // Draw quad
+        this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+        this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        
+        // Restore normal blending
+        this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
     }
     
     /**
