@@ -260,6 +260,7 @@ class RenderSystem {
         }
         
         // Render object placement preview to WebGL (before endFrame)
+        // NOTE: Selection boxes are rendered during sprite pass for proper billboard transformation
         if (game?.editorManager?.isActive && this.useWebGL && this.webglRenderer?.initialized) {
             game.editorManager.renderPreviewToWebGL(this.webglRenderer, this.camera.x, this.camera.y);
         }
@@ -590,6 +591,12 @@ class RenderSystem {
         renderables.forEach(({ obj }) => {
             obj.render(this.ctx, game, this.webglRenderer);
         });
+
+        // Render selection boxes INSIDE sprite pass (after objects, so they appear on top)
+        // This ensures they get the same billboard transformation as game objects
+        if (game?.editorManager?.isActive && this.webglRenderer?.initialized) {
+            game.editorManager.renderSelectionToWebGL(this.webglRenderer, this.camera.x, this.camera.y);
+        }
 
         // End sprite pass - return to normal perspective mode
         if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {

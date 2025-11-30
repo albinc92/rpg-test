@@ -611,6 +611,120 @@ class EditorManager {
     }
 
     /**
+     * Get the visual sprite bounds for an object (matches exactly how it's rendered)
+     */
+    getVisualBounds(obj) {
+        const game = this.game;
+        const resolutionScale = game?.resolutionScale || 1.0;
+        const mapScale = game?.GAME_SCALE || game?.currentMap?.scale || 1.0;
+        
+        // Position: uses mapScale * resolutionScale (same as getScaledX/Y)
+        const scaledX = obj.x * mapScale * resolutionScale;
+        const scaledY = obj.y * mapScale * resolutionScale;
+        
+        // Size: uses scale * resolutionScale (same as getFinalScale)
+        const finalScale = (obj.scale || 1.0) * resolutionScale;
+        const baseWidth = obj.spriteWidth || obj.fallbackWidth || 64;
+        const baseHeight = obj.spriteHeight || obj.fallbackHeight || 64;
+        const width = baseWidth * finalScale;
+        const height = baseHeight * finalScale;
+        
+        // Altitude offset
+        const altitudeOffset = (obj.altitude || 0) * resolutionScale;
+        
+        // Same as StaticObject.renderSprite positioning
+        return {
+            x: scaledX - width / 2,
+            y: scaledY - height / 2 - altitudeOffset,
+            width: width,
+            height: height
+        };
+    }
+    
+    /**
+     * Create or get a selection box texture for a given size
+     */
+    getSelectionBoxTexture(width, height) {
+        // Round to avoid creating too many textures
+        const w = Math.ceil(width);
+        const h = Math.ceil(height);
+        const key = `selection_${w}x${h}`;
+        
+        if (!this.selectionTextures) {
+            this.selectionTextures = new Map();
+        }
+        
+        if (this.selectionTextures.has(key)) {
+            return { canvas: this.selectionTextures.get(key), key };
+        }
+        
+        // Create a canvas with a dashed border
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        
+        // Draw dashed rectangle border
+        ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([8, 6]);
+        ctx.strokeRect(2, 2, w - 4, h - 4);
+        
+        this.selectionTextures.set(key, canvas);
+        return { canvas, key };
+    }
+    
+    /**
+     * Render selection boxes to WebGL (called from RenderSystem)
+     */
+    renderSelectionToWebGL(webglRenderer, cameraX, cameraY) {
+        if (!this.isActive) return;
+        if (!webglRenderer || !webglRenderer.initialized) return;
+        
+        // Render single selection
+        if (this.selectedObject) {
+            const isLight = this.selectedObject.templateName && this.game.lightManager?.lights.includes(this.selectedObject);
+            
+            if (!isLight) {
+                const bounds = this.getVisualBounds(this.selectedObject);
+                const { canvas, key } = this.getSelectionBoxTexture(bounds.width, bounds.height);
+                
+                // Draw the selection box through the same sprite pipeline
+                webglRenderer.drawSprite(
+                    bounds.x,
+                    bounds.y,
+                    bounds.width,
+                    bounds.height,
+                    canvas,
+                    key,
+                    0.9  // slightly transparent
+                );
+            }
+        }
+        
+        // Render multi-selection
+        if (this.selectedObjects.length > 0) {
+            for (const obj of this.selectedObjects) {
+                const isLight = obj.templateName && this.game.lightManager?.lights.includes(obj);
+                if (!isLight) {
+                    const bounds = this.getVisualBounds(obj);
+                    const { canvas, key } = this.getSelectionBoxTexture(bounds.width, bounds.height);
+                    
+                    webglRenderer.drawSprite(
+                        bounds.x,
+                        bounds.y,
+                        bounds.width,
+                        bounds.height,
+                        canvas,
+                        key,
+                        0.9
+                    );
+                }
+            }
+        }
+    }
+    
+    /**
      * Render preview sprite to WebGL (called from RenderSystem before endFrame)
      */
     renderPreviewToWebGL(webglRenderer, cameraX, cameraY) {
@@ -800,18 +914,21 @@ class EditorManager {
             ctx.stroke();
         } else {
             // Draw selection box for regular game objects
-            const bounds = this.selectedObject.getCollisionBounds(this.game);
-            
-            ctx.strokeStyle = '#00ff00';
-            ctx.lineWidth = 2 / zoom;
-            ctx.setLineDash([5 / zoom, 5 / zoom]);
-            
-            ctx.strokeRect(
-                bounds.x - camera.x,
-                bounds.y - camera.y,
-                bounds.width,
-                bounds.height
-            );
+            // Skip Canvas2D rendering if WebGL is active (renderSelectionToWebGL handles it)
+            if (!this.game.renderSystem?.useWebGL) {
+                const bounds = this.getVisualBounds(this.selectedObject);
+                
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 2 / zoom;
+                ctx.setLineDash([5 / zoom, 5 / zoom]);
+                
+                ctx.strokeRect(
+                    bounds.x - camera.x,
+                    bounds.y - camera.y,
+                    bounds.width,
+                    bounds.height
+                );
+            }
         }
         
         ctx.restore();
@@ -864,13 +981,16 @@ class EditorManager {
                 ctx.stroke();
             } else {
                 // Draw box for regular objects
-                const bounds = obj.getCollisionBounds(this.game);
-                ctx.strokeRect(
-                    bounds.x - camera.x,
-                    bounds.y - camera.y,
-                    bounds.width,
-                    bounds.height
-                );
+                // Skip Canvas2D if WebGL is active (renderSelectionToWebGL handles it)
+                if (!this.game.renderSystem?.useWebGL) {
+                    const bounds = this.getVisualBounds(obj);
+                    ctx.strokeRect(
+                        bounds.x - camera.x,
+                        bounds.y - camera.y,
+                        bounds.width,
+                        bounds.height
+                    );
+                }
             }
         }
         
