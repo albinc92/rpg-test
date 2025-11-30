@@ -764,10 +764,10 @@ class GameEngine {
                     y: this.player.y,
                     radius: 600, // Increased from 450
                     color: { r: 255, g: 200, b: 150, a: 0.5 }, // Warm lantern light
-                    flicker: { enabled: true, speed: 3.0, intensity: 0.1 },
+                    flicker: { enabled: false, style: 'smooth', speed: 0, intensity: 0 }, // Static - no flicker for player light
                     castsShadows: false, // Player's light should NOT cast shadows
                     // Runtime state required for rendering
-                    _flickerOffset: Math.random() * Math.PI * 2,
+                    _flickerOffset: 0,
                     _currentIntensity: 1.0
                 };
                 this.lightManager.addLight(playerLight);

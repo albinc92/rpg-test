@@ -125,13 +125,85 @@ class LightManager {
     }
     
     /**
-     * Update flicker animation
+     * Update flicker animation for all lights
      */
     update(deltaTime) {
-        // Animation disabled for performance/consolidation
+        const time = performance.now() / 1000; // Current time in seconds
+        
         this.lights.forEach(light => {
-            light._currentIntensity = 1.0;
+            const flicker = light.flicker;
+            
+            // If flicker is disabled or not configured, use full intensity
+            if (!flicker || !flicker.enabled) {
+                light._currentIntensity = 1.0;
+                return;
+            }
+            
+            // Initialize flicker offset if not set (for phase variation between lights)
+            if (light._flickerOffset === undefined) {
+                light._flickerOffset = Math.random() * Math.PI * 2;
+            }
+            
+            const intensity = flicker.intensity || 0.2;
+            const speed = flicker.speed || 0.1;
+            const style = flicker.style || 'smooth';
+            const phase = light._flickerOffset;
+            
+            let flickerValue = 0;
+            
+            switch (style) {
+                case 'smooth':
+                    // Gentle sine wave pulsing (like a candle)
+                    flickerValue = Math.sin(time * speed * 10 + phase) * 0.5 + 0.5;
+                    break;
+                    
+                case 'harsh':
+                    // Random noise (like a fire/torch)
+                    // Use seeded random based on time for consistency
+                    const noiseTime = Math.floor(time * speed * 20);
+                    if (light._lastNoiseTime !== noiseTime) {
+                        light._lastNoiseTime = noiseTime;
+                        light._noiseValue = Math.random();
+                    }
+                    flickerValue = light._noiseValue || Math.random();
+                    break;
+                    
+                case 'strobe':
+                    // On/off flashing
+                    flickerValue = Math.sin(time * speed * 15 + phase) > 0 ? 1 : 0;
+                    break;
+                    
+                case 'flicker':
+                    // Mostly stable with occasional random dips (failing light bulb)
+                    const flickerChance = Math.sin(time * speed * 5 + phase);
+                    if (flickerChance > 0.7) {
+                        flickerValue = Math.random() * 0.5; // Random dip
+                    } else {
+                        flickerValue = 1; // Stable
+                    }
+                    break;
+                    
+                case 'pulse':
+                    // Slow, deep pulsing
+                    flickerValue = (Math.sin(time * speed * 3 + phase) + 1) * 0.5;
+                    break;
+                    
+                default:
+                    flickerValue = 0.5;
+            }
+            
+            // Apply intensity - flickerValue is 0-1, we want to reduce intensity by up to 'intensity' amount
+            light._currentIntensity = 1.0 - (intensity * (1 - flickerValue));
+            
+            // Also calculate current radius for rendering
+            light._currentRadius = light.radius * light._currentIntensity;
         });
+        
+        // Mark mask as needing update if any lights are flickering
+        const hasFlicker = this.lights.some(l => l.flicker?.enabled);
+        if (hasFlicker) {
+            this.maskNeedsUpdate = true;
+        }
     }
     
     /**
@@ -197,15 +269,15 @@ class LightManager {
         const worldX = light.x * totalScale;
         const worldY = light.y * totalScale;
         
+        // Use animated radius if available, otherwise base radius
+        const effectiveRadius = light._currentRadius || light.radius;
+        
         // Apply altitude offset if present (scaled by resolution)
         const altitudeOffset = (light.altitude || 0) * resolutionScale;
         
         // Convert world coordinates to screen coordinates
         const screenX = worldX - cameraX;
         const screenY = worldY - cameraY - altitudeOffset;
-        
-        // Calculate effective radius based on flicker
-        const effectiveRadius = light.radius * light._currentIntensity;
         
         // Create radial gradient
         const gradient = ctx.createRadialGradient(

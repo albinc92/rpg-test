@@ -11,6 +11,7 @@
       },
       "flicker": {
         "enabled": true,
+        "style": "harsh",
         "intensity": 0.3,
         "speed": 0.1
       }
@@ -26,6 +27,7 @@
       },
       "flicker": {
         "enabled": true,
+        "style": "harsh",
         "intensity": 0.4,
         "speed": 0.15
       }
@@ -41,6 +43,7 @@
       },
       "flicker": {
         "enabled": true,
+        "style": "smooth",
         "intensity": 0.1,
         "speed": 0.05
       }
@@ -56,6 +59,7 @@
       },
       "flicker": {
         "enabled": true,
+        "style": "pulse",
         "intensity": 0.2,
         "speed": 0.08
       }
@@ -71,6 +75,7 @@
       },
       "flicker": {
         "enabled": true,
+        "style": "smooth",
         "intensity": 0.35,
         "speed": 0.12
       }
@@ -86,6 +91,7 @@
       },
       "flicker": {
         "enabled": false,
+        "style": "smooth",
         "intensity": 0,
         "speed": 0
       }
@@ -101,6 +107,7 @@
       },
       "flicker": {
         "enabled": false,
+        "style": "smooth",
         "intensity": 0,
         "speed": 0
       }
@@ -116,8 +123,41 @@
       },
       "flicker": {
         "enabled": true,
+        "style": "harsh",
         "intensity": 0.5,
         "speed": 0.18
+      }
+    },
+    {
+      "name": "Failing Bulb",
+      "radius": 150,
+      "color": {
+        "r": 255,
+        "g": 240,
+        "b": 200,
+        "a": 0.7
+      },
+      "flicker": {
+        "enabled": true,
+        "style": "flicker",
+        "intensity": 0.6,
+        "speed": 0.2
+      }
+    },
+    {
+      "name": "Alarm Light",
+      "radius": 180,
+      "color": {
+        "r": 255,
+        "g": 50,
+        "b": 50,
+        "a": 0.9
+      },
+      "flicker": {
+        "enabled": true,
+        "style": "strobe",
+        "intensity": 0.8,
+        "speed": 0.3
       }
     }
   ]

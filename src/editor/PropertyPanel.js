@@ -124,14 +124,24 @@ class PropertyPanel {
             this.addLabel('Flicker:');
             this.addCheckbox('  Enabled', obj.flicker.enabled, (value) => {
                 obj.flicker.enabled = value;
+                this.show(obj); // Refresh to show/hide style options
             });
             if (obj.flicker.enabled) {
-                this.addNumberInput('  Speed', obj.flicker.speed, (value) => {
-                    obj.flicker.speed = value;
-                }, 0.1, 0);
+                this.addDropdown('  Style', obj.flicker.style || 'smooth', [
+                    { value: 'smooth', label: 'Smooth (Candle)' },
+                    { value: 'harsh', label: 'Harsh (Fire/Torch)' },
+                    { value: 'strobe', label: 'Strobe (Flashing)' },
+                    { value: 'flicker', label: 'Flicker (Failing Bulb)' },
+                    { value: 'pulse', label: 'Pulse (Slow Deep)' }
+                ], (value) => {
+                    obj.flicker.style = value;
+                });
                 this.addNumberInput('  Intensity', obj.flicker.intensity, (value) => {
                     obj.flicker.intensity = Math.max(0, Math.min(1, value));
                 }, 0.05, 0);
+                this.addNumberInput('  Speed', obj.flicker.speed, (value) => {
+                    obj.flicker.speed = value;
+                }, 0.01, 0);
             }
         } else {
             // Non-light object properties
@@ -389,6 +399,54 @@ class PropertyPanel {
             font-size: 13px;
         `;
         this.propertiesContainer.appendChild(label);
+    }
+
+    /**
+     * Add dropdown select
+     */
+    addDropdown(label, value, options, onChange) {
+        const container = document.createElement('div');
+        container.style.cssText = EditorStyles.getListItemStyle();
+        container.style.padding = '10px';
+        container.style.display = 'flex';
+        container.style.alignItems = 'center';
+        container.style.gap = '10px';
+
+        const labelEl = document.createElement('label');
+        labelEl.textContent = label;
+        labelEl.style.cssText = `
+            font-size: 13px;
+            color: #ecf0f1;
+            flex: 1;
+            min-width: 80px;
+        `;
+
+        const select = document.createElement('select');
+        select.style.cssText = `
+            flex: 2;
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            color: #ecf0f1;
+            font-size: 12px;
+            cursor: pointer;
+        `;
+        
+        options.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.value;
+            option.textContent = opt.label;
+            option.style.background = '#2c3e50';
+            if (opt.value === value) option.selected = true;
+            select.appendChild(option);
+        });
+        
+        select.onchange = () => onChange(select.value);
+
+        container.appendChild(labelEl);
+        container.appendChild(select);
+        this.propertiesContainer.appendChild(container);
     }
 
     /**

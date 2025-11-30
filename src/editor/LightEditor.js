@@ -122,7 +122,7 @@ class LightEditor {
                         <div>
                             <div style="font-weight: bold; color: #f1c40f;">${template.name}</div>
                             <div style="font-size: 11px; color: #95a5a6; margin-top: 2px;">
-                                Radius: ${template.radius}px | Flicker: ${template.flicker?.enabled ? 'Yes' : 'No'}
+                                Radius: ${template.radius}px | Flicker: ${template.flicker?.enabled ? (template.flicker.style || 'smooth') : 'Off'}
                             </div>
                         </div>
                     </div>
@@ -252,6 +252,34 @@ class LightEditor {
         flickerProps.style.cssText = 'display: flex; flex-direction: column; gap: 8px;';
         flickerProps.style.display = flickerCheckbox.checked ? 'flex' : 'none';
 
+        // Flicker Style dropdown
+        const styleContainer = document.createElement('div');
+        styleContainer.style.cssText = EditorStyles.getFieldContainerStyle();
+        const styleLabel = document.createElement('label');
+        styleLabel.textContent = 'Flicker Style';
+        styleLabel.style.cssText = EditorStyles.getLabelStyle();
+        styleContainer.appendChild(styleLabel);
+        
+        const styleSelect = document.createElement('select');
+        styleSelect.name = 'flickerStyle';
+        styleSelect.style.cssText = EditorStyles.getInputStyle();
+        const styles = [
+            { value: 'smooth', label: 'Smooth (Candle)' },
+            { value: 'harsh', label: 'Harsh (Fire/Torch)' },
+            { value: 'strobe', label: 'Strobe (Flashing)' },
+            { value: 'flicker', label: 'Flicker (Failing Bulb)' },
+            { value: 'pulse', label: 'Pulse (Slow Deep)' }
+        ];
+        styles.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.value;
+            opt.textContent = s.label;
+            if ((template?.flicker?.style || 'smooth') === s.value) opt.selected = true;
+            styleSelect.appendChild(opt);
+        });
+        styleContainer.appendChild(styleSelect);
+        flickerProps.appendChild(styleContainer);
+
         const flickerRow = document.createElement('div');
         flickerRow.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 8px;';
         flickerRow.appendChild(this.createField('Intensity (0-1)', 'number', 'flickerIntensity', template?.flicker?.intensity || 0.2, null, 0.05));
@@ -335,6 +363,7 @@ class LightEditor {
             },
             flicker: {
                 enabled: form.querySelector('#flickerEnabled').checked,
+                style: formData.get('flickerStyle') || 'smooth',
                 intensity: parseFloat(formData.get('flickerIntensity')) || 0.2,
                 speed: parseFloat(formData.get('flickerSpeed')) || 0.1
             }
