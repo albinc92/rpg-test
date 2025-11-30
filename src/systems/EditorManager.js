@@ -859,16 +859,25 @@ class EditorManager {
         // Check if selected object is a light
         const isLight = this.selectedObject.templateName && this.game.lightManager.lights.includes(this.selectedObject);
         
+        // Check if perspective is active
+        const webglRenderer = this.game.renderSystem?.webglRenderer;
+        const perspectiveParams = webglRenderer?.getPerspectiveParams?.() || { enabled: false };
+        const perspectiveActive = perspectiveParams.enabled && perspectiveParams.strength > 0;
+        
         ctx.save();
         
-        // Apply zoom transformation (same as renderMultiSelectBox)
-        if (zoom !== 1.0) {
-            const canvasWidth = this.game.CANVAS_WIDTH;
-            const canvasHeight = this.game.CANVAS_HEIGHT;
-            
-            ctx.translate(canvasWidth / 2, canvasHeight / 2);
-            ctx.scale(zoom, zoom);
-            ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
+        // For lights with perspective, we'll use absolute screen coordinates
+        // so don't apply zoom transformation
+        if (!perspectiveActive || !isLight) {
+            // Apply zoom transformation (same as renderMultiSelectBox)
+            if (zoom !== 1.0) {
+                const canvasWidth = this.game.CANVAS_WIDTH;
+                const canvasHeight = this.game.CANVAS_HEIGHT;
+                
+                ctx.translate(canvasWidth / 2, canvasHeight / 2);
+                ctx.scale(zoom, zoom);
+                ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
+            }
         }
         
         if (isLight) {
@@ -882,35 +891,61 @@ class EditorManager {
             
             const worldX = light.x * totalScale;
             const worldY = light.y * totalScale;
-            const screenX = worldX - camera.x;
-            const screenY = worldY - camera.y;
+            
+            // Apply altitude offset if present
+            const altitudeOffset = (light.altitude || 0) * resolutionScale;
+            
+            let screenX, screenY;
+            let perspectiveScale = 1.0;
+            
+            if (perspectiveActive && webglRenderer.transformWorldToScreen) {
+                // Get the absolute screen position where the light renders
+                const transformed = webglRenderer.transformWorldToScreen(
+                    worldX, 
+                    worldY - altitudeOffset, 
+                    camera.x, 
+                    camera.y
+                );
+                screenX = transformed.screenX;
+                screenY = transformed.screenY;
+                perspectiveScale = transformed.scale;
+            } else {
+                // No perspective - apply camera offset manually
+                screenX = worldX - camera.x;
+                screenY = worldY - camera.y - altitudeOffset;
+            }
+            
+            // Adjust line widths - when perspective is active, don't divide by zoom
+            // since we're not using the zoom transform
+            const lineWidthScale = perspectiveActive ? 1 : zoom;
             
             // Draw pulsing circle around light
             ctx.strokeStyle = '#00ff00';
-            ctx.lineWidth = 3 / zoom;
-            ctx.setLineDash([8 / zoom, 4 / zoom]);
+            ctx.lineWidth = 3 / lineWidthScale;
+            ctx.setLineDash([8 / lineWidthScale, 4 / lineWidthScale]);
             
-            // Draw outer circle (at light radius)
+            // Draw outer circle (at light radius, scaled by perspective)
             ctx.beginPath();
-            ctx.arc(screenX, screenY, light.radius, 0, Math.PI * 2);
+            ctx.arc(screenX, screenY, light.radius * perspectiveScale, 0, Math.PI * 2);
             ctx.stroke();
             
-            // Draw inner circle (selection marker)
+            // Draw inner circle (selection marker, scaled by perspective)
             ctx.strokeStyle = '#ffff00';
-            ctx.lineWidth = 2 / zoom;
+            ctx.lineWidth = 2 / lineWidthScale;
             ctx.setLineDash([]);
             ctx.beginPath();
-            ctx.arc(screenX, screenY, 30, 0, Math.PI * 2);
+            ctx.arc(screenX, screenY, 30 * perspectiveScale, 0, Math.PI * 2);
             ctx.stroke();
             
-            // Draw crosshair at center
+            // Draw crosshair at center (scaled by perspective)
+            const crosshairSize = 15 * perspectiveScale;
             ctx.strokeStyle = '#ff0000';
-            ctx.lineWidth = 2 / zoom;
+            ctx.lineWidth = 2 / lineWidthScale;
             ctx.beginPath();
-            ctx.moveTo(screenX - 15, screenY);
-            ctx.lineTo(screenX + 15, screenY);
-            ctx.moveTo(screenX, screenY - 15);
-            ctx.lineTo(screenX, screenY + 15);
+            ctx.moveTo(screenX - crosshairSize, screenY);
+            ctx.lineTo(screenX + crosshairSize, screenY);
+            ctx.moveTo(screenX, screenY - crosshairSize);
+            ctx.lineTo(screenX, screenY + crosshairSize);
             ctx.stroke();
         } else {
             // Draw selection box for regular game objects
@@ -944,9 +979,22 @@ class EditorManager {
         const zoom = camera.zoom || 1.0;
         const canvas = this.game.canvas;
         
+        // Check if perspective is active
+        const webglRenderer = this.game.renderSystem?.webglRenderer;
+        const perspectiveParams = webglRenderer?.getPerspectiveParams?.() || { enabled: false };
+        const perspectiveActive = perspectiveParams.enabled && perspectiveParams.strength > 0;
+        
+        // Check if any selected objects are lights (for perspective handling)
+        const hasLights = this.selectedObjects.some(obj => 
+            obj.templateName && this.game.lightManager.lights.includes(obj)
+        );
+        
         ctx.save();
         
-        // Apply zoom transformation (same as renderMultiSelectBox)
+        // If perspective is active and we have lights, we need to handle them separately
+        // because lights use absolute screen coords but objects use transformed coords
+        
+        // First pass: render non-light objects with zoom transform
         if (zoom !== 1.0) {
             const canvasWidth = this.game.CANVAS_WIDTH;
             const canvasHeight = this.game.CANVAS_HEIGHT;
@@ -957,31 +1005,14 @@ class EditorManager {
         }
         
         ctx.strokeStyle = '#00ff00';
-        ctx.lineWidth = 2 / zoom; // Adjust line width for zoom
-        ctx.setLineDash([5 / zoom, 5 / zoom]); // Adjust dash pattern for zoom
+        ctx.lineWidth = 2 / zoom;
+        ctx.setLineDash([5 / zoom, 5 / zoom]);
         
-        // Draw dashed outline around each selected object
         for (const obj of this.selectedObjects) {
-            // Check if this is a light
             const isLight = obj.templateName && this.game.lightManager.lights.includes(obj);
             
-            if (isLight) {
-                // Draw circle for lights
-                const resolutionScale = this.game?.resolutionScale || 1.0;
-                const mapScale = this.game?.currentMap?.scale || 1.0;
-                const totalScale = mapScale * resolutionScale;
-                
-                const worldX = obj.x * totalScale;
-                const worldY = obj.y * totalScale;
-                const screenX = worldX - camera.x;
-                const screenY = worldY - camera.y;
-                
-                ctx.beginPath();
-                ctx.arc(screenX, screenY, 30, 0, Math.PI * 2);
-                ctx.stroke();
-            } else {
+            if (!isLight) {
                 // Draw box for regular objects
-                // Skip Canvas2D if WebGL is active (renderSelectionToWebGL handles it)
                 if (!this.game.renderSystem?.useWebGL) {
                     const bounds = this.getVisualBounds(obj);
                     ctx.strokeRect(
@@ -991,6 +1022,62 @@ class EditorManager {
                         bounds.height
                     );
                 }
+            }
+        }
+        
+        ctx.restore();
+        
+        // Second pass: render lights (with perspective if active)
+        ctx.save();
+        
+        // For lights with perspective, don't apply zoom (use absolute screen coords)
+        if (!perspectiveActive && zoom !== 1.0) {
+            const canvasWidth = this.game.CANVAS_WIDTH;
+            const canvasHeight = this.game.CANVAS_HEIGHT;
+            
+            ctx.translate(canvasWidth / 2, canvasHeight / 2);
+            ctx.scale(zoom, zoom);
+            ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
+        }
+        
+        const lineWidthScale = perspectiveActive ? 1 : zoom;
+        ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = 2 / lineWidthScale;
+        ctx.setLineDash([5 / lineWidthScale, 5 / lineWidthScale]);
+        
+        for (const obj of this.selectedObjects) {
+            const isLight = obj.templateName && this.game.lightManager.lights.includes(obj);
+            
+            if (isLight) {
+                const resolutionScale = this.game?.resolutionScale || 1.0;
+                const mapScale = this.game?.currentMap?.scale || 1.0;
+                const totalScale = mapScale * resolutionScale;
+                
+                const worldX = obj.x * totalScale;
+                const worldY = obj.y * totalScale;
+                const altitudeOffset = (obj.altitude || 0) * resolutionScale;
+                
+                let screenX, screenY;
+                let perspectiveScale = 1.0;
+                
+                if (perspectiveActive && webglRenderer.transformWorldToScreen) {
+                    const transformed = webglRenderer.transformWorldToScreen(
+                        worldX, 
+                        worldY - altitudeOffset, 
+                        camera.x, 
+                        camera.y
+                    );
+                    screenX = transformed.screenX;
+                    screenY = transformed.screenY;
+                    perspectiveScale = transformed.scale;
+                } else {
+                    screenX = worldX - camera.x;
+                    screenY = worldY - camera.y - altitudeOffset;
+                }
+                
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, 30 * perspectiveScale, 0, Math.PI * 2);
+                ctx.stroke();
             }
         }
         

@@ -256,7 +256,7 @@ class RenderSystem {
         // Render light editor previews (only in editor mode)
         if (game?.editorManager?.isActive && game?.lightManager) {
             const showPreviews = game.editorManager.showLightPreviews !== false; // Default true
-            game.lightManager.renderEditorPreviews(this.ctx, this.camera.x, this.camera.y, showPreviews);
+            game.lightManager.renderEditorPreviews(this.ctx, this.camera.x, this.camera.y, showPreviews, this.webglRenderer);
         }
         
         // Render object placement preview to WebGL (before endFrame)

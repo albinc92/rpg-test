@@ -434,10 +434,20 @@ class LightManager {
      * Render editor preview sprites (only in editor mode)
      * NOTE: Camera transform is ALREADY applied by RenderSystem, so we render at world coordinates
      */
-    renderEditorPreviews(ctx, cameraX, cameraY, showPreviews = true) {
+    renderEditorPreviews(ctx, cameraX, cameraY, showPreviews = true, webglRenderer = null) {
         if (!showPreviews || !this.previewSpriteLoaded) return;
         
+        // Check if perspective is active
+        const perspectiveParams = webglRenderer?.getPerspectiveParams?.() || { enabled: false };
+        const perspectiveActive = perspectiveParams.enabled && perspectiveParams.strength > 0;
+        
         ctx.save();
+        
+        // If perspective is active, reset to identity transform because
+        // transformWorldToScreen returns absolute screen coordinates
+        if (perspectiveActive) {
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+        }
         
         this.lights.forEach(light => {
             // COMMON BEHAVIOR: Scale storage coordinates to world coordinates (same as GameObject)
@@ -452,15 +462,32 @@ class LightManager {
             // Apply altitude offset if present
             const altitudeOffset = (light.altitude || 0) * resolutionScale;
             
-            // Camera transform is ALREADY applied, so use world coordinates directly
-            // (RenderSystem calls ctx.translate(-camera.x, -camera.y) before this)
+            let drawX, drawY;
+            let perspectiveScale = 1.0;
+            
+            if (perspectiveActive && webglRenderer.transformWorldToScreen) {
+                // Get the absolute screen position where the light renders
+                const transformed = webglRenderer.transformWorldToScreen(
+                    worldX, 
+                    worldY - altitudeOffset, 
+                    cameraX, 
+                    cameraY
+                );
+                drawX = transformed.screenX;
+                drawY = transformed.screenY;
+                perspectiveScale = transformed.scale;
+            } else {
+                // No perspective - camera transform is already applied via ctx.translate
+                drawX = worldX;
+                drawY = worldY - altitudeOffset;
+            }
             
             // Draw preview sprite centered on light position
-            const spriteSize = 32; // Fixed size for editor preview
+            const spriteSize = 32 * perspectiveScale; // Scale with perspective
             ctx.drawImage(
                 this.previewSprite,
-                worldX - spriteSize / 2,
-                worldY - spriteSize / 2 - altitudeOffset,
+                drawX - spriteSize / 2,
+                drawY - spriteSize / 2,
                 spriteSize,
                 spriteSize
             );
@@ -468,11 +495,13 @@ class LightManager {
             // Draw light name below sprite
             ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-            ctx.font = '12px Arial';
+            const fontSize = Math.max(8, 12 * perspectiveScale);
+            ctx.font = `${fontSize}px Arial`;
             ctx.textAlign = 'center';
             ctx.lineWidth = 3;
-            ctx.strokeText(light.templateName, worldX, worldY + 24);
-            ctx.fillText(light.templateName, worldX, worldY + 24);
+            const textOffsetY = 24 * perspectiveScale;
+            ctx.strokeText(light.templateName, drawX, drawY + textOffsetY);
+            ctx.fillText(light.templateName, drawX, drawY + textOffsetY);
         });
         
         ctx.restore();
