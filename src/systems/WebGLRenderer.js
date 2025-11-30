@@ -792,6 +792,83 @@ class WebGLRenderer {
         // No need to composite - shadows are already in the scene buffer with perspective!
     }
     
+    /**
+     * Transform a world position using billboard perspective (same as sprites)
+     * This is used by LightManager to position lights correctly in fake 3D mode
+     * @param {number} worldX - World X position (center of light)
+     * @param {number} worldY - World Y position (ground level, where the light sits)
+     * @param {number} cameraX - Camera X offset (used only in fallback 2D mode)
+     * @param {number} cameraY - Camera Y offset (used only in fallback 2D mode)
+     * @returns {Object} { screenX, screenY, scale } - Transformed screen position and scale factor
+     */
+    transformWorldToScreen(worldX, worldY, cameraX, cameraY) {
+        // Default result (no perspective) - simple camera offset
+        let screenX = worldX - cameraX;
+        let screenY = worldY - cameraY;
+        let scale = 1.0;
+        
+        // Apply perspective transformation if enabled (regardless of current billboard mode state)
+        if (this.perspectiveStrength > 0 && this.viewMatrix && this.projectionMatrix) {
+            const vm = this.viewMatrix;
+            const pm = this.projectionMatrix;
+            const zoom = vm[0];
+            
+            // Transform world point to clip space (same as vertex shader)
+            // Note: viewMatrix already includes camera translation!
+            const viewX = worldX * vm[0] + worldY * vm[4] + vm[12];
+            const viewY = worldX * vm[1] + worldY * vm[5] + vm[13];
+            
+            const clipX = viewX * pm[0] + viewY * pm[4] + pm[12];
+            const clipY = viewX * pm[1] + viewY * pm[5] + pm[13];
+            
+            // Calculate depth and perspective W (matching shader EXACTLY)
+            const depth = (clipY + 1.0) * 0.5;
+            const perspectiveW = 1.0 + (depth * this.perspectiveStrength);
+            
+            // === Calculate screen position WITH and WITHOUT perspective ===
+            // WITHOUT perspective (billboard's natural behavior with W=1):
+            const screenX_noPerspective = (clipX + 1.0) * 0.5 * this.logicalWidth;
+            const screenY_noPerspective = (1.0 - clipY) * 0.5 * this.logicalHeight;
+            
+            // WITH perspective (where ground/shadows land):
+            const clipX_persp = clipX / perspectiveW;
+            const clipY_persp = clipY / perspectiveW;
+            const screenX_withPerspective = (clipX_persp + 1.0) * 0.5 * this.logicalWidth;
+            const screenY_withPerspective = (1.0 - clipY_persp) * 0.5 * this.logicalHeight;
+            
+            // === Calculate the delta in screen space ===
+            const deltaScreenX = screenX_withPerspective - screenX_noPerspective;
+            const deltaScreenY = screenY_withPerspective - screenY_noPerspective;
+            
+            // The final screen position:
+            // - screenX_noPerspective is already the correct "no perspective" screen position 
+            //   (with camera applied via viewMatrix)
+            // - We add the delta to shift it to where perspective puts things
+            screenX = screenX_noPerspective + deltaScreenX;
+            screenY = screenY_noPerspective + deltaScreenY;
+            
+            // Scale factor for light radius
+            scale = 1.0 / perspectiveW;
+        }
+        
+        return { screenX, screenY, scale };
+    }
+    
+    /**
+     * Get current perspective parameters for external systems (like LightManager)
+     * @returns {Object} { enabled, strength, viewMatrix, projectionMatrix, logicalWidth, logicalHeight }
+     */
+    getPerspectiveParams() {
+        return {
+            enabled: this.perspectiveStrength > 0,
+            strength: this.perspectiveStrength || 0,
+            viewMatrix: this.viewMatrix,
+            projectionMatrix: this.projectionMatrix,
+            logicalWidth: this.logicalWidth,
+            logicalHeight: this.logicalHeight
+        };
+    }
+
     endFrame() {
         if (!this.initialized) return;
         

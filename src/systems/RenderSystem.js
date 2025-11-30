@@ -223,7 +223,7 @@ class RenderSystem {
         // Get light mask from light manager (if lights exist)
         let lightMask = null;
         if (game?.lightManager && game.lightManager.lights.length > 0) {
-            lightMask = game.lightManager.getLightMask(this.camera.x, this.camera.y, canvasWidth, canvasHeight);
+            lightMask = game.lightManager.getLightMask(this.camera.x, this.camera.y, canvasWidth, canvasHeight, this.webglRenderer);
         }
         
         // TODO: Render day/night cycle overlay with light mask on WEBGL, not Canvas2D
@@ -319,7 +319,7 @@ class RenderSystem {
                 const canvasHeight = game.CANVAS_HEIGHT || 600;
                 
                 if (game.lightManager.getLightMask) {
-                    lightMask = game.lightManager.getLightMask(this.camera.x, this.camera.y, canvasWidth, canvasHeight);
+                    lightMask = game.lightManager.getLightMask(this.camera.x, this.camera.y, canvasWidth, canvasHeight, this.webglRenderer);
                 }
             }
 

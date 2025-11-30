@@ -227,8 +227,13 @@ class LightManager {
     /**
      * Generate light mask from all light sources
      * The mask is grayscale: white = fully lit (no darkness), black = fully dark
+     * @param {number} cameraX - Camera X position
+     * @param {number} cameraY - Camera Y position
+     * @param {number} width - Mask width
+     * @param {number} height - Mask height
+     * @param {object} webglRenderer - Optional WebGL renderer for perspective settings
      */
-    generateLightMask(cameraX, cameraY, width, height) {
+    generateLightMask(cameraX, cameraY, width, height, webglRenderer = null) {
         if (!this.lightMaskCtx) return;
         
         const ctx = this.lightMaskCtx;
@@ -244,7 +249,7 @@ class LightManager {
         // Render each light as a white radial gradient (mask intensity)
         let lightsRendered = 0;
         this.lights.forEach(light => {
-            this.renderLightMask(ctx, light, cameraX, cameraY);
+            this.renderLightMask(ctx, light, cameraX, cameraY, width, height, webglRenderer);
             lightsRendered++;
         });
         
@@ -259,7 +264,7 @@ class LightManager {
     /**
      * Render a single light to the mask (as colored gradient)
      */
-    renderLightMask(ctx, light, cameraX, cameraY) {
+    renderLightMask(ctx, light, cameraX, cameraY, width, height, webglRenderer = null) {
         const game = this.game;
         const resolutionScale = game?.resolutionScale || 1.0;
         const mapScale = game?.currentMap?.scale || 1.0;
@@ -270,14 +275,33 @@ class LightManager {
         const worldY = light.y * totalScale;
         
         // Use animated radius if available, otherwise base radius
-        const effectiveRadius = light._currentRadius || light.radius;
+        let effectiveRadius = light._currentRadius || light.radius;
         
         // Apply altitude offset if present (scaled by resolution)
         const altitudeOffset = (light.altitude || 0) * resolutionScale;
         
-        // Convert world coordinates to screen coordinates
-        const screenX = worldX - cameraX;
-        const screenY = worldY - cameraY - altitudeOffset;
+        let screenX, screenY;
+        let perspectiveScale = 1.0;
+        
+        // Apply billboard perspective transformation if available (for Fake 3D mode)
+        if (webglRenderer && webglRenderer.transformWorldToScreen) {
+            const transformed = webglRenderer.transformWorldToScreen(
+                worldX, 
+                worldY - altitudeOffset, 
+                cameraX, 
+                cameraY
+            );
+            screenX = transformed.screenX;
+            screenY = transformed.screenY;
+            perspectiveScale = transformed.scale;
+            
+            // Scale the radius by perspective
+            effectiveRadius = effectiveRadius * perspectiveScale;
+        } else {
+            // Fallback: simple screen coordinate calculation (2D mode)
+            screenX = worldX - cameraX;
+            screenY = worldY - cameraY - altitudeOffset;
+        }
         
         // Create radial gradient
         const gradient = ctx.createRadialGradient(
@@ -314,14 +338,25 @@ class LightManager {
      * Get the current light mask canvas
      * Used by DayNightCycle to apply darkness only where there's no light
      */
-    getLightMask(cameraX, cameraY, width, height) {
+    getLightMask(cameraX, cameraY, width, height, webglRenderer = null) {
         // Initialize mask if needed
         this.initializeLightMask(width, height);
         
-        // Regenerate mask if lights changed or not yet generated
-        if (this.maskNeedsUpdate) {
+        // Check if camera moved (perspective mode needs regeneration on camera movement)
+        const cameraMoved = this._lastCameraX !== cameraX || this._lastCameraY !== cameraY;
+        this._lastCameraX = cameraX;
+        this._lastCameraY = cameraY;
+        
+        // Check if perspective mode is active
+        const perspectiveParams = webglRenderer?.getPerspectiveParams?.() || { enabled: false };
+        const perspectiveActive = perspectiveParams.enabled && perspectiveParams.strength > 0;
+        
+        // Regenerate mask if:
+        // - Lights changed (maskNeedsUpdate)
+        // - Camera moved AND perspective is active (positions change with camera in perspective mode)
+        if (this.maskNeedsUpdate || (cameraMoved && perspectiveActive)) {
             // console.log(`[LightManager] Regenerating light mask (${this.lights.length} lights)`);
-            this.generateLightMask(cameraX, cameraY, width, height);
+            this.generateLightMask(cameraX, cameraY, width, height, webglRenderer);
         }
         
         return this.lightMaskCanvas;
