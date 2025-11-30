@@ -764,67 +764,70 @@ class WebGLRenderer {
         // BILLBOARD MODE: Pre-apply perspective transformation on CPU
         // Goal: The sprite's BASE (bottom) should land exactly where the ground would be
         // after perspective transformation, then the sprite extends upward keeping its shape
-        if (this.billboardMode && this.perspectiveStrength > 0) {
+        if (this.billboardMode && this.perspectiveStrength > 0 && this.viewMatrix && this.projectionMatrix) {
             // Sprite base position (where feet touch ground)
             const baseX = x + width / 2;  // Center X of sprite base
             const baseY = y + height;     // Bottom Y of sprite = ground contact point
             
-            // Get camera info for screen-space calculations
-            const cameraX = this.viewMatrix ? -this.viewMatrix[12] : 0;
-            const cameraY = this.viewMatrix ? -this.viewMatrix[13] : 0;
-            const zoom = this.viewMatrix ? this.viewMatrix[0] : 1;
+            const vm = this.viewMatrix;
+            const pm = this.projectionMatrix;
+            const zoom = vm[0];
             
-            // === CALCULATE WHERE THE GROUND POINT ENDS UP AFTER PERSPECTIVE ===
-            // This must match EXACTLY what the vertex shader does to ground points
+            // === Transform base point to clip space (same as vertex shader) ===
+            const viewX = baseX * vm[0] + baseY * vm[4] + vm[12];
+            const viewY = baseX * vm[1] + baseY * vm[5] + vm[13];
             
-            // Step 1: Transform base to screen space (same as shader's a_position * viewMatrix)
-            const screenBaseX = (baseX - cameraX) * zoom;
-            const screenBaseY = (baseY - cameraY) * zoom;
+            const clipX = viewX * pm[0] + viewY * pm[4] + pm[12];
+            const clipY = viewX * pm[1] + viewY * pm[5] + pm[13];
             
-            // Step 2: Calculate normalized Y and depth (same as shader)
-            const normalizedY = 1.0 - (screenBaseY / this.logicalHeight);
-            const depth = Math.max(0.0, Math.min(1.0, normalizedY));
-            
-            // Step 3: Calculate W for perspective division (same as shader)
+            // === Calculate depth and perspective W (matching shader EXACTLY - NO CLAMPING!) ===
+            // Shader: depth = (gl_Position.y + 1.0) * 0.5
+            // Shader does NOT clamp, so neither should we!
+            const depth = (clipY + 1.0) * 0.5;
             const perspectiveW = 1.0 + (depth * this.perspectiveStrength);
             
-            // Step 4: Calculate how perspective shifts the position
-            // The shader does: gl_Position = vec4(pos.xy, 0.0, perspectiveW)
-            // Then GPU does perspective division: final_xy = pos.xy / perspectiveW
-            // But we're in world coords, so we need to account for the projection too
+            // === Calculate screen position WITH and WITHOUT perspective ===
+            // Convert clip to screen pixels for easier reasoning
+            // Screen X = (clipX + 1) * 0.5 * logicalWidth
+            // Screen Y = (1 - clipY) * 0.5 * logicalHeight (flipped for screen coords)
             
-            // Convert to NDC (before perspective division)
-            const ndcBaseX = (screenBaseX / this.logicalWidth) * 2.0 - 1.0;
-            const ndcBaseY = 1.0 - (screenBaseY / this.logicalHeight) * 2.0;
+            // WITHOUT perspective (billboard's natural behavior with W=1):
+            const screenX_noPerspective = (clipX + 1.0) * 0.5 * this.logicalWidth;
+            const screenY_noPerspective = (1.0 - clipY) * 0.5 * this.logicalHeight;
             
-            // After perspective division by W
-            const perspNdcX = ndcBaseX / perspectiveW;
-            const perspNdcY = ndcBaseY / perspectiveW;
+            // WITH perspective (where ground/shadows land):
+            const clipX_persp = clipX / perspectiveW;
+            const clipY_persp = clipY / perspectiveW;
+            const screenX_withPerspective = (clipX_persp + 1.0) * 0.5 * this.logicalWidth;
+            const screenY_withPerspective = (1.0 - clipY_persp) * 0.5 * this.logicalHeight;
             
-            // Convert back to screen space  
-            const perspScreenX = (perspNdcX + 1.0) * 0.5 * this.logicalWidth;
-            const perspScreenY = (1.0 - perspNdcY) * 0.5 * this.logicalHeight;
+            // === Calculate the delta in screen space ===
+            const deltaScreenX = screenX_withPerspective - screenX_noPerspective;
+            const deltaScreenY = screenY_withPerspective - screenY_noPerspective;
             
-            // Convert back to world space - THIS is where the ground point appears
-            const perspWorldX = perspScreenX / zoom + cameraX;
-            const perspWorldY = perspScreenY / zoom + cameraY;
+            // === Convert screen delta back to world delta ===
+            // screen = world * zoom (simplified, ignoring translation since it's a delta)
+            const deltaWorldX = deltaScreenX / zoom;
+            const deltaWorldY = deltaScreenY / zoom;
             
-            // === NOW BUILD THE SPRITE FROM THAT TRANSFORMED BASE ===
-            // Scale the sprite size by the same factor (smaller in distance)
+            // === Apply delta to get corrected base position ===
+            const correctedBaseX = baseX + deltaWorldX;
+            const correctedBaseY = baseY + deltaWorldY;
+            
+            // === Build sprite from corrected base position ===
             const scale = 1.0 / perspectiveW;
             const scaledWidth = width * scale;
             const scaledHeight = height * scale;
             
-            // Sprite extends upward from the transformed base position
-            // The base (bottom center) is at perspWorldX, perspWorldY
-            x0 = perspWorldX - scaledWidth / 2;  // top-left X
-            y0 = perspWorldY - scaledHeight;      // top-left Y (sprite extends UP from base)
-            x1 = perspWorldX + scaledWidth / 2;  // top-right X
-            y1 = perspWorldY - scaledHeight;      // top-right Y
-            x2 = perspWorldX + scaledWidth / 2;  // bottom-right X
-            y2 = perspWorldY;                     // bottom-right Y (at base)
-            x3 = perspWorldX - scaledWidth / 2;  // bottom-left X
-            y3 = perspWorldY;                     // bottom-left Y (at base)
+            // Sprite base is at corrected position, extends upward
+            x0 = correctedBaseX - scaledWidth / 2;
+            y0 = correctedBaseY - scaledHeight;
+            x1 = correctedBaseX + scaledWidth / 2;
+            y1 = correctedBaseY - scaledHeight;
+            x2 = correctedBaseX + scaledWidth / 2;
+            y2 = correctedBaseY;
+            x3 = correctedBaseX - scaledWidth / 2;
+            y3 = correctedBaseY;
         }
         
         // Push vertex positions (top-left, top-right, bottom-right, bottom-left)
