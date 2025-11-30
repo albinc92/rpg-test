@@ -3680,6 +3680,11 @@ class EditorManager {
                 return renderSystem.worldToScreen(world.x, world.y, screenWidth, screenHeight, perspectiveStrength);
             });
             
+            // Skip this zone if any point is invalid (extreme perspective)
+            if (screenPoints.some(p => p.invalid)) {
+                continue;
+            }
+            
             // Draw the polygon
             ctx.beginPath();
             ctx.moveTo(screenPoints[0].x, screenPoints[0].y);

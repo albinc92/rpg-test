@@ -691,6 +691,7 @@ class RenderSystem {
     /**
      * Convert world coordinates to screen coordinates with perspective
      * This applies the same transformation as the WebGL shader
+     * Returns null if the point is invalid (behind camera/extreme values)
      */
     worldToScreen(worldX, worldY, screenWidth, screenHeight, perspectiveStrength) {
         const zoom = this.camera.zoom || 1.0;
@@ -719,6 +720,11 @@ class RenderSystem {
             // Calculate perspective divisor (same as shader)
             const w = 1.0 + (depth * perspectiveStrength);
             
+            // Check for invalid w (would cause extreme distortion)
+            if (w <= 0.01) {
+                return { x: screenX, y: screenY, invalid: true };
+            }
+            
             // Apply perspective divide
             const perspClipX = clipX / w;
             const perspClipY = clipY / w;
@@ -728,7 +734,7 @@ class RenderSystem {
             screenY = (1 - perspClipY) * 0.5 * screenHeight;
         }
         
-        return { x: screenX, y: screenY };
+        return { x: screenX, y: screenY, invalid: false };
     }
     
     /**
@@ -738,6 +744,11 @@ class RenderSystem {
     renderVectorZones(game) {
         const mapData = game.mapManager.maps[game.currentMapId];
         if (!mapData || !mapData.zones) return;
+        
+        // Debug: log zones count
+        if (mapData.zones.length > 0) {
+            console.log('[RenderSystem] Rendering', mapData.zones.length, 'vector zones');
+        }
 
         const perspectiveStrength = game.perspectiveSystem?.perspectiveStrength || 0;
         const screenWidth = this.canvas.width;
@@ -771,6 +782,11 @@ class RenderSystem {
                     const worldY = p.y * totalScale;
                     return this.worldToScreen(worldX, worldY, screenWidth, screenHeight, perspectiveStrength);
                 });
+                
+                // Skip this zone if any point is invalid (extreme perspective)
+                if (screenPoints.some(p => p.invalid)) {
+                    continue;
+                }
                 
                 // Draw the transformed polygon
                 this.ctx.beginPath();
