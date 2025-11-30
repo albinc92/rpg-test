@@ -1579,6 +1579,7 @@ class SettingsState extends GameState {
                 { name: 'Resolution', type: 'select', key: 'resolution', values: this.resolutions },
                 { name: 'Fullscreen', type: 'toggle', key: 'fullscreen' },
                 { name: 'VSync (Restart)', type: 'toggle', key: 'vsync' },
+                { name: 'Fake 3D', type: 'toggle', key: 'perspectiveEnabled' },
                 { name: 'Show FPS', type: 'toggle', key: 'showFPS' }
             ],
             'Gameplay': [
@@ -1934,6 +1935,7 @@ class SettingsState extends GameState {
             
             if (option.key === 'isMuted') this.applyAudioSettings();
             if (option.key === 'fullscreen') this.applyGraphicsSettings(option.key);
+            if (option.key === 'perspectiveEnabled') this.applyPerspectiveSetting();
             
         } else if (option.type === 'select') {
             // Prevent changing if there's only one option
@@ -2041,6 +2043,13 @@ class SettingsState extends GameState {
         }
     }
     
+    applyPerspectiveSetting() {
+        const settings = this.game.settings;
+        if (this.game.perspectiveSystem) {
+            this.game.perspectiveSystem.setEnabled(settings.perspectiveEnabled);
+            console.log(`[SettingsState] Fake 3D ${settings.perspectiveEnabled ? 'ENABLED' : 'DISABLED'}`);
+        }
+    }
 
     
     saveSettings() {

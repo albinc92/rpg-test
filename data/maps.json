@@ -17,26 +17,7 @@
     "image": {},
     "width": 1536,
     "height": 1024,
-    "lights": [
-      {
-        "id": "player_lantern",
-        "x": 1172.7973437876653,
-        "y": 90.55576711595018,
-        "altitude": 0,
-        "radius": 600,
-        "color": {
-          "r": 255,
-          "g": 200,
-          "b": 150,
-          "a": 0.5
-        },
-        "flicker": {
-          "enabled": true,
-          "speed": 3,
-          "intensity": 0.1
-        }
-      }
-    ],
+    "lights": [],
     "adjacentMaps": {
       "north": "0-1"
     },
@@ -311,7 +292,8 @@
     "adjacentMaps": {
       "south": "0-0",
       "north": "0-1-shop"
-    }
+    },
+    "zones": []
   },
   "0-1-shop": {
     "name": "Village Shop",
@@ -320,7 +302,7 @@
     "music": "/assets/audio/bgm/02.mp3",
     "ambience": null,
     "dayNightCycle": false,
-    "image": null,
+    "image": {},
     "width": 1536,
     "height": 1024,
     "adjacentMaps": {

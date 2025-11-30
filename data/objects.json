@@ -458,95 +458,35 @@
     },
     {
       "category": "StaticObject",
-      "x": 300,
-      "y": 700,
+      "x": 355.74999999999994,
+      "y": 722,
       "scale": 0.15,
       "spriteSrc": "assets/npc/chest-0.png",
       "id": "treasure_chest_2",
-      "name": "Treasure Chest",
-      "gold": 150,
-      "loot": [
-        {
-          "id": "mana_potion",
-          "quantity": 2
-        },
-        {
-          "id": "leather_armor",
-          "quantity": 1
-        },
-        {
-          "id": "magic_scroll",
-          "quantity": 1
-        },
-        {
-          "id": "iron_ore",
-          "quantity": 8
-        }
-      ],
-      "chestType": "silver"
+      "name": "Treasure Chest"
     },
     {
       "category": "StaticObject",
-      "x": 800,
-      "y": 300,
+      "x": 821.75,
+      "y": 258.75,
       "scale": 0.15,
       "spriteSrc": "assets/npc/chest-0.png",
       "id": "treasure_chest_4",
-      "name": "Treasure Chest",
-      "gold": 200,
-      "loot": [
-        {
-          "id": "iron_sword",
-          "quantity": 1
-        },
-        {
-          "id": "leather_armor",
-          "quantity": 1
-        },
-        {
-          "id": "iron_ore",
-          "quantity": 15
-        }
-      ],
-      "chestType": "golden"
-    },
-    {
-      "category": "StaticObject",
-      "x": 475,
-      "y": 960,
-      "scale": 1,
-      "spriteSrc": "/assets/npc/navigation-0.png",
-      "id": "portal_to_0-0",
-      "name": "Forest Clearing Portal",
-      "targetMap": "0-0",
-      "spawnPoint": "fromPortal",
-      "portalType": "magic"
-    },
-    {
-      "category": "StaticObject",
-      "x": 695,
-      "y": 515,
-      "scale": 1,
-      "spriteSrc": "/assets/npc/door-0.png",
-      "id": "portal_to_shop",
-      "name": "Village Shop Door",
-      "targetMap": "0-1-shop",
-      "spawnPoint": "fromDoor",
-      "portalType": "door"
+      "name": "Treasure Chest"
     }
   ],
   "0-1-shop": [
     {
-      "category": "InteractiveObject",
-      "objectType": "portal",
-      "id": "portal_from_shop",
+      "category": "StaticObject",
       "x": 400,
       "y": 200,
+      "scale": 1,
+      "spriteSrc": "/assets/npc/door-0.png",
+      "id": "portal_from_shop",
+      "name": "Exit Door",
       "targetMap": "0-1",
       "spawnPoint": "fromDoor",
-      "spriteSrc": "/assets/npc/door-0.png",
-      "portalType": "door",
-      "name": "Exit Door"
+      "portalType": "door"
     }
   ]
 }
