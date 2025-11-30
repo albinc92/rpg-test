@@ -675,44 +675,79 @@ class RenderSystem {
     
     /**
      * Render vector zones (collision and spawn) for debugging
+     * Uses WebGL for perspective-correct rendering
      */
     renderVectorZones(game) {
         const mapData = game.mapManager.maps[game.currentMapId];
         if (!mapData || !mapData.zones) return;
 
-        this.ctx.save();
-        this.ctx.lineWidth = 2;
-        
-        // Calculate scale factor to convert stored unscaled coordinates to world coordinates
-        const resolutionScale = game.resolutionScale || 1.0;
-        const mapScale = mapData.scale || 1.0;
-        const totalScale = mapScale * resolutionScale;
+        // Use WebGL renderer if available for perspective-correct zones
+        const webgl = this.webglRenderer;
+        if (webgl && webgl.initialized) {
+            // Calculate scale factor to convert stored unscaled coordinates to world coordinates
+            const resolutionScale = game.resolutionScale || 1.0;
+            const mapScale = mapData.scale || 1.0;
+            const totalScale = mapScale * resolutionScale;
 
-        for (const zone of mapData.zones) {
-            if (zone.type === 'collision') {
-                this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-                this.ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
-            } else if (zone.type === 'spawn') {
-                // Blue to match painted spawn zones
-                this.ctx.strokeStyle = 'rgba(0, 100, 255, 0.8)';
-                this.ctx.fillStyle = 'rgba(0, 100, 255, 0.3)';
-            } else {
-                continue;
-            }
-
-            this.ctx.beginPath();
-            if (zone.points && zone.points.length > 0) {
-                this.ctx.moveTo(zone.points[0].x * totalScale, zone.points[0].y * totalScale);
-                for (let i = 1; i < zone.points.length; i++) {
-                    this.ctx.lineTo(zone.points[i].x * totalScale, zone.points[i].y * totalScale);
+            for (const zone of mapData.zones) {
+                let fillColor, strokeColor;
+                
+                if (zone.type === 'collision') {
+                    // Premultiplied alpha: RGB * A
+                    fillColor = [1.0 * 0.3, 0.0, 0.0, 0.3];   // Red fill
+                    strokeColor = [1.0 * 0.8, 0.0, 0.0, 0.8]; // Red stroke
+                } else if (zone.type === 'spawn') {
+                    // Premultiplied alpha: RGB * A
+                    fillColor = [0.0, 0.4 * 0.3, 1.0 * 0.3, 0.3];   // Blue fill
+                    strokeColor = [0.0, 0.4 * 0.8, 1.0 * 0.8, 0.8]; // Blue stroke
+                } else {
+                    continue;
                 }
-                this.ctx.closePath();
-            }
-            this.ctx.fill();
-            this.ctx.stroke();
-        }
 
-        this.ctx.restore();
+                if (zone.points && zone.points.length > 2) {
+                    // Scale points to world coordinates
+                    const scaledPoints = zone.points.map(p => ({
+                        x: p.x * totalScale,
+                        y: p.y * totalScale
+                    }));
+                    
+                    webgl.drawPolygon(scaledPoints, fillColor, strokeColor, 2);
+                }
+            }
+        } else {
+            // Fallback to Canvas2D (no perspective)
+            this.ctx.save();
+            this.ctx.lineWidth = 2;
+            
+            const resolutionScale = game.resolutionScale || 1.0;
+            const mapScale = mapData.scale || 1.0;
+            const totalScale = mapScale * resolutionScale;
+
+            for (const zone of mapData.zones) {
+                if (zone.type === 'collision') {
+                    this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+                    this.ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+                } else if (zone.type === 'spawn') {
+                    this.ctx.strokeStyle = 'rgba(0, 100, 255, 0.8)';
+                    this.ctx.fillStyle = 'rgba(0, 100, 255, 0.3)';
+                } else {
+                    continue;
+                }
+
+                this.ctx.beginPath();
+                if (zone.points && zone.points.length > 0) {
+                    this.ctx.moveTo(zone.points[0].x * totalScale, zone.points[0].y * totalScale);
+                    for (let i = 1; i < zone.points.length; i++) {
+                        this.ctx.lineTo(zone.points[i].x * totalScale, zone.points[i].y * totalScale);
+                    }
+                    this.ctx.closePath();
+                }
+                this.ctx.fill();
+                this.ctx.stroke();
+            }
+
+            this.ctx.restore();
+        }
     }
 
     /**

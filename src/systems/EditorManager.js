@@ -3639,11 +3639,54 @@ class EditorManager {
 
     /**
      * Render zones and editor interface
+     * Uses WebGL for perspective-correct zone rendering
      */
     renderZones(ctx) {
         const camera = this.game.camera;
         const zoom = camera.zoom || 1.0;
+        const webgl = this.game.renderSystem?.webglRenderer;
         
+        // Helper to get colors based on type
+        const getZoneColors = (type) => {
+            if (type === 'spawn') {
+                return {
+                    fill: 'rgba(0, 100, 255, 0.3)',
+                    stroke: 'rgba(0, 100, 255, 0.8)',
+                    // Premultiplied alpha for WebGL
+                    fillGL: [0.0, 0.4 * 0.3, 1.0 * 0.3, 0.3],
+                    strokeGL: [0.0, 0.4 * 0.8, 1.0 * 0.8, 0.8]
+                };
+            }
+            // Default to collision (red)
+            return {
+                fill: 'rgba(255, 0, 0, 0.3)',
+                stroke: '#ff0000',
+                // Premultiplied alpha for WebGL
+                fillGL: [1.0 * 0.3, 0.0, 0.0, 0.3],
+                strokeGL: [1.0 * 0.8, 0.0, 0.0, 0.8]
+            };
+        };
+        
+        // 1. Render completed zones using WebGL (for perspective)
+        if (webgl && webgl.initialized) {
+            for (const zone of this.zones) {
+                if (zone.points.length < 3) continue;
+                
+                const colors = getZoneColors(zone.type);
+                const isSelected = this.selectedZone === zone;
+                
+                // Convert unscaled points to world coordinates
+                const scaledPoints = zone.points.map(p => this.unscaledToWorld(p.x, p.y));
+                
+                // Use yellow for selected zones (premultiplied alpha)
+                const fillColor = isSelected ? [1.0 * 0.3, 1.0 * 0.3, 0.0, 0.3] : colors.fillGL;
+                const strokeColor = isSelected ? [1.0 * 0.8, 1.0 * 0.8, 0.0, 0.8] : colors.strokeGL;
+                
+                webgl.drawPolygon(scaledPoints, fillColor, strokeColor, isSelected ? 4 : 2);
+            }
+        }
+        
+        // 2. Use Canvas2D for interactive elements (selected zone vertices, current zone being drawn)
         ctx.save();
         
         // Apply camera transform
@@ -3658,60 +3701,45 @@ class EditorManager {
         
         ctx.translate(-camera.x, -camera.y);
         
-        // Helper to get colors based on type
-        const getZoneColors = (type) => {
-            if (type === 'spawn') {
-                return {
-                    fill: 'rgba(0, 100, 255, 0.3)',
-                    stroke: 'rgba(0, 100, 255, 0.8)'
-                };
-            }
-            // Default to collision (red)
-            return {
-                fill: 'rgba(255, 0, 0, 0.3)',
-                stroke: '#ff0000'
-            };
-        };
-        
-        // 1. Render completed zones
-        for (const zone of this.zones) {
-            if (zone.points.length < 3) continue;
-            
-            const colors = getZoneColors(zone.type);
-            const isSelected = this.selectedZone === zone;
-            
-            ctx.beginPath();
-            
-            // Convert unscaled points to world coordinates for rendering
-            const p0 = this.unscaledToWorld(zone.points[0].x, zone.points[0].y);
-            ctx.moveTo(p0.x, p0.y);
-            
-            for (let i = 1; i < zone.points.length; i++) {
-                const p = this.unscaledToWorld(zone.points[i].x, zone.points[i].y);
-                ctx.lineTo(p.x, p.y);
-            }
-            ctx.closePath();
-            
-            ctx.fillStyle = colors.fill;
-            ctx.fill();
-            
-            ctx.strokeStyle = isSelected ? '#ffff00' : colors.stroke;
-            ctx.lineWidth = (isSelected ? 4 : 2) / zoom;
-            ctx.stroke();
-            
-            // Draw vertices if selected
-            if (isSelected) {
-                ctx.fillStyle = '#ffff00';
-                for (const point of zone.points) {
-                    const p = this.unscaledToWorld(point.x, point.y);
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, 4 / zoom, 0, Math.PI * 2);
-                    ctx.fill();
+        // If WebGL not available, fall back to Canvas2D for zones
+        if (!webgl || !webgl.initialized) {
+            for (const zone of this.zones) {
+                if (zone.points.length < 3) continue;
+                
+                const colors = getZoneColors(zone.type);
+                const isSelected = this.selectedZone === zone;
+                
+                ctx.beginPath();
+                const p0 = this.unscaledToWorld(zone.points[0].x, zone.points[0].y);
+                ctx.moveTo(p0.x, p0.y);
+                
+                for (let i = 1; i < zone.points.length; i++) {
+                    const p = this.unscaledToWorld(zone.points[i].x, zone.points[i].y);
+                    ctx.lineTo(p.x, p.y);
                 }
+                ctx.closePath();
+                
+                ctx.fillStyle = colors.fill;
+                ctx.fill();
+                
+                ctx.strokeStyle = isSelected ? '#ffff00' : colors.stroke;
+                ctx.lineWidth = (isSelected ? 4 : 2) / zoom;
+                ctx.stroke();
             }
         }
         
-        // 2. Render current zone being drawn
+        // Draw vertices for selected zone (always Canvas2D since these are UI elements)
+        if (this.selectedZone) {
+            ctx.fillStyle = '#ffff00';
+            for (const point of this.selectedZone.points) {
+                const p = this.unscaledToWorld(point.x, point.y);
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 4 / zoom, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        // 3. Render current zone being drawn (Canvas2D for real-time feedback)
         if (this.currentZonePoints.length > 0) {
             const colors = getZoneColors(this.zoneType || 'collision');
             

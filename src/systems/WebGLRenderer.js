@@ -85,6 +85,10 @@ class WebGLRenderer {
                 return;
             }
             
+            if (!this.createColorShader()) {
+                console.warn('Failed to create color shader');
+            }
+            
             if (!this.createPostProcessShader()) {
                 console.warn('Failed to create post-process shader');
             }
@@ -261,6 +265,123 @@ class WebGLRenderer {
         this.billboardMode = false;
         
         return true;
+    }
+    
+    createColorShader() {
+        // Simple colored polygon shader with perspective support
+        const vs = `
+            attribute vec2 a_position;
+            uniform mat4 u_projection;
+            uniform mat4 u_view;
+            uniform float u_perspectiveStrength;
+            
+            void main() {
+                gl_Position = u_projection * u_view * vec4(a_position, 0.0, 1.0);
+                
+                // Apply same perspective as ground/map
+                if (u_perspectiveStrength > 0.0) {
+                    float depth = (gl_Position.y + 1.0) * 0.5;
+                    float perspectiveW = 1.0 + (depth * u_perspectiveStrength);
+                    gl_Position.w = perspectiveW;
+                }
+            }
+        `;
+        
+        const fs = `
+            precision mediump float;
+            uniform vec4 u_color;
+            void main() {
+                gl_FragColor = u_color;
+            }
+        `;
+        
+        const vertexShader = this.compileShader(vs, this.gl.VERTEX_SHADER);
+        const fragmentShader = this.compileShader(fs, this.gl.FRAGMENT_SHADER);
+        
+        if (!vertexShader || !fragmentShader) return false;
+        
+        this.colorProgram = this.gl.createProgram();
+        this.gl.attachShader(this.colorProgram, vertexShader);
+        this.gl.attachShader(this.colorProgram, fragmentShader);
+        this.gl.linkProgram(this.colorProgram);
+        
+        if (!this.gl.getProgramParameter(this.colorProgram, this.gl.LINK_STATUS)) {
+            return false;
+        }
+        
+        this.colorProgram.locations = {
+            position: this.gl.getAttribLocation(this.colorProgram, 'a_position'),
+            projection: this.gl.getUniformLocation(this.colorProgram, 'u_projection'),
+            view: this.gl.getUniformLocation(this.colorProgram, 'u_view'),
+            color: this.gl.getUniformLocation(this.colorProgram, 'u_color'),
+            perspectiveStrength: this.gl.getUniformLocation(this.colorProgram, 'u_perspectiveStrength')
+        };
+        
+        return true;
+    }
+    
+    /**
+     * Draw a colored polygon with perspective (for debug zones)
+     * Uses fan triangulation - works for convex polygons
+     * @param {Array} points - Array of {x, y} points in world coordinates
+     * @param {Array} fillColor - [r, g, b, a] fill color (0-1 range)
+     * @param {Array} strokeColor - [r, g, b, a] stroke color (0-1 range), or null for no stroke
+     * @param {number} strokeWidth - Stroke width in pixels
+     */
+    drawPolygon(points, fillColor, strokeColor = null, strokeWidth = 2) {
+        if (!this.initialized || !this.colorProgram || points.length < 3) return;
+        if (!this.viewMatrix || !this.projectionMatrix) return;
+        
+        // Flush any pending sprite draws
+        this.flush();
+        
+        // Use color program
+        this.gl.useProgram(this.colorProgram);
+        
+        // Set uniforms
+        this.gl.uniformMatrix4fv(this.colorProgram.locations.projection, false, this.projectionMatrix);
+        this.gl.uniformMatrix4fv(this.colorProgram.locations.view, false, this.viewMatrix);
+        this.gl.uniform1f(this.colorProgram.locations.perspectiveStrength, this.perspectiveStrength);
+        
+        // Create vertex data using fan triangulation (works for convex polygons)
+        const vertices = [];
+        for (let i = 1; i < points.length - 1; i++) {
+            // Triangle: point[0], point[i], point[i+1]
+            vertices.push(points[0].x, points[0].y);
+            vertices.push(points[i].x, points[i].y);
+            vertices.push(points[i + 1].x, points[i + 1].y);
+        }
+        
+        if (vertices.length === 0) return;
+        
+        // Upload vertex data
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(vertices), this.gl.DYNAMIC_DRAW);
+        this.gl.enableVertexAttribArray(this.colorProgram.locations.position);
+        this.gl.vertexAttribPointer(this.colorProgram.locations.position, 2, this.gl.FLOAT, false, 0, 0);
+        
+        // Draw fill
+        if (fillColor) {
+            this.gl.uniform4fv(this.colorProgram.locations.color, fillColor);
+            this.gl.drawArrays(this.gl.TRIANGLES, 0, vertices.length / 2);
+        }
+        
+        // Draw stroke (as line loop)
+        if (strokeColor && strokeWidth > 0) {
+            // Create line vertices
+            const lineVertices = [];
+            for (const point of points) {
+                lineVertices.push(point.x, point.y);
+            }
+            
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(lineVertices), this.gl.DYNAMIC_DRAW);
+            this.gl.uniform4fv(this.colorProgram.locations.color, strokeColor);
+            this.gl.lineWidth(strokeWidth); // Note: lineWidth may be limited to 1 on some platforms
+            this.gl.drawArrays(this.gl.LINE_LOOP, 0, points.length);
+        }
+        
+        // Switch back to sprite program
+        this.gl.useProgram(this.spriteProgram);
     }
     
     createPostProcessShader() {
