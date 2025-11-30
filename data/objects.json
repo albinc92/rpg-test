@@ -446,21 +446,24 @@
   "0-1": [
     {
       "category": "StaticObject",
-      "spriteSrc": "/assets/objects/trees/tree-01.png",
       "x": 400,
       "y": 500,
       "scale": 1.1,
+      "spriteSrc": "/assets/objects/trees/tree-01.png",
+      "id": "static_36beb018-c7ab-46c7-b4b9-6c98ed59dc4a",
       "collisionExpandTopPercent": -0.7,
-      "collisionExpandRightPercent": -0.05,
       "collisionExpandLeftPercent": -0.05,
-      "castsShadow": true
+      "collisionExpandRightPercent": -0.05,
+      "name": "Static Object"
     },
     {
-      "category": "InteractiveObject",
-      "objectType": "chest",
-      "id": "treasure_chest_2",
+      "category": "StaticObject",
       "x": 300,
       "y": 700,
+      "scale": 0.15,
+      "spriteSrc": "assets/npc/chest-0.png",
+      "id": "treasure_chest_2",
+      "name": "Treasure Chest",
       "gold": 150,
       "loot": [
         {
@@ -483,11 +486,13 @@
       "chestType": "silver"
     },
     {
-      "category": "InteractiveObject",
-      "objectType": "chest",
-      "id": "treasure_chest_4",
+      "category": "StaticObject",
       "x": 800,
       "y": 300,
+      "scale": 0.15,
+      "spriteSrc": "assets/npc/chest-0.png",
+      "id": "treasure_chest_4",
+      "name": "Treasure Chest",
       "gold": 200,
       "loot": [
         {
@@ -506,28 +511,28 @@
       "chestType": "golden"
     },
     {
-      "category": "InteractiveObject",
-      "objectType": "portal",
-      "id": "portal_to_0-0",
+      "category": "StaticObject",
       "x": 475,
       "y": 960,
+      "scale": 1,
+      "spriteSrc": "/assets/npc/navigation-0.png",
+      "id": "portal_to_0-0",
+      "name": "Forest Clearing Portal",
       "targetMap": "0-0",
       "spawnPoint": "fromPortal",
-      "spriteSrc": "/assets/npc/navigation-0.png",
-      "portalType": "magic",
-      "name": "Forest Clearing Portal"
+      "portalType": "magic"
     },
     {
-      "category": "InteractiveObject",
-      "objectType": "portal",
-      "id": "portal_to_shop",
+      "category": "StaticObject",
       "x": 695,
       "y": 515,
+      "scale": 1,
+      "spriteSrc": "/assets/npc/door-0.png",
+      "id": "portal_to_shop",
+      "name": "Village Shop Door",
       "targetMap": "0-1-shop",
       "spawnPoint": "fromDoor",
-      "spriteSrc": "/assets/npc/door-0.png",
-      "portalType": "door",
-      "name": "Village Shop Door"
+      "portalType": "door"
     }
   ],
   "0-1-shop": [

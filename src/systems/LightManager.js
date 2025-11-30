@@ -37,7 +37,9 @@ class LightManager {
      * Load lights from data array
      */
     loadLights(lightsData) {
-        this.lights = [];
+        // Keep dynamic lights (like player lantern) when reloading
+        const dynamicLights = this.lights.filter(l => l.id === 'player_lantern');
+        this.lights = [...dynamicLights];
         
         if (!lightsData || !Array.isArray(lightsData)) {
             console.log(`[LightManager] No lights to load`);
@@ -45,6 +47,9 @@ class LightManager {
         }
         
         lightsData.forEach(lightData => {
+            // Skip if this is a dynamic light that shouldn't be loaded from file
+            if (lightData.id === 'player_lantern') return;
+            
             const light = {
                 id: lightData.id,
                 templateName: lightData.templateName,
@@ -54,6 +59,7 @@ class LightManager {
                 radius: lightData.radius,
                 color: { ...lightData.color },
                 flicker: { ...lightData.flicker },
+                castsShadows: lightData.castsShadows !== undefined ? lightData.castsShadows : true, // Default to true
                 // Runtime state
                 _flickerOffset: Math.random() * Math.PI * 2,
                 _currentIntensity: 1.0
@@ -416,18 +422,22 @@ class LightManager {
     
     /**
      * Export lights for current map (for saving)
+     * Excludes dynamic lights like player lantern
      */
     exportLights() {
-        return this.lights.map(light => ({
-            id: light.id,
-            templateName: light.templateName,
-            x: light.x,
-            y: light.y,
-            altitude: light.altitude || 0, // Export altitude
-            radius: light.radius,
-            color: { ...light.color },
-            flicker: { ...light.flicker }
-        }));
+        return this.lights
+            .filter(light => light.id !== 'player_lantern') // Exclude player's dynamic light
+            .map(light => ({
+                id: light.id,
+                templateName: light.templateName,
+                x: light.x,
+                y: light.y,
+                altitude: light.altitude || 0, // Export altitude
+                radius: light.radius,
+                color: { ...light.color },
+                flicker: { ...light.flicker },
+                castsShadows: light.castsShadows !== undefined ? light.castsShadows : true
+            }));
     }
     
     /**

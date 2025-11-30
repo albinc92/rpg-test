@@ -6,7 +6,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getResolution: () => ipcRenderer.invoke('get-resolution'),
   isFullscreen: () => ipcRenderer.invoke('is-fullscreen'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
-  exitApp: () => ipcRenderer.invoke('exit-app')
+  exitApp: () => ipcRenderer.invoke('exit-app'),
+  
+  // Data file saving for editor
+  saveDataFile: (filename, content) => ipcRenderer.invoke('save-data-file', filename, content),
+  saveAllDataFiles: (files) => ipcRenderer.invoke('save-all-data-files', files),
+  isElectron: () => ipcRenderer.invoke('is-electron')
 });
 
 window.addEventListener('DOMContentLoaded', () => {

@@ -95,6 +95,65 @@ const createWindow = () => {
     app.quit();
   });
 
+  // Get the data folder path (relative to the app)
+  const getDataPath = () => {
+    if (app.isPackaged) {
+      // In production, data folder is next to the executable
+      return path.join(path.dirname(app.getPath('exe')), 'data');
+    } else {
+      // In development, data folder is in the project root
+      return path.join(__dirname, '../data');
+    }
+  };
+
+  // Save a single data file
+  ipcMain.handle('save-data-file', async (event, filename, content) => {
+    try {
+      const dataPath = getDataPath();
+      const filePath = path.join(dataPath, filename);
+      
+      // Ensure data directory exists
+      if (!fs.existsSync(dataPath)) {
+        fs.mkdirSync(dataPath, { recursive: true });
+      }
+      
+      fs.writeFileSync(filePath, content, 'utf8');
+      console.log(`[Electron] Saved: ${filePath}`);
+      return { success: true, path: filePath };
+    } catch (error) {
+      console.error(`[Electron] Failed to save ${filename}:`, error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Save multiple data files at once
+  ipcMain.handle('save-all-data-files', async (event, files) => {
+    const results = {};
+    const dataPath = getDataPath();
+    
+    // Ensure data directory exists
+    if (!fs.existsSync(dataPath)) {
+      fs.mkdirSync(dataPath, { recursive: true });
+    }
+    
+    for (const [filename, content] of Object.entries(files)) {
+      try {
+        const filePath = path.join(dataPath, filename);
+        fs.writeFileSync(filePath, content, 'utf8');
+        console.log(`[Electron] Saved: ${filePath}`);
+        results[filename] = { success: true, path: filePath };
+      } catch (error) {
+        console.error(`[Electron] Failed to save ${filename}:`, error);
+        results[filename] = { success: false, error: error.message };
+      }
+    }
+    
+    return results;
+  });
+
+  // Check if running in Electron
+  ipcMain.handle('is-electron', () => true);
+
   // In development, we can load the Vite dev server.
   // In production, we load the built index.html.
   // You can toggle this based on an environment variable or argument.

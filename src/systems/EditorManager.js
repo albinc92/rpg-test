@@ -2143,8 +2143,32 @@ class EditorManager {
         const spiritsJson = this.game.spiritRegistry.exportTemplates(); // Already returns string
         
         try {
-            // Check for File System Access API support
-            if ('showDirectoryPicker' in window) {
+            // Check if running in Electron with file saving API
+            if (window.electronAPI && window.electronAPI.saveAllDataFiles) {
+                console.log('[EditorManager] Using Electron API for saving...');
+                
+                const files = {
+                    'maps.json': mapsJson,
+                    'objects.json': objectsJson,
+                    'items.json': itemsJson,
+                    'lights.json': lightsJson,
+                    'spirits.json': spiritsJson
+                };
+                
+                const results = await window.electronAPI.saveAllDataFiles(files);
+                
+                // Check results
+                const failed = Object.entries(results).filter(([_, r]) => !r.success);
+                if (failed.length > 0) {
+                    const errors = failed.map(([name, r]) => `${name}: ${r.error}`).join('\n');
+                    throw new Error(`Some files failed to save:\n${errors}`);
+                }
+                
+                alert('✅ All game data (maps, objects, items, lights, spirits) saved successfully!');
+                console.log('[EditorManager] Save complete via Electron API.');
+            }
+            // Check for File System Access API support (browser)
+            else if ('showDirectoryPicker' in window) {
                 const handle = await window.showDirectoryPicker({
                     mode: 'readwrite',
                     startIn: 'documents'
