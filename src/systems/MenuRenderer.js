@@ -817,6 +817,7 @@ class MenuRenderer {
      * Draw a modal popup (e.g. for confirmations)
      */
     drawModal(ctx, title, message, options, selectedOption, canvasWidth, canvasHeight, warning = null) {
+        console.log(`📦 drawModal called: ${title}, options: ${options.join(', ')}, selected: ${selectedOption}`);
         this._ensureDS(canvasWidth, canvasHeight);
         const sizes = this.getFontSizes(canvasHeight);
         
@@ -833,10 +834,10 @@ class MenuRenderer {
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
         // Modal dimensions from design system or defaults
-        const modalWidth = this.ds 
+        const modalWidth = this.ds && this.ds.components?.modal?.width
             ? this.ds.width(this.ds.components.modal.width)
             : canvasWidth * 0.5;
-        const modalHeight = this.ds
+        const modalHeight = this.ds && this.ds.components?.modal?.height
             ? this.ds.height(this.ds.components.modal.height)
             : canvasHeight * 0.4;
         const modalX = (canvasWidth - modalWidth) / 2;

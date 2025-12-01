@@ -181,6 +181,7 @@ class DesignSystem {
             // Modal styles
             modal: {
                 width: 50,          // % of canvas width
+                height: 40,         // % of canvas height
                 maxHeight: 70,      // % of canvas height
                 padding: 6          // spacing units
             },
