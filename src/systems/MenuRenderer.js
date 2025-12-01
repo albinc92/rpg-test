@@ -224,7 +224,7 @@ class MenuRenderer {
                     ctx.stroke();
                 }
                 
-                // Draw text with glow
+                // Draw text with glow and vertical offset correction for display fonts
                 ctx.fillStyle = colors.text.primary;
                 if (this.ds) {
                     this.ds.applyShadow(ctx, 'glow');
@@ -232,7 +232,12 @@ class MenuRenderer {
                     ctx.shadowColor = '#4a9eff';
                     ctx.shadowBlur = 15;
                 }
-                ctx.fillText(optionText, centerX, y);
+                
+                // Apply vertical offset for Cinzel font centering
+                const textVerticalOffset = this.ds 
+                    ? this.ds.getFontVerticalOffset('display', 'lg')
+                    : sizes.menu * 1.1 * 0.08;
+                ctx.fillText(optionText, centerX, y + textVerticalOffset);
                 
                 if (this.ds) {
                     this.ds.clearShadow(ctx);
@@ -240,7 +245,7 @@ class MenuRenderer {
                     ctx.shadowBlur = 0;
                 }
                 
-                // Draw selection indicators (diamonds)
+                // Draw selection indicators (diamonds) - aligned with text vertical position
                 const indicatorSize = this.ds ? this.ds.fontSize('sm') : sizes.menu * 0.6;
                 ctx.font = `${indicatorSize}px Arial`;
                 ctx.fillStyle = colors.primary;
@@ -250,8 +255,8 @@ class MenuRenderer {
                     ctx.shadowColor = '#4a9eff';
                     ctx.shadowBlur = 5;
                 }
-                ctx.fillText('❖', centerX - textWidth / 2 - indicatorOffset, y);
-                ctx.fillText('❖', centerX + textWidth / 2 + indicatorOffset, y);
+                ctx.fillText('❖', centerX - textWidth / 2 - indicatorOffset, y + textVerticalOffset);
+                ctx.fillText('❖', centerX + textWidth / 2 + indicatorOffset, y + textVerticalOffset);
                 
                 if (this.ds) {
                     this.ds.clearShadow(ctx);

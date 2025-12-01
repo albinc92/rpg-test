@@ -299,6 +299,24 @@ class DesignSystem {
     }
     
     /**
+     * Get vertical offset for font centering correction
+     * Some fonts like Cinzel have unusual metrics where textBaseline='middle'
+     * doesn't actually center the text visually. This returns a correction offset.
+     * @param {string} family - Font family name (display, body, mono)
+     * @param {string} size - Font size name
+     * @returns {number} Vertical offset in pixels (positive = shift down)
+     */
+    getFontVerticalOffset(family = 'body', size = 'md') {
+        // Cinzel (display font) has a higher baseline, so text appears too high
+        // Apply a small downward correction (about 8% of font size)
+        if (family === 'display') {
+            const fontSize = this.fontSize(size);
+            return fontSize * 0.08;
+        }
+        return 0;
+    }
+    
+    /**
      * Apply shadow effect to canvas context
      */
     applyShadow(ctx, shadowName = 'none') {
@@ -444,6 +462,10 @@ class DesignSystem {
         const btnX = x - width / 2;
         const btnY = y - height / 2;
         
+        // Determine font family and calculate vertical offset
+        let fontFamily;
+        let fontWeight;
+        
         if (isSelected && !isDisabled) {
             // Selected state - glass highlight
             const gradient = this.horizontalGradient(ctx, btnX, width, [
@@ -463,7 +485,9 @@ class DesignSystem {
             
             // Text
             ctx.fillStyle = this.colors.text.primary;
-            ctx.font = this.font('md', 'bold', 'display');
+            fontFamily = 'display';
+            fontWeight = 'bold';
+            ctx.font = this.font('md', fontWeight, fontFamily);
             this.applyShadow(ctx, 'glow');
         } else {
             // Normal state
@@ -476,12 +500,17 @@ class DesignSystem {
             
             // Text
             ctx.fillStyle = isDisabled ? this.colors.text.disabled : this.colors.text.muted;
-            ctx.font = this.font('md', 'normal', 'body');
+            fontFamily = 'body';
+            fontWeight = 'normal';
+            ctx.font = this.font('md', fontWeight, fontFamily);
         }
+        
+        // Apply vertical offset correction for fonts with non-standard metrics
+        const verticalOffset = this.getFontVerticalOffset(fontFamily, 'md');
         
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(text, x, y);
+        ctx.fillText(text, x, y + verticalOffset);
         
         this.clearShadow(ctx);
         ctx.restore();

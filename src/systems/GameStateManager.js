@@ -2401,64 +2401,71 @@ class SettingsState extends GameState {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
-        // Helper function to draw a button
-        const drawButton = (text, x, isSelected) => {
-            const btnX = x;
-            const btnY = buttonY - btnHeight / 2;
+        // Use DesignSystem to draw buttons for consistent vertical text centering
+        const ds = menuRenderer.ds;
+        if (ds) {
+            // Use DesignSystem's drawButton which has proper font centering
+            ds.drawButton(ctx, buttonsStartX + btnWidth / 2, buttonY, btnWidth, btnHeight, 'Back', isBackSelected, false);
+            ds.drawButton(ctx, buttonsStartX + btnWidth + btnGap + btnWidth / 2, buttonY, btnWidth, btnHeight, 'Reset', isResetSelected, false);
+        } else {
+            // Legacy fallback with vertical offset correction for Cinzel font
+            const fontVerticalOffset = sizes.menu * 0.08; // Cinzel needs ~8% downward adjustment
             
-            if (isSelected) {
-                // Selected Button (Glass style)
-                const gradient = ctx.createLinearGradient(btnX, btnY, btnX + btnWidth, btnY + btnHeight);
-                gradient.addColorStop(0, 'rgba(74, 158, 255, 0.1)');
-                gradient.addColorStop(0.5, 'rgba(74, 158, 255, 0.25)');
-                gradient.addColorStop(1, 'rgba(74, 158, 255, 0.1)');
+            const drawButton = (text, x, isSelected) => {
+                const btnX = x;
+                const btnY = buttonY - btnHeight / 2;
                 
-                ctx.fillStyle = gradient;
-                ctx.fillRect(btnX, btnY, btnWidth, btnHeight);
-                
-                ctx.strokeStyle = '#4a9eff';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
-                
-                // Corner accents
-                const cornerSize = 4;
-                ctx.fillStyle = '#4a9eff';
-                ctx.fillRect(btnX, btnY, cornerSize, 2);
-                ctx.fillRect(btnX, btnY, 2, cornerSize);
-                ctx.fillRect(btnX + btnWidth - cornerSize, btnY, cornerSize, 2);
-                ctx.fillRect(btnX + btnWidth - 2, btnY, 2, cornerSize);
-                ctx.fillRect(btnX, btnY + btnHeight - 2, cornerSize, 2);
-                ctx.fillRect(btnX, btnY + btnHeight - cornerSize, 2, cornerSize);
-                ctx.fillRect(btnX + btnWidth - cornerSize, btnY + btnHeight - 2, cornerSize, 2);
-                ctx.fillRect(btnX + btnWidth - 2, btnY + btnHeight - cornerSize, 2, cornerSize);
-                
-                ctx.fillStyle = '#fff';
-                ctx.font = `bold ${sizes.menu}px 'Cinzel', serif`;
-                ctx.shadowColor = '#4a9eff';
-                ctx.shadowBlur = 10;
-                ctx.fillText(text, btnX + btnWidth / 2, buttonY);
-                ctx.shadowBlur = 0;
-            } else {
-                // Unselected Button
-                ctx.fillStyle = 'rgba(30, 30, 40, 0.6)';
-                ctx.fillRect(btnX, btnY, btnWidth, btnHeight);
-                
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
-                
-                ctx.fillStyle = '#888';
-                ctx.font = `${sizes.menu}px 'Cinzel', serif`;
-                ctx.shadowBlur = 0;
-                ctx.fillText(text, btnX + btnWidth / 2, buttonY);
-            }
-        };
-        
-        // Draw Back button (left)
-        drawButton('Back', buttonsStartX, isBackSelected);
-        
-        // Draw Reset button (right)
-        drawButton('Reset', buttonsStartX + btnWidth + btnGap, isResetSelected);
+                if (isSelected) {
+                    // Selected Button (Glass style)
+                    const gradient = ctx.createLinearGradient(btnX, btnY, btnX + btnWidth, btnY + btnHeight);
+                    gradient.addColorStop(0, 'rgba(74, 158, 255, 0.1)');
+                    gradient.addColorStop(0.5, 'rgba(74, 158, 255, 0.25)');
+                    gradient.addColorStop(1, 'rgba(74, 158, 255, 0.1)');
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(btnX, btnY, btnWidth, btnHeight);
+                    
+                    ctx.strokeStyle = '#4a9eff';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
+                    
+                    // Corner accents
+                    const cornerSize = 4;
+                    ctx.fillStyle = '#4a9eff';
+                    ctx.fillRect(btnX, btnY, cornerSize, 2);
+                    ctx.fillRect(btnX, btnY, 2, cornerSize);
+                    ctx.fillRect(btnX + btnWidth - cornerSize, btnY, cornerSize, 2);
+                    ctx.fillRect(btnX + btnWidth - 2, btnY, 2, cornerSize);
+                    ctx.fillRect(btnX, btnY + btnHeight - 2, cornerSize, 2);
+                    ctx.fillRect(btnX, btnY + btnHeight - cornerSize, 2, cornerSize);
+                    ctx.fillRect(btnX + btnWidth - cornerSize, btnY + btnHeight - 2, cornerSize, 2);
+                    ctx.fillRect(btnX + btnWidth - 2, btnY + btnHeight - cornerSize, 2, cornerSize);
+                    
+                    ctx.fillStyle = '#fff';
+                    ctx.font = `bold ${sizes.menu}px 'Cinzel', serif`;
+                    ctx.shadowColor = '#4a9eff';
+                    ctx.shadowBlur = 10;
+                    ctx.fillText(text, btnX + btnWidth / 2, buttonY + fontVerticalOffset);
+                    ctx.shadowBlur = 0;
+                } else {
+                    // Unselected Button
+                    ctx.fillStyle = 'rgba(30, 30, 40, 0.6)';
+                    ctx.fillRect(btnX, btnY, btnWidth, btnHeight);
+                    
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
+                    
+                    ctx.fillStyle = '#888';
+                    ctx.font = `${sizes.menu}px 'Cinzel', serif`;
+                    ctx.shadowBlur = 0;
+                    ctx.fillText(text, btnX + btnWidth / 2, buttonY + fontVerticalOffset);
+                }
+            };
+            
+            drawButton('Back', buttonsStartX, isBackSelected);
+            drawButton('Reset', buttonsStartX + btnWidth + btnGap, isResetSelected);
+        }
         
         ctx.shadowBlur = 0;
         
