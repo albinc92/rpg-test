@@ -302,8 +302,9 @@ class MenuRenderer {
      * @param {number} startY - Y position ratio (0-1) where menu starts
      * @param {number} spacing - Line height as ratio (0-1)
      * @param {Object} scrollInfo - Optional scroll info { offset, total, maxVisible }
+     * @param {number} panelBottomY - Optional explicit panel bottom position as ratio (0-1)
      */
-    drawSettingsOptions(ctx, options, selectedIndex, canvasWidth, canvasHeight, startY = 0.35, spacing = 0.12, scrollInfo = null) {
+    drawSettingsOptions(ctx, options, selectedIndex, canvasWidth, canvasHeight, startY = 0.35, spacing = 0.12, scrollInfo = null, panelBottomY = null) {
         this._ensureDS(canvasWidth, canvasHeight);
         const sizes = this.getFontSizes(canvasHeight);
         const menuStartY = canvasHeight * startY;
@@ -318,16 +319,23 @@ class MenuRenderer {
         };
         
         // Draw panel background for settings
-        // Widen panel to 0.8 to match tabs (4 tabs * 0.2 width)
+        // Panel width matches tabs container (80% of canvas, 10% margin each side)
         const panelWidth = canvasWidth * 0.8;
-        // Height based on visible options with proper padding for selection highlights
+        const panelX = (canvasWidth - panelWidth) / 2;
+        
+        // Calculate panel height
         const displayCount = scrollInfo ? scrollInfo.maxVisible : options.length;
         const topPadding = lineHeight * 0.6; // Extra padding at top for first item's highlight
-        const bottomPadding = lineHeight * 0.5; // Padding at bottom
-        const panelHeight = displayCount * lineHeight + topPadding + bottomPadding;
-        
-        const panelX = (canvasWidth - panelWidth) / 2;
         const panelY = menuStartY - topPadding; // Panel starts above first item to contain highlight
+        
+        // If explicit bottom is provided, use it; otherwise calculate from content
+        let panelHeight;
+        if (panelBottomY !== null) {
+            panelHeight = (canvasHeight * panelBottomY) - panelY;
+        } else {
+            const bottomPadding = lineHeight * 0.5;
+            panelHeight = displayCount * lineHeight + topPadding + bottomPadding;
+        }
         
         this.drawPanel(ctx, panelX, panelY, panelWidth, panelHeight);
         

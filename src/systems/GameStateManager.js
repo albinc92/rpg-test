@@ -2292,15 +2292,19 @@ class SettingsState extends GameState {
         // Draw title
         menuRenderer.drawTitle(ctx, 'Settings', canvasWidth, canvasHeight, 0.08);
         
-        // Draw Category Tabs - positioned to align with top of content panel
-        const tabWidth = canvasWidth * 0.2;
+        // Draw Category Tabs - matching panel width with consistent inner gaps
+        // Container margin matches panel (10% on each side = 80% width)
+        const containerMargin = canvasWidth * 0.1;
+        const containerWidth = canvasWidth * 0.8;
+        const tabGap = 8; // Gap between tabs (not on outer edges)
+        const totalGaps = this.categories.length - 1; // Gaps only between tabs
+        const tabWidth = (containerWidth - (totalGaps * tabGap)) / this.categories.length;
         const tabHeight = sizes.menu * 1.5;
-        const totalTabsWidth = this.categories.length * tabWidth;
-        const startX = (canvasWidth - totalTabsWidth) / 2;
         const tabY = canvasHeight * 0.19; // Tabs sit just above content panel
         
         this.categories.forEach((category, index) => {
-            const x = startX + (index * tabWidth);
+            // Each tab starts after previous tabs + gaps between them
+            const x = containerMargin + (index * (tabWidth + tabGap));
             const isSelected = category === this.currentCategory;
             const isFocused = this.selectedOption === -1 && isSelected;
             
@@ -2308,12 +2312,12 @@ class SettingsState extends GameState {
             ctx.fillStyle = isSelected ? 'rgba(74, 158, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)';
             if (isFocused) ctx.fillStyle = 'rgba(74, 158, 255, 0.6)'; // Highlight when focused
             
-            ctx.fillRect(x, tabY, tabWidth - 4, tabHeight);
+            ctx.fillRect(x, tabY, tabWidth, tabHeight);
             
             // Tab Border
             ctx.strokeStyle = isSelected ? '#4a9eff' : 'rgba(255, 255, 255, 0.2)';
             ctx.lineWidth = isSelected ? 2 : 1;
-            ctx.strokeRect(x, tabY, tabWidth - 4, tabHeight);
+            ctx.strokeRect(x, tabY, tabWidth, tabHeight);
             
             // Tab Text
             ctx.fillStyle = isSelected ? '#fff' : 'rgba(255, 255, 255, 0.6)';
@@ -2372,6 +2376,26 @@ class SettingsState extends GameState {
         const settingsStartY = 0.30; // Start content just below tabs
         const settingsSpacing = 0.08; // Compact spacing for items
         
+        // Layout with proper container for buttons and instructions
+        // All measurements in canvas ratios
+        const panelBottomY = 0.76;           // Panel ends here
+        const footerTopY = panelBottomY;     // Footer container starts at panel bottom
+        const footerBottomY = 0.98;          // Footer container ends near screen bottom
+        const footerHeight = footerBottomY - footerTopY; // Total footer height
+        
+        // Footer contains: [margin] [buttons] [margin] [instructions] [margin]
+        // With equal top/bottom margins around buttons, and smaller margin to instructions
+        const btnHeightRatio = 0.055;
+        const instructionHeightRatio = 0.025; // Approximate text height
+        const marginRatio = (footerHeight - btnHeightRatio - instructionHeightRatio) / 3; // Divide remaining space into 3 equal margins
+        
+        // Button center position
+        const buttonCenterY = footerTopY + marginRatio + (btnHeightRatio / 2);
+        const buttonY = canvasHeight * buttonCenterY;
+        
+        // Instructions center position
+        const instructionsCenterY = buttonCenterY + (btnHeightRatio / 2) + marginRatio + (instructionHeightRatio / 2);
+        
         menuRenderer.drawSettingsOptions(
             ctx,
             visibleOptions,
@@ -2384,13 +2408,13 @@ class SettingsState extends GameState {
                 offset: this.scrollOffset,
                 total: this.options.length,
                 maxVisible: this.maxVisibleOptions
-            }
+            },
+            panelBottomY // Pass explicit panel bottom position
         );
         
         // Draw Back and Reset buttons at the bottom (side by side)
-        const buttonY = canvasHeight * 0.85;
         const btnWidth = 150;
-        const btnHeight = 50;
+        const btnHeight = canvasHeight * btnHeightRatio;
         const btnGap = 20;
         const totalButtonsWidth = btnWidth * 2 + btnGap;
         const buttonsStartX = (canvasWidth - totalButtonsWidth) / 2;
@@ -2469,7 +2493,7 @@ class SettingsState extends GameState {
         
         ctx.shadowBlur = 0;
         
-        // Draw instructions
+        // Draw instructions using calculated position
         let instructions = this.game.inputManager.isMobile 
             ? 'Joystick: Navigate • A: Select • B: Back'
             : 'Arrow Keys: Navigate • Left/Right: Adjust • Enter: Select • ESC: Back';
@@ -2478,7 +2502,7 @@ class SettingsState extends GameState {
             instructions = 'Press any key to rebind... (ESC to cancel)';
         }
         
-        menuRenderer.drawInstruction(ctx, instructions, canvasWidth, canvasHeight, 0.93);
+        menuRenderer.drawInstruction(ctx, instructions, canvasWidth, canvasHeight, instructionsCenterY);
 
         // Draw Exit Modal
         if (this.showExitModal) {
