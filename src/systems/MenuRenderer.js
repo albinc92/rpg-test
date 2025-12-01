@@ -139,14 +139,22 @@ class MenuRenderer {
             const isSelected = index === selectedIndex;
             
             if (isSelected) {
-                // Selection background (Glass bar)
-                const textWidth = ctx.measureText(optionText).width + 100;
+                // Set font FIRST so we can measure text accurately
+                ctx.font = `700 ${sizes.menu * 1.1}px 'Cinzel', serif`;
+                
+                // Measure actual text width with the correct font
+                const actualTextWidth = ctx.measureText(optionText).width;
+                
+                // Fixed padding for consistent spacing
+                const indicatorPadding = 30; // Fixed distance from text to diamond
+                const bgPadding = 60; // Extra padding for background beyond diamonds
+                const bgWidth = actualTextWidth + (indicatorPadding * 2) + bgPadding;
                 const bgHeight = sizes.menu * 1.8;
                 
                 // Glass gradient
                 const gradient = ctx.createLinearGradient(
-                    canvasWidth / 2 - textWidth / 2, 0,
-                    canvasWidth / 2 + textWidth / 2, 0
+                    canvasWidth / 2 - bgWidth / 2, 0,
+                    canvasWidth / 2 + bgWidth / 2, 0
                 );
                 gradient.addColorStop(0, 'rgba(74, 158, 255, 0)');
                 gradient.addColorStop(0.2, 'rgba(74, 158, 255, 0.15)');
@@ -154,36 +162,35 @@ class MenuRenderer {
                 gradient.addColorStop(1, 'rgba(74, 158, 255, 0)');
                 
                 ctx.fillStyle = gradient;
-                ctx.fillRect(canvasWidth / 2 - textWidth / 2, y - bgHeight / 2, textWidth, bgHeight);
+                ctx.fillRect(canvasWidth / 2 - bgWidth / 2, y - bgHeight / 2, bgWidth, bgHeight);
                 
                 // Top/Bottom borders for glass effect
                 ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
                 ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.moveTo(canvasWidth / 2 - textWidth / 2 + 20, y - bgHeight / 2);
-                ctx.lineTo(canvasWidth / 2 + textWidth / 2 - 20, y - bgHeight / 2);
+                ctx.moveTo(canvasWidth / 2 - bgWidth / 2 + 20, y - bgHeight / 2);
+                ctx.lineTo(canvasWidth / 2 + bgWidth / 2 - 20, y - bgHeight / 2);
                 ctx.stroke();
                 
                 ctx.beginPath();
-                ctx.moveTo(canvasWidth / 2 - textWidth / 2 + 20, y + bgHeight / 2);
-                ctx.lineTo(canvasWidth / 2 + textWidth / 2 - 20, y + bgHeight / 2);
+                ctx.moveTo(canvasWidth / 2 - bgWidth / 2 + 20, y + bgHeight / 2);
+                ctx.lineTo(canvasWidth / 2 + bgWidth / 2 - 20, y + bgHeight / 2);
                 ctx.stroke();
                 
-                // Selected text
-                ctx.font = `700 ${sizes.menu * 1.1}px 'Cinzel', serif`;
+                // Selected text (font already set above)
                 ctx.fillStyle = '#fff';
                 ctx.shadowColor = '#4a9eff';
                 ctx.shadowBlur = 15;
                 ctx.fillText(optionText, canvasWidth / 2, y);
                 ctx.shadowBlur = 0;
                 
-                // Selection indicators (Diamonds)
+                // Selection indicators (Diamonds) - positioned at fixed distance from text edges
                 ctx.font = `${sizes.menu * 0.6}px 'Arial'`;
                 ctx.fillStyle = '#4a9eff';
                 ctx.shadowColor = '#4a9eff';
                 ctx.shadowBlur = 5;
-                ctx.fillText('❖', canvasWidth / 2 - textWidth / 2 + 10, y);
-                ctx.fillText('❖', canvasWidth / 2 + textWidth / 2 - 10, y);
+                ctx.fillText('❖', canvasWidth / 2 - actualTextWidth / 2 - indicatorPadding, y);
+                ctx.fillText('❖', canvasWidth / 2 + actualTextWidth / 2 + indicatorPadding, y);
                 ctx.shadowBlur = 0;
             } else {
                 // Normal text
