@@ -315,13 +315,14 @@ class MenuRenderer {
         // Draw panel background for settings
         // Widen panel to 0.8 to match tabs (4 tabs * 0.2 width)
         const panelWidth = canvasWidth * 0.8;
-        // Height based on visible options with minimal padding
+        // Height based on visible options with proper padding for selection highlights
         const displayCount = scrollInfo ? scrollInfo.maxVisible : options.length;
-        const panelPadding = canvasHeight * 0.03; // Reduced padding
-        const panelHeight = displayCount * lineHeight + panelPadding;
+        const topPadding = lineHeight * 0.6; // Extra padding at top for first item's highlight
+        const bottomPadding = lineHeight * 0.5; // Padding at bottom
+        const panelHeight = displayCount * lineHeight + topPadding + bottomPadding;
         
         const panelX = (canvasWidth - panelWidth) / 2;
-        const panelY = menuStartY - canvasHeight * 0.025; // Slight offset above first item
+        const panelY = menuStartY - topPadding; // Panel starts above first item to contain highlight
         
         this.drawPanel(ctx, panelX, panelY, panelWidth, panelHeight);
         
