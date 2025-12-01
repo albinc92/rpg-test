@@ -2050,7 +2050,7 @@ class EditorManager {
      */
     handlePlaceClick(x, y) {
         console.log('[EditorManager] handlePlaceClick called at screen:', x, y);
-        console.log('[EditorManager] Mouse world pos:', this.mouseWorldX, this.mouseWorldY);
+        console.log('[EditorManager] Mouse screen world pos:', this.mouseScreenWorldX, this.mouseScreenWorldY);
         console.log('[EditorManager] Selected prefab:', this.selectedPrefab);
         
         if (!this.selectedPrefab) {
@@ -2058,9 +2058,18 @@ class EditorManager {
             return true;
         }
         
-        // COMMON BEHAVIOR: Convert world coordinates to storage coordinates
-        // This works the same for ALL object types (NPCs, Doodads, Spirits, Lights, etc.)
-        const storageCoords = this.convertWorldToStorageCoordinates(this.mouseWorldX, this.mouseWorldY);
+        // Use mouseScreenWorldX/Y - SAME coordinates the preview uses!
+        let placeX = this.mouseScreenWorldX;
+        let placeY = this.mouseScreenWorldY;
+        
+        // Apply grid snap (same as preview)
+        if (this.snapToGrid) {
+            placeX = Math.round(placeX / this.gridSize) * this.gridSize;
+            placeY = Math.round(placeY / this.gridSize) * this.gridSize;
+        }
+        
+        // Convert to storage coordinates
+        const storageCoords = this.convertWorldToStorageCoordinates(placeX, placeY);
         
         console.log('[EditorManager] Storage position:', storageCoords.x, storageCoords.y);
         
