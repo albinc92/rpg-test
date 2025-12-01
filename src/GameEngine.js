@@ -22,8 +22,10 @@ class GameEngine {
         this.isMobile = this.detectMobile();
         
         // Base resolution for sprite scaling (1920x1080 is our design resolution)
-        this.BASE_WIDTH = 1920;
-        this.BASE_HEIGHT = 1080;
+        // Base resolution - the maximum canvas resolution we support
+        // This defines the upper limit of rendering resolution
+        this.BASE_WIDTH = 3840;  // Support up to 4K
+        this.BASE_HEIGHT = 2160;
         
         if (this.isMobile) {
             // Mobile: Use full native resolution for sharp rendering
@@ -399,9 +401,28 @@ class GameEngine {
             
             // Desktop resize handler (for when dev tools open/close)
             this.handleResize = () => {
-                // Update logical dimensions to match window size (respecting max resolution)
-                const newWidth = window.innerWidth;
-                const newHeight = window.innerHeight;
+                // If we have a pending resolution from settings, use that exact size
+                // instead of reading window.innerWidth/Height which may be slightly off
+                let newWidth, newHeight;
+                
+                if (this.pendingResolution) {
+                    newWidth = this.pendingResolution.width;
+                    newHeight = this.pendingResolution.height;
+                    console.log(`[handleResize] Using pending resolution: ${newWidth}x${newHeight}`);
+                    // Keep pending resolution for 500ms to handle multiple resize events
+                    if (!this.pendingResolutionTimeout) {
+                        this.pendingResolutionTimeout = setTimeout(() => {
+                            console.log('[handleResize] Clearing pending resolution');
+                            this.pendingResolution = null;
+                            this.pendingResolutionTimeout = null;
+                        }, 500);
+                    }
+                } else {
+                    newWidth = Math.round(window.innerWidth);
+                    newHeight = Math.round(window.innerHeight);
+                    console.log(`[handleResize] Using window size: ${newWidth}x${newHeight}`);
+                }
+                
                 const maxWidth = this.BASE_WIDTH;
                 const maxHeight = this.BASE_HEIGHT;
 
@@ -447,6 +468,70 @@ class GameEngine {
                 // Resize editor collision/spawn layers if editor is active
                 if (this.editorManager) {
                     this.editorManager.handleResize();
+                }
+                
+                // Update resolution setting to reflect current window size
+                if (this.settings) {
+                    // All standard resolutions with aspect ratios
+                    const standardResolutions = [
+                        // 16:9
+                        { w: 1280, h: 720, ratio: '16:9' },
+                        { w: 1366, h: 768, ratio: '16:9' },
+                        { w: 1600, h: 900, ratio: '16:9' },
+                        { w: 1920, h: 1080, ratio: '16:9' },
+                        { w: 2560, h: 1440, ratio: '16:9' },
+                        { w: 3840, h: 2160, ratio: '16:9' },
+                        // 16:10
+                        { w: 1280, h: 800, ratio: '16:10' },
+                        { w: 1440, h: 900, ratio: '16:10' },
+                        { w: 1680, h: 1050, ratio: '16:10' },
+                        { w: 1920, h: 1200, ratio: '16:10' },
+                        { w: 2560, h: 1600, ratio: '16:10' },
+                        // 21:9
+                        { w: 2560, h: 1080, ratio: '21:9' },
+                        { w: 3440, h: 1440, ratio: '21:9' },
+                        { w: 3840, h: 1600, ratio: '21:9' },
+                        // 32:9
+                        { w: 5120, h: 1440, ratio: '32:9' },
+                        // 4:3
+                        { w: 1024, h: 768, ratio: '4:3' },
+                        { w: 1280, h: 960, ratio: '4:3' },
+                        { w: 1400, h: 1050, ratio: '4:3' },
+                        { w: 1600, h: 1200, ratio: '4:3' },
+                    ];
+                    
+                    const matchedRes = standardResolutions.find(r => 
+                        r.w === this.CANVAS_WIDTH && r.h === this.CANVAS_HEIGHT
+                    );
+                    
+                    let newResolution;
+                    if (matchedRes) {
+                        newResolution = `${matchedRes.w}x${matchedRes.h} (${matchedRes.ratio})`;
+                    } else {
+                        // Calculate aspect ratio for custom resolution
+                        const gcd = (a, b) => b === 0 ? a : gcd(b, a % b);
+                        const divisor = gcd(this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+                        const ratioW = this.CANVAS_WIDTH / divisor;
+                        const ratioH = this.CANVAS_HEIGHT / divisor;
+                        
+                        // Simplify common ratios
+                        let customRatio = `${ratioW}:${ratioH}`;
+                        if (Math.abs(ratioW/ratioH - 16/9) < 0.02) customRatio = '~16:9';
+                        else if (Math.abs(ratioW/ratioH - 16/10) < 0.02) customRatio = '~16:10';
+                        else if (Math.abs(ratioW/ratioH - 21/9) < 0.02) customRatio = '~21:9';
+                        else if (Math.abs(ratioW/ratioH - 4/3) < 0.02) customRatio = '~4:3';
+                        
+                        newResolution = `Custom ${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT} (${customRatio})`;
+                    }
+                    
+                    console.log(`[handleResize] Window resized to ${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT} -> ${newResolution}`);
+                    
+                    this.settings.resolution = newResolution;
+                    
+                    // If SettingsState is active, refresh its resolution list
+                    if (this.stateManager?.currentState?.refreshResolutionList) {
+                        this.stateManager.currentState.refreshResolutionList();
+                    }
                 }
             };
             

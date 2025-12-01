@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -60,8 +60,8 @@ const createWindow = () => {
     },
   });
 
-  // Open DevTools automatically for debugging
-  mainWindow.webContents.openDevTools();
+  // Open DevTools automatically for debugging - but undock them so they don't affect window size
+  mainWindow.webContents.openDevTools({ mode: 'detach' });
 
   // IPC Handlers
   ipcMain.handle('set-fullscreen', (event, value) => {
@@ -69,13 +69,39 @@ const createWindow = () => {
   });
 
   ipcMain.handle('set-resolution', (event, width, height) => {
-    mainWindow.setSize(width, height);
-    mainWindow.center();
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const workArea = primaryDisplay.workAreaSize; // Screen minus taskbar
+    const screenSize = primaryDisplay.size; // Full screen
+    
+    console.log(`[set-resolution] Requested: ${width}x${height}, WorkArea: ${workArea.width}x${workArea.height}, Screen: ${screenSize.width}x${screenSize.height}`);
+    
+    // If requested size matches or exceeds screen size, maximize the window
+    if (width >= screenSize.width && height >= screenSize.height) {
+      console.log('[set-resolution] Resolution matches screen - maximizing window');
+      mainWindow.maximize();
+    } else {
+      // For smaller resolutions, unmaximize first if needed, then set size
+      if (mainWindow.isMaximized()) {
+        mainWindow.unmaximize();
+      }
+      mainWindow.setContentSize(width, height);
+      mainWindow.center();
+    }
   });
 
   ipcMain.handle('get-resolution', () => {
-    const [width, height] = mainWindow.getSize();
+    const [width, height] = mainWindow.getContentSize();
     return { width, height };
+  });
+  
+  // Expose the actual screen resolution to the renderer
+  ipcMain.handle('get-screen-resolution', () => {
+    const primaryDisplay = screen.getPrimaryDisplay();
+    return {
+      width: primaryDisplay.size.width,
+      height: primaryDisplay.size.height,
+      scaleFactor: primaryDisplay.scaleFactor
+    };
   });
 
   ipcMain.handle('is-fullscreen', () => {

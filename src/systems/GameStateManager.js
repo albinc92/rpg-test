@@ -1659,16 +1659,28 @@ class SettingsState extends GameState {
         this.holdDelay = 0.4; // Initial delay before repeating
         this.holdRepeatRate = 0.05; // Time between repeats
 
+        // Fetch actual screen resolution from Electron (ignoring Windows DPI scaling)
+        this.actualScreenWidth = 3840;  // Default to 4K until we get real value
+        this.actualScreenHeight = 2160;
+        
+        if (window.electronAPI?.getScreenResolution) {
+            window.electronAPI.getScreenResolution().then(screenInfo => {
+                console.log('[SettingsState] Got actual screen resolution:', screenInfo);
+                this.actualScreenWidth = screenInfo.width;
+                this.actualScreenHeight = screenInfo.height;
+                // Regenerate resolutions now that we have the real screen size
+                this.refreshResolutionList();
+            }).catch(err => {
+                console.warn('[SettingsState] Could not get screen resolution:', err);
+            });
+        }
+
         this.resolutions = this.generateResolutions();
         
-        // Ensure current resolution is valid for this display
-        if (!this.resolutions.includes(this.pendingSettings.resolution)) {
-            // If saved resolution is not in the list (e.g. changed monitor), 
-            // default to the largest available resolution
-            if (this.resolutions.length > 0) {
-                this.pendingSettings.resolution = this.resolutions[this.resolutions.length - 1];
-                this.isDirty = true;
-            }
+        // Only validate if resolution is completely missing or empty
+        if (!this.pendingSettings.resolution) {
+            this.pendingSettings.resolution = '1920x1080';
+            this.isDirty = true;
         }
         
         // Define options per category
@@ -1702,42 +1714,104 @@ class SettingsState extends GameState {
     }
 
     generateResolutions() {
-        const screenWidth = window.screen.width;
-        const screenHeight = window.screen.height;
-        const dpr = window.devicePixelRatio || 1;
-        
-        // Calculate physical screen dimensions (approximate)
-        const physicalWidth = screenWidth * dpr;
-        const physicalHeight = screenHeight * dpr;
-        
-        console.log(`[Settings] Detected Screen: Logical ${screenWidth}x${screenHeight}, DPR: ${dpr}, Physical ~${physicalWidth}x${physicalHeight}`);
-        
+        // Standard resolutions for various aspect ratios, sorted by total pixels
         const allResolutions = [
-            { w: 1280, h: 720, label: '1280x720' },
-            { w: 1366, h: 768, label: '1366x768' },
-            { w: 1600, h: 900, label: '1600x900' },
-            { w: 1920, h: 1080, label: '1920x1080' },
-            { w: 2560, h: 1440, label: '2560x1440' },
-            { w: 3840, h: 2160, label: '3840x2160' }
-        ];
+            // 16:9 resolutions
+            { w: 1280, h: 720, label: '1280x720', ratio: '16:9' },
+            { w: 1366, h: 768, label: '1366x768', ratio: '16:9' },
+            { w: 1600, h: 900, label: '1600x900', ratio: '16:9' },
+            { w: 1920, h: 1080, label: '1920x1080', ratio: '16:9' },
+            { w: 2560, h: 1440, label: '2560x1440', ratio: '16:9' },
+            { w: 3840, h: 2160, label: '3840x2160', ratio: '16:9' },
+            
+            // 16:10 resolutions
+            { w: 1280, h: 800, label: '1280x800', ratio: '16:10' },
+            { w: 1440, h: 900, label: '1440x900', ratio: '16:10' },
+            { w: 1680, h: 1050, label: '1680x1050', ratio: '16:10' },
+            { w: 1920, h: 1200, label: '1920x1200', ratio: '16:10' },
+            { w: 2560, h: 1600, label: '2560x1600', ratio: '16:10' },
+            
+            // 21:9 Ultrawide resolutions
+            { w: 2560, h: 1080, label: '2560x1080', ratio: '21:9' },
+            { w: 3440, h: 1440, label: '3440x1440', ratio: '21:9' },
+            { w: 3840, h: 1600, label: '3840x1600', ratio: '21:9' },
+            
+            // 32:9 Super Ultrawide
+            { w: 5120, h: 1440, label: '5120x1440', ratio: '32:9' },
+            
+            // 4:3 resolutions (legacy)
+            { w: 1024, h: 768, label: '1024x768', ratio: '4:3' },
+            { w: 1280, h: 960, label: '1280x960', ratio: '4:3' },
+            { w: 1400, h: 1050, label: '1400x1050', ratio: '4:3' },
+            { w: 1600, h: 1200, label: '1600x1200', ratio: '4:3' },
+        ].sort((a, b) => (a.w * a.h) - (b.w * b.h)); // Sort by total pixels
         
-        // Filter resolutions
-        // We allow resolutions that fit within the PHYSICAL dimensions of the screen.
-        // This handles high-DPI displays where logical width < 1920 but physical width >= 1920.
-        // We also add a small tolerance (1.1x) to be generous.
-        let validResolutions = allResolutions.filter(res => 
-            (res.w <= screenWidth * 1.05 && res.h <= screenHeight * 1.05) || // Fits in logical pixels
-            (res.w <= physicalWidth * 1.05 && res.h <= physicalHeight * 1.05) // Fits in physical pixels
+        // Use cached screen resolution if available (set by async call on enter)
+        // Fall back to allowing all resolutions if not yet fetched
+        const screenWidth = this.actualScreenWidth || 3840;
+        const screenHeight = this.actualScreenHeight || 2160;
+        
+        console.log('[generateResolutions] Using screen size:', `${screenWidth}x${screenHeight}`);
+        
+        const validResolutions = allResolutions.filter(res => 
+            res.w <= screenWidth && res.h <= screenHeight
         );
         
-        // Fallback: If screen detection seems broken (very small) or no resolutions found,
-        // provide a standard set of resolutions up to 1080p
-        if (validResolutions.length === 0 || screenWidth < 640) {
-            console.warn('[Settings] Screen detection suspicious or no valid resolutions. Defaulting to standard set.');
-            validResolutions = allResolutions.filter(res => res.w <= 1920);
+        // Create labels with aspect ratio
+        const createLabel = (w, h, ratio) => `${w}x${h} (${ratio})`;
+        
+        // Start with standard labels only
+        const labels = validResolutions.length > 0 
+            ? validResolutions.map(r => createLabel(r.w, r.h, r.ratio))
+            : ['1280x720 (16:9)'];
+        
+        console.log('[generateResolutions] Standard resolutions:', labels);
+        console.log('[generateResolutions] Current setting:', this.game.settings.resolution);
+        
+        // Check if we have a custom resolution active
+        const currentRes = this.game.settings.resolution;
+        
+        // If current resolution is custom (not in standard list), add it at the right position
+        if (currentRes && currentRes.startsWith('Custom')) {
+            const match = currentRes.match(/Custom \((\d+)x(\d+)\)/);
+            if (match) {
+                const customWidth = parseInt(match[1]);
+                const customHeight = parseInt(match[2]);
+                const customPixels = customWidth * customHeight;
+                
+                // Calculate aspect ratio for custom resolution
+                const gcd = (a, b) => b === 0 ? a : gcd(b, a % b);
+                const divisor = gcd(customWidth, customHeight);
+                const ratioW = customWidth / divisor;
+                const ratioH = customHeight / divisor;
+                
+                // Simplify common ratios
+                let customRatio = `${ratioW}:${ratioH}`;
+                if (Math.abs(ratioW/ratioH - 16/9) < 0.02) customRatio = '~16:9';
+                else if (Math.abs(ratioW/ratioH - 16/10) < 0.02) customRatio = '~16:10';
+                else if (Math.abs(ratioW/ratioH - 21/9) < 0.02) customRatio = '~21:9';
+                else if (Math.abs(ratioW/ratioH - 4/3) < 0.02) customRatio = '~4:3';
+                
+                const customLabel = `Custom ${customWidth}x${customHeight} (${customRatio})`;
+                
+                // Find where to insert based on total pixels
+                let insertIndex = 0;
+                for (let i = 0; i < validResolutions.length; i++) {
+                    const resPixels = validResolutions[i].w * validResolutions[i].h;
+                    if (customPixels > resPixels) {
+                        insertIndex = i + 1;
+                    } else {
+                        break;
+                    }
+                }
+                
+                // Insert custom at the right position
+                labels.splice(insertIndex, 0, customLabel);
+                console.log('[generateResolutions] Added custom at index', insertIndex, '- Final list:', labels);
+            }
         }
         
-        return validResolutions.map(res => res.label);
+        return labels;
     }
     
     updateCurrentOptions(keepFocus = false) {
@@ -2240,9 +2314,32 @@ class SettingsState extends GameState {
                 console.log('[SettingsState] Calling electronAPI.setFullscreen', settings.fullscreen);
                 window.electronAPI.setFullscreen(settings.fullscreen);
             } else if (key === 'resolution') {
-                const [width, height] = settings.resolution.split('x').map(Number);
-                console.log('[SettingsState] Calling electronAPI.setResolution', width, height);
-                window.electronAPI.setResolution(width, height);
+                let width, height;
+                
+                // Handle custom resolution format: "Custom WxH (ratio)"
+                if (settings.resolution.startsWith('Custom')) {
+                    const match = settings.resolution.match(/Custom (\d+)x(\d+)/);
+                    if (match) {
+                        width = parseInt(match[1]);
+                        height = parseInt(match[2]);
+                    }
+                } else {
+                    // Standard resolution format: "WxH (ratio)"
+                    const match = settings.resolution.match(/(\d+)x(\d+)/);
+                    if (match) {
+                        width = parseInt(match[1]);
+                        height = parseInt(match[2]);
+                    }
+                }
+                
+                if (width && height) {
+                    console.log('[SettingsState] Calling electronAPI.setResolution', width, height);
+                    
+                    // Set a flag to tell handleResize to use our exact dimensions
+                    this.game.pendingResolution = { width, height };
+                    
+                    window.electronAPI.setResolution(width, height);
+                }
             }
         } else {
             console.warn('[SettingsState] electronAPI not available - cannot apply graphics settings');
@@ -2270,6 +2367,36 @@ class SettingsState extends GameState {
             } catch (error) {
                 console.warn('Failed to save settings:', error);
             }
+        }
+        
+        // If user saved a standard resolution, regenerate the resolution list
+        // This removes any custom resolution that was previously in the list
+        if (!this.game.settings.resolution.startsWith('Custom')) {
+            this.refreshResolutionList();
+        }
+    }
+    
+    /**
+     * Refresh the resolution list - called when window is resized or when saving standard resolution
+     */
+    refreshResolutionList() {
+        const previousSelection = this.selectedOption;
+        
+        this.resolutions = this.generateResolutions();
+        
+        // Update the values in allOptions
+        const graphicsOptions = this.allOptions['Graphics'];
+        const resolutionOption = graphicsOptions.find(opt => opt.key === 'resolution');
+        if (resolutionOption) {
+            resolutionOption.values = this.resolutions;
+        }
+        
+        // Re-update current options if we're on Graphics tab, preserving focus
+        if (this.currentCategory === 'Graphics') {
+            // Rebuild options array
+            this.options = [...this.allOptions['Graphics']];
+            // Restore previous selection (don't change it)
+            this.selectedOption = previousSelection;
         }
     }
     
