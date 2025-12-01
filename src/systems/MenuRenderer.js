@@ -855,19 +855,40 @@ class MenuRenderer {
         const modalX = (canvasWidth - modalWidth) / 2;
         const modalY = (canvasHeight - modalHeight) / 2;
         
-        // Modal Border
-        ctx.strokeStyle = colors.primary;
-        ctx.lineWidth = 2;
-        ctx.strokeRect(modalX, modalY, modalWidth, modalHeight);
-        
-        // Modal Background
-        ctx.fillStyle = colors.background.surface || '#1a1a1a';
+        // Modal Background with gradient (matching panel style)
+        if (this.ds) {
+            const gradient = this.ds.verticalGradient(ctx, modalY, modalHeight, [
+                [0, this.ds.colors.alpha(this.ds.colors.background.panel, 0.95)],
+                [1, this.ds.colors.alpha(this.ds.colors.background.dark, 0.95)]
+            ]);
+            ctx.fillStyle = gradient;
+        } else {
+            ctx.fillStyle = colors.background.surface || '#1a1a1a';
+        }
         ctx.fillRect(modalX, modalY, modalWidth, modalHeight);
         
-        // Corner accents
+        // Subtle border (matching panel style)
+        ctx.strokeStyle = this.ds 
+            ? this.ds.colors.alpha(this.ds.colors.text.primary, 0.1)
+            : 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(modalX, modalY, modalWidth, modalHeight);
+        
+        // Corner accents (matching panel style)
         if (this.ds) {
-            const cornerSize = this.ds.spacing(2);
-            this.ds.drawCornerAccents(ctx, modalX, modalY, modalWidth, modalHeight, cornerSize);
+            this.ds.drawCornerAccents(ctx, modalX, modalY, modalWidth, modalHeight);
+        } else {
+            // Legacy corner accents
+            const cornerSize = 10;
+            ctx.fillStyle = colors.primary;
+            ctx.fillRect(modalX - 1, modalY - 1, cornerSize, 2);
+            ctx.fillRect(modalX - 1, modalY - 1, 2, cornerSize);
+            ctx.fillRect(modalX + modalWidth - cornerSize + 1, modalY - 1, cornerSize, 2);
+            ctx.fillRect(modalX + modalWidth - 1, modalY - 1, 2, cornerSize);
+            ctx.fillRect(modalX - 1, modalY + modalHeight - 1, cornerSize, 2);
+            ctx.fillRect(modalX - 1, modalY + modalHeight - cornerSize + 1, 2, cornerSize);
+            ctx.fillRect(modalX + modalWidth - cornerSize + 1, modalY + modalHeight - 1, cornerSize, 2);
+            ctx.fillRect(modalX + modalWidth - 1, modalY + modalHeight - cornerSize + 1, 2, cornerSize);
         }
         
         // Title
