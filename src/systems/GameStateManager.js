@@ -1695,6 +1695,7 @@ class SettingsState extends GameState {
                 { name: 'Resolution', type: 'select', key: 'resolution', values: this.resolutions },
                 { name: 'Fullscreen', type: 'toggle', key: 'fullscreen' },
                 { name: 'VSync (Restart)', type: 'toggle', key: 'vsync' },
+                { name: 'UI Scale', type: 'slider', key: 'uiScale', min: 50, max: 200, step: 10, suffix: '%' },
                 { name: 'Fake 3D', type: 'toggle', key: 'perspectiveEnabled' },
                 { name: 'Show FPS', type: 'toggle', key: 'showFPS' }
             ],
@@ -2461,7 +2462,8 @@ class SettingsState extends GameState {
             const settings = this.pendingSettings;
             
             if (option.type === 'slider') {
-                value = `< ${settings[option.key]}% >`;
+                const suffix = option.suffix || '%';
+                value = `< ${settings[option.key]}${suffix} >`;
             } else if (option.type === 'toggle') {
                 value = `< ${settings[option.key] ? 'ON' : 'OFF'} >`;
             } else if (option.type === 'select') {

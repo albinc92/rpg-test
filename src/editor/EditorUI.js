@@ -16,6 +16,43 @@ class EditorUI {
         this.createUI();
         this.initializeEditors();
     }
+
+    /**
+     * Get the UI scale factor based on canvas height and user settings
+     * Uses percentage-based scaling like the main menu (DesignSystem)
+     * @returns {number} Scale factor to multiply base pixel values by
+     */
+    getUIScale() {
+        const canvas = this.game?.canvas;
+        const baseHeight = 1080; // Reference height (1080p)
+        const canvasHeight = canvas?.height || baseHeight;
+        
+        // Base scale from canvas size (percentage of 1080p)
+        const baseScale = canvasHeight / baseHeight;
+        
+        // User's UI scale setting (50-200%, stored as integer)
+        const userScale = (this.game?.settingsManager?.settings?.uiScale || 100) / 100;
+        
+        return baseScale * userScale;
+    }
+
+    /**
+     * Scale a base pixel value according to UI scale
+     * @param {number} basePixels - Base size in pixels (designed for 1080p)
+     * @returns {number} Scaled pixel value (rounded)
+     */
+    scaled(basePixels) {
+        return Math.round(basePixels * this.getUIScale());
+    }
+
+    /**
+     * Get a scaled CSS value with 'px' suffix
+     * @param {number} basePixels - Base size in pixels
+     * @returns {string} Scaled value with 'px' suffix
+     */
+    scaledPx(basePixels) {
+        return `${this.scaled(basePixels)}px`;
+    }
     
     initializeEditors() {
         // Create standardized editor instances
@@ -412,7 +449,7 @@ class EditorUI {
     }
     
     /**
-     * Show temporary notification
+     * Show temporary notification (with UI scaling)
      */
     showNotification(message) {
         // Remove existing notification
@@ -424,16 +461,16 @@ class EditorUI {
         notification.textContent = message;
         notification.style.cssText = `
             position: fixed;
-            bottom: 30px;
+            bottom: ${this.scaledPx(30)};
             left: 50%;
             transform: translateX(-50%);
             background: rgba(20, 20, 25, 0.95);
             color: #fff;
-            padding: 14px 28px;
-            border-radius: 50px;
+            padding: ${this.scaledPx(14)} ${this.scaledPx(28)};
+            border-radius: ${this.scaledPx(50)};
             border: 1px solid rgba(74, 158, 255, 0.3);
             font-family: 'Lato', sans-serif;
-            font-size: 14px;
+            font-size: ${this.scaledPx(14)};
             font-weight: 600;
             z-index: 10000;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
@@ -441,7 +478,7 @@ class EditorUI {
             animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: ${this.scaledPx(10)};
         `;
         
         // Add animation
@@ -472,7 +509,7 @@ class EditorUI {
     }
 
     /**
-     * Create a button
+     * Create a button (with UI scaling)
      */
     createButton(text, onClick) {
         const btn = document.createElement('button');
@@ -481,10 +518,10 @@ class EditorUI {
             background: rgba(255, 255, 255, 0.05);
             color: #ecf0f1;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 8px 16px;
+            padding: ${this.scaledPx(8)} ${this.scaledPx(16)};
             cursor: pointer;
-            border-radius: 6px;
-            font-size: 13px;
+            border-radius: ${this.scaledPx(6)};
+            font-size: ${this.scaledPx(13)};
             font-family: 'Lato', sans-serif;
             font-weight: 600;
             transition: all 0.2s;
@@ -514,10 +551,56 @@ class EditorUI {
     }
 
     /**
-     * Show UI
+     * Show UI - applies current UI scale
      */
     show() {
+        this.applyUIScale();
         this.container.style.display = 'block';
+    }
+
+    /**
+     * Apply UI scale to the editor toolbar
+     * Updates CSS custom properties and key element styles
+     */
+    applyUIScale() {
+        const scale = this.getUIScale();
+        
+        // Update container padding
+        this.container.style.padding = `${this.scaled(10)}px ${this.scaled(24)}px`;
+        
+        // Update toolbar gap and font sizes through CSS custom properties
+        document.documentElement.style.setProperty('--editor-scale', scale);
+        document.documentElement.style.setProperty('--editor-font-size', `${this.scaled(14)}px`);
+        document.documentElement.style.setProperty('--editor-title-size', `${this.scaled(18)}px`);
+        document.documentElement.style.setProperty('--editor-btn-padding', `${this.scaled(8)}px ${this.scaled(14)}px`);
+        
+        // Update title if it exists
+        const title = this.container.querySelector('span');
+        if (title) {
+            title.style.fontSize = this.scaledPx(18);
+            title.style.marginRight = this.scaledPx(20);
+        }
+        
+        // Update toolbar gap
+        const toolbar = this.container.querySelector('div');
+        if (toolbar) {
+            toolbar.style.gap = this.scaledPx(8);
+        }
+        
+        // Update all buttons in the toolbar
+        const buttons = this.container.querySelectorAll('button');
+        buttons.forEach(btn => {
+            btn.style.padding = `${this.scaled(8)}px ${this.scaled(14)}px`;
+            btn.style.fontSize = this.scaledPx(14);
+            btn.style.borderRadius = this.scaledPx(6);
+        });
+        
+        // Update dropdown menus
+        this.dropdowns.forEach(dropdown => {
+            if (dropdown.applyScale) {
+                dropdown.applyScale(scale);
+            }
+        });
     }
 
     /**
@@ -554,29 +637,30 @@ class EditorUI {
             justify-content: center;
         `;
 
-        // Create modal
+        // Create modal with scaled dimensions
         const modal = document.createElement('div');
         modal.style.cssText = `
             background: #1a1a1a;
             border: 2px solid #4a9eff;
-            border-radius: 12px;
-            padding: 24px;
-            width: 500px;
+            border-radius: ${this.scaledPx(12)};
+            padding: ${this.scaledPx(24)};
+            width: ${this.scaledPx(500)};
             max-height: 80vh;
             overflow-y: auto;
             color: white;
             font-family: Arial, sans-serif;
+            font-size: ${this.scaledPx(14)};
         `;
 
         // Title
         const title = document.createElement('h2');
         title.textContent = `🗺️ Map Configuration: ${mapData.name}`;
-        title.style.cssText = 'margin-top: 0; color: #4a9eff;';
+        title.style.cssText = `margin-top: 0; color: #4a9eff; font-size: ${this.scaledPx(20)};`;
         modal.appendChild(title);
 
         // Create form
         const form = document.createElement('form');
-        form.style.cssText = 'display: flex; flex-direction: column; gap: 16px;';
+        form.style.cssText = `display: flex; flex-direction: column; gap: ${this.scaledPx(16)};`;
 
         // Map Name
         form.appendChild(this.createConfigField('Map Name', mapData.name, 'text', (value) => {
@@ -597,7 +681,7 @@ class EditorUI {
 
         // Day/Night Cycle
         const dayNightCheckbox = document.createElement('div');
-        dayNightCheckbox.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+        dayNightCheckbox.style.cssText = `display: flex; align-items: center; gap: ${this.scaledPx(8)};`;
         const dayNightInput = document.createElement('input');
         dayNightInput.type = 'checkbox';
         dayNightInput.id = 'dayNightCycle';
@@ -608,7 +692,7 @@ class EditorUI {
         const dayNightLabel = document.createElement('label');
         dayNightLabel.htmlFor = 'dayNightCycle';
         dayNightLabel.textContent = '☀️ Enable Day/Night Cycle';
-        dayNightLabel.style.cssText = 'cursor: pointer; font-size: 14px;';
+        dayNightLabel.style.cssText = `cursor: pointer; font-size: ${this.scaledPx(14)};`;
         dayNightCheckbox.appendChild(dayNightInput);
         dayNightCheckbox.appendChild(dayNightLabel);
         form.appendChild(dayNightCheckbox);
@@ -991,39 +1075,40 @@ class EditorUI {
             justify-content: center;
         `;
 
-        // Create modal
+        // Create modal with scaled dimensions
         const modal = document.createElement('div');
         modal.style.cssText = `
             background: #1a1a1a;
             border: 2px solid #4a9eff;
-            border-radius: 12px;
-            padding: 24px;
-            width: 700px;
+            border-radius: ${this.scaledPx(12)};
+            padding: ${this.scaledPx(24)};
+            width: ${this.scaledPx(700)};
             max-height: 80vh;
             overflow-y: auto;
             color: white;
             font-family: Arial, sans-serif;
+            font-size: ${this.scaledPx(14)};
         `;
 
         // Header with title and new button
         const header = document.createElement('div');
-        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;';
+        header.style.cssText = `display: flex; justify-content: space-between; align-items: center; margin-bottom: ${this.scaledPx(16)};`;
         
         const title = document.createElement('h2');
-        title.textContent = '�️ Map Browser';
-        title.style.cssText = 'margin: 0; color: #4a9eff;';
+        title.textContent = '🗺️ Map Browser';
+        title.style.cssText = `margin: 0; color: #4a9eff; font-size: ${this.scaledPx(20)};`;
         
         const newMapBtn = document.createElement('button');
         newMapBtn.textContent = '➕ New Map';
         newMapBtn.style.cssText = `
-            padding: 8px 16px;
+            padding: ${this.scaledPx(8)} ${this.scaledPx(16)};
             background: #27ae60;
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: ${this.scaledPx(6)};
             cursor: pointer;
             font-weight: bold;
-            font-size: 14px;
+            font-size: ${this.scaledPx(14)};
         `;
         newMapBtn.onclick = () => {
             backdrop.remove();
@@ -1036,7 +1121,7 @@ class EditorUI {
 
         // Map list container
         const mapList = document.createElement('div');
-        mapList.style.cssText = 'display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;';
+        mapList.style.cssText = `display: flex; flex-direction: column; gap: ${this.scaledPx(12)}; margin-bottom: ${this.scaledPx(16)};`;
 
         const maps = this.editor.game.mapManager.maps;
         const currentMapId = this.editor.game.currentMapId;
@@ -1466,27 +1551,27 @@ class EditorUI {
     }
 
     /**
-     * Create config form field
+     * Create config form field (with UI scaling)
      */
     createConfigField(label, value, type, onChange, attrs = {}) {
         const container = document.createElement('div');
-        container.style.cssText = 'display: flex; flex-direction: column; gap: 6px;';
+        container.style.cssText = `display: flex; flex-direction: column; gap: ${this.scaledPx(6)};`;
 
         const labelEl = document.createElement('label');
         labelEl.textContent = label;
-        labelEl.style.cssText = 'font-size: 13px; font-weight: bold; color: #aaa;';
+        labelEl.style.cssText = `font-size: ${this.scaledPx(13)}; font-weight: bold; color: #aaa;`;
 
         const input = document.createElement('input');
         input.type = type;
         input.value = value;
         Object.assign(input, attrs);
         input.style.cssText = `
-            padding: 8px;
+            padding: ${this.scaledPx(8)};
             background: #2a2a2a;
             color: white;
             border: 1px solid #555;
-            border-radius: 4px;
-            font-size: 14px;
+            border-radius: ${this.scaledPx(4)};
+            font-size: ${this.scaledPx(14)};
         `;
         input.oninput = () => onChange(input.value);
 
@@ -1496,24 +1581,24 @@ class EditorUI {
     }
 
     /**
-     * Create config select dropdown
+     * Create config select dropdown (with UI scaling)
      */
     createConfigSelect(label, value, options, onChange) {
         const container = document.createElement('div');
-        container.style.cssText = 'display: flex; flex-direction: column; gap: 6px;';
+        container.style.cssText = `display: flex; flex-direction: column; gap: ${this.scaledPx(6)};`;
 
         const labelEl = document.createElement('label');
         labelEl.textContent = label;
-        labelEl.style.cssText = 'font-size: 13px; font-weight: bold; color: #aaa;';
+        labelEl.style.cssText = `font-size: ${this.scaledPx(13)}; font-weight: bold; color: #aaa;`;
 
         const select = document.createElement('select');
         select.style.cssText = `
-            padding: 8px;
+            padding: ${this.scaledPx(8)};
             background: #2a2a2a;
             color: white;
             border: 1px solid #555;
-            border-radius: 4px;
-            font-size: 14px;
+            border-radius: ${this.scaledPx(4)};
+            font-size: ${this.scaledPx(14)};
         `;
 
         options.forEach(opt => {

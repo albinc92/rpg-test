@@ -18,6 +18,8 @@ class SettingsManager {
             resolution: '1280x720',
             fullscreen: false,
             vsync: true, // Default to ON to prevent screen tearing
+            // UI Scale (percentage-based scaling for editor and menus)
+            uiScale: 100, // 50-200%, default 100%
             // Perspective system (Diablo 2 style fake 3D)
             perspectiveEnabled: true, // Enable by default for immersion
             perspectiveStrength: 0.35 // Subtle effect (0 = none, 1 = full)

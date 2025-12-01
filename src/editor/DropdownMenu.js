@@ -2,6 +2,9 @@
  * DropdownMenu - Reusable dropdown menu component for editor
  */
 class DropdownMenu {
+    // Static scale factor (updated by EditorUI)
+    static scale = 1.0;
+    
     constructor(label, items) {
         this.label = label;
         this.items = items; // Array of { label, action, items (for submenu), separator, disabled }
@@ -12,6 +15,42 @@ class DropdownMenu {
         this.activeSubmenu = null;
         
         this.createUI();
+    }
+
+    /**
+     * Scale a pixel value
+     */
+    scaled(px) {
+        return Math.round(px * DropdownMenu.scale);
+    }
+
+    /**
+     * Get scaled px string
+     */
+    scaledPx(px) {
+        return `${this.scaled(px)}px`;
+    }
+
+    /**
+     * Apply scale to this dropdown (called by EditorUI)
+     */
+    applyScale(scale) {
+        DropdownMenu.scale = scale;
+        
+        // Update button
+        if (this.button) {
+            this.button.style.padding = `${this.scaledPx(8)} ${this.scaledPx(16)}`;
+            this.button.style.fontSize = this.scaledPx(14);
+            this.button.style.borderRadius = this.scaledPx(6);
+            this.button.style.gap = this.scaledPx(8);
+        }
+        
+        // Update menu
+        if (this.menu) {
+            this.menu.style.minWidth = this.scaledPx(220);
+            this.menu.style.borderRadius = this.scaledPx(8);
+            this.menu.style.padding = `${this.scaledPx(6)} 0`;
+        }
     }
 
     /**
@@ -31,16 +70,16 @@ class DropdownMenu {
             background: transparent;
             color: #ecf0f1;
             border: 1px solid transparent;
-            padding: 8px 16px;
+            padding: ${this.scaledPx(8)} ${this.scaledPx(16)};
             cursor: pointer;
-            border-radius: 6px;
-            font-size: 14px;
+            border-radius: ${this.scaledPx(6)};
+            font-size: ${this.scaledPx(14)};
             font-family: 'Lato', sans-serif;
             font-weight: 600;
             transition: all 0.2s;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: ${this.scaledPx(8)};
         `;
         
         // Add label text
@@ -74,17 +113,17 @@ class DropdownMenu {
         this.menu = document.createElement('div');
         this.menu.style.cssText = `
             position: absolute;
-            top: calc(100% + 4px);
+            top: calc(100% + ${this.scaledPx(4)});
             left: 0;
             background: rgba(20, 20, 25, 0.95);
             border: 1px solid rgba(74, 158, 255, 0.3);
-            border-radius: 8px;
-            min-width: 220px;
+            border-radius: ${this.scaledPx(8)};
+            min-width: ${this.scaledPx(220)};
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
             backdrop-filter: blur(12px);
             z-index: 10000;
             display: none;
-            padding: 6px 0;
+            padding: ${this.scaledPx(6)} 0;
             animation: fadeIn 0.2s ease-out;
         `;
         
@@ -134,18 +173,18 @@ class DropdownMenu {
     createMenuItem(item) {
         const menuItem = document.createElement('div');
         menuItem.style.cssText = `
-            padding: 10px 16px;
+            padding: ${this.scaledPx(10)} ${this.scaledPx(16)};
             cursor: ${item.disabled ? 'not-allowed' : 'pointer'};
             color: ${item.disabled ? '#666' : '#ecf0f1'};
-            font-size: 14px;
+            font-size: ${this.scaledPx(14)};
             font-family: 'Lato', sans-serif;
             transition: all 0.2s;
             display: flex;
             justify-content: space-between;
             align-items: center;
             position: relative;
-            margin: 0 4px;
-            border-radius: 4px;
+            margin: 0 ${this.scaledPx(4)};
+            border-radius: ${this.scaledPx(4)};
         `;
 
         // Store reference to item for updates
@@ -153,7 +192,7 @@ class DropdownMenu {
 
         // Create label container with checkmark
         const labelContainer = document.createElement('span');
-        labelContainer.style.cssText = 'display: flex; align-items: center; gap: 10px;';
+        labelContainer.style.cssText = `display: flex; align-items: center; gap: ${this.scaledPx(10)};`;
         
         // Add checkmark if item is checkable and checked
         const checkmark = document.createElement('span');
