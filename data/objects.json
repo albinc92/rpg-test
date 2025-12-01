@@ -483,10 +483,11 @@
       "scale": 1,
       "spriteSrc": "/assets/npc/door-0.png",
       "id": "portal_from_shop",
-      "name": "Exit Door",
-      "targetMap": "0-1",
-      "spawnPoint": "fromDoor",
-      "portalType": "door"
+      "name": "Exit Door"
     }
-  ]
+  ],
+  "1-0": [],
+  "-1-0": [],
+  "1-1": [],
+  "-1-1": []
 }

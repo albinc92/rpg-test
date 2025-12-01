@@ -345,7 +345,6 @@
       "particles": "leaves"
     }
   },
-
   "1-1": {
     "name": "Forest Clearing",
     "imageSrc": "/assets/maps/0-0.png",
@@ -408,10 +407,9 @@
       "particles": "fireflies"
     }
   },
-
   "0-1": {
     "name": "Village Square",
-    "imageSrc": "/assets/maps/0-1.png",
+    "imageSrc": "/assets/maps/0-0.png",
     "scale": 3,
     "music": "/assets/audio/bgm/01.mp3",
     "ambience": "/assets/audio/ambience/forest-0.mp3",
@@ -427,7 +425,14 @@
       "southeast": "1-0",
       "southwest": "-1-0"
     },
-    "zones": []
+    "zones": [],
+    "weather": {
+      "precipitation": "none",
+      "wind": "none",
+      "particles": "none"
+    },
+    "spawnTable": [],
+    "spawnDensity": 10
   },
   "0-1-shop": {
     "name": "Village Shop",
