@@ -845,17 +845,86 @@ class MenuRenderer {
         ctx.fillStyle = colors.background.overlay || 'rgba(0, 0, 0, 0.85)';
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
-        // Modal dimensions from design system or defaults
-        const modalWidth = this.ds && this.ds.components?.modal?.width
-            ? this.ds.width(this.ds.components.modal.width)
-            : canvasWidth * 0.5;
-        const modalHeight = this.ds && this.ds.components?.modal?.height
-            ? this.ds.height(this.ds.components.modal.height)
-            : canvasHeight * 0.4;
+        // ═══════════════════════════════════════════════════════════════
+        // MEASURE CONTENT FIRST TO DETERMINE MODAL SIZE
+        // ═══════════════════════════════════════════════════════════════
+        
+        // Set fonts and measure text widths
+        const titleFont = this.ds 
+            ? this.ds.font('lg', 'bold', 'body')
+            : `bold ${sizes.title * 0.6}px Arial`;
+        const messageFont = this.ds 
+            ? this.ds.font('md', 'normal', 'body')
+            : `${sizes.menu}px Arial`;
+        const warningFont = this.ds 
+            ? this.ds.font('sm', 'normal', 'body')
+            : `italic ${sizes.menu * 0.8}px Arial`;
+        
+        ctx.font = titleFont;
+        const titleWidth = ctx.measureText(title).width;
+        
+        ctx.font = messageFont;
+        const messageWidth = ctx.measureText(message).width;
+        
+        let warningWidth = 0;
+        if (warning) {
+            ctx.font = warningFont;
+            warningWidth = ctx.measureText(warning).width;
+        }
+        
+        // Calculate button row width
+        const btnPadding = 20;
+        const btnGap = 15;
+        ctx.font = messageFont;
+        let totalButtonsWidth = 0;
+        options.forEach((opt, i) => {
+            totalButtonsWidth += ctx.measureText(opt).width + btnPadding * 2;
+            if (i < options.length - 1) totalButtonsWidth += btnGap;
+        });
+        
+        // Measure font heights
+        ctx.font = titleFont;
+        const titleMetrics = ctx.measureText(title);
+        const titleTextHeight = titleMetrics.actualBoundingBoxAscent + titleMetrics.actualBoundingBoxDescent;
+        
+        ctx.font = messageFont;
+        const messageMetrics = ctx.measureText(message);
+        const messageTextHeight = messageMetrics.actualBoundingBoxAscent + messageMetrics.actualBoundingBoxDescent;
+        
+        let warningTextHeight = 0;
+        if (warning) {
+            ctx.font = warningFont;
+            const warningMetrics = ctx.measureText(warning);
+            warningTextHeight = warningMetrics.actualBoundingBoxAscent + warningMetrics.actualBoundingBoxDescent;
+        }
+        
+        // Button height
+        const buttonHeight = messageTextHeight + btnPadding;
+        
+        // Modal width = max content width + padding
+        const horizontalPadding = 80;
+        const contentWidth = Math.max(titleWidth, messageWidth, warningWidth, totalButtonsWidth);
+        const minModalWidth = canvasWidth * 0.3;
+        const maxModalWidth = canvasWidth * 0.8;
+        const modalWidth = Math.min(maxModalWidth, Math.max(minModalWidth, contentWidth + horizontalPadding));
+        
+        // Modal height based on measured content + generous spacing
+        const topPadding = 50;
+        const titleSpacing = titleTextHeight + 25;      // Space after title
+        const messageSpacing = messageTextHeight + 20;  // Space after message
+        const warningSpacing = warning ? warningTextHeight + 20 : 0;
+        const buttonAreaHeight = buttonHeight + 40;     // Button + padding
+        const bottomPadding = 40;
+        
+        const modalHeight = topPadding + titleSpacing + messageSpacing + warningSpacing + buttonAreaHeight + bottomPadding;
+        
         const modalX = (canvasWidth - modalWidth) / 2;
         const modalY = (canvasHeight - modalHeight) / 2;
         
-        // Modal Background with gradient (matching panel style)
+        // ═══════════════════════════════════════════════════════════════
+        // DRAW MODAL BACKGROUND
+        // ═══════════════════════════════════════════════════════════════
+        
         if (this.ds) {
             const gradient = this.ds.verticalGradient(ctx, modalY, modalHeight, [
                 [0, this.ds.colors.alpha(this.ds.colors.background.panel, 0.95)],
@@ -867,18 +936,17 @@ class MenuRenderer {
         }
         ctx.fillRect(modalX, modalY, modalWidth, modalHeight);
         
-        // Subtle border (matching panel style)
+        // Subtle border
         ctx.strokeStyle = this.ds 
             ? this.ds.colors.alpha(this.ds.colors.text.primary, 0.1)
             : 'rgba(255, 255, 255, 0.1)';
         ctx.lineWidth = 1;
         ctx.strokeRect(modalX, modalY, modalWidth, modalHeight);
         
-        // Corner accents (matching panel style)
+        // Corner accents
         if (this.ds) {
             this.ds.drawCornerAccents(ctx, modalX, modalY, modalWidth, modalHeight);
         } else {
-            // Legacy corner accents
             const cornerSize = 10;
             ctx.fillStyle = colors.primary;
             ctx.fillRect(modalX - 1, modalY - 1, cornerSize, 2);
@@ -891,36 +959,39 @@ class MenuRenderer {
             ctx.fillRect(modalX + modalWidth - 1, modalY + modalHeight - cornerSize + 1, 2, cornerSize);
         }
         
+        // ═══════════════════════════════════════════════════════════════
+        // DRAW CONTENT
+        // ═══════════════════════════════════════════════════════════════
+        
+        let currentY = modalY + topPadding;
+        
         // Title
-        const titlePadding = this.ds ? this.ds.spacing(12) : 50;
         ctx.fillStyle = colors.text.primary;
-        ctx.font = this.ds 
-            ? this.ds.font('lg', 'bold', 'body')
-            : `bold ${sizes.title * 0.6}px Arial`;
+        ctx.font = titleFont;
         ctx.textAlign = 'center';
-        ctx.fillText(title, canvasWidth / 2, modalY + titlePadding);
+        ctx.textBaseline = 'top';
+        ctx.fillText(title, canvasWidth / 2, currentY);
+        currentY += titleSpacing;
         
         // Message
-        const messagePadding = this.ds ? this.ds.spacing(24) : 100;
-        ctx.font = this.ds 
-            ? this.ds.font('md', 'normal', 'body')
-            : `${sizes.menu}px Arial`;
+        ctx.font = messageFont;
         ctx.fillStyle = colors.text.secondary;
-        ctx.fillText(message, canvasWidth / 2, modalY + messagePadding);
+        ctx.fillText(message, canvasWidth / 2, currentY);
+        currentY += messageSpacing;
         
         // Warning (optional)
         if (warning) {
-            const warningPadding = this.ds ? this.ds.spacing(32) : 140;
             ctx.fillStyle = colors.danger || '#ff4444';
-            ctx.font = this.ds 
-                ? this.ds.font('sm', 'normal', 'body')
-                : `italic ${sizes.menu * 0.8}px Arial`;
-            ctx.fillText(warning, canvasWidth / 2, modalY + warningPadding);
+            ctx.font = warningFont;
+            ctx.fillText(warning, canvasWidth / 2, currentY);
+            currentY += warningSpacing;
         }
         
-        // Options
-        const optionOffset = this.ds ? this.ds.spacing(15) : 60;
-        const optionY = modalY + modalHeight - optionOffset;
+        // ═══════════════════════════════════════════════════════════════
+        // DRAW OPTIONS/BUTTONS
+        // ═══════════════════════════════════════════════════════════════
+        
+        const optionY = modalY + modalHeight - bottomPadding - buttonHeight / 2;
         const optionSpacing = modalWidth / options.length;
         
         ctx.textAlign = 'center';
@@ -932,22 +1003,20 @@ class MenuRenderer {
             
             // Button Box Dimensions
             const btnWidth = optionSpacing * 0.8;
-            const btnHeight = this.ds 
-                ? this.ds.height(this.ds.components.button.height)
-                : sizes.menu * 2.2;
+            const btnH = buttonHeight;
             const btnX = optX - btnWidth / 2;
-            const btnY = optionY - btnHeight / 2;
+            const btnY = optionY - btnH / 2;
             
             if (isSelected) {
                 if (this.ds) {
-                    this.ds.drawSelectionHighlight(ctx, btnX, btnY, btnWidth, btnHeight);
+                    this.ds.drawSelectionHighlight(ctx, btnX, btnY, btnWidth, btnH);
                     ctx.strokeStyle = colors.primary;
                     ctx.lineWidth = 2;
-                    ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
+                    ctx.strokeRect(btnX, btnY, btnWidth, btnH);
                     
                     // Corner accents
                     const cornerSize = this.ds.spacing(1);
-                    this.ds.drawCornerAccents(ctx, btnX, btnY, btnWidth, btnHeight, cornerSize);
+                    this.ds.drawCornerAccents(ctx, btnX, btnY, btnWidth, btnH, cornerSize);
                     
                     // Text
                     ctx.fillStyle = colors.text.primary;
@@ -957,17 +1026,17 @@ class MenuRenderer {
                     this.ds.clearShadow(ctx);
                 } else {
                     // Legacy selected button
-                    const gradient = ctx.createLinearGradient(btnX, btnY, btnX + btnWidth, btnY + btnHeight);
+                    const gradient = ctx.createLinearGradient(btnX, btnY, btnX + btnWidth, btnY + btnH);
                     gradient.addColorStop(0, 'rgba(74, 158, 255, 0.1)');
                     gradient.addColorStop(0.5, 'rgba(74, 158, 255, 0.25)');
                     gradient.addColorStop(1, 'rgba(74, 158, 255, 0.1)');
                     
                     ctx.fillStyle = gradient;
-                    ctx.fillRect(btnX, btnY, btnWidth, btnHeight);
+                    ctx.fillRect(btnX, btnY, btnWidth, btnH);
                     
                     ctx.strokeStyle = '#4a9eff';
                     ctx.lineWidth = 2;
-                    ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
+                    ctx.strokeRect(btnX, btnY, btnWidth, btnH);
                     
                     // Corner accents
                     const cornerSize = 4;
@@ -976,10 +1045,10 @@ class MenuRenderer {
                     ctx.fillRect(btnX, btnY, 2, cornerSize);
                     ctx.fillRect(btnX + btnWidth - cornerSize, btnY, cornerSize, 2);
                     ctx.fillRect(btnX + btnWidth - 2, btnY, 2, cornerSize);
-                    ctx.fillRect(btnX, btnY + btnHeight - 2, cornerSize, 2);
-                    ctx.fillRect(btnX, btnY + btnHeight - cornerSize, 2, cornerSize);
-                    ctx.fillRect(btnX + btnWidth - cornerSize, btnY + btnHeight - 2, cornerSize, 2);
-                    ctx.fillRect(btnX + btnWidth - 2, btnY + btnHeight - cornerSize, 2, cornerSize);
+                    ctx.fillRect(btnX, btnY + btnH - 2, cornerSize, 2);
+                    ctx.fillRect(btnX, btnY + btnH - cornerSize, 2, cornerSize);
+                    ctx.fillRect(btnX + btnWidth - cornerSize, btnY + btnH - 2, cornerSize, 2);
+                    ctx.fillRect(btnX + btnWidth - 2, btnY + btnH - cornerSize, 2, cornerSize);
                     
                     // Text
                     ctx.fillStyle = '#fff';
@@ -994,11 +1063,11 @@ class MenuRenderer {
                 ctx.fillStyle = this.ds 
                     ? (colors.background.surface || 'rgba(30, 30, 40, 0.6)')
                     : 'rgba(30, 30, 40, 0.6)';
-                ctx.fillRect(btnX, btnY, btnWidth, btnHeight);
+                ctx.fillRect(btnX, btnY, btnWidth, btnH);
                 
                 ctx.strokeStyle = colors.background.border || 'rgba(255, 255, 255, 0.1)';
                 ctx.lineWidth = 1;
-                ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
+                ctx.strokeRect(btnX, btnY, btnWidth, btnH);
                 
                 // Text
                 ctx.fillStyle = colors.text.muted;
@@ -1010,6 +1079,3 @@ class MenuRenderer {
         });
     }
 }
-
-// Export for use in other files
-window.MenuRenderer = MenuRenderer;
