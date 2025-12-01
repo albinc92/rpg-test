@@ -315,12 +315,13 @@ class MenuRenderer {
         // Draw panel background for settings
         // Widen panel to 0.8 to match tabs (4 tabs * 0.2 width)
         const panelWidth = canvasWidth * 0.8;
-        // Fixed height based on max visible options if scrolling is active, otherwise dynamic
+        // Height based on visible options with minimal padding
         const displayCount = scrollInfo ? scrollInfo.maxVisible : options.length;
-        const panelHeight = displayCount * lineHeight + canvasHeight * 0.1;
+        const panelPadding = canvasHeight * 0.03; // Reduced padding
+        const panelHeight = displayCount * lineHeight + panelPadding;
         
         const panelX = (canvasWidth - panelWidth) / 2;
-        const panelY = menuStartY - canvasHeight * 0.05;
+        const panelY = menuStartY - canvasHeight * 0.025; // Slight offset above first item
         
         this.drawPanel(ctx, panelX, panelY, panelWidth, panelHeight);
         

@@ -2195,15 +2195,15 @@ class SettingsState extends GameState {
         // Draw overlay (still useful for vignette/scanlines if desired, but background is already black)
         menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.8);
         
-        // Draw title (moved up to avoid overlap with tabs/content on smaller screens)
-        menuRenderer.drawTitle(ctx, 'Settings', canvasWidth, canvasHeight, 0.10);
+        // Draw title
+        menuRenderer.drawTitle(ctx, 'Settings', canvasWidth, canvasHeight, 0.08);
         
-        // Draw Category Tabs
+        // Draw Category Tabs - positioned to align with top of content panel
         const tabWidth = canvasWidth * 0.2;
         const tabHeight = sizes.menu * 1.5;
         const totalTabsWidth = this.categories.length * tabWidth;
         const startX = (canvasWidth - totalTabsWidth) / 2;
-        const tabY = canvasHeight * 0.22; // Moved down slightly to give title underline more room
+        const tabY = canvasHeight * 0.19; // Tabs sit just above content panel
         
         this.categories.forEach((category, index) => {
             const x = startX + (index * tabWidth);
@@ -2274,9 +2274,9 @@ class SettingsState extends GameState {
             relativeSelectedIndex = this.selectedOption - this.scrollOffset;
         }
         
-        // Draw settings options using MenuRenderer (centered vertically to avoid touch controls)
-        const settingsStartY = 0.32; 
-        const settingsSpacing = 0.085; // Reduced from 0.09 to tighten list
+        // Draw settings options using MenuRenderer
+        const settingsStartY = 0.30; // Start content just below tabs
+        const settingsSpacing = 0.08; // Compact spacing for items
         
         menuRenderer.drawSettingsOptions(
             ctx,
