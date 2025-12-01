@@ -334,41 +334,135 @@ class LoadingState extends GameState {
         const canvasWidth = this.game.CANVAS_WIDTH;
         const canvasHeight = this.game.CANVAS_HEIGHT;
         
+        // Initialize design system
+        const ds = window.ds;
+        if (ds) ds.setDimensions(canvasWidth, canvasHeight);
+        
         // Use MenuRenderer for consistent styling
         const menuRenderer = this.stateManager.menuRenderer;
         const sizes = menuRenderer.getFontSizes(canvasHeight);
         
-        ctx.fillStyle = '#000';
+        // Dark background with subtle gradient
+        const bgGradient = ctx.createRadialGradient(
+            canvasWidth / 2, canvasHeight / 2, 0,
+            canvasWidth / 2, canvasHeight / 2, canvasWidth * 0.8
+        );
+        bgGradient.addColorStop(0, ds?.colors?.background?.panel || '#1a1a24');
+        bgGradient.addColorStop(1, ds?.colors?.background?.dark || '#0a0a0f');
+        ctx.fillStyle = bgGradient;
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        // Add subtle vignette
+        const vignetteGradient = ctx.createRadialGradient(
+            canvasWidth / 2, canvasHeight / 2, canvasHeight * 0.3,
+            canvasWidth / 2, canvasHeight / 2, canvasWidth * 0.9
+        );
+        vignetteGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        vignetteGradient.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
+        ctx.fillStyle = vignetteGradient;
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        const primaryColor = ds?.colors?.primary || '#4a9eff';
+        const textPrimary = ds?.colors?.text?.primary || '#ffffff';
+        const textSecondary = ds?.colors?.text?.secondary || '#cccccc';
         
         if (this.waitingForAudio) {
-            // Show "Click to Start" screen
-            ctx.fillStyle = '#fff';
-            ctx.font = `${sizes.title}px Arial`;
-            ctx.fillText('Click to Start', canvasWidth / 2, canvasHeight / 2 - canvasHeight * 0.03);
+            // Show "Click to Start" screen with styled design
             
-            ctx.font = `${sizes.menu}px Arial`;
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.fillText('Click anywhere or press any key to start the game', canvasWidth / 2, canvasHeight / 2 + canvasHeight * 0.05);
+            // Decorative corner accents
+            if (ds) {
+                const accentSize = ds.spacing(8);
+                const margin = ds.spacing(6);
+                ds.drawCornerAccents(ctx, margin, margin, canvasWidth - margin * 2, canvasHeight - margin * 2, accentSize);
+            }
+            
+            // Main title with glow effect
+            ctx.save();
+            if (ds) ds.applyShadow(ctx, 'glow');
+            ctx.fillStyle = primaryColor;
+            ctx.font = ds ? ds.font('xxl', 'bold', 'display') : `bold ${sizes.title}px Arial`;
+            ctx.fillText('Click to Start', canvasWidth / 2, canvasHeight / 2 - canvasHeight * 0.05);
+            ctx.restore();
+            
+            // Subtitle
+            ctx.fillStyle = textSecondary;
+            ctx.font = ds ? ds.font('md', 'normal', 'body') : `${sizes.menu}px Arial`;
+            ctx.fillText('Click anywhere or press any key to begin', canvasWidth / 2, canvasHeight / 2 + canvasHeight * 0.05);
+            
+            // Animated pulse hint (using simple sine wave based on time)
+            const pulseAlpha = 0.5 + Math.sin(Date.now() / 500) * 0.3;
+            ctx.fillStyle = ds ? ds.colors.alpha(primaryColor, pulseAlpha) : `rgba(74, 158, 255, ${pulseAlpha})`;
+            ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${sizes.instruction}px Arial`;
+            ctx.fillText('◆ ◆ ◆', canvasWidth / 2, canvasHeight * 0.75);
+            
         } else {
-            // Show normal loading screen
-            ctx.fillStyle = '#fff';
-            ctx.font = `${sizes.subtitle}px Arial`;
-            ctx.fillText(this.loadingText, canvasWidth / 2, canvasHeight / 2);
+            // Show normal loading screen with styled progress bar
             
-            // Loading bar (responsive)
-            const barWidth = Math.min(400, canvasWidth * 0.6);
-            const barHeight = Math.max(20, canvasHeight * 0.03);
+            // Loading text with subtle animation
+            ctx.fillStyle = textPrimary;
+            ctx.font = ds ? ds.font('lg', 'normal', 'body') : `${sizes.subtitle}px Arial`;
+            ctx.fillText(this.loadingText, canvasWidth / 2, canvasHeight / 2 - canvasHeight * 0.08);
+            
+            // Loading bar container
+            const barWidth = Math.min(400, canvasWidth * 0.5);
+            const barHeight = ds ? ds.spacing(2) : Math.max(12, canvasHeight * 0.018);
             const barX = canvasWidth / 2 - barWidth / 2;
-            const barY = canvasHeight / 2 + canvasHeight * 0.08;
+            const barY = canvasHeight / 2 + canvasHeight * 0.02;
+            const borderRadius = barHeight / 2;
             
-            ctx.strokeStyle = '#fff';
-            ctx.strokeRect(barX, barY, barWidth, barHeight);
+            // Bar background (dark)
+            ctx.fillStyle = ds?.colors?.background?.dark || '#0a0a0f';
+            if (ds) {
+                ds.fillRoundRect(ctx, barX - 2, barY - 2, barWidth + 4, barHeight + 4, borderRadius + 2);
+            } else {
+                ctx.fillRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
+            }
             
-            ctx.fillStyle = '#0f0';
-            ctx.fillRect(barX, barY, barWidth * this.loadingProgress, barHeight);
+            // Bar border
+            ctx.strokeStyle = ds ? ds.colors.alpha(primaryColor, 0.4) : 'rgba(74, 158, 255, 0.4)';
+            ctx.lineWidth = 1;
+            if (ds) {
+                ds.strokeRoundRect(ctx, barX - 2, barY - 2, barWidth + 4, barHeight + 4, borderRadius + 2);
+            } else {
+                ctx.strokeRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
+            }
+            
+            // Progress fill with gradient
+            if (this.loadingProgress > 0) {
+                const progressWidth = barWidth * this.loadingProgress;
+                const progressGradient = ctx.createLinearGradient(barX, barY, barX + progressWidth, barY);
+                progressGradient.addColorStop(0, ds?.colors?.primaryDark || '#3a7ecc');
+                progressGradient.addColorStop(0.5, primaryColor);
+                progressGradient.addColorStop(1, ds?.colors?.primaryLight || '#6ab4ff');
+                
+                ctx.fillStyle = progressGradient;
+                if (ds) {
+                    ds.fillRoundRect(ctx, barX, barY, progressWidth, barHeight, borderRadius);
+                } else {
+                    ctx.fillRect(barX, barY, progressWidth, barHeight);
+                }
+                
+                // Shine effect on progress bar
+                const shineGradient = ctx.createLinearGradient(barX, barY, barX, barY + barHeight);
+                shineGradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+                shineGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.1)');
+                shineGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                ctx.fillStyle = shineGradient;
+                if (ds) {
+                    ds.fillRoundRect(ctx, barX, barY, progressWidth, barHeight / 2, [borderRadius, borderRadius, 0, 0]);
+                } else {
+                    ctx.fillRect(barX, barY, progressWidth, barHeight / 2);
+                }
+            }
+            
+            // Progress percentage
+            const percentage = Math.round(this.loadingProgress * 100);
+            ctx.fillStyle = textSecondary;
+            ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${sizes.instruction}px Arial`;
+            ctx.fillText(`${percentage}%`, canvasWidth / 2, barY + barHeight + canvasHeight * 0.04);
         }
     }
 }

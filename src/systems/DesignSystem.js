@@ -608,6 +608,50 @@ class DesignSystem {
         
         ctx.restore();
     }
+    
+    /**
+     * Draw a rounded rectangle path (compatible with older browsers)
+     * Does not fill or stroke - call ctx.fill() or ctx.stroke() after
+     */
+    roundRect(ctx, x, y, width, height, radius) {
+        // Handle single radius or array of radii [topLeft, topRight, bottomRight, bottomLeft]
+        const r = typeof radius === 'number' 
+            ? { tl: radius, tr: radius, br: radius, bl: radius }
+            : { 
+                tl: radius[0] || 0, 
+                tr: radius[1] || radius[0] || 0, 
+                br: radius[2] || radius[0] || 0, 
+                bl: radius[3] || radius[1] || radius[0] || 0 
+            };
+        
+        ctx.beginPath();
+        ctx.moveTo(x + r.tl, y);
+        ctx.lineTo(x + width - r.tr, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + r.tr);
+        ctx.lineTo(x + width, y + height - r.br);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - r.br, y + height);
+        ctx.lineTo(x + r.bl, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - r.bl);
+        ctx.lineTo(x, y + r.tl);
+        ctx.quadraticCurveTo(x, y, x + r.tl, y);
+        ctx.closePath();
+    }
+    
+    /**
+     * Fill a rounded rectangle
+     */
+    fillRoundRect(ctx, x, y, width, height, radius) {
+        this.roundRect(ctx, x, y, width, height, radius);
+        ctx.fill();
+    }
+    
+    /**
+     * Stroke a rounded rectangle
+     */
+    strokeRoundRect(ctx, x, y, width, height, radius) {
+        this.roundRect(ctx, x, y, width, height, radius);
+        ctx.stroke();
+    }
 }
 
 // Create singleton instance
