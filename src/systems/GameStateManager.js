@@ -1552,8 +1552,18 @@ class SettingsState extends GameState {
         this.exitModalOption = 0; // 0: Save, 1: Discard, 2: Cancel
         this.restartRequired = false;
         
+        this.showResetModal = false;
+        this.resetModalOption = 2; // 0: All, 1: Current, 2: Cancel
+        
         this.scrollOffset = 0;
         this.maxVisibleOptions = 5; // Limit visible options to prevent overlap
+
+        // Input holding state for progressive adjustment
+        this.holdTimer = 0;
+        this.isHolding = false;
+        this.lastInputDirection = 0;
+        this.holdDelay = 0.4; // Initial delay before repeating
+        this.holdRepeatRate = 0.05; // Time between repeats
 
         this.resolutions = this.generateResolutions();
         
@@ -1739,6 +1749,23 @@ class SettingsState extends GameState {
         return names[index] || `Btn ${index}`;
     }
     
+    update(deltaTime) {
+        // Handle held input for progressive adjustment
+        if (this.isHolding && this.lastInputDirection !== 0) {
+            this.holdTimer += deltaTime;
+            
+            if (this.holdTimer > this.holdDelay) {
+                // We are in repeat mode
+                // Reset timer but keep it above delay to fire immediately next frame if rate is small
+                // Better: subtract repeat rate to keep accurate time
+                this.holdTimer -= this.holdRepeatRate;
+                
+                // Adjust setting with repeat flag
+                this.adjustSetting(this.lastInputDirection, true);
+            }
+        }
+    }
+    
     handleInput(inputManager) {
         // Handle Rebinding State
         if (this.rebindingAction) {
@@ -1762,6 +1789,33 @@ class SettingsState extends GameState {
                 }
             }
             return; // Block other input
+        }
+
+        // Handle Reset Modal Input
+        if (this.showResetModal) {
+            if (inputManager.isJustPressed('left')) {
+                this.resetModalOption = (this.resetModalOption - 1 + 3) % 3;
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+            }
+            if (inputManager.isJustPressed('right')) {
+                this.resetModalOption = (this.resetModalOption + 1) % 3;
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+            }
+            if (inputManager.isJustPressed('confirm')) {
+                if (this.resetModalOption === 0) { // All
+                    this.resetAllSettings();
+                    this.showResetModal = false;
+                } else if (this.resetModalOption === 1) { // Current
+                    this.resetCurrentCategory();
+                    this.showResetModal = false;
+                } else { // Cancel
+                    this.showResetModal = false;
+                }
+            }
+            if (inputManager.isJustPressed('cancel')) {
+                this.showResetModal = false;
+            }
+            return;
         }
 
         // Handle Exit Modal Input
@@ -1818,7 +1872,15 @@ class SettingsState extends GameState {
         }
         
         if (inputManager.isJustPressed('up')) {
-            if (this.selectedOption > 0) {
+            if (this.selectedOption >= this.options.length) {
+                // If on Back or Reset button, go to last option
+                this.selectedOption = this.options.length - 1;
+                // Ensure last option is visible
+                if (this.selectedOption >= this.scrollOffset + this.maxVisibleOptions) {
+                    this.scrollOffset = this.selectedOption - this.maxVisibleOptions + 1;
+                }
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+            } else if (this.selectedOption > 0) {
                 this.selectedOption--;
                 // Scroll up if needed
                 if (this.selectedOption < this.scrollOffset) {
@@ -1833,26 +1895,46 @@ class SettingsState extends GameState {
         }
         
         if (inputManager.isJustPressed('down')) {
-            // Allow going one step past the last option (for the Back button)
+            // If currently on options list (less than length)
             if (this.selectedOption < this.options.length) {
-                this.selectedOption++;
-                // Scroll down if needed (but not for Back button)
+                // If on last option, go to Back button (length)
+                if (this.selectedOption === this.options.length - 1) {
+                    this.selectedOption = this.options.length;
+                } else {
+                    this.selectedOption++;
+                }
+                
+                // Scroll down if needed (but not for Back/Reset buttons)
                 if (this.selectedOption < this.options.length && 
                     this.selectedOption >= this.scrollOffset + this.maxVisibleOptions) {
                     this.scrollOffset = this.selectedOption - this.maxVisibleOptions + 1;
                 }
                 this.game.audioManager?.playEffect('menu-navigation.mp3');
             }
+            // If already on Back or Reset, do nothing (block downward movement)
         }
         
         // Only adjust settings if we are selecting an option (not tabs and not Back button)
         if (this.selectedOption >= 0 && this.selectedOption < this.options.length) {
-            if (inputManager.isJustPressed('left')) {
-                this.adjustSetting(-1);
-            }
+            // Handle Left/Right for adjustment (supports holding)
+            let direction = 0;
+            if (inputManager.isPressed('left')) direction = -1;
+            if (inputManager.isPressed('right')) direction = 1;
             
-            if (inputManager.isJustPressed('right')) {
-                this.adjustSetting(1);
+            if (direction !== 0) {
+                if (this.lastInputDirection !== direction) {
+                    // New press
+                    this.adjustSetting(direction);
+                    this.lastInputDirection = direction;
+                    this.holdTimer = 0;
+                    this.isHolding = true;
+                }
+                // If holding, update() handles the repeat
+            } else {
+                // Released
+                this.isHolding = false;
+                this.lastInputDirection = 0;
+                this.holdTimer = 0;
             }
             
             if (inputManager.isJustPressed('confirm')) {
@@ -1862,6 +1944,23 @@ class SettingsState extends GameState {
             // Back button selected
             if (inputManager.isJustPressed('confirm')) {
                 this.checkChangesAndExit();
+            }
+            // Navigate right to Reset button
+            if (inputManager.isJustPressed('right')) {
+                this.selectedOption = this.options.length + 1;
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+            }
+        } else if (this.selectedOption === this.options.length + 1) {
+            // Reset button selected
+            if (inputManager.isJustPressed('confirm')) {
+                this.showResetModal = true;
+                this.resetModalOption = 2; // Default to Cancel
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+            }
+            // Navigate left to Back button
+            if (inputManager.isJustPressed('left')) {
+                this.selectedOption = this.options.length;
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
             }
         } else {
             // We are in tabs, left/right changes category
@@ -1906,7 +2005,7 @@ class SettingsState extends GameState {
         this.game.audioManager?.playEffect('menu-navigation.mp3');
     }
     
-    adjustSetting(direction) {
+    adjustSetting(direction, isRepeat = false) {
         const option = this.options[this.selectedOption];
         if (!option || !option.key) return;
         
@@ -1916,7 +2015,11 @@ class SettingsState extends GameState {
         
         if (option.type === 'slider') {
             const currentValue = settings[option.key];
+            // Use smaller steps when holding for smoother adjustment if desired, 
+            // but for now we stick to defined steps for consistency.
+            // To make it smoother we could use: const step = isRepeat ? option.step / 2 : option.step;
             const newValue = Math.max(option.min, Math.min(option.max, currentValue + (direction * option.step)));
+            
             if (currentValue !== newValue) {
                 settings[option.key] = newValue;
                 changed = true;
@@ -1925,11 +2028,15 @@ class SettingsState extends GameState {
                 this.applyAudioSettings();
                 
                 // Play a test sound for volume adjustment feedback (preview only)
-                if (option.key === 'effectsVolume' || option.key === 'masterVolume') {
+                // Don't spam sound when repeating rapidly
+                if ((option.key === 'effectsVolume' || option.key === 'masterVolume') && !isRepeat) {
                     this.game.audioManager?.playEffect('menu-navigation.mp3');
                 }
             }
         } else if (option.type === 'toggle') {
+            // Toggles shouldn't repeat rapidly
+            if (isRepeat) return;
+            
             settings[option.key] = !settings[option.key];
             changed = true;
             
@@ -1938,6 +2045,9 @@ class SettingsState extends GameState {
             if (option.key === 'perspectiveEnabled') this.applyPerspectiveSetting();
             
         } else if (option.type === 'select') {
+            // Selects can repeat but maybe slower?
+            // For now allow repeat
+            
             // Prevent changing if there's only one option
             if (!option.values || option.values.length <= 1) return;
 
@@ -1956,6 +2066,8 @@ class SettingsState extends GameState {
                 if (option.key === 'resolution') this.applyGraphicsSettings(option.key);
             }
         } else if (option.key === 'controlDevice') {
+            if (isRepeat) return; // Don't repeat device selection
+            
             // Handle custom control device selector
             const currentIndex = option.values.indexOf(this.controlDevice);
             let newIndex = currentIndex + direction;
@@ -2181,68 +2293,79 @@ class SettingsState extends GameState {
             }
         );
         
-        // Draw separate Back button at the bottom
-        const backButtonY = canvasHeight * 0.85; // Moved up from 0.90 to be closer to options
+        // Draw Back and Reset buttons at the bottom (side by side)
+        const buttonY = canvasHeight * 0.85;
+        const btnWidth = 150;
+        const btnHeight = 50;
+        const btnGap = 20;
+        const totalButtonsWidth = btnWidth * 2 + btnGap;
+        const buttonsStartX = (canvasWidth - totalButtonsWidth) / 2;
+        
         const isBackSelected = this.selectedOption === this.options.length;
+        const isResetSelected = this.selectedOption === this.options.length + 1;
         
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
-        if (isBackSelected) {
-            // Selected Back Button (Glass style)
-            const btnWidth = 200;
-            const btnHeight = 50;
-            const btnX = canvasWidth / 2 - btnWidth / 2;
-            const btnY = backButtonY - btnHeight / 2;
+        // Helper function to draw a button
+        const drawButton = (text, x, isSelected) => {
+            const btnX = x;
+            const btnY = buttonY - btnHeight / 2;
             
-            const gradient = ctx.createLinearGradient(btnX, btnY, btnX + btnWidth, btnY + btnHeight);
-            gradient.addColorStop(0, 'rgba(74, 158, 255, 0.1)');
-            gradient.addColorStop(0.5, 'rgba(74, 158, 255, 0.25)');
-            gradient.addColorStop(1, 'rgba(74, 158, 255, 0.1)');
-            
-            ctx.fillStyle = gradient;
-            ctx.fillRect(btnX, btnY, btnWidth, btnHeight);
-            
-            ctx.strokeStyle = '#4a9eff';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
-            
-            // Corner accents
-            const cornerSize = 4;
-            ctx.fillStyle = '#4a9eff';
-            ctx.fillRect(btnX, btnY, cornerSize, 2);
-            ctx.fillRect(btnX, btnY, 2, cornerSize);
-            ctx.fillRect(btnX + btnWidth - cornerSize, btnY, cornerSize, 2);
-            ctx.fillRect(btnX + btnWidth - 2, btnY, 2, cornerSize);
-            ctx.fillRect(btnX, btnY + btnHeight - 2, cornerSize, 2);
-            ctx.fillRect(btnX, btnY + btnHeight - cornerSize, 2, cornerSize);
-            ctx.fillRect(btnX + btnWidth - cornerSize, btnY + btnHeight - 2, cornerSize, 2);
-            ctx.fillRect(btnX + btnWidth - 2, btnY + btnHeight - cornerSize, 2, cornerSize);
-            
-            ctx.fillStyle = '#fff';
-            ctx.font = `bold ${sizes.menu}px 'Cinzel', serif`;
-            ctx.shadowColor = '#4a9eff';
-            ctx.shadowBlur = 10;
-            ctx.fillText('Back', canvasWidth / 2, backButtonY);
-        } else {
-            // Unselected Back Button
-            const btnWidth = 200;
-            const btnHeight = 50;
-            const btnX = canvasWidth / 2 - btnWidth / 2;
-            const btnY = backButtonY - btnHeight / 2;
-            
-            ctx.fillStyle = 'rgba(30, 30, 40, 0.6)';
-            ctx.fillRect(btnX, btnY, btnWidth, btnHeight);
-            
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
-            
-            ctx.fillStyle = '#888';
-            ctx.font = `${sizes.menu}px 'Cinzel', serif`;
-            ctx.shadowBlur = 0;
-            ctx.fillText('Back', canvasWidth / 2, backButtonY);
-        }
+            if (isSelected) {
+                // Selected Button (Glass style)
+                const gradient = ctx.createLinearGradient(btnX, btnY, btnX + btnWidth, btnY + btnHeight);
+                gradient.addColorStop(0, 'rgba(74, 158, 255, 0.1)');
+                gradient.addColorStop(0.5, 'rgba(74, 158, 255, 0.25)');
+                gradient.addColorStop(1, 'rgba(74, 158, 255, 0.1)');
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(btnX, btnY, btnWidth, btnHeight);
+                
+                ctx.strokeStyle = '#4a9eff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
+                
+                // Corner accents
+                const cornerSize = 4;
+                ctx.fillStyle = '#4a9eff';
+                ctx.fillRect(btnX, btnY, cornerSize, 2);
+                ctx.fillRect(btnX, btnY, 2, cornerSize);
+                ctx.fillRect(btnX + btnWidth - cornerSize, btnY, cornerSize, 2);
+                ctx.fillRect(btnX + btnWidth - 2, btnY, 2, cornerSize);
+                ctx.fillRect(btnX, btnY + btnHeight - 2, cornerSize, 2);
+                ctx.fillRect(btnX, btnY + btnHeight - cornerSize, 2, cornerSize);
+                ctx.fillRect(btnX + btnWidth - cornerSize, btnY + btnHeight - 2, cornerSize, 2);
+                ctx.fillRect(btnX + btnWidth - 2, btnY + btnHeight - cornerSize, 2, cornerSize);
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = `bold ${sizes.menu}px 'Cinzel', serif`;
+                ctx.shadowColor = '#4a9eff';
+                ctx.shadowBlur = 10;
+                ctx.fillText(text, btnX + btnWidth / 2, buttonY);
+                ctx.shadowBlur = 0;
+            } else {
+                // Unselected Button
+                ctx.fillStyle = 'rgba(30, 30, 40, 0.6)';
+                ctx.fillRect(btnX, btnY, btnWidth, btnHeight);
+                
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
+                
+                ctx.fillStyle = '#888';
+                ctx.font = `${sizes.menu}px 'Cinzel', serif`;
+                ctx.shadowBlur = 0;
+                ctx.fillText(text, btnX + btnWidth / 2, buttonY);
+            }
+        };
+        
+        // Draw Back button (left)
+        drawButton('Back', buttonsStartX, isBackSelected);
+        
+        // Draw Reset button (right)
+        drawButton('Reset', buttonsStartX + btnWidth + btnGap, isResetSelected);
+        
         ctx.shadowBlur = 0;
         
         // Draw instructions
@@ -2270,6 +2393,118 @@ class SettingsState extends GameState {
                 warning
             );
         }
+        
+        // Draw Reset Modal
+        if (this.showResetModal) {
+            menuRenderer.drawModal(
+                ctx,
+                'Reset Settings',
+                'What would you like to reset?',
+                ['All', this.currentCategory, 'Cancel'],
+                this.resetModalOption,
+                canvasWidth,
+                canvasHeight,
+                'This will restore default values.'
+            );
+        }
+    }
+    
+    /**
+     * Reset all settings to defaults
+     */
+    resetAllSettings() {
+        console.log('[SettingsState] Resetting ALL settings to defaults...');
+        
+        // Get defaults from SettingsManager
+        const defaults = this.game.settingsManager ? 
+            { ...this.game.settingsManager.defaults } : 
+            {
+                masterVolume: 100,
+                musicVolume: 100,
+                effectsVolume: 100,
+                isMuted: false,
+                showFPS: true,
+                showDebugInfo: false,
+                resolution: '1280x720',
+                fullscreen: false,
+                vsync: false,
+                perspectiveEnabled: true
+            };
+        
+        // Apply defaults to game settings
+        Object.assign(this.game.settings, defaults);
+        
+        // Reset key bindings to defaults
+        this.game.inputManager.resetBindingsToDefaults();
+        
+        // Apply all settings immediately
+        this.applyAudioSettings();
+        this.applyGraphicsSettings('resolution');
+        this.applyGraphicsSettings('fullscreen');
+        this.applyPerspectiveSetting();
+        
+        // Mark as dirty (changed from original)
+        this.isDirty = true;
+        
+        // Update display
+        this.updateCurrentOptions(true);
+        
+        this.game.audioManager?.playEffect('menu-navigation.mp3');
+        console.log('[SettingsState] All settings reset to defaults.');
+    }
+    
+    /**
+     * Reset current category settings to defaults
+     */
+    resetCurrentCategory() {
+        console.log(`[SettingsState] Resetting ${this.currentCategory} settings to defaults...`);
+        
+        // Get defaults from SettingsManager
+        const defaults = this.game.settingsManager ? 
+            this.game.settingsManager.defaults : 
+            {
+                masterVolume: 100,
+                musicVolume: 100,
+                effectsVolume: 100,
+                isMuted: false,
+                showFPS: true,
+                showDebugInfo: false,
+                resolution: '1280x720',
+                fullscreen: false,
+                vsync: false,
+                perspectiveEnabled: true
+            };
+        
+        // Reset only settings in current category
+        const categoryOptions = this.allOptions[this.currentCategory];
+        
+        categoryOptions.forEach(option => {
+            if (option.key && defaults.hasOwnProperty(option.key)) {
+                this.game.settings[option.key] = defaults[option.key];
+            }
+        });
+        
+        // Apply settings for current category
+        if (this.currentCategory === 'Audio') {
+            this.applyAudioSettings();
+        } else if (this.currentCategory === 'Graphics') {
+            this.applyGraphicsSettings('resolution');
+            this.applyGraphicsSettings('fullscreen');
+            this.applyPerspectiveSetting();
+        } else if (this.currentCategory === 'Controls') {
+            // Reset key bindings
+            this.game.inputManager.resetBindingsToDefaults();
+            this.updateCurrentOptions(true);
+        }
+        
+        // Mark as dirty
+        this.isDirty = true;
+        
+        // Update display
+        this.updateCurrentOptions(true);
+        
+        this.game.audioManager?.playEffect('menu-navigation.mp3');
+        console.log(`[SettingsState] ${this.currentCategory} settings reset to defaults.`);
     }
 }
 

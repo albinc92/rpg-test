@@ -495,6 +495,35 @@ class InputManager {
         }
         console.log('[InputManager] Key bindings loaded');
     }
+    
+    /**
+     * Reset key bindings to default values
+     */
+    resetBindingsToDefaults() {
+        this.keyBindings = {
+            // Movement
+            'moveUp': ['KeyW', 'ArrowUp'],
+            'moveDown': ['KeyS', 'ArrowDown'],
+            'moveLeft': ['KeyA', 'ArrowLeft'],
+            'moveRight': ['KeyD', 'ArrowRight'],
+            
+            // Actions
+            'interact': ['Space', 'Enter'],
+            'run': ['ShiftLeft', 'ShiftRight'],
+            'menu': ['Escape', 'Tab', 'KeyM'],
+            'inventory': ['KeyI'],
+            
+            // UI Navigation
+            'confirm': ['Enter', 'Space'],
+            'cancel': ['Escape'],
+            'delete': ['Delete', 'Backspace', 'KeyX'],
+            'up': ['ArrowUp', 'KeyW'],
+            'down': ['ArrowDown', 'KeyS'],
+            'left': ['ArrowLeft', 'KeyA'],
+            'right': ['ArrowRight', 'KeyD']
+        };
+        console.log('[InputManager] Key bindings reset to defaults');
+    }
 }
 
 // Export for use in other files
