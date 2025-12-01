@@ -65,8 +65,6 @@ class GameStateManager {
      * Change to a new state
      */
     changeState(newState, data = {}) {
-        console.log(`🔀 changeState called: ${this.currentState} -> ${newState}`);
-        
         if (!this.states[newState]) {
             console.error(`Invalid state: ${newState}`);
             return;
@@ -74,17 +72,12 @@ class GameStateManager {
         
         this.exitCurrentState();
         this.enterState(newState, data);
-        
-        console.log(`🔀 changeState complete. Current state is now: ${this.currentState}`);
     }
     
     /**
      * Push a state onto the stack (for overlay states like pause menu)
      */
     pushState(newState, data = {}) {
-        console.log(`📥 pushState called: ${this.currentState} -> ${newState}`);
-        console.log(`📥 Stack before push:`, JSON.stringify(this.stateStack.map(s => s.state)));
-        
         if (!this.states[newState]) {
             console.error(`Invalid state: ${newState}`);
             return;
@@ -100,8 +93,6 @@ class GameStateManager {
             state: this.currentState,
             data: this.currentStateData
         });
-        
-        console.log(`📥 Stack after push:`, JSON.stringify(this.stateStack.map(s => s.state)));
         
         this.enterState(newState, data);
     }
@@ -124,26 +115,18 @@ class GameStateManager {
      * Pop the current state and return to previous
      */
     popState() {
-        console.log(`📤 popState called from: ${this.currentState}`);
-        console.log(`📤 Stack before pop:`, JSON.stringify(this.stateStack.map(s => s.state)));
-        
         if (this.stateStack.length === 0) {
-            console.warn('❌ No states to pop - stack is empty!');
+            console.warn('No states to pop');
             return;
         }
         
         this.exitCurrentState();
         
         const previousState = this.stateStack.pop();
-        console.log('🔄 Popping state, returning to:', previousState.state);
-        console.log('Previous state data:', previousState.data);
         
         // Mark that we're resuming from a pause/overlay
         const resumeData = { ...previousState.data, isResumingFromPause: true };
-        console.log('Resume data being passed:', resumeData);
         this.enterState(previousState.state, resumeData);
-        
-        console.log(`📤 Stack after pop:`, JSON.stringify(this.stateStack.map(s => s.state)));
         
         // Resume previous state if it supports it
         const currentState = this.states[this.currentState];
@@ -611,7 +594,6 @@ class MainMenuState extends GameState {
     }
     
     render(ctx) {
-        console.log('🎮 MainMenuState.render() called');
         // Use the game's logical canvas dimensions instead of ctx.canvas.width/height
         const canvasWidth = this.game.CANVAS_WIDTH;
         const canvasHeight = this.game.CANVAS_HEIGHT;
@@ -974,34 +956,23 @@ class PausedState extends GameState {
         if (this.inputCooldown > 0) return;
 
         if (this.showExitConfirm) {
-            console.log(`🔍 In exit confirm mode. exitConfirmOption=${this.exitConfirmOption} (0=Yes, 1=No)`);
-            
             if (inputManager.isJustPressed('cancel')) {
-                console.log('🔍 Cancel pressed - closing dialog');
                 this.showExitConfirm = false;
                 return;
             }
             
             if (inputManager.isJustPressed('left') || inputManager.isJustPressed('right')) {
                 this.exitConfirmOption = this.exitConfirmOption === 0 ? 1 : 0;
-                console.log(`🔍 Left/Right pressed - now exitConfirmOption=${this.exitConfirmOption}`);
                 this.game.audioManager?.playEffect('menu-navigation.mp3');
             }
             
             if (inputManager.isJustPressed('confirm')) {
-                console.log(`🚨 Exit confirm pressed! exitConfirmOption=${this.exitConfirmOption}`);
                 if (this.exitConfirmOption === 0) { // Yes
-                    console.log('🚨 YES selected - going to main menu');
-                    console.log('🚨 Step 1: Clearing stack...');
                     this.stateManager.clearStack();
-                    console.log('🚨 Step 2: Resetting game...');
                     // Reset game state when exiting to main menu
                     this.game.resetGame();
-                    console.log('🚨 Step 3: Changing state to MAIN_MENU...');
                     this.stateManager.changeState('MAIN_MENU');
-                    console.log('🚨 Step 4: Done!');
                 } else { // No
-                    console.log('🚨 NO selected - closing dialog');
                     this.showExitConfirm = false;
                 }
             }
@@ -1029,7 +1000,6 @@ class PausedState extends GameState {
     }
     
     selectOption() {
-        console.log(`🎯 selectOption called! selectedOption=${this.selectedOption}`);
         switch (this.selectedOption) {
             case 0: // Resume
                 this.stateManager.popState();
@@ -1041,7 +1011,6 @@ class PausedState extends GameState {
                 this.stateManager.pushState('SETTINGS');
                 break;
             case 3: // Main Menu
-                console.log('🎯 Main Menu selected - showing exit confirm');
                 this.showExitConfirm = true;
                 this.exitConfirmOption = 1; // Default to No
                 break;

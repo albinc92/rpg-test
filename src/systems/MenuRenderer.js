@@ -817,7 +817,6 @@ class MenuRenderer {
      * Draw a modal popup (e.g. for confirmations)
      */
     drawModal(ctx, title, message, options, selectedOption, canvasWidth, canvasHeight, warning = null) {
-        console.log(`📦 drawModal called: ${title}, options: ${options.join(', ')}, selected: ${selectedOption}`);
         this._ensureDS(canvasWidth, canvasHeight);
         const sizes = this.getFontSizes(canvasHeight);
         
