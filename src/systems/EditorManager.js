@@ -60,10 +60,12 @@ class EditorManager {
         
         // Placement preview
         this.previewObject = null;
-        this.mouseWorldX = 0; // Potentially grid-snapped
+        this.mouseWorldX = 0; // Potentially grid-snapped (perspective-corrected for placement)
         this.mouseWorldY = 0;
         this.mouseWorldXUnsnapped = 0; // Always unsnapped (for multi-select)
         this.mouseWorldYUnsnapped = 0;
+        this.mouseScreenWorldX = 0; // Screen-relative world coords (for preview rendering)
+        this.mouseScreenWorldY = 0;
         this.rawMouseX = 0; // Raw screen mouse position
         this.rawMouseY = 0;
         
@@ -588,6 +590,11 @@ class EditorManager {
 
         let worldX = worldCanvasX + camera.x;
         let worldY = worldCanvasY + camera.y;
+        
+        // Store the screen-relative world position BEFORE perspective transform
+        // This is used for preview rendering (so preview appears at cursor position)
+        this.mouseScreenWorldX = worldX;
+        this.mouseScreenWorldY = worldY;
 
         // If perspective mode is active, use inverse perspective transform
         // This allows clicking on objects where they visually appear
@@ -754,9 +761,16 @@ class EditorManager {
         const sprite = this.previewSprite;
         if (!sprite || !sprite.complete) return;
 
-        // Get world coordinates (already computed and grid-snapped in updateMousePosition)
-        const worldX = this.mouseWorldX;
-        const worldY = this.mouseWorldY;
+        // Use screen-relative world position for POSITION (so preview stays at cursor)
+        // But use perspective-corrected world position to calculate the SIZE scale
+        let posWorldX = this.mouseScreenWorldX;
+        let posWorldY = this.mouseScreenWorldY;
+        
+        // Apply grid snap to position if enabled
+        if (this.snapToGrid) {
+            posWorldX = Math.round(posWorldX / this.gridSize) * this.gridSize;
+            posWorldY = Math.round(posWorldY / this.gridSize) * this.gridSize;
+        }
         
         // Get sprite and dimensions
         const scale = this.selectedPrefab.scale || 1;
@@ -766,12 +780,28 @@ class EditorManager {
         // Calculate sprite dimensions (matching GameObject.getFinalScale)
         const resolutionScale = this.game.resolutionScale || 1;
         const finalScale = scale * resolutionScale;
-        const scaledWidth = spriteWidth * finalScale;
-        const scaledHeight = spriteHeight * finalScale;
+        let scaledWidth = spriteWidth * finalScale;
+        let scaledHeight = spriteHeight * finalScale;
         
-        // Position from center
-        const drawX = worldX - scaledWidth / 2;
-        const drawY = worldY - scaledHeight / 2;
+        // Apply perspective scale based on where the object would be placed (mouseWorldY)
+        // This makes the preview size match how the object will look after placement
+        const perspectiveParams = webglRenderer.getPerspectiveParams();
+        if (perspectiveParams.enabled) {
+            // Get the perspective scale factor for the actual world position
+            const transformed = webglRenderer.transformWorldToScreen(
+                this.mouseWorldX, 
+                this.mouseWorldY, 
+                cameraX, 
+                cameraY
+            );
+            // Apply perspective scale to size
+            scaledWidth *= transformed.scale;
+            scaledHeight *= transformed.scale;
+        }
+        
+        // Position from center (at cursor position)
+        const drawX = posWorldX - scaledWidth / 2;
+        const drawY = posWorldY - scaledHeight / 2;
         
         // Draw semi-transparent sprite to WebGL
         const imageUrl = sprite.src || 'preview_sprite';
@@ -1165,9 +1195,15 @@ class EditorManager {
         // Apply camera translation (same as RenderSystem)
         ctx.translate(-camera.x, -camera.y);
         
-        // Get world coordinates
-        const worldX = this.mouseWorldX;
-        const worldY = this.mouseWorldY;
+        // Use screen-relative world position for POSITION (so preview stays at cursor)
+        let posWorldX = this.mouseScreenWorldX;
+        let posWorldY = this.mouseScreenWorldY;
+        
+        // Apply grid snap to position if enabled
+        if (this.snapToGrid) {
+            posWorldX = Math.round(posWorldX / this.gridSize) * this.gridSize;
+            posWorldY = Math.round(posWorldY / this.gridSize) * this.gridSize;
+        }
         
         // Get sprite and dimensions
         let sprite = this.previewSprite;
@@ -1184,8 +1220,24 @@ class EditorManager {
         // Calculate sprite dimensions
         const resolutionScale = this.game.resolutionScale || 1;
         const finalScale = scale * resolutionScale;
-        const scaledWidth = spriteWidth * finalScale;
-        const scaledHeight = spriteHeight * finalScale;
+        let scaledWidth = spriteWidth * finalScale;
+        let scaledHeight = spriteHeight * finalScale;
+        
+        // Apply perspective scale based on where the object would be placed
+        const webglRenderer = this.game.renderSystem?.webglRenderer;
+        if (webglRenderer) {
+            const perspectiveParams = webglRenderer.getPerspectiveParams();
+            if (perspectiveParams.enabled) {
+                const transformed = webglRenderer.transformWorldToScreen(
+                    this.mouseWorldX, 
+                    this.mouseWorldY, 
+                    camera.x, 
+                    camera.y
+                );
+                scaledWidth *= transformed.scale;
+                scaledHeight *= transformed.scale;
+            }
+        }
         
         // Calculate collision bounds
         const expandTop = (this.selectedPrefab.collisionExpandTopPercent || 0) * scaledHeight;
@@ -1197,8 +1249,8 @@ class EditorManager {
         let collisionHeight = scaledHeight + expandTop + expandBottom;
         
         // Calculate base position (centered on sprite) in world space
-        let collisionX = worldX - collisionWidth / 2;
-        let collisionY = worldY - collisionHeight / 2;
+        let collisionX = posWorldX - collisionWidth / 2;
+        let collisionY = posWorldY - collisionHeight / 2;
         
         // Adjust for asymmetric expansion
         collisionX += (expandRight - expandLeft) / 2;
