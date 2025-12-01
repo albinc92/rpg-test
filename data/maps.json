@@ -305,9 +305,7 @@
     "adjacentMaps": {
       "north": "1-1",
       "west": "0-0",
-      "east": "2-0",
-      "northwest": "0-1",
-      "northeast": "2-1"
+      "northwest": "0-1"
     },
     "zones": [],
     "weather": {
@@ -347,37 +345,7 @@
       "particles": "leaves"
     }
   },
-  "2-0": {
-    "name": "Dark Forest",
-    "imageSrc": "/assets/maps/0-0.png",
-    "scale": 3,
-    "music": "/assets/audio/bgm/01.mp3",
-    "ambience": "/assets/audio/ambience/forest-0.mp3",
-    "dayNightCycle": true,
-    "spawnDensity": 20,
-    "spawnTable": [
-      {
-        "spiritId": "forest_sprite",
-        "spawnWeight": 70,
-        "timeCondition": "any"
-      }
-    ],
-    "image": {},
-    "width": 1536,
-    "height": 1024,
-    "lights": [],
-    "adjacentMaps": {
-      "north": "2-1",
-      "west": "1-0",
-      "northwest": "1-1"
-    },
-    "zones": [],
-    "weather": {
-      "precipitation": "heavy_rain",
-      "wind": "strong",
-      "particles": "none"
-    }
-  },
+
   "1-1": {
     "name": "Forest Clearing",
     "imageSrc": "/assets/maps/0-0.png",
@@ -398,8 +366,9 @@
     "height": 1024,
     "lights": [],
     "adjacentMaps": {
+      "south": "1-0",
       "west": "0-1",
-      "east": "2-1"
+      "southwest": "0-0"
     },
     "zones": [],
     "weather": {
@@ -428,7 +397,9 @@
     "height": 1024,
     "lights": [],
     "adjacentMaps": {
-      "east": "0-1"
+      "south": "-1-0",
+      "east": "0-1",
+      "southeast": "0-0"
     },
     "zones": [],
     "weather": {
@@ -437,35 +408,7 @@
       "particles": "fireflies"
     }
   },
-  "2-1": {
-    "name": "Abandoned Path",
-    "imageSrc": "/assets/maps/0-0.png",
-    "scale": 3,
-    "music": "/assets/audio/bgm/01.mp3",
-    "ambience": "/assets/audio/ambience/forest-0.mp3",
-    "dayNightCycle": true,
-    "spawnDensity": 18,
-    "spawnTable": [
-      {
-        "spiritId": "forest_sprite",
-        "spawnWeight": 55,
-        "timeCondition": "any"
-      }
-    ],
-    "image": {},
-    "width": 1536,
-    "height": 1024,
-    "lights": [],
-    "adjacentMaps": {
-      "west": "1-1"
-    },
-    "zones": [],
-    "weather": {
-      "precipitation": "light_rain",
-      "wind": "moderate",
-      "particles": "none"
-    }
-  },
+
   "0-1": {
     "name": "Village Square",
     "imageSrc": "/assets/maps/0-1.png",
@@ -478,8 +421,11 @@
     "height": 1024,
     "adjacentMaps": {
       "north": "0-1-shop",
+      "south": "0-0",
       "east": "1-1",
-      "west": "-1-1"
+      "west": "-1-1",
+      "southeast": "1-0",
+      "southwest": "-1-0"
     },
     "zones": []
   },
