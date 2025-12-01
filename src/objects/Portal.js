@@ -165,8 +165,7 @@ class Portal extends InteractiveObject {
      * Render portal glow effect
      */
     renderGlow(ctx, game) {
-        const mapScale = game.currentMap?.scale || 1.0;
-        const glowRadius = 40 * mapScale * this.glowIntensity;
+        const glowRadius = 40 * this.glowIntensity;
         
         ctx.save();
         ctx.globalAlpha = 0.3 * this.glowIntensity;

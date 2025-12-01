@@ -248,22 +248,20 @@ class CollisionSystem {
             // We need bounds centered at x,y.
             
             // Calculate scale factors
-            const mapScale = mapData.scale || 1.0;
             const resolutionScale = game.resolutionScale || 1.0;
-            const totalScale = mapScale * resolutionScale;
             
             // We need to reconstruct bounds at the target x,y
             // Assuming actor is a circle or rect, we can just use width/height
-            const width = actor.width * totalScale; // Approximate
-            const height = actor.height * totalScale; // Approximate
+            const width = actor.width * resolutionScale; // Approximate
+            const height = actor.height * resolutionScale; // Approximate
             // Better: use actor.getCollisionBounds() and shift it?
             // But getCollisionBounds depends on game state.
             
             // Let's just use the passed x,y as center/base and check points around it
             // Assuming x,y is the position we want to check (e.g. newX, newY)
             
-            const halfWidth = (actor.width * totalScale) / 2;
-            const halfHeight = (actor.height * totalScale) / 2;
+            const halfWidth = (actor.width * resolutionScale) / 2;
+            const halfHeight = (actor.height * resolutionScale) / 2;
             
             // Check 4 corners + center
             pointsToCheck = [

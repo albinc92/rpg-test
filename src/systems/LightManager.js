@@ -267,12 +267,10 @@ class LightManager {
     renderLightMask(ctx, light, cameraX, cameraY, width, height, webglRenderer = null) {
         const game = this.game;
         const resolutionScale = game?.resolutionScale || 1.0;
-        const mapScale = game?.currentMap?.scale || 1.0;
-        const totalScale = mapScale * resolutionScale;
         
         // Scale the stored coordinates to world coordinates
-        const worldX = light.x * totalScale;
-        const worldY = light.y * totalScale;
+        const worldX = light.x * resolutionScale;
+        const worldY = light.y * resolutionScale;
         
         // Use animated radius if available, otherwise base radius
         let effectiveRadius = light._currentRadius || light.radius;
@@ -377,12 +375,10 @@ class LightManager {
         // Lights store coordinates in unscaled format, just like all other game objects
         const game = this.game;
         const resolutionScale = game?.resolutionScale || 1.0;
-        const mapScale = game?.currentMap?.scale || 1.0;
-        const totalScale = mapScale * resolutionScale;
         
         // Scale the stored coordinates to world coordinates
-        const worldX = light.x * totalScale;
-        const worldY = light.y * totalScale;
+        const worldX = light.x * resolutionScale;
+        const worldY = light.y * resolutionScale;
         
         // Apply altitude offset if present (scaled by resolution)
         const altitudeOffset = (light.altitude || 0) * resolutionScale;
@@ -453,11 +449,9 @@ class LightManager {
             // COMMON BEHAVIOR: Scale storage coordinates to world coordinates (same as GameObject)
             const game = this.game;
             const resolutionScale = game?.resolutionScale || 1.0;
-            const mapScale = game?.currentMap?.scale || 1.0;
-            const totalScale = mapScale * resolutionScale;
             
-            const worldX = light.x * totalScale;
-            const worldY = light.y * totalScale;
+            const worldX = light.x * resolutionScale;
+            const worldY = light.y * resolutionScale;
             
             // Apply altitude offset if present
             const altitudeOffset = (light.altitude || 0) * resolutionScale;
@@ -514,12 +508,10 @@ class LightManager {
         // COMMON BEHAVIOR: Scale storage coordinates to world coordinates
         const game = this.game;
         const resolutionScale = game?.resolutionScale || 1.0;
-        const mapScale = game?.currentMap?.scale || 1.0;
-        const totalScale = mapScale * resolutionScale;
         
         // Convert light's stored coordinates to world coordinates
-        const lightWorldX = light.x * totalScale;
-        const lightWorldY = light.y * totalScale;
+        const lightWorldX = light.x * resolutionScale;
+        const lightWorldY = light.y * resolutionScale;
         
         // Compare world coordinates (x, y are already scaled world coordinates from mouse)
         const dx = x - lightWorldX;

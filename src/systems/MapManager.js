@@ -5,7 +5,6 @@ class MapManager {
     constructor(dataLoader) {
         this.dataLoader = dataLoader;
         this.maps = {};
-        this.loadedImages = {};
     }
     
     /**
@@ -14,13 +13,10 @@ class MapManager {
     async initialize() {
         const mapsData = await this.dataLoader.loadMaps();
         
-        // Convert JSON data to internal format with image placeholders
+        // Convert JSON data to internal format
         for (const [mapId, mapData] of Object.entries(mapsData)) {
             this.maps[mapId] = {
-                ...mapData,
-                image: null,
-                width: mapData.width || 0,  // Use JSON width if available, otherwise wait for image
-                height: mapData.height || 0  // Use JSON height if available, otherwise wait for image
+                ...mapData
             };
         }
         
@@ -37,10 +33,7 @@ class MapManager {
             for (const [mapId, mapData] of Object.entries(mapsData)) {
                 if (!this.maps[mapId]) {
                     this.maps[mapId] = {
-                        ...mapData,
-                        image: null,
-                        width: mapData.width || 0,
-                        height: mapData.height || 0
+                        ...mapData
                     };
                 }
             }
@@ -64,40 +57,16 @@ class MapManager {
     }
     
     /**
-     * Load a map image and automatically set width/height from it
+     * Load a map (no-op, kept for backwards compatibility)
+     * Map images are no longer used - we use gray backgrounds with paint layers
      */
     async loadMap(mapId) {
-        return new Promise((resolve, reject) => {
-            const mapData = this.maps[mapId];
-            if (!mapData) {
-                reject(new Error(`Map not found: ${mapId}`));
-                return;
-            }
-            
-            // Check if already loaded
-            if (this.loadedImages[mapId]) {
-                mapData.image = this.loadedImages[mapId];
-                resolve();
-                return;
-            }
-            
-            // Load the image
-            const image = new Image();
-            image.onload = () => {
-                this.loadedImages[mapId] = image;
-                mapData.image = image;
-                // Set width/height from the actual image (1:1 relationship)
-                mapData.width = image.width;
-                mapData.height = image.height;
-                console.log(`Loaded map image: ${mapId} (${image.width}x${image.height})`);
-                resolve();
-            };
-            image.onerror = () => {
-                reject(new Error(`Failed to load map image: ${mapData.imageSrc}`));
-            };
-            
-            image.src = mapData.imageSrc;
-        });
+        const mapData = this.maps[mapId];
+        if (!mapData) {
+            throw new Error(`Map not found: ${mapId}`);
+        }
+        // No image loading needed - maps use gray backgrounds with paint layers
+        return Promise.resolve();
     }
     
     /**
@@ -126,7 +95,6 @@ class MapManager {
      */
     removeMap(mapId) {
         delete this.maps[mapId];
-        delete this.loadedImages[mapId];
     }
 }
 

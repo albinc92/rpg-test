@@ -385,24 +385,20 @@ class RenderSystem {
      * Render map background and all objects with simple depth sorting
      */
     renderMapAndObjects(map, objects, npcs, player, game, adjacentObjects = []) {
-        // Render map background (with scale applied)
-        if (map && map.image && map.image.complete) {
-            // Use GLOBAL GAME SCALE if available
-            const mapScale = game.GAME_SCALE || map.scale || 1.0;
-            const resolutionScale = game?.resolutionScale || 1.0;
-            const scaledWidth = map.width * mapScale * resolutionScale;
-            const scaledHeight = map.height * mapScale * resolutionScale;
-            
-            // Use WebGL if available for better performance
-            if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
-                const imageUrl = map.image.src || `map_bg_${game.currentMapId}`;
-                this.webglRenderer.drawSprite(0, 0, scaledWidth, scaledHeight, map.image, imageUrl);
-            } else {
-                this.ctx.drawImage(map.image, 0, 0, scaledWidth, scaledHeight);
-            }
+        const resolutionScale = game?.resolutionScale || 1.0;
+        // Use standard 4K map size
+        const scaledWidth = game.MAP_WIDTH * resolutionScale;
+        const scaledHeight = game.MAP_HEIGHT * resolutionScale;
+        
+        // Render gray background (user paints actual terrain with paint tool)
+        if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+            this.webglRenderer.drawRect(0, 0, scaledWidth, scaledHeight, [0.3, 0.3, 0.3, 1.0]);
+        } else {
+            this.ctx.fillStyle = '#4d4d4d';
+            this.ctx.fillRect(0, 0, scaledWidth, scaledHeight);
         }
         
-        // Render paint layer (if editor has painted textures on this map)
+        // Render paint layer (user-painted terrain textures)
         if (game?.editorManager) {
             const paintLayer = game.editorManager.getPaintLayer(game.currentMapId);
             if (paintLayer) {
@@ -410,10 +406,6 @@ class RenderSystem {
                 if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
                     // Use consistent cache key for paint layers (same key whether current or adjacent)
                     const imageUrl = `paint_layer_${game.currentMapId}`;
-                    const mapScale = game.GAME_SCALE || map.scale || 1.0;
-                    const resolutionScale = game?.resolutionScale || 1.0;
-                    const scaledWidth = map.width * mapScale * resolutionScale;
-                    const scaledHeight = map.height * mapScale * resolutionScale;
                     this.webglRenderer.drawSprite(0, 0, scaledWidth, scaledHeight, paintLayer, imageUrl);
                 } else {
                     this.ctx.save();
@@ -725,8 +717,6 @@ class RenderSystem {
         
         // Calculate scale factor to convert stored unscaled coordinates to world coordinates
         const resolutionScale = game.resolutionScale || 1.0;
-        const mapScale = mapData.scale || 1.0;
-        const totalScale = mapScale * resolutionScale;
 
         for (const zone of mapData.zones) {
             let fillColor, strokeColor;
@@ -745,8 +735,8 @@ class RenderSystem {
             if (zone.points && zone.points.length > 2) {
                 // Convert zone points to world coordinates
                 const worldPoints = zone.points.map(p => ({
-                    x: p.x * totalScale,
-                    y: p.y * totalScale
+                    x: p.x * resolutionScale,
+                    y: p.y * resolutionScale
                 }));
                 
                 // Use WebGL with stencil buffer - handles perspective, no artifacts!
@@ -777,30 +767,25 @@ class RenderSystem {
         if (!adjacentMaps || Object.keys(adjacentMaps).length === 0) return;
 
         const resolutionScale = game.resolutionScale || 1.0;
-        const currentMapScale = game.GAME_SCALE || currentMap.scale || 1.0;
-        const currentWidth = currentMap.width * currentMapScale * resolutionScale;
-        const currentHeight = currentMap.height * currentMapScale * resolutionScale;
+        // Use standard 4K map size
+        const currentWidth = game.MAP_WIDTH * resolutionScale;
+        const currentHeight = game.MAP_HEIGHT * resolutionScale;
 
         // Helper to render a map background and paint layer at offset
         // mapId is the string key (e.g., "0-0") since mapData doesn't have an id property
         const renderMapBackground = (mapId, mapData, offsetX, offsetY) => {
-            if (!mapData || !mapData.image) return;
+            if (!mapData) return;
             
-            const mapScale = game.GAME_SCALE || mapData.scale || 1.0;
-            const width = mapData.width * mapScale * resolutionScale;
-            const height = mapData.height * mapScale * resolutionScale;
+            // Use standard 4K map size
+            const width = game.MAP_WIDTH * resolutionScale;
+            const height = game.MAP_HEIGHT * resolutionScale;
             
-            // Render Background
+            // Render gray background
             if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
-                const imageUrl = mapData.image.src || `map_${mapId}_bg`;
-                this.webglRenderer.drawSprite(
-                    offsetX, offsetY, 
-                    width, height,
-                    mapData.image,
-                    imageUrl
-                );
+                this.webglRenderer.drawRect(offsetX, offsetY, width, height, [0.3, 0.3, 0.3, 1.0]);
             } else {
-                this.ctx.drawImage(mapData.image, offsetX, offsetY, width, height);
+                this.ctx.fillStyle = '#4d4d4d';
+                this.ctx.fillRect(offsetX, offsetY, width, height);
             }
             
             // Render Paint Layer for adjacent map (if exists and has content)
@@ -819,11 +804,10 @@ class RenderSystem {
         };
 
         // Helper to get map dimensions for offset calculations
-        const getMapDimensions = (mapData) => {
-            const mapScale = game.GAME_SCALE || mapData.scale || 1.0;
+        const getMapDimensions = () => {
             return {
-                width: mapData.width * mapScale * resolutionScale,
-                height: mapData.height * mapScale * resolutionScale
+                width: game.MAP_WIDTH * resolutionScale,
+                height: game.MAP_HEIGHT * resolutionScale
             };
         };
 
@@ -834,7 +818,7 @@ class RenderSystem {
         // Render North
         if (adjacentMaps.north && adjacentIds.north) {
             const mapData = adjacentMaps.north;
-            const { height } = getMapDimensions(mapData);
+            const { height } = getMapDimensions();
             renderMapBackground(adjacentIds.north, mapData, 0, -height);
         }
 
@@ -846,7 +830,7 @@ class RenderSystem {
         // Render West
         if (adjacentMaps.west && adjacentIds.west) {
             const mapData = adjacentMaps.west;
-            const { width } = getMapDimensions(mapData);
+            const { width } = getMapDimensions();
             renderMapBackground(adjacentIds.west, mapData, -width, 0);
         }
 
@@ -859,21 +843,21 @@ class RenderSystem {
         // Northwest: offset is (-westMapWidth, -northMapHeight)
         if (adjacentMaps.northwest && adjacentIds.northwest) {
             const mapData = adjacentMaps.northwest;
-            const { width, height } = getMapDimensions(mapData);
+            const { width, height } = getMapDimensions();
             renderMapBackground(adjacentIds.northwest, mapData, -width, -height);
         }
 
         // Northeast: offset is (currentWidth, -northeastMapHeight)
         if (adjacentMaps.northeast && adjacentIds.northeast) {
             const mapData = adjacentMaps.northeast;
-            const { height } = getMapDimensions(mapData);
+            const { height } = getMapDimensions();
             renderMapBackground(adjacentIds.northeast, mapData, currentWidth, -height);
         }
 
         // Southwest: offset is (-southwestMapWidth, currentHeight)
         if (adjacentMaps.southwest && adjacentIds.southwest) {
             const mapData = adjacentMaps.southwest;
-            const { width } = getMapDimensions(mapData);
+            const { width } = getMapDimensions();
             renderMapBackground(adjacentIds.southwest, mapData, -width, currentHeight);
         }
 
@@ -892,10 +876,9 @@ class RenderSystem {
         if (!adjacentMaps || Object.keys(adjacentMaps).length === 0) return { objects: [], restore: () => {} };
 
         const resolutionScale = game.resolutionScale || 1.0;
-        const currentMapScale = game.GAME_SCALE || currentMap.scale || 1.0;
-        const currentWidth = currentMap.width * currentMapScale * resolutionScale;
-        const currentHeight = currentMap.height * currentMapScale * resolutionScale;
-        const totalScale = currentMapScale * resolutionScale;
+        // Use standard 4K map size
+        const currentWidth = game.MAP_WIDTH * resolutionScale;
+        const currentHeight = game.MAP_HEIGHT * resolutionScale;
 
         const collectedObjects = [];
         const modifiedObjects = []; // Track objects we modified to restore them later
@@ -904,8 +887,9 @@ class RenderSystem {
             if (!game.objectManager || !game.objectManager.objects[mapId]) return;
             
             const objects = game.objectManager.objects[mapId];
-            const unscaledOffsetX = offsetX / totalScale;
-            const unscaledOffsetY = offsetY / totalScale;
+            // offsetX/Y are already scaled, divide by resolutionScale to get unscaled offset
+            const unscaledOffsetX = offsetX / resolutionScale;
+            const unscaledOffsetY = offsetY / resolutionScale;
 
             objects.forEach(obj => {
                 // Store original position
@@ -924,10 +908,10 @@ class RenderSystem {
         };
 
         // Helper to get map dimensions for offset calculations
-        const getMapDimensions = (mapData) => {
+        const getMapDimensions = () => {
             return {
-                width: mapData.width * totalScale,
-                height: mapData.height * totalScale
+                width: game.MAP_WIDTH * resolutionScale,
+                height: game.MAP_HEIGHT * resolutionScale
             };
         };
 
@@ -935,7 +919,7 @@ class RenderSystem {
         // North
         if (adjacentMaps.north) {
             const mapData = adjacentMaps.north;
-            const { height } = getMapDimensions(mapData);
+            const { height } = getMapDimensions();
             processMap(currentMap.adjacentMaps.north, mapData, 0, -height);
         }
 
@@ -947,7 +931,7 @@ class RenderSystem {
         // West
         if (adjacentMaps.west) {
             const mapData = adjacentMaps.west;
-            const { width } = getMapDimensions(mapData);
+            const { width } = getMapDimensions();
             processMap(currentMap.adjacentMaps.west, mapData, -width, 0);
         }
 
@@ -960,21 +944,21 @@ class RenderSystem {
         // Northwest
         if (adjacentMaps.northwest) {
             const mapData = adjacentMaps.northwest;
-            const { width, height } = getMapDimensions(mapData);
+            const { width, height } = getMapDimensions();
             processMap(currentMap.adjacentMaps.northwest, mapData, -width, -height);
         }
 
         // Northeast
         if (adjacentMaps.northeast) {
             const mapData = adjacentMaps.northeast;
-            const { height } = getMapDimensions(mapData);
+            const { height } = getMapDimensions();
             processMap(currentMap.adjacentMaps.northeast, mapData, currentWidth, -height);
         }
 
         // Southwest
         if (adjacentMaps.southwest) {
             const mapData = adjacentMaps.southwest;
-            const { width } = getMapDimensions(mapData);
+            const { width } = getMapDimensions();
             processMap(currentMap.adjacentMaps.southwest, mapData, -width, currentHeight);
         }
 

@@ -46,10 +46,10 @@ class GameEngine {
         
         console.log(`[GameEngine] Resolution scale: ${this.resolutionScale.toFixed(3)} (${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT} / ${this.BASE_WIDTH}x${this.BASE_HEIGHT})`);
         
-        // GLOBAL GAME SCALE
-        // This enforces a consistent world scale across all maps for seamless transitions.
-        // Map-specific 'scale' properties in JSON will be ignored in favor of this.
-        this.GAME_SCALE = 3.0;
+        // STANDARD MAP SIZE - All maps must be this size (4K)
+        // This is the source of truth for map dimensions everywhere
+        this.MAP_WIDTH = 3840;
+        this.MAP_HEIGHT = 2160;
 
         this.setupCanvas();
         
@@ -897,9 +897,9 @@ class GameEngine {
         const player = this.player;
         const map = this.currentMap;
         
-        // Use UNSCALED map dimensions for logic (Player coordinates are unscaled)
-        const mapWidth = map.width;
-        const mapHeight = map.height;
+        // Use standard 4K map dimensions (unscaled)
+        const mapWidth = this.MAP_WIDTH;
+        const mapHeight = this.MAP_HEIGHT;
         
         // Use getWidth()/getHeight() for player dimensions (Unscaled)
         const playerWidth = player.getWidth();
@@ -963,33 +963,31 @@ class GameEngine {
             let shiftX = 0;
             let shiftY = 0;
             
-            // Use UNSCALED dimensions for coordinate shifting
-            // Player coordinates are unscaled, so shift must be unscaled
-            const currentMapWidth = this.currentMap.width;
-            const currentMapHeight = this.currentMap.height;
-            const newMapWidth = newMapData.width;
-            const newMapHeight = newMapData.height;
+            // Use standard 4K map dimensions for coordinate shifting
+            // All maps are the same size, so shift is simply MAP_WIDTH or MAP_HEIGHT
+            const mapWidth = this.MAP_WIDTH;
+            const mapHeight = this.MAP_HEIGHT;
             
             if (entryDirection === 'north') {
                 // Moving UP. New map is above.
                 // Old Y=0 is New Y=Height
-                // Shift = +NewHeight
-                shiftY = newMapHeight;
+                // Shift = +Height
+                shiftY = mapHeight;
             } else if (entryDirection === 'south') {
                 // Moving DOWN. New map is below.
                 // Old Y=Height is New Y=0
-                // Shift = -OldHeight
-                shiftY = -currentMapHeight;
+                // Shift = -Height
+                shiftY = -mapHeight;
             } else if (entryDirection === 'west') {
                 // Moving LEFT. New map is left.
                 // Old X=0 is New X=Width
-                // Shift = +NewWidth
-                shiftX = newMapWidth;
+                // Shift = +Width
+                shiftX = mapWidth;
             } else if (entryDirection === 'east') {
                 // Moving RIGHT. New map is right.
                 // Old X=Width is New X=0
-                // Shift = -OldWidth
-                shiftX = -currentMapWidth;
+                // Shift = -Width
+                shiftX = -mapWidth;
             }
 
             console.log(`[Transition] Shift: x=${shiftX}, y=${shiftY} (Unscaled)`);
@@ -1012,9 +1010,8 @@ class GameEngine {
             // Camera coordinates are SCALED, so we must scale the shift
             // This is critical for the "seamless" look. The camera must move exactly as much as the player
             // so the relative position on screen stays identical.
-            const scale = this.GAME_SCALE;
-            const scaledShiftX = shiftX * scale * this.resolutionScale;
-            const scaledShiftY = shiftY * scale * this.resolutionScale;
+            const scaledShiftX = shiftX * this.resolutionScale;
+            const scaledShiftY = shiftY * this.resolutionScale;
             
             if (this.renderSystem && this.renderSystem.camera) {
                 this.renderSystem.camera.x += scaledShiftX;
@@ -1027,10 +1024,6 @@ class GameEngine {
             
             // Layers
             this.layerManager.initializeMapLayers(mapId);
-            const layers = this.layerManager.getLayers(mapId);
-            if (layers && layers.length > 0 && this.currentMap.image) {
-                layers[0].backgroundImage = this.currentMap.image;
-            }
             
             // Objects
             this.objectManager.loadObjectsForMap(mapId);
@@ -1276,18 +1269,6 @@ class GameEngine {
         // Initialize layers for this map (creates base layer if doesn't exist)
         this.layerManager.initializeMapLayers(mapId);
         
-        // Set base layer's background to the map image
-        // FORCE update the background image every time we load the map
-        // This ensures that even if the layer already existed, it gets the correct image reference
-        const layers = this.layerManager.getLayers(mapId);
-        if (layers && layers.length > 0) {
-            const baseLayer = layers[0];
-            if (this.currentMap.image) {
-                baseLayer.backgroundImage = this.currentMap.image;
-                // console.log(`[GameEngine] Updated base layer background for ${mapId}`);
-            }
-        }
-        
         // Load all objects for this map (NPCs, trees, chests, portals, etc.)
         this.objectManager.loadObjectsForMap(mapId);
         
@@ -1406,11 +1387,9 @@ class GameEngine {
     updateCamera() {
         if (!this.player || !this.currentMap) return;
         
-        // Calculate actual map dimensions (accounting for both map scale and resolution scale)
-        // Use GLOBAL GAME SCALE
-        const mapScale = this.GAME_SCALE || this.currentMap.scale || 1.0;
-        const actualMapWidth = this.currentMap.width * mapScale * this.resolutionScale;
-        const actualMapHeight = this.currentMap.height * mapScale * this.resolutionScale;
+        // Calculate actual map dimensions (using standard 4K map size)
+        const actualMapWidth = this.MAP_WIDTH * this.resolutionScale;
+        const actualMapHeight = this.MAP_HEIGHT * this.resolutionScale;
         
         // Get scaled player position for camera following
         const scaledPlayerX = this.player.getScaledX(this);
@@ -1739,9 +1718,9 @@ class GameEngine {
             const halfWidth = actorWidth / 2;
             const halfHeight = actorHeight / 2;
             
-            // Use UNSCALED map dimensions
-            const mapWidth = mapData.width;
-            const mapHeight = mapData.height;
+            // Use standard 4K map dimensions
+            const mapWidth = this.MAP_WIDTH;
+            const mapHeight = this.MAP_HEIGHT;
             
             // Check if actor would be outside map bounds
             // Allow walking off the edge IF there is an adjacent map in that direction
@@ -1846,10 +1825,9 @@ class GameEngine {
         
         // Calculate what the collision bounds would be if actor were at newX, newY
         // newX and newY are in LOGICAL space, so we need to scale them
-        const mapScale = game.currentMap?.scale || 1.0;
         const resolutionScale = game.resolutionScale || 1.0;
-        const scaledNewX = newX * mapScale * resolutionScale;
-        const scaledNewY = newY * mapScale * resolutionScale;
+        const scaledNewX = newX * resolutionScale;
+        const scaledNewY = newY * resolutionScale;
         
         const currentX = currentPosOverride ? currentPosOverride.x : movingActor.getScaledX(game);
         const currentY = currentPosOverride ? currentPosOverride.y : movingActor.getScaledY(game);

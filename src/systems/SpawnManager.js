@@ -145,11 +145,9 @@ class SpawnManager {
         
         // 3. Convert to Unscaled World Coordinates
         const resolutionScale = this.game.resolutionScale || 1.0;
-        const mapScale = this.game.GAME_SCALE || 1.0;
-        const combinedScale = mapScale * resolutionScale;
         
-        const unscaledX = position.x / combinedScale;
-        const unscaledY = position.y / combinedScale;
+        const unscaledX = position.x / resolutionScale;
+        const unscaledY = position.y / resolutionScale;
         
         // 4. Create Spirit
         const spirit = this.game.spiritRegistry.createSpirit(
@@ -242,12 +240,10 @@ class SpawnManager {
         // The x,y passed here are SCALED (from spawnZoneCache).
         // We need to unscale them to check against map zones.
         
-        const mapScale = this.game.GAME_SCALE || 1.0;
         const resolutionScale = this.game.resolutionScale || 1.0;
-        const combinedScale = mapScale * resolutionScale;
         
-        const unscaledX = x / combinedScale;
-        const unscaledY = y / combinedScale;
+        const unscaledX = x / resolutionScale;
+        const unscaledY = y / resolutionScale;
         
         // Check map collision zones
         if (this.game.collisionSystem.checkZoneCollision(unscaledX, unscaledY, this.game, null, mapId)) {
@@ -255,12 +251,12 @@ class SpawnManager {
         }
         
         // Check against other objects on that map
-        const minDistance = 64 * combinedScale; // Minimum distance between spirits
+        const minDistance = 64 * resolutionScale; // Minimum distance between spirits
         const objects = this.game.objectManager.getObjectsForMap(mapId);
         
         for (const obj of objects) {
-            const dx = (obj.x * combinedScale) - x;
-            const dy = (obj.y * combinedScale) - y;
+            const dx = (obj.x * resolutionScale) - x;
+            const dy = (obj.y * resolutionScale) - y;
             if (Math.sqrt(dx*dx + dy*dy) < minDistance) return true;
         }
         
@@ -299,16 +295,14 @@ class SpawnManager {
         const sampleRate = 32; // Coarser grid for performance
 
         if (mapData.zones) {
-            const mapScale = this.game.GAME_SCALE || mapData.scale || 1.0;
             const resolutionScale = this.game.resolutionScale || 1.0;
-            const totalScale = mapScale * resolutionScale;
 
             for (const zone of mapData.zones) {
                 if (zone.type !== 'spawn') continue;
                 
                 const scaledPoints = zone.points.map(p => ({
-                    x: p.x * totalScale,
-                    y: p.y * totalScale
+                    x: p.x * resolutionScale,
+                    y: p.y * resolutionScale
                 }));
                 
                 let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;

@@ -583,16 +583,6 @@ class EditorUI {
             mapData.name = value;
         }));
 
-        // Map Scale
-        form.appendChild(this.createConfigField('Map Scale', mapData.scale || 1, 'number', (value) => {
-            mapData.scale = parseFloat(value);
-        }, { step: 0.1, min: 0.1 }));
-
-        // Background Image
-        form.appendChild(this.createConfigField('Background Image', mapData.imageSrc, 'text', (value) => {
-            mapData.imageSrc = value;
-        }));
-
         // Background Music
         const musicOptions = ['none', 'assets/audio/bgm/00.mp3', 'assets/audio/bgm/01.mp3', 'assets/audio/bgm/02.mp3'];
         form.appendChild(this.createConfigSelect('Background Music', mapData.music || 'none', musicOptions, (value) => {
@@ -1088,7 +1078,6 @@ class EditorUI {
             mapDetails.style.cssText = 'font-size: 12px; color: #aaa;';
             mapDetails.innerHTML = `
                 ID: <code style="color: #4a9eff">${mapId}</code> | 
-                Scale: ${mapData.scale || 1} | 
                 Music: ${mapData.music ? '🎵' : '🔇'} | 
                 Ambience: ${mapData.ambience ? '🌊' : '-'}
             `;

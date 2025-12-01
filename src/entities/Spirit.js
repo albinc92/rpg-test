@@ -105,11 +105,9 @@ class Spirit extends Actor {
      */
     updateSpiritRoaming(deltaTime) {
         // Get scaled position for boundary checking
-        const mapScale = this.game?.currentMap?.scale || 1.0;
         const resolutionScale = this.game?.resolutionScale || 1.0;
-        const combinedScale = mapScale * resolutionScale;
-        const scaledX = this.x * combinedScale;
-        const scaledY = this.y * combinedScale;
+        const scaledX = this.x * resolutionScale;
+        const scaledY = this.y * resolutionScale;
         
         // Check if outside spawn zone boundaries
         const outsideSpawnZone = this.spawnZoneBounds && (
@@ -326,8 +324,7 @@ class Spirit extends Actor {
      * Render placeholder while sprite is loading
      */
     renderPlaceholder(ctx, game) {
-        const mapScale = game.currentMap?.scale || 1.0;
-        const size = 32 * this.scale * mapScale; // Default spirit size
+        const size = 32 * this.scale; // Default spirit size
         
         ctx.save();
         

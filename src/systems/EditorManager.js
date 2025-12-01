@@ -106,11 +106,9 @@ class EditorManager {
      */
     worldToUnscaled(worldX, worldY) {
         const resolutionScale = this.game.resolutionScale || 1.0;
-        const mapScale = this.game.mapManager.maps[this.game.currentMapId]?.scale || 1.0;
-        const totalScale = mapScale * resolutionScale;
         return {
-            x: worldX / totalScale,
-            y: worldY / totalScale
+            x: worldX / resolutionScale,
+            y: worldY / resolutionScale
         };
     }
     
@@ -120,11 +118,9 @@ class EditorManager {
      */
     unscaledToWorld(unscaledX, unscaledY) {
         const resolutionScale = this.game.resolutionScale || 1.0;
-        const mapScale = this.game.mapManager.maps[this.game.currentMapId]?.scale || 1.0;
-        const totalScale = mapScale * resolutionScale;
         return {
-            x: unscaledX * totalScale,
-            y: unscaledY * totalScale
+            x: unscaledX * resolutionScale,
+            y: unscaledY * resolutionScale
         };
     }
     
@@ -643,11 +639,10 @@ class EditorManager {
     getVisualBounds(obj) {
         const game = this.game;
         const resolutionScale = game?.resolutionScale || 1.0;
-        const mapScale = game?.GAME_SCALE || game?.currentMap?.scale || 1.0;
         
-        // Position: uses mapScale * resolutionScale (same as getScaledX/Y)
-        const scaledX = obj.x * mapScale * resolutionScale;
-        const scaledY = obj.y * mapScale * resolutionScale;
+        // Position: uses resolutionScale (same as getScaledX/Y)
+        const scaledX = obj.x * resolutionScale;
+        const scaledY = obj.y * resolutionScale;
         
         // Size: uses scale * resolutionScale (same as getFinalScale)
         const finalScale = (obj.scale || 1.0) * resolutionScale;
@@ -938,11 +933,9 @@ class EditorManager {
             
             // COMMON BEHAVIOR: Scale storage coordinates to world coordinates
             const resolutionScale = this.game?.resolutionScale || 1.0;
-            const mapScale = this.game?.currentMap?.scale || 1.0;
-            const totalScale = mapScale * resolutionScale;
             
-            const worldX = light.x * totalScale;
-            const worldY = light.y * totalScale;
+            const worldX = light.x * resolutionScale;
+            const worldY = light.y * resolutionScale;
             
             // Apply altitude offset if present
             const altitudeOffset = (light.altitude || 0) * resolutionScale;
@@ -1104,11 +1097,9 @@ class EditorManager {
             
             if (isLight) {
                 const resolutionScale = this.game?.resolutionScale || 1.0;
-                const mapScale = this.game?.currentMap?.scale || 1.0;
-                const totalScale = mapScale * resolutionScale;
                 
-                const worldX = obj.x * totalScale;
-                const worldY = obj.y * totalScale;
+                const worldX = obj.x * resolutionScale;
+                const worldY = obj.y * resolutionScale;
                 const altitudeOffset = (obj.altitude || 0) * resolutionScale;
                 
                 let screenX, screenY;
@@ -1804,10 +1795,9 @@ class EditorManager {
             let objCanvasX, objCanvasY;
             
             // Get scaled world position (same as getVisualBounds)
-            const mapScale = this.game.GAME_SCALE || this.game.currentMap?.scale || 1.0;
             const resolutionScale = this.game.resolutionScale || 1.0;
-            const scaledX = obj.x * mapScale * resolutionScale;
-            const scaledY = obj.y * mapScale * resolutionScale;
+            const scaledX = obj.x * resolutionScale;
+            const scaledY = obj.y * resolutionScale;
             
             if (perspectiveEnabled && webglRenderer) {
                 // Transform object's world position to canvas position using perspective
@@ -2112,12 +2102,10 @@ class EditorManager {
      */
     convertWorldToStorageCoordinates(worldX, worldY) {
         const resolutionScale = this.game?.resolutionScale || 1.0;
-        const mapScale = this.game?.currentMap?.scale || 1.0;
-        const totalScale = mapScale * resolutionScale;
         
         return {
-            x: worldX / totalScale,
-            y: worldY / totalScale
+            x: worldX / resolutionScale,
+            y: worldY / resolutionScale
         };
     }
 
@@ -2613,11 +2601,10 @@ class EditorManager {
         const mapData = this.game.mapManager.maps[mapId];
         if (!mapData) return;
         
-        // Calculate scaled dimensions to match how the map is rendered
-        const mapScale = mapData.scale || 1.0;
+        // Calculate scaled dimensions using standard 4K map size
         const resolutionScale = this.game.resolutionScale || 1.0;
-        const scaledWidth = mapData.width * mapScale * resolutionScale;
-        const scaledHeight = mapData.height * mapScale * resolutionScale;
+        const scaledWidth = this.game.MAP_WIDTH * resolutionScale;
+        const scaledHeight = this.game.MAP_HEIGHT * resolutionScale;
         
         // Create canvas for paint layer with scaled dimensions
         const canvas = document.createElement('canvas');
@@ -2625,7 +2612,7 @@ class EditorManager {
         canvas.height = scaledHeight;
         
         this.paintLayers[mapId] = canvas;
-        console.log(`[EditorManager] Initialized paint layer for map ${mapId}: ${scaledWidth}x${scaledHeight} (original: ${mapData.width}x${mapData.height}, mapScale: ${mapScale}, resScale: ${resolutionScale})`);
+        console.log(`[EditorManager] Initialized paint layer for map ${mapId}: ${scaledWidth}x${scaledHeight}`);
     }
 
     /**
@@ -2812,10 +2799,9 @@ class EditorManager {
             if (!mapData) return;
             
             // Canvas sized for rendering (with resolution scale)
-            const mapScale = mapData.scale || 1.0;
             const resolutionScale = this.game.resolutionScale || 1.0;
-            const scaledWidth = mapData.width * mapScale * resolutionScale;
-            const scaledHeight = mapData.height * mapScale * resolutionScale;
+            const scaledWidth = this.game.MAP_WIDTH * resolutionScale;
+            const scaledHeight = this.game.MAP_HEIGHT * resolutionScale;
             
             const canvas = document.createElement('canvas');
             canvas.width = scaledWidth;
@@ -2872,19 +2858,15 @@ class EditorManager {
             if (!mapData) return;
             
             // Canvas sized for rendering (with resolution scale)
-            const mapScale = mapData.scale || 1.0;
             const resolutionScale = this.game.resolutionScale || 1.0;
-            const scaledWidth = mapData.width * mapScale * resolutionScale;
-            const scaledHeight = mapData.height * mapScale * resolutionScale;
+            const scaledWidth = this.game.MAP_WIDTH * resolutionScale;
+            const scaledHeight = this.game.MAP_HEIGHT * resolutionScale;
             
             const canvas = document.createElement('canvas');
             canvas.width = scaledWidth;
             canvas.height = scaledHeight;
             this.spawnLayers[mapId] = canvas;
-            console.log(`[EditorManager] 🎨 Initialized spawn zone layer for map ${mapId}:`);
-            console.log(`  - Map dimensions: ${mapData.width}x${mapData.height}`);
-            console.log(`  - Map scale: ${mapScale}, Resolution scale: ${resolutionScale}`);
-            console.log(`  - Canvas size: ${scaledWidth}x${scaledHeight}`);
+            console.log(`[EditorManager] Initialized spawn zone layer for map ${mapId}: ${scaledWidth}x${scaledHeight}`);
         }
         
         const canvas = this.spawnLayers[mapId];
@@ -3387,10 +3369,9 @@ class EditorManager {
                 const mapData = this.game.mapManager.maps[mapId];
                 if (!mapData) return;
                 
-                const mapScale = mapData.scale || 1.0;
                 const resolutionScale = this.game.resolutionScale || 1.0;
-                const scaledWidth = mapData.width * mapScale * resolutionScale;
-                const scaledHeight = mapData.height * mapScale * resolutionScale;
+                const scaledWidth = this.game.MAP_WIDTH * resolutionScale;
+                const scaledHeight = this.game.MAP_HEIGHT * resolutionScale;
                 
                 canvas = document.createElement('canvas');
                 canvas.width = scaledWidth;
@@ -3420,10 +3401,9 @@ class EditorManager {
                 const mapData = this.game.mapManager.maps[mapId];
                 if (!mapData) return;
                 
-                const mapScale = mapData.scale || 1.0;
                 const resolutionScale = this.game.resolutionScale || 1.0;
-                const scaledWidth = mapData.width * mapScale * resolutionScale;
-                const scaledHeight = mapData.height * mapScale * resolutionScale;
+                const scaledWidth = this.game.MAP_WIDTH * resolutionScale;
+                const scaledHeight = this.game.MAP_HEIGHT * resolutionScale;
                 
                 canvas = document.createElement('canvas');
                 canvas.width = scaledWidth;
@@ -3636,10 +3616,9 @@ class EditorManager {
         const mapData = this.game.mapManager.maps[mapId];
         if (!mapData) return;
         
-        const mapScale = mapData.scale || 1.0;
         const resolutionScale = this.game.resolutionScale || 1.0;
-        const newWidth = mapData.width * mapScale * resolutionScale;
-        const newHeight = mapData.height * mapScale * resolutionScale;
+        const newWidth = this.game.MAP_WIDTH * resolutionScale;
+        const newHeight = this.game.MAP_HEIGHT * resolutionScale;
         
         // Rescale collision layer if it exists
         if (this.collisionLayers[mapId]) {

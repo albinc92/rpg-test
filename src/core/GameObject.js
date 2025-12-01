@@ -104,23 +104,19 @@ class GameObject {
     }
     
     /**
-     * Get scaled X position for rendering (applies map scale and resolution scale to position)
+     * Get scaled X position for rendering (applies resolution scale to position)
      */
     getScaledX(game) {
         const resolutionScale = game?.resolutionScale || 1.0;
-        // Use GLOBAL GAME SCALE if available
-        const mapScale = game?.GAME_SCALE || game?.currentMap?.scale || 1.0;
-        return this.x * mapScale * resolutionScale;
+        return this.x * resolutionScale;
     }
     
     /**
-     * Get scaled Y position for rendering (applies map scale and resolution scale to position)
+     * Get scaled Y position for rendering (applies resolution scale to position)
      */
     getScaledY(game) {
         const resolutionScale = game?.resolutionScale || 1.0;
-        // Use GLOBAL GAME SCALE if available
-        const mapScale = game?.GAME_SCALE || game?.currentMap?.scale || 1.0;
-        return this.y * mapScale * resolutionScale;
+        return this.y * resolutionScale;
     }
     
     /**
@@ -273,11 +269,9 @@ class GameObject {
                             // skewX = -Tx / height
                             
                             const resolutionScale = game.resolutionScale || 1.0;
-                            const mapScale = game.currentMap?.scale || 1.0;
-                            const totalScale = resolutionScale * mapScale;
                             
-                            const pixelDx = dx * totalScale;
-                            const pixelDy = dy * totalScale;
+                            const pixelDx = dx * resolutionScale;
+                            const pixelDy = dy * resolutionScale;
                             
                             const skewX = -(pixelDx * projFactor) / height;
                             const scaleY = -(pixelDy * projFactor) / height;

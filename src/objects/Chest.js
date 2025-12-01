@@ -142,8 +142,7 @@ class Chest extends InteractiveObject {
      * Render chest opening effect
      */
     renderOpeningEffect(ctx, game) {
-        const mapScale = game.currentMap?.scale || 1.0;
-        const glowRadius = 30 * mapScale * this.animationProgress;
+        const glowRadius = 30 * this.animationProgress;
         
         ctx.save();
         ctx.globalAlpha = 0.5 * (1 - this.animationProgress);
