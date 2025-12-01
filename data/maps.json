@@ -21,7 +21,9 @@
     "adjacentMaps": {
       "north": "0-1",
       "east": "1-0",
-      "west": "-1-0"
+      "west": "-1-0",
+      "northeast": "1-1",
+      "northwest": "-1-1"
     },
     "zones": [
       {
@@ -303,7 +305,9 @@
     "adjacentMaps": {
       "north": "1-1",
       "west": "0-0",
-      "east": "2-0"
+      "east": "2-0",
+      "northwest": "0-1",
+      "northeast": "2-1"
     },
     "zones": [],
     "weather": {
@@ -333,7 +337,8 @@
     "lights": [],
     "adjacentMaps": {
       "north": "-1-1",
-      "east": "0-0"
+      "east": "0-0",
+      "northeast": "0-1"
     },
     "zones": [],
     "weather": {
@@ -363,7 +368,8 @@
     "lights": [],
     "adjacentMaps": {
       "north": "2-1",
-      "west": "1-0"
+      "west": "1-0",
+      "northwest": "1-1"
     },
     "zones": [],
     "weather": {
