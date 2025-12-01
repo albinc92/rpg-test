@@ -404,27 +404,33 @@ class DesignSystem {
         // Gradient background
         const gradient = this.horizontalGradient(ctx, x, width, [
             [0, this.colors.primaryAlpha(0)],
-            [0.2, this.colors.primaryAlpha(0.2)],
-            [0.8, this.colors.primaryAlpha(0.2)],
+            [0.15, this.colors.primaryAlpha(0.2)],
+            [0.85, this.colors.primaryAlpha(0.2)],
             [1, this.colors.primaryAlpha(0)]
         ]);
         
         ctx.fillStyle = gradient;
         ctx.fillRect(x, y, width, height);
         
-        // Top/bottom accent lines
-        ctx.strokeStyle = this.colors.alpha(this.colors.text.primary, 0.2);
+        // Top/bottom accent lines - fade out at edges to match background
+        const lineGradient = this.horizontalGradient(ctx, x, width, [
+            [0, 'rgba(255, 255, 255, 0)'],
+            [0.15, 'rgba(255, 255, 255, 0.2)'],
+            [0.85, 'rgba(255, 255, 255, 0.2)'],
+            [1, 'rgba(255, 255, 255, 0)']
+        ]);
+        
+        ctx.strokeStyle = lineGradient;
         ctx.lineWidth = 1;
         
-        const inset = width * 0.1;
         ctx.beginPath();
-        ctx.moveTo(x + inset, y);
-        ctx.lineTo(x + width - inset, y);
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + width, y);
         ctx.stroke();
         
         ctx.beginPath();
-        ctx.moveTo(x + inset, y + height);
-        ctx.lineTo(x + width - inset, y + height);
+        ctx.moveTo(x, y + height);
+        ctx.lineTo(x + width, y + height);
         ctx.stroke();
     }
     
