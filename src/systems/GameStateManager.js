@@ -2423,11 +2423,11 @@ class SettingsState extends GameState {
                 musicVolume: 100,
                 effectsVolume: 100,
                 isMuted: false,
-                showFPS: true,
+                showFPS: false,
                 showDebugInfo: false,
                 resolution: '1280x720',
                 fullscreen: false,
-                vsync: false,
+                vsync: true,
                 perspectiveEnabled: true
             };
         
@@ -2467,11 +2467,11 @@ class SettingsState extends GameState {
                 musicVolume: 100,
                 effectsVolume: 100,
                 isMuted: false,
-                showFPS: true,
+                showFPS: false,
                 showDebugInfo: false,
                 resolution: '1280x720',
                 fullscreen: false,
-                vsync: false,
+                vsync: true,
                 perspectiveEnabled: true
             };
         

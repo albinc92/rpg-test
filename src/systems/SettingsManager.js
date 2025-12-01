@@ -12,12 +12,12 @@ class SettingsManager {
             musicVolume: 100,
             effectsVolume: 100,
             isMuted: false,
-            showFPS: true,
+            showFPS: false,
             showDebug: false,
             showDebugInfo: false, // Default to false for cleaner startup
             resolution: '1280x720',
             fullscreen: false,
-            vsync: false, // Default to OFF for high FPS
+            vsync: true, // Default to ON to prevent screen tearing
             // Perspective system (Diablo 2 style fake 3D)
             perspectiveEnabled: true, // Enable by default for immersion
             perspectiveStrength: 0.35 // Subtle effect (0 = none, 1 = full)
