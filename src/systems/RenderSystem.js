@@ -771,6 +771,7 @@ class RenderSystem {
 
     /**
      * Render adjacent maps (backgrounds only)
+     * Includes diagonal maps for proper fake 3D perspective rendering
      */
     renderAdjacentBackgrounds(adjacentMaps, currentMap, game) {
         if (!adjacentMaps || Object.keys(adjacentMaps).length === 0) return;
@@ -817,14 +818,23 @@ class RenderSystem {
             }
         };
 
+        // Helper to get map dimensions for offset calculations
+        const getMapDimensions = (mapData) => {
+            const mapScale = game.GAME_SCALE || mapData.scale || 1.0;
+            return {
+                width: mapData.width * mapScale * resolutionScale,
+                height: mapData.height * mapScale * resolutionScale
+            };
+        };
+
         // Get the adjacent map IDs from the current map's adjacentMaps config
         const adjacentIds = currentMap.adjacentMaps || {};
 
+        // Render Cardinal Directions
         // Render North
         if (adjacentMaps.north && adjacentIds.north) {
             const mapData = adjacentMaps.north;
-            const mapScale = game.GAME_SCALE || mapData.scale || 1.0;
-            const height = mapData.height * mapScale * resolutionScale;
+            const { height } = getMapDimensions(mapData);
             renderMapBackground(adjacentIds.north, mapData, 0, -height);
         }
 
@@ -836,8 +846,7 @@ class RenderSystem {
         // Render West
         if (adjacentMaps.west && adjacentIds.west) {
             const mapData = adjacentMaps.west;
-            const mapScale = game.GAME_SCALE || mapData.scale || 1.0;
-            const width = mapData.width * mapScale * resolutionScale;
+            const { width } = getMapDimensions(mapData);
             renderMapBackground(adjacentIds.west, mapData, -width, 0);
         }
 
@@ -845,10 +854,38 @@ class RenderSystem {
         if (adjacentMaps.east && adjacentIds.east) {
             renderMapBackground(adjacentIds.east, adjacentMaps.east, currentWidth, 0);
         }
+
+        // Render Diagonal Directions (for fake 3D perspective)
+        // Northwest: offset is (-westMapWidth, -northMapHeight)
+        if (adjacentMaps.northwest && adjacentIds.northwest) {
+            const mapData = adjacentMaps.northwest;
+            const { width, height } = getMapDimensions(mapData);
+            renderMapBackground(adjacentIds.northwest, mapData, -width, -height);
+        }
+
+        // Northeast: offset is (currentWidth, -northeastMapHeight)
+        if (adjacentMaps.northeast && adjacentIds.northeast) {
+            const mapData = adjacentMaps.northeast;
+            const { height } = getMapDimensions(mapData);
+            renderMapBackground(adjacentIds.northeast, mapData, currentWidth, -height);
+        }
+
+        // Southwest: offset is (-southwestMapWidth, currentHeight)
+        if (adjacentMaps.southwest && adjacentIds.southwest) {
+            const mapData = adjacentMaps.southwest;
+            const { width } = getMapDimensions(mapData);
+            renderMapBackground(adjacentIds.southwest, mapData, -width, currentHeight);
+        }
+
+        // Southeast: offset is (currentWidth, currentHeight)
+        if (adjacentMaps.southeast && adjacentIds.southeast) {
+            renderMapBackground(adjacentIds.southeast, adjacentMaps.southeast, currentWidth, currentHeight);
+        }
     }
 
     /**
      * Collect objects from adjacent maps and apply offsets
+     * Includes diagonal maps for proper fake 3D perspective rendering
      * Returns { objects: [], restore: function }
      */
     collectAdjacentObjects(adjacentMaps, currentMap, game) {
@@ -886,10 +923,19 @@ class RenderSystem {
             });
         };
 
+        // Helper to get map dimensions for offset calculations
+        const getMapDimensions = (mapData) => {
+            return {
+                width: mapData.width * totalScale,
+                height: mapData.height * totalScale
+            };
+        };
+
+        // Cardinal Directions
         // North
         if (adjacentMaps.north) {
             const mapData = adjacentMaps.north;
-            const height = mapData.height * totalScale;
+            const { height } = getMapDimensions(mapData);
             processMap(currentMap.adjacentMaps.north, mapData, 0, -height);
         }
 
@@ -901,13 +947,40 @@ class RenderSystem {
         // West
         if (adjacentMaps.west) {
             const mapData = adjacentMaps.west;
-            const width = mapData.width * totalScale;
+            const { width } = getMapDimensions(mapData);
             processMap(currentMap.adjacentMaps.west, mapData, -width, 0);
         }
 
         // East
         if (adjacentMaps.east) {
             processMap(currentMap.adjacentMaps.east, adjacentMaps.east, currentWidth, 0);
+        }
+
+        // Diagonal Directions (for fake 3D perspective)
+        // Northwest
+        if (adjacentMaps.northwest) {
+            const mapData = adjacentMaps.northwest;
+            const { width, height } = getMapDimensions(mapData);
+            processMap(currentMap.adjacentMaps.northwest, mapData, -width, -height);
+        }
+
+        // Northeast
+        if (adjacentMaps.northeast) {
+            const mapData = adjacentMaps.northeast;
+            const { height } = getMapDimensions(mapData);
+            processMap(currentMap.adjacentMaps.northeast, mapData, currentWidth, -height);
+        }
+
+        // Southwest
+        if (adjacentMaps.southwest) {
+            const mapData = adjacentMaps.southwest;
+            const { width } = getMapDimensions(mapData);
+            processMap(currentMap.adjacentMaps.southwest, mapData, -width, currentHeight);
+        }
+
+        // Southeast
+        if (adjacentMaps.southeast) {
+            processMap(currentMap.adjacentMaps.southeast, adjacentMaps.southeast, currentWidth, currentHeight);
         }
 
         return {

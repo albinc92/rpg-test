@@ -1022,14 +1022,20 @@ class GameEngine {
         const npcs = this.objectManager.getNPCsForMap(this.currentMapId);
         const nonNPCObjects = allObjects.filter(obj => !(obj instanceof NPC || obj instanceof Spirit));
         
-        // Get adjacent map data for rendering
+        // Get adjacent map data for rendering (cardinal + diagonal directions)
         const adjacentMapsData = {};
         if (this.currentMap.adjacentMaps) {
             const adjacent = this.currentMap.adjacentMaps;
+            // Cardinal directions
             if (adjacent.north) adjacentMapsData.north = this.mapManager.getMapData(adjacent.north);
             if (adjacent.south) adjacentMapsData.south = this.mapManager.getMapData(adjacent.south);
             if (adjacent.east) adjacentMapsData.east = this.mapManager.getMapData(adjacent.east);
             if (adjacent.west) adjacentMapsData.west = this.mapManager.getMapData(adjacent.west);
+            // Diagonal directions (for fake 3D perspective)
+            if (adjacent.northeast) adjacentMapsData.northeast = this.mapManager.getMapData(adjacent.northeast);
+            if (adjacent.northwest) adjacentMapsData.northwest = this.mapManager.getMapData(adjacent.northwest);
+            if (adjacent.southeast) adjacentMapsData.southeast = this.mapManager.getMapData(adjacent.southeast);
+            if (adjacent.southwest) adjacentMapsData.southwest = this.mapManager.getMapData(adjacent.southwest);
         }
 
         this.renderSystem.renderWorld(
@@ -1265,6 +1271,7 @@ class GameEngine {
     
     /**
      * Load adjacent maps for seamless transition
+     * Includes diagonal maps for proper fake 3D perspective rendering
      */
     async loadAdjacentMaps() {
         if (!this.currentMap || !this.currentMap.adjacentMaps) return;
@@ -1288,10 +1295,17 @@ class GameEngine {
             }
         };
 
+        // Cardinal directions
         if (adjacent.north) promises.push(loadMapAndObjects(adjacent.north));
         if (adjacent.south) promises.push(loadMapAndObjects(adjacent.south));
         if (adjacent.east) promises.push(loadMapAndObjects(adjacent.east));
         if (adjacent.west) promises.push(loadMapAndObjects(adjacent.west));
+        
+        // Diagonal directions (for fake 3D perspective)
+        if (adjacent.northeast) promises.push(loadMapAndObjects(adjacent.northeast));
+        if (adjacent.northwest) promises.push(loadMapAndObjects(adjacent.northwest));
+        if (adjacent.southeast) promises.push(loadMapAndObjects(adjacent.southeast));
+        if (adjacent.southwest) promises.push(loadMapAndObjects(adjacent.southwest));
         
         try {
             await Promise.all(promises);
