@@ -13,27 +13,24 @@ class EditorUI {
         this.chestEditor = null;
         this.portalEditor = null;
         
+        // Set the global game reference for EditorStyles so all components get proper scaling
+        EditorStyles.setGame(this.game);
+        
         this.createUI();
         this.initializeEditors();
     }
 
     /**
-     * Get the UI scale factor based on canvas height and user settings
-     * Uses percentage-based scaling like the main menu (DesignSystem)
+     * Get the UI scale factor based on user settings
+     * UI Scale is absolute - 100% means 1.0x regardless of OS display scaling
      * @returns {number} Scale factor to multiply base pixel values by
      */
     getUIScale() {
-        const canvas = this.game?.canvas;
-        const baseHeight = 1080; // Reference height (1080p)
-        const canvasHeight = canvas?.height || baseHeight;
-        
-        // Base scale from canvas size (percentage of 1080p)
-        const baseScale = canvasHeight / baseHeight;
-        
-        // User's UI scale setting (50-200%, stored as integer)
+        // User's UI scale setting (50-200%, stored as integer, default 100%)
+        // This is an absolute scale - 100% = 1.0x regardless of OS/browser scaling
         const userScale = (this.game?.settingsManager?.settings?.uiScale || 100) / 100;
         
-        return baseScale * userScale;
+        return userScale;
     }
 
     /**
@@ -564,6 +561,9 @@ class EditorUI {
      */
     applyUIScale() {
         const scale = this.getUIScale();
+        
+        // Update the global cached scale for EditorStyles
+        EditorStyles.updateCachedScale();
         
         // Update container padding
         this.container.style.padding = `${this.scaled(10)}px ${this.scaled(24)}px`;

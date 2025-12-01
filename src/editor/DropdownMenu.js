@@ -2,9 +2,6 @@
  * DropdownMenu - Reusable dropdown menu component for editor
  */
 class DropdownMenu {
-    // Static scale factor (updated by EditorUI)
-    static scale = 1.0;
-    
     constructor(label, items) {
         this.label = label;
         this.items = items; // Array of { label, action, items (for submenu), separator, disabled }
@@ -18,10 +15,17 @@ class DropdownMenu {
     }
 
     /**
+     * Get scale from EditorStyles cached value
+     */
+    getScale() {
+        return EditorStyles._cachedScale || 1.0;
+    }
+
+    /**
      * Scale a pixel value
      */
     scaled(px) {
-        return Math.round(px * DropdownMenu.scale);
+        return Math.round(px * this.getScale());
     }
 
     /**
@@ -35,8 +39,6 @@ class DropdownMenu {
      * Apply scale to this dropdown (called by EditorUI)
      */
     applyScale(scale) {
-        DropdownMenu.scale = scale;
-        
         // Update button
         if (this.button) {
             this.button.style.padding = `${this.scaledPx(8)} ${this.scaledPx(16)}`;
@@ -45,11 +47,68 @@ class DropdownMenu {
             this.button.style.gap = this.scaledPx(8);
         }
         
-        // Update menu
+        // Update menu container
         if (this.menu) {
             this.menu.style.minWidth = this.scaledPx(220);
             this.menu.style.borderRadius = this.scaledPx(8);
             this.menu.style.padding = `${this.scaledPx(6)} 0`;
+            this.menu.style.top = `calc(100% + ${this.scaledPx(4)})`;
+            
+            // Update all menu items
+            this.updateMenuItemsScale(this.menu);
+        }
+    }
+    
+    /**
+     * Update scale for all menu items in a container
+     */
+    updateMenuItemsScale(container) {
+        const menuItems = container.children;
+        for (let i = 0; i < menuItems.length; i++) {
+            const item = menuItems[i];
+            
+            // Check if it's a separator
+            if (item.style.height === '1px') {
+                item.style.margin = `${this.scaledPx(6)} 0`;
+            } else {
+                // It's a menu item
+                item.style.padding = `${this.scaledPx(10)} ${this.scaledPx(16)}`;
+                item.style.fontSize = this.scaledPx(14);
+                item.style.margin = `0 ${this.scaledPx(4)}`;
+                item.style.borderRadius = this.scaledPx(4);
+                
+                // Update label container gap
+                const labelContainer = item.querySelector('span[style*="display: flex"]');
+                if (labelContainer) {
+                    labelContainer.style.gap = this.scaledPx(10);
+                }
+                
+                // Update shortcut styling
+                const shortcut = item.querySelector('span[style*="margin-left: 20px"]');
+                if (shortcut) {
+                    shortcut.style.marginLeft = this.scaledPx(20);
+                    shortcut.style.fontSize = this.scaledPx(11);
+                    shortcut.style.padding = `${this.scaledPx(2)} ${this.scaledPx(6)}`;
+                    shortcut.style.borderRadius = this.scaledPx(3);
+                }
+                
+                // Update submenu arrow
+                const arrow = item.querySelector('span[style*="padding-left: 12px"]');
+                if (arrow) {
+                    arrow.style.paddingLeft = this.scaledPx(12);
+                }
+                
+                // Update nested submenus
+                const submenu = item.querySelector('div[style*="position: absolute"]');
+                if (submenu) {
+                    submenu.style.borderRadius = this.scaledPx(8);
+                    submenu.style.minWidth = this.scaledPx(200);
+                    submenu.style.padding = `${this.scaledPx(6)} 0`;
+                    submenu.style.marginLeft = this.scaledPx(8);
+                    submenu.style.top = this.scaledPx(-4);
+                    this.updateMenuItemsScale(submenu);
+                }
+            }
         }
     }
 
@@ -397,6 +456,9 @@ class DropdownMenu {
                 }
             });
         }
+        
+        // Apply current scale (in case settings changed since last open)
+        this.applyScale();
         
         this.isOpen = true;
         this.menu.style.display = 'block';

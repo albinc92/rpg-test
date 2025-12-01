@@ -34,17 +34,17 @@ class NPCEditor {
         
         this.panel = document.createElement('div');
         this.panel.className = 'editor-panel';
-        this.panel.style.cssText = EditorStyles.getPanelStyle(theme);
+        this.panel.style.cssText = EditorStyles.getPanelStyle(theme, this.game);
 
         // Header
         const header = document.createElement('div');
-        header.style.cssText = EditorStyles.getHeaderStyle(theme);
-        header.innerHTML = EditorStyles.createHeader(theme, 'NPC Template Editor', 'Create, Edit, and Delete NPC Templates');
+        header.style.cssText = EditorStyles.getHeaderStyle(theme, this.game);
+        header.innerHTML = EditorStyles.createHeader(theme, 'NPC Template Editor', 'Create, Edit, and Delete NPC Templates', this.game);
 
         // Close button
         const closeBtn = document.createElement('button');
         closeBtn.textContent = '×';
-        closeBtn.style.cssText = EditorStyles.getCloseButtonStyle();
+        closeBtn.style.cssText = EditorStyles.getCloseButtonStyle(this.game);
         EditorStyles.applyCloseButtonHover(closeBtn);
         closeBtn.onclick = () => this.hide();
         header.appendChild(closeBtn);
@@ -53,12 +53,12 @@ class NPCEditor {
 
         // Scrollable content
         const content = document.createElement('div');
-        content.style.cssText = EditorStyles.getContentStyle();
+        content.style.cssText = EditorStyles.getContentStyle(this.game);
 
         // New Template Button
         const newBtn = document.createElement('button');
         newBtn.textContent = '+ Create New NPC Template';
-        newBtn.style.cssText = EditorStyles.getNewButtonStyle(theme);
+        newBtn.style.cssText = EditorStyles.getNewButtonStyle(theme, this.game);
         EditorStyles.applyNewButtonHover(newBtn, theme);
         newBtn.onclick = () => this.showForm();
         content.appendChild(newBtn);
@@ -87,7 +87,7 @@ class NPCEditor {
 
         if (templates.length === 0) {
             this.listContainer.innerHTML = `
-                <div style="${EditorStyles.getEmptyStateStyle()}">
+                <div style="${EditorStyles.getEmptyStateStyle(this.game)}">
                     No NPC templates yet. Click "Create New" to add one!
                 </div>
             `;
@@ -96,7 +96,7 @@ class NPCEditor {
 
         templates.forEach(template => {
             const item = document.createElement('div');
-            item.style.cssText = EditorStyles.getListItemStyle();
+            item.style.cssText = EditorStyles.getListItemStyle(this.game);
 
             item.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -107,8 +107,8 @@ class NPCEditor {
                         </div>
                     </div>
                     <div style="display: flex; gap: 8px;">
-                        <button class="edit-btn" style="${EditorStyles.getEditButtonStyle()}">Edit</button>
-                        <button class="delete-btn" style="${EditorStyles.getDeleteButtonStyle()}">Delete</button>
+                        <button class="edit-btn" style="${EditorStyles.getEditButtonStyle(this.game)}">Edit</button>
+                        <button class="delete-btn" style="${EditorStyles.getDeleteButtonStyle(this.game)}">Delete</button>
                     </div>
                 </div>
             `;
@@ -180,7 +180,7 @@ class NPCEditor {
         // Collision dimensions
         const collisionTitle = document.createElement('div');
         collisionTitle.textContent = 'Collision Box';
-        collisionTitle.style.cssText = EditorStyles.getSectionTitleStyle();
+        collisionTitle.style.cssText = EditorStyles.getSectionTitleStyle(this.game);
         form.appendChild(collisionTitle);
 
         const collisionRow = document.createElement('div');
@@ -196,14 +196,14 @@ class NPCEditor {
         const saveBtn = document.createElement('button');
         saveBtn.type = 'submit';
         saveBtn.textContent = template ? 'Save Changes' : 'Create Template';
-        saveBtn.style.cssText = EditorStyles.getSaveButtonStyle(theme);
+        saveBtn.style.cssText = EditorStyles.getSaveButtonStyle(theme, this.game);
         EditorStyles.applySaveButtonHover(saveBtn, theme);
         buttonRow.appendChild(saveBtn);
 
         const cancelBtn = document.createElement('button');
         cancelBtn.type = 'button';
         cancelBtn.textContent = 'Cancel';
-        cancelBtn.style.cssText = EditorStyles.getCancelButtonStyle();
+        cancelBtn.style.cssText = EditorStyles.getCancelButtonStyle(this.game);
         EditorStyles.applyCancelButtonHover(cancelBtn);
         cancelBtn.onclick = () => this.hideForm();
         buttonRow.appendChild(cancelBtn);
@@ -220,11 +220,11 @@ class NPCEditor {
 
     createField(label, type, name, value, placeholder = '', step = null) {
         const container = document.createElement('div');
-        container.style.cssText = EditorStyles.getFieldContainerStyle();
+        container.style.cssText = EditorStyles.getFieldContainerStyle(this.game);
 
         const labelEl = document.createElement('label');
         labelEl.textContent = label;
-        labelEl.style.cssText = EditorStyles.getLabelStyle();
+        labelEl.style.cssText = EditorStyles.getLabelStyle(this.game);
         container.appendChild(labelEl);
 
         const input = document.createElement('input');
@@ -233,7 +233,7 @@ class NPCEditor {
         input.value = value;
         if (placeholder) input.placeholder = placeholder;
         if (step) input.step = step;
-        input.style.cssText = EditorStyles.getInputStyle();
+        input.style.cssText = EditorStyles.getInputStyle(this.game);
         EditorStyles.applyInputFocus(input);
         container.appendChild(input);
 

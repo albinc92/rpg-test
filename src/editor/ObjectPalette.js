@@ -9,6 +9,13 @@ class ObjectPalette {
     }
 
     /**
+     * Helper to get scaled pixel value
+     */
+    scaledPx(px) {
+        return `${Math.round(px * (EditorStyles._cachedScale || 1.0))}px`;
+    }
+
+    /**
      * Create UI elements
      */
     createUI() {
@@ -16,18 +23,19 @@ class ObjectPalette {
         this.container.id = 'object-palette';
         this.container.style.cssText = `
             position: fixed;
-            left: 10px;
-            top: 80px;
-            width: 250px;
-            max-height: 600px;
+            left: ${this.scaledPx(10)};
+            top: ${this.scaledPx(80)};
+            width: ${this.scaledPx(250)};
+            max-height: ${this.scaledPx(600)};
             background: rgba(0, 0, 0, 0.9);
             color: white;
-            padding: 15px;
+            padding: ${this.scaledPx(15)};
             font-family: Arial, sans-serif;
+            font-size: ${this.scaledPx(14)};
             z-index: 1000;
             display: none;
             border: 2px solid #444;
-            border-radius: 8px;
+            border-radius: ${this.scaledPx(8)};
             overflow-y: auto;
         `;
 
@@ -35,6 +43,7 @@ class ObjectPalette {
         const title = document.createElement('h3');
         title.textContent = 'Object Palette';
         title.style.marginTop = '0';
+        title.style.fontSize = this.scaledPx(16);
         this.container.appendChild(title);
 
         // Category tabs
@@ -47,8 +56,8 @@ class ObjectPalette {
         const tabContainer = document.createElement('div');
         tabContainer.style.cssText = `
             display: flex;
-            gap: 5px;
-            margin-bottom: 15px;
+            gap: ${this.scaledPx(5)};
+            margin-bottom: ${this.scaledPx(15)};
         `;
 
         categories.forEach((cat, i) => {
@@ -57,12 +66,13 @@ class ObjectPalette {
             tab.title = cat.label;
             tab.style.cssText = `
                 flex: 1;
-                padding: 8px;
+                padding: ${this.scaledPx(8)};
                 background: ${i === 0 ? '#4a9eff' : '#333'};
                 color: white;
                 border: 1px solid #555;
                 cursor: pointer;
-                border-radius: 4px;
+                border-radius: ${this.scaledPx(4)};
+                font-size: ${this.scaledPx(14)};
             `;
             tab.onclick = () => {
                 // Update active tab
@@ -195,14 +205,15 @@ class ObjectPalette {
             btn.textContent = obj.icon + ' ' + obj.name;
             btn.style.cssText = `
                 width: 100%;
-                padding: 10px;
-                margin-bottom: 5px;
+                padding: ${this.scaledPx(10)};
+                margin-bottom: ${this.scaledPx(5)};
                 background: #333;
                 color: white;
                 border: 1px solid #555;
                 cursor: pointer;
                 text-align: left;
-                border-radius: 4px;
+                border-radius: ${this.scaledPx(4)};
+                font-size: ${this.scaledPx(14)};
                 transition: background 0.2s;
             `;
             btn.onmouseover = () => btn.style.background = '#555';

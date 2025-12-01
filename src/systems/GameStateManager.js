@@ -2196,6 +2196,11 @@ class SettingsState extends GameState {
                 // Apply audio settings immediately
                 this.applyAudioSettings();
                 
+                // Apply UI scale changes immediately
+                if (option.key === 'uiScale') {
+                    this.applyUIScaleSetting();
+                }
+                
                 // Play a test sound for volume adjustment feedback (preview only)
                 // Don't spam sound when repeating rapidly
                 if ((option.key === 'effectsVolume' || option.key === 'masterVolume') && !isRepeat) {
@@ -2355,6 +2360,14 @@ class SettingsState extends GameState {
         }
     }
 
+    applyUIScaleSetting() {
+        // Update the global cached scale for EditorStyles
+        // This affects all editor components that use EditorStyles
+        if (typeof EditorStyles !== 'undefined') {
+            EditorStyles.updateCachedScale();
+            console.log(`[SettingsState] UI Scale updated to ${this.game.settings.uiScale}%`);
+        }
+    }
     
     saveSettings() {
         // Sync changes back to SettingsManager and save (handles Electron IPC)

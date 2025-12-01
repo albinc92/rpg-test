@@ -5,6 +5,66 @@
  */
 
 class EditorStyles {
+    // Global cached scale value - set once by EditorUI when settings change
+    static _cachedScale = 1.0;
+    static _gameRef = null;
+    
+    /**
+     * Set the global game reference for scaling
+     * Called by EditorUI when editor is initialized or settings change
+     * @param {Object} game - Game instance
+     */
+    static setGame(game) {
+        EditorStyles._gameRef = game;
+        EditorStyles.updateCachedScale();
+    }
+    
+    /**
+     * Update the cached scale value from settings
+     * Call this when UI scale setting changes
+     */
+    static updateCachedScale() {
+        const game = EditorStyles._gameRef;
+        const userScale = (game?.settingsManager?.settings?.uiScale || 100) / 100;
+        EditorStyles._cachedScale = userScale;
+    }
+    
+    /**
+     * Get the UI scale factor based on user settings
+     * UI Scale is absolute - 100% means 1.0x regardless of OS display scaling
+     * @param {Object} game - Game instance to read settings from (optional, uses cached if not provided)
+     * @returns {number} Scale factor to multiply base pixel values by
+     */
+    static getUIScale(game = null) {
+        // If game is explicitly provided, use it
+        if (game) {
+            const userScale = (game?.settingsManager?.settings?.uiScale || 100) / 100;
+            return userScale;
+        }
+        // Otherwise use cached scale
+        return EditorStyles._cachedScale;
+    }
+
+    /**
+     * Scale a pixel value according to UI scale
+     * @param {number} px - Base pixel value
+     * @param {Object} game - Game instance (optional)
+     * @returns {number} Scaled pixel value
+     */
+    static scaled(px, game = null) {
+        return Math.round(px * EditorStyles.getUIScale(game));
+    }
+
+    /**
+     * Get a scaled CSS value with 'px' suffix
+     * @param {number} px - Base pixel value
+     * @param {Object} game - Game instance (optional)
+     * @returns {string} Scaled value with 'px' suffix
+     */
+    static scaledPx(px, game = null) {
+        return `${EditorStyles.scaled(px, game)}px`;
+    }
+
     /**
      * Color themes for different editor types
      */
@@ -56,20 +116,22 @@ class EditorStyles {
     /**
      * Get panel style for editor
      */
-    static getPanelStyle(theme) {
+    static getPanelStyle(theme, game = null) {
+        const s = (px) => EditorStyles.scaledPx(px, game);
         return `
             position: fixed;
-            right: 20px;
-            top: 80px;
-            width: 380px;
+            right: ${s(20)};
+            top: ${s(80)};
+            width: ${s(380)};
             max-height: 85vh;
             background: rgba(20, 20, 25, 0.95);
             border: 1px solid ${theme.primary};
-            border-radius: 12px;
+            border-radius: ${s(12)};
             padding: 0;
             color: #ecf0f1;
             font-family: 'Lato', sans-serif;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+            font-size: ${s(14)};
+            box-shadow: 0 ${s(10)} ${s(40)} rgba(0, 0, 0, 0.6);
             backdrop-filter: blur(12px);
             display: flex;
             flex-direction: column;
@@ -82,12 +144,13 @@ class EditorStyles {
     /**
      * Get header style for editor
      */
-    static getHeaderStyle(theme) {
+    static getHeaderStyle(theme, game = null) {
+        const s = (px) => EditorStyles.scaledPx(px, game);
         return `
-            padding: 16px 24px;
+            padding: ${s(16)} ${s(24)};
             background: linear-gradient(135deg, ${theme.primaryLight}, rgba(0,0,0,0));
             border-bottom: 1px solid rgba(255,255,255,0.1);
-            border-radius: 12px 12px 0 0;
+            border-radius: ${s(12)} ${s(12)} 0 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -97,11 +160,12 @@ class EditorStyles {
     /**
      * Get content area style
      */
-    static getContentStyle() {
+    static getContentStyle(game = null) {
+        const s = (px) => EditorStyles.scaledPx(px, game);
         return `
             overflow-y: auto;
             flex: 1;
-            padding: 20px;
+            padding: ${s(20)};
             pointer-events: auto;
             overscroll-behavior: contain;
         `;
@@ -110,14 +174,15 @@ class EditorStyles {
     /**
      * Get close button style
      */
-    static getCloseButtonStyle() {
+    static getCloseButtonStyle(game = null) {
+        const s = (px) => EditorStyles.scaledPx(px, game);
         return `
             background: transparent;
             border: none;
             color: #e74c3c;
-            font-size: 20px;
-            width: 32px;
-            height: 32px;
+            font-size: ${s(20)};
+            width: ${s(32)};
+            height: ${s(32)};
             border-radius: 50%;
             cursor: pointer;
             display: flex;
@@ -130,18 +195,19 @@ class EditorStyles {
     /**
      * Get new button style
      */
-    static getNewButtonStyle(theme) {
+    static getNewButtonStyle(theme, game = null) {
+        const s = (px) => EditorStyles.scaledPx(px, game);
         return `
             width: 100%;
-            padding: 12px;
+            padding: ${s(12)};
             background: ${theme.primaryLight};
             border: 1px solid ${theme.primary};
-            border-radius: 8px;
+            border-radius: ${s(8)};
             color: ${theme.accent};
             cursor: pointer;
             font-weight: 700;
-            margin-bottom: 20px;
-            font-size: 14px;
+            margin-bottom: ${s(20)};
+            font-size: ${s(14)};
             transition: all 0.2s;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -151,13 +217,14 @@ class EditorStyles {
     /**
      * Get list item style
      */
-    static getListItemStyle() {
+    static getListItemStyle(game = null) {
+        const s = (px) => EditorStyles.scaledPx(px, game);
         return `
-            padding: 14px;
-            margin-bottom: 10px;
+            padding: ${s(14)};
+            margin-bottom: ${s(10)};
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
+            border-radius: ${s(8)};
             cursor: pointer;
             transition: all 0.2s;
             display: flex;
@@ -169,15 +236,16 @@ class EditorStyles {
     /**
      * Get edit button style
      */
-    static getEditButtonStyle() {
+    static getEditButtonStyle(game = null) {
+        const s = (px) => EditorStyles.scaledPx(px, game);
         return `
             background: rgba(52, 152, 219, 0.15);
             border: 1px solid rgba(52, 152, 219, 0.3);
             color: #3498db;
-            padding: 6px 14px;
-            border-radius: 6px;
+            padding: ${s(6)} ${s(14)};
+            border-radius: ${s(6)};
             cursor: pointer;
-            font-size: 12px;
+            font-size: ${s(12)};
             font-weight: 600;
             transition: all 0.2s;
         `;
@@ -186,15 +254,16 @@ class EditorStyles {
     /**
      * Get delete button style
      */
-    static getDeleteButtonStyle() {
+    static getDeleteButtonStyle(game = null) {
+        const s = (px) => EditorStyles.scaledPx(px, game);
         return `
             background: rgba(231, 76, 60, 0.15);
             border: 1px solid rgba(231, 76, 60, 0.3);
             color: #e74c3c;
-            padding: 6px 14px;
-            border-radius: 6px;
+            padding: ${s(6)} ${s(14)};
+            border-radius: ${s(6)};
             cursor: pointer;
-            font-size: 12px;
+            font-size: ${s(12)};
             font-weight: 600;
             transition: all 0.2s;
         `;
@@ -203,21 +272,23 @@ class EditorStyles {
     /**
      * Get form field container style
      */
-    static getFieldContainerStyle() {
+    static getFieldContainerStyle(game = null) {
+        const s = (px) => EditorStyles.scaledPx(px, game);
         return `
             display: flex;
             flex-direction: column;
-            gap: 6px;
-            margin-bottom: 16px;
+            gap: ${s(6)};
+            margin-bottom: ${s(16)};
         `;
     }
 
     /**
      * Get form label style
      */
-    static getLabelStyle() {
+    static getLabelStyle(game = null) {
+        const s = (px) => EditorStyles.scaledPx(px, game);
         return `
-            font-size: 12px;
+            font-size: ${s(12)};
             color: #95a5a6;
             font-weight: 600;
             text-transform: uppercase;
@@ -228,14 +299,15 @@ class EditorStyles {
     /**
      * Get form input style
      */
-    static getInputStyle() {
+    static getInputStyle(game = null) {
+        const s = (px) => EditorStyles.scaledPx(px, game);
         return `
-            padding: 10px 12px;
+            padding: ${s(10)} ${s(12)};
             background: rgba(0, 0, 0, 0.3);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 6px;
+            border-radius: ${s(6)};
             color: #ecf0f1;
-            font-size: 14px;
+            font-size: ${s(14)};
             font-family: 'Lato', sans-serif;
             transition: all 0.2s;
             outline: none;
@@ -245,51 +317,56 @@ class EditorStyles {
     /**
      * Get section title style
      */
-    static getSectionTitleStyle() {
+    static getSectionTitleStyle(game = null) {
+        const s = (px) => EditorStyles.scaledPx(px, game);
         return `
             font-weight: 700;
             color: #fff;
-            margin-top: 24px;
-            margin-bottom: 12px;
-            font-size: 16px;
+            margin-top: ${s(24)};
+            margin-bottom: ${s(12)};
+            font-size: ${s(16)};
             border-bottom: 1px solid rgba(255,255,255,0.1);
-            padding-bottom: 8px;
+            padding-bottom: ${s(8)};
         `;
     }
 
     /**
      * Get save button style
      */
-    static getSaveButtonStyle(theme) {
+    static getSaveButtonStyle(theme, game = null) {
+        const s = (px) => EditorStyles.scaledPx(px, game);
         return `
             flex: 1;
-            padding: 12px;
+            padding: ${s(12)};
             background: ${theme.primary};
             border: none;
-            border-radius: 6px;
+            border-radius: ${s(6)};
             color: #fff;
             cursor: pointer;
             font-weight: 700;
+            font-size: ${s(14)};
             transition: all 0.2s;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            box-shadow: 0 ${s(4)} ${s(12)} rgba(0,0,0,0.2);
         `;
     }
 
     /**
      * Get cancel button style
      */
-    static getCancelButtonStyle() {
+    static getCancelButtonStyle(game = null) {
+        const s = (px) => EditorStyles.scaledPx(px, game);
         return `
             flex: 1;
-            padding: 12px;
+            padding: ${s(12)};
             background: transparent;
             border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 6px;
+            border-radius: ${s(6)};
             color: #bdc3c7;
             cursor: pointer;
             font-weight: 600;
+            font-size: ${s(14)};
             transition: all 0.2s;
         `;
     }
@@ -297,26 +374,29 @@ class EditorStyles {
     /**
      * Get empty state style
      */
-    static getEmptyStateStyle() {
+    static getEmptyStateStyle(game = null) {
+        const s = (px) => EditorStyles.scaledPx(px, game);
         return `
-            padding: 40px 20px;
+            padding: ${s(40)} ${s(20)};
             text-align: center;
             color: #7f8c8d;
             background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
+            border-radius: ${s(8)};
             border: 1px dashed rgba(255, 255, 255, 0.1);
-            margin: 10px 0;
+            margin: ${s(10)} 0;
+            font-size: ${s(14)};
         `;
     }
 
     /**
      * Create standardized header HTML
      */
-    static createHeader(theme, title, subtitle) {
+    static createHeader(theme, title, subtitle, game = null) {
+        const s = (px) => EditorStyles.scaledPx(px, game);
         return `
             <div>
-                <h3 style="margin: 0; font-size: 20px; font-weight: 700; color: ${theme.accent}; font-family: 'Cinzel', serif;">${title}</h3>
-                <div style="font-size: 12px; color: #bdc3c7; margin-top: 4px;">${subtitle}</div>
+                <h3 style="margin: 0; font-size: ${s(20)}; font-weight: 700; color: ${theme.accent}; font-family: 'Cinzel', serif;">${title}</h3>
+                <div style="font-size: ${s(12)}; color: #bdc3c7; margin-top: ${s(4)};">${subtitle}</div>
             </div>
         `;
     }
