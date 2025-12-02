@@ -172,16 +172,13 @@ class EditorManager {
                     
                     // Delete multiple selected objects
                     if (this.selectedObjects.length > 0) {
-                        console.log(`[EditorManager] Deleting ${this.selectedObjects.length} selected objects`);
                         for (const obj of this.selectedObjects) {
-                            console.log('[DELETE] Multi-delete:', obj.name || obj.objectType, 'at', obj.x, obj.y);
                             this.deleteObject(obj);
                         }
                         this.selectedObjects = [];
                     } 
                     // Delete single selected object
                     else if (this.selectedObject) {
-                        console.log('[DELETE] Single delete:', this.selectedObject.name || this.selectedObject.objectType, 'at', this.selectedObject.x, this.selectedObject.y);
                         this.deleteObject(this.selectedObject);
                     }
                 }
@@ -592,18 +589,15 @@ class EditorManager {
         let worldY = worldCanvasY + camera.y;
         
         // Store the screen-relative world position BEFORE perspective transform
-        // This is used for preview rendering (so preview appears at cursor position)
+        // This is used for preview rendering and placement (so preview appears at cursor position)
         this.mouseScreenWorldX = worldX;
         this.mouseScreenWorldY = worldY;
-        
-        console.log('[MOUSE] Before perspective - mouseScreenWorldX/Y:', worldX, worldY);
 
         // If perspective mode is active, use inverse perspective transform
         // This allows clicking on objects where they visually appear
         const webglRenderer = this.game.renderSystem?.webglRenderer;
         if (webglRenderer) {
             const perspectiveParams = webglRenderer.getPerspectiveParams();
-            console.log('[MOUSE] Perspective enabled:', perspectiveParams.enabled, 'Strength:', perspectiveParams.strength);
             if (perspectiveParams.enabled) {
                 // Transform screen click position to world coordinates accounting for perspective
                 // IMPORTANT: Pass zoom-adjusted worldCanvasX/Y, not raw mouseCanvasX/Y
@@ -612,8 +606,6 @@ class EditorManager {
                     worldCanvasX, worldCanvasY,
                     camera.x, camera.y
                 );
-                console.log('[MOUSE] transformScreenToWorld input:', worldCanvasX, worldCanvasY, 'camera:', camera.x, camera.y);
-                console.log('[MOUSE] transformScreenToWorld output:', worldPos.worldX, worldPos.worldY);
                 worldX = worldPos.worldX;
                 worldY = worldPos.worldY;
             }
@@ -622,8 +614,6 @@ class EditorManager {
         // Store unsnapped coordinates (always available for multi-select)
         this.mouseWorldXUnsnapped = worldX;
         this.mouseWorldYUnsnapped = worldY;
-        
-        console.log('[MOUSE] Final mouseWorldXUnsnapped/Y:', worldX, worldY);
 
         // Store canvas coordinates for drag selection (logical canvas space, no zoom/camera)
         this.mouseCanvasX = mouseCanvasX;
@@ -760,7 +750,8 @@ class EditorManager {
     }
     
     /**
-     * Render preview sprite to WebGL (called from RenderSystem before endFrame)
+     * Render preview sprite to WebGL (called from RenderSystem during sprite pass)
+     * This is rendered with billboardMode ON, so it gets the same perspective as placed objects
      */
     renderPreviewToWebGL(webglRenderer, cameraX, cameraY) {
         if (!this.isActive) return;
@@ -770,7 +761,6 @@ class EditorManager {
         if (!sprite || !sprite.complete) return;
 
         // Use screen-relative world position for POSITION (so preview stays at cursor)
-        // But use perspective-corrected world position to calculate the SIZE scale
         let posWorldX = this.mouseScreenWorldX;
         let posWorldY = this.mouseScreenWorldY;
         
@@ -791,20 +781,28 @@ class EditorManager {
         let scaledWidth = spriteWidth * finalScale;
         let scaledHeight = spriteHeight * finalScale;
         
-        // Apply perspective scale based on where the object would be placed (mouseWorldY)
-        // This makes the preview size match how the object will look after placement
+        // Apply perspective scale to SIZE (so preview shows how big the object will look)
+        // But keep position at cursor (don't shift it)
         const perspectiveParams = webglRenderer.getPerspectiveParams();
-        if (perspectiveParams.enabled) {
-            // Get the perspective scale factor for the actual world position
-            const transformed = webglRenderer.transformWorldToScreen(
-                this.mouseWorldX, 
-                this.mouseWorldY, 
-                cameraX, 
-                cameraY
-            );
-            // Apply perspective scale to size
-            scaledWidth *= transformed.scale;
-            scaledHeight *= transformed.scale;
+        if (perspectiveParams.enabled && perspectiveParams.viewMatrix && perspectiveParams.projectionMatrix) {
+            const vm = perspectiveParams.viewMatrix;
+            const pm = perspectiveParams.projectionMatrix;
+            
+            // Calculate depth-based scale at this world position
+            // Use the sprite base position for depth calculation
+            const baseX = posWorldX;
+            const baseY = posWorldY + scaledHeight / 2; // Bottom of sprite
+            
+            const viewX = baseX * vm[0] + baseY * vm[4] + vm[12];
+            const viewY = baseX * vm[1] + baseY * vm[5] + vm[13];
+            const clipY = viewX * pm[1] + viewY * pm[5] + pm[13];
+            
+            const depth = (clipY + 1.0) * 0.5;
+            const perspectiveW = 1.0 + (depth * perspectiveParams.strength);
+            const perspectiveScale = 1.0 / perspectiveW;
+            
+            scaledWidth *= perspectiveScale;
+            scaledHeight *= perspectiveScale;
         }
         
         // Position from center (at cursor position)
@@ -1282,29 +1280,38 @@ class EditorManager {
             spriteHeight = sprite.naturalHeight;
         }
         
-        // Calculate sprite dimensions
+        // Calculate sprite dimensions - use SAME perspective-scaled size as the sprite preview
         const resolutionScale = this.game.resolutionScale || 1;
         const finalScale = scale * resolutionScale;
         let scaledWidth = spriteWidth * finalScale;
         let scaledHeight = spriteHeight * finalScale;
         
-        // Apply perspective scale based on where the object would be placed
+        // Apply perspective scale to match the sprite preview (which also scales)
         const webglRenderer = this.game.renderSystem?.webglRenderer;
         if (webglRenderer) {
             const perspectiveParams = webglRenderer.getPerspectiveParams();
-            if (perspectiveParams.enabled) {
-                const transformed = webglRenderer.transformWorldToScreen(
-                    this.mouseWorldX, 
-                    this.mouseWorldY, 
-                    camera.x, 
-                    camera.y
-                );
-                scaledWidth *= transformed.scale;
-                scaledHeight *= transformed.scale;
+            if (perspectiveParams.enabled && perspectiveParams.viewMatrix && perspectiveParams.projectionMatrix) {
+                const vm = perspectiveParams.viewMatrix;
+                const pm = perspectiveParams.projectionMatrix;
+                
+                // Calculate depth-based scale at this world position (same as renderPreviewToWebGL)
+                const baseX = posWorldX;
+                const baseY = posWorldY + scaledHeight / 2; // Bottom of sprite
+                
+                const viewX = baseX * vm[0] + baseY * vm[4] + vm[12];
+                const viewY = baseX * vm[1] + baseY * vm[5] + vm[13];
+                const clipY = viewX * pm[1] + viewY * pm[5] + pm[13];
+                
+                const depth = (clipY + 1.0) * 0.5;
+                const perspectiveW = 1.0 + (depth * perspectiveParams.strength);
+                const perspectiveScale = 1.0 / perspectiveW;
+                
+                scaledWidth *= perspectiveScale;
+                scaledHeight *= perspectiveScale;
             }
         }
         
-        // Calculate collision bounds
+        // Calculate collision bounds using perspective-scaled size
         const expandTop = (this.selectedPrefab.collisionExpandTopPercent || 0) * scaledHeight;
         const expandBottom = (this.selectedPrefab.collisionExpandBottomPercent || 0) * scaledHeight;
         const expandLeft = (this.selectedPrefab.collisionExpandLeftPercent || 0) * scaledWidth;
@@ -1313,7 +1320,7 @@ class EditorManager {
         let collisionWidth = scaledWidth + expandLeft + expandRight;
         let collisionHeight = scaledHeight + expandTop + expandBottom;
         
-        // Calculate base position (centered on sprite) in world space
+        // Calculate base position (centered on sprite) at cursor position
         let collisionX = posWorldX - collisionWidth / 2;
         let collisionY = posWorldY - collisionHeight / 2;
         
@@ -1681,12 +1688,6 @@ class EditorManager {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         
-        console.log('[CLICK DEBUG] clientX/Y:', e.clientX, e.clientY);
-        console.log('[CLICK DEBUG] rect.left/top:', rect.left, rect.top);
-        console.log('[CLICK DEBUG] relative x/y:', x, y);
-        console.log('[CLICK DEBUG] mouseWorld:', this.mouseWorldX, this.mouseWorldY);
-        console.log('[CLICK DEBUG] camera:', this.game.camera.x, this.game.camera.y);
-        
         // Handle paint tool
         if (this.selectedTool === 'paint') {
             this.startPainting(x, y);
@@ -1855,14 +1856,9 @@ class EditorManager {
         const minCanvasY = Math.min(this.multiSelectStart.y, this.multiSelectEnd.y);
         const maxCanvasY = Math.max(this.multiSelectStart.y, this.multiSelectEnd.y);
         
-        console.log('[MULTISELECT] Box (canvas):', minCanvasX.toFixed(1), minCanvasY.toFixed(1), 'to', maxCanvasX.toFixed(1), maxCanvasY.toFixed(1));
-        console.log('[MULTISELECT] perspective:', perspectiveEnabled, 'zoom:', zoom);
-        
         // Find all objects within selection box
         const objects = this.game.objectManager.getObjectsForMap(this.game.currentMapId);
         this.selectedObjects = [];
-        
-        console.log('[MULTISELECT] Total objects on map:', objects.length);
         
         for (const obj of objects) {
             // Get object's canvas position (where it appears on screen)
@@ -1891,23 +1887,12 @@ class EditorManager {
                 objCanvasY = (rawCanvasY - centerY) * zoom + centerY;
             }
             
-            // Debug: log first few objects
-            if (objects.indexOf(obj) < 3) {
-                console.log('[MULTISELECT] Object:', obj.name || obj.objectType, 
-                    'world:', scaledX.toFixed(1), scaledY.toFixed(1),
-                    'canvas:', objCanvasX.toFixed(1), objCanvasY.toFixed(1),
-                    'box:', minCanvasX.toFixed(1), '-', maxCanvasX.toFixed(1), ',', minCanvasY.toFixed(1), '-', maxCanvasY.toFixed(1));
-            }
-            
             // Check if object's canvas position is within selection box
             if (objCanvasX >= minCanvasX && objCanvasX <= maxCanvasX && 
                 objCanvasY >= minCanvasY && objCanvasY <= maxCanvasY) {
                 this.selectedObjects.push(obj);
-                console.log('[MULTISELECT] Selected:', obj.name || obj.objectType, 'at canvas', objCanvasX.toFixed(1), objCanvasY.toFixed(1));
             }
         }
-        
-        console.log(`[EditorManager] Multi-selected ${this.selectedObjects.length} objects`);
         
         // If only one object selected, treat as single selection
         if (this.selectedObjects.length === 1) {
@@ -1996,7 +1981,6 @@ class EditorManager {
             }
             
             this.selectZone(null);
-            console.log('[EditorManager] Deleted zone');
         }
     }
 
@@ -2007,8 +1991,6 @@ class EditorManager {
         // Mouse world coordinates are SCALED (for rendering)
         const worldX = this.mouseWorldXUnsnapped;
         const worldY = this.mouseWorldYUnsnapped;
-        
-        console.log('[SELECT] Click - screen:', x, y, 'world (scaled):', worldX, worldY);
         
         // Check if light editor is in placement mode
         if (this.lightEditor && this.lightEditor.placementMode) {
@@ -2021,8 +2003,6 @@ class EditorManager {
         // Check for light selection (check lights BEFORE regular objects)
         const selectedLight = this.game.lightManager.findLightAtPosition(worldX, worldY);
         if (selectedLight) {
-            console.log('[SELECT] Selected light:', selectedLight.id);
-            
             // Treat light as selected object
             this.selectObject(selectedLight);
             
@@ -2036,8 +2016,6 @@ class EditorManager {
             // Not multi-selecting when clicking a light
             this.isMultiSelecting = false;
             
-            console.log('[SELECT] Selected light:', selectedLight.templateName, 'at unscaled:', selectedLight.x, selectedLight.y);
-            
             return true;
         }
         
@@ -2050,15 +2028,9 @@ class EditorManager {
             const obj = objects[i];
             const bounds = obj.getCollisionBounds(this.game);
             
-            console.log(`[SELECT] Checking object ${i}: ${obj.name || obj.objectType} at unscaled (${obj.x}, ${obj.y})`);
-            console.log(`[SELECT]   Bounds (scaled): x=${bounds.x.toFixed(1)}, y=${bounds.y.toFixed(1)}, w=${bounds.width.toFixed(1)}, h=${bounds.height.toFixed(1)}`);
-            console.log(`[SELECT]   Mouse (scaled): x=${worldX.toFixed(1)}, y=${worldY.toFixed(1)}`);
-            console.log(`[SELECT]   Hit test: ${worldX >= bounds.x && worldX <= bounds.x + bounds.width && worldY >= bounds.y && worldY <= bounds.y + bounds.height}`);
-            
             if (worldX >= bounds.x && worldX <= bounds.x + bounds.width &&
                 worldY >= bounds.y && worldY <= bounds.y + bounds.height) {
                 
-                console.log('[SELECT] ✓ HIT! Selecting this object');
                 this.selectObject(obj);
                 
                 // For dragging, we need unscaled offset (obj.x/y are unscaled)
@@ -2070,8 +2042,6 @@ class EditorManager {
                 
                 // Not multi-selecting when clicking an object
                 this.isMultiSelecting = false;
-                
-                console.log('[SELECT] Selected:', obj.name || obj.objectType, 'at unscaled:', obj.x, obj.y);
                 
                 return true;
             }
@@ -2093,7 +2063,6 @@ class EditorManager {
                     // Store original points for dragging
                     this.dragOriginalPoints = zone.points.map(p => ({...p}));
                     
-                    console.log('[SELECT] Selected zone');
                     return true;
                 }
             }
@@ -2101,7 +2070,6 @@ class EditorManager {
         
         // Clicked empty space - start multi-select or deselect
         // Use canvas coordinates for the selection box (drawn directly on canvas)
-        console.log('[MULTISELECT] Starting at canvas:', this.mouseCanvasX, this.mouseCanvasY);
         this.multiSelectStart = { x: this.mouseCanvasX, y: this.mouseCanvasY };
         this.multiSelectEnd = { x: this.mouseCanvasX, y: this.mouseCanvasY }; // Initialize to same position
         this.isMultiSelecting = true;
@@ -2113,50 +2081,57 @@ class EditorManager {
      * Handle place tool click
      */
     handlePlaceClick(x, y) {
-        console.log('=== PLACEMENT DEBUG START ===');
-        console.log('[PLACE] Screen click at:', x, y);
-        console.log('[PLACE] mouseCanvasX/Y:', this.mouseCanvasX, this.mouseCanvasY);
-        console.log('[PLACE] mouseScreenWorldX/Y:', this.mouseScreenWorldX, this.mouseScreenWorldY);
-        console.log('[PLACE] mouseWorldX/Y (snapped):', this.mouseWorldX, this.mouseWorldY);
-        console.log('[PLACE] mouseWorldXUnsnapped/Y:', this.mouseWorldXUnsnapped, this.mouseWorldYUnsnapped);
-        console.log('[PLACE] Camera:', this.game.camera.x, this.game.camera.y, 'Zoom:', this.game.camera.zoom);
-        console.log('[PLACE] Resolution scale:', this.game.resolutionScale);
-        console.log('[PLACE] Grid snap enabled:', this.snapToGrid, 'Grid size:', this.gridSize);
-        console.log('[PLACE] Selected prefab:', this.selectedPrefab);
-        
         if (!this.selectedPrefab) {
-            console.log('[PLACE] No prefab selected - aborting');
             return true;
         }
         
-        // Use mouseWorldXUnsnapped/Y - the perspective-corrected world coordinates
-        // This matches exactly how dragging works, which places objects correctly
-        let placeX = this.mouseWorldXUnsnapped;
-        let placeY = this.mouseWorldYUnsnapped;
-        
-        console.log('[PLACE] Using mouseWorldXUnsnapped for placement:', placeX, placeY);
+        // Target position is where cursor is (pre-perspective world coords)
+        let targetX = this.mouseScreenWorldX;
+        let targetY = this.mouseScreenWorldY;
         
         // Apply grid snap if enabled
         if (this.snapToGrid) {
-            placeX = Math.round(placeX / this.gridSize) * this.gridSize;
-            placeY = Math.round(placeY / this.gridSize) * this.gridSize;
-            console.log('[PLACE] After grid snap:', placeX, placeY);
+            targetX = Math.round(targetX / this.gridSize) * this.gridSize;
+            targetY = Math.round(targetY / this.gridSize) * this.gridSize;
         }
         
-        // Convert to storage coordinates (unscaled) - same as dragging uses worldToUnscaled
-        const storageCoords = this.worldToUnscaled(placeX, placeY);
+        // Calculate sprite dimensions to pass to inverse transform
+        const sprite = this.previewSprite;
+        const scale = this.selectedPrefab.scale || 1;
+        const spriteWidth = this.selectedPrefab.width || sprite?.naturalWidth || sprite?.width || 64;
+        const spriteHeight = this.selectedPrefab.height || sprite?.naturalHeight || sprite?.height || 64;
+        const resolutionScale = this.game.resolutionScale || 1;
+        const finalScale = scale * resolutionScale;
+        const scaledWidth = spriteWidth * finalScale;
+        const scaledHeight = spriteHeight * finalScale;
         
+        console.log('[PLACE] Target (cursor):', targetX, targetY);
+        console.log('[PLACE] Sprite size (scaled):', scaledWidth, scaledHeight);
+        
+        // Use inverse billboard transform to find what position to store
+        // so that after billboard rendering, sprite appears at target
+        let placeX = targetX;
+        let placeY = targetY;
+        
+        const webglRenderer = this.game.renderSystem?.webglRenderer;
+        if (webglRenderer && webglRenderer.inverseBillboardTransform) {
+            const corrected = webglRenderer.inverseBillboardTransform(targetX, targetY, scaledWidth, scaledHeight);
+            console.log('[PLACE] Inverse transform result:', corrected.x, corrected.y);
+            console.log('[PLACE] Delta applied:', corrected.x - targetX, corrected.y - targetY);
+            placeX = corrected.x;
+            placeY = corrected.y;
+        }
+        
+        // Convert to storage coordinates (unscaled)
+        const storageCoords = this.worldToUnscaled(placeX, placeY);
         console.log('[PLACE] Storage coords (unscaled):', storageCoords.x, storageCoords.y);
         
-        // Create object at mouse position (using storage coordinates)
+        // Create object at corrected position (using storage coordinates)
         const objectData = {
             ...this.selectedPrefab,
             x: storageCoords.x,
             y: storageCoords.y
         };
-        
-        console.log('[PLACE] Final object data:', JSON.stringify(objectData, null, 2));
-        console.log('=== PLACEMENT DEBUG END ===');
         
         this.placeObject(objectData);
         return true;
@@ -2200,10 +2175,6 @@ class EditorManager {
      * Place a new object
      */
     placeObject(objectData) {
-        console.log('=== PLACE OBJECT DEBUG ===');
-        console.log('[PLACE_OBJ] Input data:', JSON.stringify(objectData, null, 2));
-        console.log('[PLACE_OBJ] Placing at x:', objectData.x, 'y:', objectData.y);
-        
         let placedObject = null;
         
         // Handle lights - they're not GameObject instances, managed by LightManager
@@ -2216,7 +2187,6 @@ class EditorManager {
             
             if (placedObject) {
                 this.game.lightManager.addLight(placedObject);
-                console.log('[PLACE_OBJ] ✅ Placed light:', placedObject.templateName, 'at:', placedObject.x, placedObject.y);
             }
         } 
         // Handle regular GameObjects
@@ -2226,24 +2196,10 @@ class EditorManager {
                 mapId: this.game.currentMapId
             };
             
-            console.log('[PLACE_OBJ] Creating object with dataWithMap:', JSON.stringify(dataWithMap, null, 2));
-            
             placedObject = this.game.objectManager.createObjectFromData(dataWithMap);
             
             if (placedObject) {
-                console.log('[PLACE_OBJ] Object created:', placedObject.constructor.name);
-                console.log('[PLACE_OBJ] Object position BEFORE addObject - x:', placedObject.x, 'y:', placedObject.y);
-                console.log('[PLACE_OBJ] Object scale:', placedObject.scale, 'spriteWidth:', placedObject.spriteWidth, 'spriteHeight:', placedObject.spriteHeight);
-                
                 this.game.objectManager.addObject(this.game.currentMapId, placedObject);
-                
-                console.log('[PLACE_OBJ] Object position AFTER addObject - x:', placedObject.x, 'y:', placedObject.y);
-                console.log('[PLACE_OBJ] ✅ Placed:', placedObject.constructor.name, 'id:', placedObject.id);
-                
-                // Log what getScaledX/Y would return
-                const scaledX = placedObject.getScaledX ? placedObject.getScaledX(this.game) : placedObject.x * (this.game.resolutionScale || 1);
-                const scaledY = placedObject.getScaledY ? placedObject.getScaledY(this.game) : placedObject.y * (this.game.resolutionScale || 1);
-                console.log('[PLACE_OBJ] getScaledX/Y (render position):', scaledX, scaledY);
             }
         }
         
@@ -2254,11 +2210,7 @@ class EditorManager {
                 object: placedObject,
                 mapId: this.game.currentMapId
             });
-            console.log('[PLACE_OBJ] Added to history. Press Escape to exit placement mode');
-        } else {
-            console.error('[PLACE_OBJ] ❌ Failed to create object');
         }
-        console.log('=== PLACE OBJECT DEBUG END ===');
     }
 
     /**
@@ -2267,34 +2219,20 @@ class EditorManager {
     deleteObject(obj) {
         // Check if this is a light (has templateName and is in lightManager)
         const isLight = obj.templateName && this.game.lightManager.lights.includes(obj);
-        const objType = isLight ? 'Light' : obj.constructor.name;
-        
-        console.log('[DELETE] deleteObject called with:', objType, 'ID:', obj.id, 'pos:', obj.x, obj.y);
         
         if (isLight) {
             // Delete light from LightManager
             this.game.lightManager.removeLight(obj.id);
-            console.log('[EditorManager] Deleted light:', obj.templateName, obj.id);
         } else {
-            // DEBUG: Check all objects with same ID
-            const allObjects = this.game.objectManager.getObjectsForMap(this.game.currentMapId);
-            const duplicates = allObjects.filter(o => o.id === obj.id);
-            console.log('[DELETE] Found', duplicates.length, 'object(s) with ID:', obj.id);
-            duplicates.forEach((dup, idx) => {
-                console.log(`[DELETE]   Duplicate ${idx}: pos=(${dup.x}, ${dup.y}), same reference as selected? ${dup === obj}`);
-            });
-            
             // Delete regular game object
-            console.log('[DELETE] Calling removeObject with ID:', obj.id);
             this.game.objectManager.removeObject(this.game.currentMapId, obj.id);
-            console.log('[EditorManager] Deleted:', obj.constructor.name, obj.id);
         }
         
         // Add to history
         this.addHistory({
             type: 'delete',
             object: obj,
-            objectType: objType,
+            objectType: isLight ? 'Light' : obj.constructor.name,
             mapId: this.game.currentMapId
         });
         

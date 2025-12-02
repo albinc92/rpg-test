@@ -958,20 +958,12 @@ class WebGLRenderer {
      * @returns {Object} { worldX, worldY } - Approximate world position
      */
     transformScreenToWorld(screenX, screenY, cameraX, cameraY) {
-        console.log('[TRANSFORM] transformScreenToWorld called with screen:', screenX, screenY, 'camera:', cameraX, cameraY);
-        
         // Default result (no perspective) - simple camera addition
         let worldX = screenX + cameraX;
         let worldY = screenY + cameraY;
         
         // Apply inverse perspective transformation if enabled
         if (this.perspectiveStrength > 0 && this.viewMatrix && this.projectionMatrix) {
-            const vm = this.viewMatrix;
-            const pm = this.projectionMatrix;
-            const zoom = vm[0];
-            
-            console.log('[TRANSFORM] Perspective active. Strength:', this.perspectiveStrength, 'Zoom:', zoom);
-            
             // This is an iterative approximation since the perspective transform
             // is not easily invertible (depth depends on Y which changes with perspective)
             
@@ -989,32 +981,191 @@ class WebGLRenderer {
                 const errorX = screenX - transformed.screenX;
                 const errorY = screenY - transformed.screenY;
                 
-                if (i === 0) {
-                    console.log('[TRANSFORM] Iteration 0 - guess:', guessWorldX.toFixed(1), guessWorldY.toFixed(1), 
-                        'transformed back to screen:', transformed.screenX.toFixed(1), transformed.screenY.toFixed(1),
-                        'error:', errorX.toFixed(1), errorY.toFixed(1));
-                }
-                
                 // If error is small enough, we're done
                 if (Math.abs(errorX) < 0.5 && Math.abs(errorY) < 0.5) {
-                    console.log('[TRANSFORM] Converged at iteration', i);
                     break;
                 }
                 
                 // Adjust guess based on error
-                // Don't divide by zoom - error is already in screen space matching our input
                 guessWorldX += errorX;
                 guessWorldY += errorY;
             }
             
             worldX = guessWorldX;
             worldY = guessWorldY;
-            console.log('[TRANSFORM] Final world coords:', worldX.toFixed(1), worldY.toFixed(1));
-        } else {
-            console.log('[TRANSFORM] No perspective - simple camera offset. Result:', worldX, worldY);
         }
         
         return { worldX, worldY };
+    }
+    
+    /**
+     * Calculate the world position to store so that after billboard transformation,
+     * the sprite CENTER appears at the target screen position.
+     * This is the inverse of the billboard position shift applied in drawSprite.
+     * 
+     * In billboard mode, drawSprite does:
+     * 1. Calculate base position: baseX = drawX + width/2, baseY = drawY + height
+     * 2. Calculate delta based on perspective at base position
+     * 3. Calculate correctedBase = base + delta
+     * 4. Scale sprite: scaledW = width/perspectiveW, scaledH = height/perspectiveW
+     * 5. Draw sprite CENTERED on correctedBaseX, extending UP from correctedBaseY
+     * 
+     * So final center of rendered sprite is:
+     *   finalCenterX = correctedBaseX = baseX + deltaX = (drawX + width/2) + deltaX
+     *   finalCenterY = correctedBaseY - scaledHeight/2 = (drawY + height + deltaY) - scaledHeight/2
+     * 
+     * Since objects store CENTER position and StaticObject converts to draw coords:
+     *   drawX = centerX - width/2, drawY = centerY - height/2
+     * 
+     * Therefore:
+     *   finalCenterX = centerX + deltaX
+     *   finalCenterY = centerY + height/2 + deltaY - scaledHeight/2
+     * 
+     * @param {number} targetCenterX - Where we want sprite CENTER to appear (world coords)
+     * @param {number} targetCenterY - Where we want sprite CENTER to appear (world coords)
+     * @param {number} spriteWidth - Width of sprite after resolutionScale
+     * @param {number} spriteHeight - Height of sprite after resolutionScale
+     * @returns {Object} { x, y } - World CENTER position to store so sprite renders at target
+     */
+    inverseBillboardTransform(targetCenterX, targetCenterY, spriteWidth, spriteHeight) {
+        // If no perspective, no transformation needed
+        if (this.perspectiveStrength <= 0 || !this.viewMatrix || !this.projectionMatrix) {
+            console.log('[INVERSE] No perspective, returning target as-is');
+            return { x: targetCenterX, y: targetCenterY };
+        }
+        
+        console.log('[INVERSE] Input target CENTER:', targetCenterX, targetCenterY, 'sprite:', spriteWidth, 'x', spriteHeight);
+        console.log('[INVERSE] perspectiveStrength:', this.perspectiveStrength);
+        
+        const vm = this.viewMatrix;
+        const pm = this.projectionMatrix;
+        
+        // Iteratively find what center position to store
+        let guessCenterX = targetCenterX;
+        let guessCenterY = targetCenterY;
+        
+        for (let i = 0; i < 10; i++) {
+            // Convert guess center to draw coords (top-left) - this is what StaticObject does
+            const guessDrawX = guessCenterX - spriteWidth / 2;
+            const guessDrawY = guessCenterY - spriteHeight / 2;
+            
+            // Calculate base position (as drawSprite does)
+            const baseX = guessDrawX + spriteWidth / 2;  // = guessCenterX
+            const baseY = guessDrawY + spriteHeight;     // = guessCenterY + height/2
+            
+            // Transform base to get delta and perspectiveW
+            const viewX = baseX * vm[0] + baseY * vm[4] + vm[12];
+            const viewY = baseX * vm[1] + baseY * vm[5] + vm[13];
+            const clipX = viewX * pm[0] + viewY * pm[4] + pm[12];
+            const clipY = viewX * pm[1] + viewY * pm[5] + pm[13];
+            
+            const depth = (clipY + 1.0) * 0.5;
+            const perspectiveW = 1.0 + (depth * this.perspectiveStrength);
+            const zoom = vm[0];
+            
+            // Screen positions
+            const screenX_noPersp = (clipX + 1.0) * 0.5 * this.logicalWidth;
+            const screenY_noPersp = (1.0 - clipY) * 0.5 * this.logicalHeight;
+            const clipX_persp = clipX / perspectiveW;
+            const clipY_persp = clipY / perspectiveW;
+            const screenX_withPersp = (clipX_persp + 1.0) * 0.5 * this.logicalWidth;
+            const screenY_withPersp = (1.0 - clipY_persp) * 0.5 * this.logicalHeight;
+            
+            // Delta in world coords
+            const deltaX = (screenX_withPersp - screenX_noPersp) / zoom;
+            const deltaY = (screenY_withPersp - screenY_noPersp) / zoom;
+            
+            // Scaled height after billboard
+            const scaledHeight = spriteHeight / perspectiveW;
+            
+            // Calculate where the final CENTER would appear
+            // correctedBaseX = baseX + deltaX = guessCenterX + deltaX
+            // correctedBaseY = baseY + deltaY = guessCenterY + height/2 + deltaY
+            // finalCenterY = correctedBaseY - scaledHeight/2
+            const resultCenterX = guessCenterX + deltaX;
+            const resultCenterY = guessCenterY + spriteHeight/2 + deltaY - scaledHeight/2;
+            
+            // Error from target
+            const errorX = targetCenterX - resultCenterX;
+            const errorY = targetCenterY - resultCenterY;
+            
+            if (i === 0) {
+                console.log('[INVERSE] Iteration 0: guessCenter=', guessCenterX.toFixed(1), guessCenterY.toFixed(1), 
+                    'deltaX=', deltaX.toFixed(1), 'deltaY=', deltaY.toFixed(1),
+                    'perspectiveW=', perspectiveW.toFixed(3), 'scaledH=', scaledHeight.toFixed(1),
+                    'resultCenter=', resultCenterX.toFixed(1), resultCenterY.toFixed(1),
+                    'error=', errorX.toFixed(1), errorY.toFixed(1));
+            }
+            
+            // If close enough, done
+            if (Math.abs(errorX) < 0.5 && Math.abs(errorY) < 0.5) {
+                console.log('[INVERSE] Converged at iteration', i);
+                break;
+            }
+            
+            // Adjust guess
+            guessCenterX += errorX;
+            guessCenterY += errorY;
+        }
+        
+        console.log('[INVERSE] Final result CENTER:', guessCenterX, guessCenterY);
+        return { x: guessCenterX, y: guessCenterY };
+    }
+    
+    /**
+     * Calculate the billboard position delta that drawSprite applies
+     * This mirrors the logic in drawSprite's billboard mode
+     * 
+     * @param {number} drawX - Top-left X of sprite (as passed to drawSprite)
+     * @param {number} drawY - Top-left Y of sprite (as passed to drawSprite)  
+     * @param {number} spriteWidth - Width of sprite after scale
+     * @param {number} spriteHeight - Height of sprite after scale
+     */
+    calculateBillboardDelta(drawX, drawY, spriteWidth, spriteHeight) {
+        if (this.perspectiveStrength <= 0 || !this.viewMatrix || !this.projectionMatrix) {
+            return { x: 0, y: 0 };
+        }
+        
+        const vm = this.viewMatrix;
+        const pm = this.projectionMatrix;
+        const zoom = vm[0];
+        
+        // Sprite base position - EXACTLY matching drawSprite:
+        // const baseX = x + width / 2;  // Center X of sprite base
+        // const baseY = y + height;     // Bottom Y of sprite = ground contact point
+        const baseX = drawX + spriteWidth / 2;
+        const baseY = drawY + spriteHeight;
+        
+        // Transform base point to clip space
+        const viewX = baseX * vm[0] + baseY * vm[4] + vm[12];
+        const viewY = baseX * vm[1] + baseY * vm[5] + vm[13];
+        
+        const clipX = viewX * pm[0] + viewY * pm[4] + pm[12];
+        const clipY = viewX * pm[1] + viewY * pm[5] + pm[13];
+        
+        // Calculate depth and perspective W
+        const depth = (clipY + 1.0) * 0.5;
+        const perspectiveW = 1.0 + (depth * this.perspectiveStrength);
+        
+        // Screen position without perspective
+        const screenX_noPerspective = (clipX + 1.0) * 0.5 * this.logicalWidth;
+        const screenY_noPerspective = (1.0 - clipY) * 0.5 * this.logicalHeight;
+        
+        // Screen position with perspective
+        const clipX_persp = clipX / perspectiveW;
+        const clipY_persp = clipY / perspectiveW;
+        const screenX_withPerspective = (clipX_persp + 1.0) * 0.5 * this.logicalWidth;
+        const screenY_withPerspective = (1.0 - clipY_persp) * 0.5 * this.logicalHeight;
+        
+        // Delta in screen space
+        const deltaScreenX = screenX_withPerspective - screenX_noPerspective;
+        const deltaScreenY = screenY_withPerspective - screenY_noPerspective;
+        
+        // Convert to world delta
+        const deltaWorldX = deltaScreenX / zoom;
+        const deltaWorldY = deltaScreenY / zoom;
+        
+        return { x: deltaWorldX, y: deltaWorldY };
     }
     
     /**
@@ -1155,11 +1306,6 @@ class WebGLRenderer {
     
     drawSprite(x, y, width, height, image, imageUrl, alpha = 1.0, flipX = false, flipY = false) {
         if (!this.initialized) return;
-        
-        // DEBUG: Log ALL draw calls for tree sprites (reset counter each frame in beginFrame)
-        if (imageUrl && imageUrl.includes('tree')) {
-            console.log(`[DRAWSPRITE] ${imageUrl} at (${x.toFixed(1)}, ${y.toFixed(1)}) size ${width.toFixed(1)}x${height.toFixed(1)} billboardMode=${this.billboardMode} perspStr=${this.perspectiveStrength}`);
-        }
         
         const texture = this.textures.get(imageUrl) || this.loadTexture(image, imageUrl);
         

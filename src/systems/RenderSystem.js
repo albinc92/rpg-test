@@ -259,8 +259,8 @@ class RenderSystem {
             game.lightManager.renderEditorPreviews(this.ctx, this.camera.x, this.camera.y, showPreviews, this.webglRenderer);
         }
         
-        // Render object placement preview to WebGL (before endFrame)
-        // NOTE: Selection boxes are rendered during sprite pass for proper billboard transformation
+        // Render object placement preview to WebGL (OUTSIDE sprite pass - no billboard transform)
+        // Preview should appear exactly at cursor position
         if (game?.editorManager?.isActive && this.useWebGL && this.webglRenderer?.initialized) {
             game.editorManager.renderPreviewToWebGL(this.webglRenderer, this.camera.x, this.camera.y);
         }
@@ -429,7 +429,6 @@ class RenderSystem {
                 if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
                     const imageUrl = `collision_layer_${game.currentMapId}`;
                     this.webglRenderer.drawSprite(0, 0, collisionLayer.width, collisionLayer.height, imageSource, imageUrl, 0.3);
-                    console.log('[RenderSystem] Collision layer rendered (WebGL)');
                 } else {
                     // Canvas2D fallback with outline effect
                     this.ctx.save();
@@ -463,10 +462,7 @@ class RenderSystem {
                     this.ctx.drawImage(tempCanvas, 0, 0);
                     
                     this.ctx.restore();
-                    console.log('[RenderSystem] Collision layer rendered (Canvas2D)');
                 }
-            } else if (collisionLayer) {
-                // console.log('[RenderSystem] Collision layer exists but showCollisions is false');
             }
 
             // Render spawn layer (if editor has painted spawn zones)
@@ -543,7 +539,6 @@ class RenderSystem {
         // Their position is transformed by perspective, but their shape stays rectangular
         if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
             this.webglRenderer.beginSpritePass();
-            console.log('[RENDER] beginSpritePass called, billboardMode should be ON');
         }
 
         // Collect and sort all renderable objects
@@ -581,13 +576,6 @@ class RenderSystem {
         
         renderables.sort((a, b) => a.depth - b.depth);
         
-        // DEBUG: Log ALL objects being rendered
-        console.log(`[RENDER] Rendering ${renderables.length} objects. WebGL: ${this.useWebGL}, billboardMode: ${this.webglRenderer?.billboardMode}`);
-        for (let idx = 0; idx < renderables.length; idx++) {
-            const obj = renderables[idx].obj;
-            console.log(`[RENDER] Object ${idx}: ${obj.constructor.name} id=${obj.id} pos=(${obj.x?.toFixed(1)}, ${obj.y?.toFixed(1)}) sprite=${obj.sprite ? 'YES' : 'NO'} spriteLoaded=${obj.spriteLoaded} spriteSrc=${obj.spriteSrc}`);
-        }
-
         renderables.forEach(({ obj }) => {
             obj.render(this.ctx, game, this.webglRenderer);
         });

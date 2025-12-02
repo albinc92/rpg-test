@@ -77,11 +77,6 @@ class StaticObject extends GameObject {
         if (game?.weatherSystem && this.swaysInWind) {
             windStrength = game.weatherSystem.windStrength || 0;
             hasWind = windStrength > 0;
-            
-            // Debug logging (occasional)
-            if (Math.random() < 0.001) {
-                console.log('[SWAY DEBUG] Wind strength:', windStrength, 'Has wind:', hasWind, 'Weather:', game.weatherSystem.wind);
-            }
         }
         
         // Base sway from animation settings (gentle idle sway)
@@ -131,17 +126,6 @@ class StaticObject extends GameObject {
         const scaledY = this.getScaledY(game);
         const screenX = scaledX - width / 2;
         const screenY = scaledY - height / 2 - altitudeOffset;
-        
-        // DEBUG: Log rendering details for first few frames
-        if (!this._renderLogCount) this._renderLogCount = 0;
-        if (this._renderLogCount < 3) {
-            console.log(`[RENDER ${this.id}] renderSprite called`);
-            console.log(`[RENDER ${this.id}] x=${this.x}, y=${this.y}, scaledX=${scaledX}, scaledY=${scaledY}`);
-            console.log(`[RENDER ${this.id}] screenX=${screenX}, screenY=${screenY}, width=${width}, height=${height}`);
-            console.log(`[RENDER ${this.id}] webglRenderer=${webglRenderer ? 'YES' : 'NO'}, initialized=${webglRenderer?.initialized}`);
-            console.log(`[RENDER ${this.id}] sprite=${this.sprite ? 'loaded' : 'null'}, src=${this.sprite?.src}`);
-            this._renderLogCount++;
-        }
         
         // Determine if we should flip horizontally
         const shouldFlip = this.reverseFacing === true || this.direction === 'right';

@@ -314,12 +314,6 @@ class GameObject {
         const screenX = scaledX - width / 2;
         const screenY = scaledY - height / 2 - altitudeOffset;
         
-        // DEBUG: Log render details for Oak Tree objects
-        if (this.id === 'Oak Tree' || (this.name && this.name.includes('Oak'))) {
-            console.log(`[RENDER_SPRITE] ${this.id || this.name} - raw x,y: (${this.x}, ${this.y}) scaledX,Y: (${scaledX}, ${scaledY}) screenX,Y: (${screenX}, ${screenY}) width,height: (${width}, ${height})`);
-            console.log(`[RENDER_SPRITE] webglRenderer: ${!!webglRenderer}, initialized: ${webglRenderer?.initialized}, billboardMode: ${webglRenderer?.billboardMode}, perspectiveStrength: ${webglRenderer?.perspectiveStrength}`);
-        }
-        
         // Determine if we should flip horizontally
         // reverseFacing takes priority and forces a flip
         const shouldFlip = this.reverseFacing === true || this.direction === 'right';
