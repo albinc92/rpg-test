@@ -3990,54 +3990,120 @@ class EditorManager {
         const camera = this.game.camera;
         const zoom = camera.zoom || 1.0;
         
+        // Check if perspective is active
+        const webglRenderer = this.game.renderSystem?.webglRenderer;
+        const perspectiveParams = webglRenderer?.getPerspectiveParams?.() || { enabled: false };
+        const perspectiveActive = perspectiveParams.enabled && perspectiveParams.strength > 0;
+        
         ctx.save();
         
-        // Apply the same camera transform that RenderSystem uses
-        const canvasWidth = this.game.CANVAS_WIDTH;
-        const canvasHeight = this.game.CANVAS_HEIGHT;
-        
-        // Apply zoom (scale around canvas center)
-        if (zoom !== 1.0) {
-            ctx.translate(canvasWidth / 2, canvasHeight / 2);
-            ctx.scale(zoom, zoom);
-            ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
-        }
-        
-        // Apply camera translation
-        ctx.translate(-camera.x, -camera.y);
-        
-        // Use screen-relative world position for POSITION (so preview stays at cursor)
-        // This matches how object placement preview works
-        let worldX = this.mouseScreenWorldX;
-        let worldY = this.mouseScreenWorldY;
-        
-        // Apply grid snap to position if enabled
-        if (this.snapToGrid) {
-            worldX = Math.round(worldX / this.gridSize) * this.gridSize;
-            worldY = Math.round(worldY / this.gridSize) * this.gridSize;
-        }
+        // The paint uses mouseWorldX/Y (perspective-corrected world coords)
+        // So we need to draw the preview at that same world position
+        let worldX = this.mouseWorldX;
+        let worldY = this.mouseWorldY;
         
         // Draw brush preview
         ctx.strokeStyle = this.selectedTexture ? 'rgba(74, 158, 255, 0.8)' : 'rgba(255, 0, 0, 0.8)';
-        ctx.lineWidth = 2 / zoom;
-        ctx.setLineDash([5 / zoom, 5 / zoom]);
-        ctx.beginPath();
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
         
-        if (this.brushShape === 'square') {
-            const halfSize = this.brushSize;
-            ctx.rect(worldX - halfSize, worldY - halfSize, halfSize * 2, halfSize * 2);
+        if (perspectiveActive && webglRenderer.transformWorldToScreen) {
+            // === PERSPECTIVE MODE ===
+            // Reset transform to draw in screen space (same as grid rendering)
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            
+            const brushSize = this.brushSize;
+            
+            if (this.brushShape === 'square') {
+                // Transform 4 corners of the square through perspective
+                const corners = [
+                    { x: worldX - brushSize, y: worldY - brushSize }, // top-left
+                    { x: worldX + brushSize, y: worldY - brushSize }, // top-right
+                    { x: worldX + brushSize, y: worldY + brushSize }, // bottom-right
+                    { x: worldX - brushSize, y: worldY + brushSize }  // bottom-left
+                ];
+                
+                ctx.beginPath();
+                for (let i = 0; i < corners.length; i++) {
+                    const screenPos = webglRenderer.transformWorldToScreen(
+                        corners[i].x, corners[i].y, camera.x, camera.y
+                    );
+                    if (i === 0) {
+                        ctx.moveTo(screenPos.screenX, screenPos.screenY);
+                    } else {
+                        ctx.lineTo(screenPos.screenX, screenPos.screenY);
+                    }
+                }
+                ctx.closePath();
+                ctx.stroke();
+            } else {
+                // Circle brush - sample points around the circle and transform each
+                const numPoints = 32;
+                ctx.beginPath();
+                
+                for (let i = 0; i <= numPoints; i++) {
+                    const angle = (i / numPoints) * Math.PI * 2;
+                    const px = worldX + Math.cos(angle) * brushSize;
+                    const py = worldY + Math.sin(angle) * brushSize;
+                    
+                    const screenPos = webglRenderer.transformWorldToScreen(px, py, camera.x, camera.y);
+                    
+                    if (i === 0) {
+                        ctx.moveTo(screenPos.screenX, screenPos.screenY);
+                    } else {
+                        ctx.lineTo(screenPos.screenX, screenPos.screenY);
+                    }
+                }
+                
+                ctx.closePath();
+                ctx.stroke();
+            }
+            
+            ctx.setLineDash([]);
+            
+            // Draw center dot
+            const centerScreen = webglRenderer.transformWorldToScreen(worldX, worldY, camera.x, camera.y);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.beginPath();
+            ctx.arc(centerScreen.screenX, centerScreen.screenY, 3, 0, Math.PI * 2);
+            ctx.fill();
         } else {
-            ctx.arc(worldX, worldY, this.brushSize, 0, Math.PI * 2);
+            // === STANDARD 2D MODE ===
+            const canvasWidth = this.game.CANVAS_WIDTH;
+            const canvasHeight = this.game.CANVAS_HEIGHT;
+            
+            // Apply zoom (scale around canvas center)
+            if (zoom !== 1.0) {
+                ctx.translate(canvasWidth / 2, canvasHeight / 2);
+                ctx.scale(zoom, zoom);
+                ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
+            }
+            
+            // Apply camera translation
+            ctx.translate(-camera.x, -camera.y);
+            
+            // Adjust line width for zoom
+            ctx.lineWidth = 2 / zoom;
+            ctx.setLineDash([5 / zoom, 5 / zoom]);
+            
+            ctx.beginPath();
+            
+            if (this.brushShape === 'square') {
+                const halfSize = this.brushSize;
+                ctx.rect(worldX - halfSize, worldY - halfSize, halfSize * 2, halfSize * 2);
+            } else {
+                ctx.arc(worldX, worldY, this.brushSize, 0, Math.PI * 2);
+            }
+            
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Draw center dot
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.beginPath();
+            ctx.arc(worldX, worldY, 2 / zoom, 0, Math.PI * 2);
+            ctx.fill();
         }
-        
-        ctx.stroke();
-        ctx.setLineDash([]);
-        
-        // Draw center dot
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.beginPath();
-        ctx.arc(worldX, worldY, 2 / zoom, 0, Math.PI * 2);
-        ctx.fill();
         
         ctx.restore();
     }
