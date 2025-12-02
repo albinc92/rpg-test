@@ -2505,8 +2505,17 @@ class EditorManager {
         // Sync live data first
         this.syncGameData();
         
+        // Create a deep copy of maps data and add paint layer data
+        const mapsData = JSON.parse(JSON.stringify(this.game.mapManager.maps));
+        for (const mapId of Object.keys(mapsData)) {
+            const paintData = this.exportPaintLayerData(mapId);
+            if (paintData) {
+                mapsData[mapId].paintLayerData = paintData;
+            }
+        }
+        
         // Prepare data strings
-        const mapsJson = JSON.stringify(this.game.mapManager.maps, null, 2);
+        const mapsJson = JSON.stringify(mapsData, null, 2);
         const objectsJson = JSON.stringify(this.game.objectManager.objectDefinitions, null, 2);
         const itemsJson = JSON.stringify(this.game.itemManager.itemTypes || {}, null, 2);
         
