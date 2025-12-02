@@ -1539,15 +1539,26 @@ class EditorUI {
      * Export maps.json
      */
     exportMapsJSON() {
-        const mapsData = JSON.stringify(this.editor.game.mapManager.maps, null, 2);
-        const blob = new Blob([mapsData], { type: 'application/json' });
+        // Create a deep copy of maps data
+        const mapsData = JSON.parse(JSON.stringify(this.editor.game.mapManager.maps));
+        
+        // Add paint layer data to each map
+        for (const mapId of Object.keys(mapsData)) {
+            const paintData = this.editor.exportPaintLayerData(mapId);
+            if (paintData) {
+                mapsData[mapId].paintLayerData = paintData;
+            }
+        }
+        
+        const jsonStr = JSON.stringify(mapsData, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = 'maps.json';
         a.click();
         URL.revokeObjectURL(url);
-        this.showNotification('💾 maps.json exported!');
+        this.showNotification('💾 maps.json exported (with paint layers)!');
     }
 
     /**
@@ -3585,37 +3596,42 @@ class EditorUI {
         const existing = document.getElementById('paint-tool-panel');
         if (existing) existing.remove();
         
+        // Get scale helper
+        const scale = this.getUIScale();
+        const s = (px) => `${Math.round(px * scale)}px`;
+        
         const panel = document.createElement('div');
         panel.id = 'paint-tool-panel';
         panel.style.cssText = `
             position: fixed;
-            right: 20px;
-            top: 80px;
-            width: 280px;
+            right: ${s(20)};
+            top: ${s(80)};
+            width: ${s(280)};
             max-height: 80vh;
             overflow-y: auto;
             background: rgba(0, 0, 0, 0.95);
             border: 2px solid #4a9eff;
-            border-radius: 8px;
+            border-radius: ${s(8)};
             color: white;
             font-family: Arial, sans-serif;
+            font-size: ${s(14)};
             z-index: 1001;
-            padding: 16px;
+            padding: ${s(16)};
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: ${s(12)};
         `;
         
         // Title
         const title = document.createElement('h3');
         title.textContent = '🖌️ Paint Tool';
-        title.style.cssText = 'margin: 0; color: #4a9eff; border-bottom: 1px solid #444; padding-bottom: 8px;';
+        title.style.cssText = `margin: 0; color: #4a9eff; border-bottom: 1px solid #444; padding-bottom: ${s(8)}; font-size: ${s(16)};`;
         panel.appendChild(title);
 
         // === PAINT MODE SECTION ===
-        const modeSection = this.createPaintSection('Paint Mode');
+        const modeSection = this.createPaintSection('Paint Mode', scale);
         const modeButtons = document.createElement('div');
-        modeButtons.style.cssText = 'display: flex; gap: 4px;';
+        modeButtons.style.cssText = `display: flex; gap: ${s(4)};`;
         
         const modes = [
             { id: 'texture', label: '🎨 Texture', title: 'Paint textures onto the map' },
@@ -3629,13 +3645,13 @@ class EditorUI {
             btn.title = mode.title;
             btn.style.cssText = `
                 flex: 1;
-                padding: 6px 4px;
+                padding: ${s(6)} ${s(4)};
                 background: ${this.editor.paintMode === mode.id ? '#4a9eff' : '#333'};
                 color: white;
                 border: 1px solid #555;
-                border-radius: 4px;
+                border-radius: ${s(4)};
                 cursor: pointer;
-                font-size: 11px;
+                font-size: ${s(11)};
             `;
             btn.onclick = () => {
                 this.editor.paintMode = mode.id;
@@ -3647,9 +3663,9 @@ class EditorUI {
         panel.appendChild(modeSection);
 
         // === TOOL ACTION SECTION ===
-        const actionSection = this.createPaintSection('Action');
+        const actionSection = this.createPaintSection('Action', scale);
         const actionButtons = document.createElement('div');
-        actionButtons.style.cssText = 'display: flex; gap: 4px;';
+        actionButtons.style.cssText = `display: flex; gap: ${s(4)};`;
         
         const actions = [
             { id: 'paint', label: '🖌️ Paint' },
@@ -3661,12 +3677,13 @@ class EditorUI {
             btn.textContent = action.label;
             btn.style.cssText = `
                 flex: 1;
-                padding: 6px 8px;
+                padding: ${s(6)} ${s(8)};
                 background: ${this.editor.toolAction === action.id ? '#4a9eff' : '#333'};
                 color: white;
                 border: 1px solid #555;
-                border-radius: 4px;
+                border-radius: ${s(4)};
                 cursor: pointer;
+                font-size: ${s(13)};
             `;
             btn.onclick = () => {
                 this.editor.toolAction = action.id;
@@ -3679,28 +3696,28 @@ class EditorUI {
 
         // === TEXTURE SELECTION (only for texture mode) ===
         if (this.editor.paintMode === 'texture') {
-            const textureSection = this.createPaintSection('Texture');
+            const textureSection = this.createPaintSection('Texture', scale);
             const textureGrid = document.createElement('div');
             textureGrid.style.cssText = `
                 display: grid;
                 grid-template-columns: repeat(4, 1fr);
-                gap: 4px;
-                max-height: 150px;
+                gap: ${s(4)};
+                max-height: ${s(150)};
                 overflow-y: auto;
-                padding: 4px;
+                padding: ${s(4)};
                 background: #1a1a1a;
-                border-radius: 4px;
+                border-radius: ${s(4)};
             `;
             
             // Load textures from assets/texture folder
-            this.loadTexturesForPanel(textureGrid);
+            this.loadTexturesForPanel(textureGrid, scale);
             
             textureSection.appendChild(textureGrid);
             panel.appendChild(textureSection);
         }
 
         // === BRUSH SIZE ===
-        const sizeSection = this.createPaintSection(`Brush Size: ${this.editor.brushSize}px`);
+        const sizeSection = this.createPaintSection(`Brush Size: ${this.editor.brushSize}px`, scale);
         sizeSection.id = 'brush-size-section';
         const sizeSlider = document.createElement('input');
         sizeSlider.type = 'range';
@@ -3716,9 +3733,9 @@ class EditorUI {
         panel.appendChild(sizeSection);
 
         // === BRUSH SHAPE ===
-        const shapeSection = this.createPaintSection('Brush Shape');
+        const shapeSection = this.createPaintSection('Brush Shape', scale);
         const shapeButtons = document.createElement('div');
-        shapeButtons.style.cssText = 'display: flex; gap: 4px;';
+        shapeButtons.style.cssText = `display: flex; gap: ${s(4)};`;
         
         const shapes = [
             { id: 'circle', label: '⚫ Circle' },
@@ -3730,12 +3747,13 @@ class EditorUI {
             btn.textContent = shape.label;
             btn.style.cssText = `
                 flex: 1;
-                padding: 6px 8px;
+                padding: ${s(6)} ${s(8)};
                 background: ${this.editor.brushShape === shape.id ? '#4a9eff' : '#333'};
                 color: white;
                 border: 1px solid #555;
-                border-radius: 4px;
+                border-radius: ${s(4)};
                 cursor: pointer;
+                font-size: ${s(13)};
             `;
             btn.onclick = () => {
                 this.editor.brushShape = shape.id;
@@ -3747,9 +3765,9 @@ class EditorUI {
         panel.appendChild(shapeSection);
 
         // === BRUSH STYLE (softness) ===
-        const styleSection = this.createPaintSection('Brush Softness');
+        const styleSection = this.createPaintSection('Brush Softness', scale);
         const styleButtons = document.createElement('div');
-        styleButtons.style.cssText = 'display: flex; gap: 4px;';
+        styleButtons.style.cssText = `display: flex; gap: ${s(4)};`;
         
         // Force hard brush for collision/spawn modes
         const isHardEdgeOnly = this.editor.paintMode === 'collision' || this.editor.paintMode === 'spawn';
@@ -3771,13 +3789,13 @@ class EditorUI {
             
             btn.style.cssText = `
                 flex: 1;
-                padding: 6px 8px;
+                padding: ${s(6)} ${s(8)};
                 background: ${this.editor.brushStyle === style.id ? '#4a9eff' : '#333'};
                 color: ${isDisabled ? '#666' : 'white'};
                 border: 1px solid #555;
-                border-radius: 4px;
+                border-radius: ${s(4)};
                 cursor: ${isDisabled ? 'not-allowed' : 'pointer'};
-                font-size: 12px;
+                font-size: ${s(12)};
                 opacity: ${isDisabled ? '0.5' : '1'};
             `;
             
@@ -3793,7 +3811,7 @@ class EditorUI {
         panel.appendChild(styleSection);
 
         // === BRUSH OPACITY ===
-        const opacitySection = this.createPaintSection(`Opacity: ${Math.round(this.editor.brushOpacity * 100)}%`);
+        const opacitySection = this.createPaintSection(`Opacity: ${Math.round(this.editor.brushOpacity * 100)}%`, scale);
         opacitySection.id = 'brush-opacity-section';
         const opacitySlider = document.createElement('input');
         opacitySlider.type = 'range';
@@ -3811,7 +3829,7 @@ class EditorUI {
         // === INSTRUCTIONS ===
         const instructions = document.createElement('div');
         instructions.innerHTML = `
-            <div style="font-size: 11px; color: #888; margin-top: 8px; line-height: 1.4; border-top: 1px solid #444; padding-top: 8px;">
+            <div style="font-size: ${s(11)}; color: #888; margin-top: ${s(8)}; line-height: 1.4; border-top: 1px solid #444; padding-top: ${s(8)};">
                 <strong>Controls:</strong><br>
                 • Left Click: Paint<br>
                 • Shift + Click: Erase<br>
@@ -3823,19 +3841,20 @@ class EditorUI {
         
         // === BUTTONS ===
         const buttonRow = document.createElement('div');
-        buttonRow.style.cssText = 'display: flex; gap: 8px; margin-top: 8px;';
+        buttonRow.style.cssText = `display: flex; gap: ${s(8)}; margin-top: ${s(8)};`;
 
         // Clear layer button
         const clearBtn = document.createElement('button');
         clearBtn.textContent = '🗑️ Clear Layer';
         clearBtn.style.cssText = `
             flex: 1;
-            padding: 8px;
+            padding: ${s(8)};
             background: #8b0000;
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: ${s(4)};
             cursor: pointer;
+            font-size: ${s(13)};
         `;
         clearBtn.onclick = () => {
             if (confirm(`Clear all ${this.editor.paintMode} paint on this map?`)) {
@@ -3850,12 +3869,13 @@ class EditorUI {
         closeBtn.textContent = 'Close';
         closeBtn.style.cssText = `
             flex: 1;
-            padding: 8px;
+            padding: ${s(8)};
             background: #555;
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: ${s(4)};
             cursor: pointer;
+            font-size: ${s(13)};
         `;
         closeBtn.onclick = () => {
             panel.remove();
@@ -3871,13 +3891,15 @@ class EditorUI {
     /**
      * Create a section for the paint panel
      */
-    createPaintSection(labelText) {
+    createPaintSection(labelText, scale = 1.0) {
+        const s = (px) => `${Math.round(px * scale)}px`;
+        
         const section = document.createElement('div');
-        section.style.cssText = 'display: flex; flex-direction: column; gap: 6px;';
+        section.style.cssText = `display: flex; flex-direction: column; gap: ${s(6)};`;
         
         const label = document.createElement('label');
         label.textContent = labelText;
-        label.style.cssText = 'font-size: 12px; color: #aaa;';
+        label.style.cssText = `font-size: ${s(12)}; color: #aaa;`;
         section.appendChild(label);
         
         return section;
@@ -3886,7 +3908,9 @@ class EditorUI {
     /**
      * Load textures for the paint panel
      */
-    async loadTexturesForPanel(container) {
+    async loadTexturesForPanel(container, scale = 1.0) {
+        const s = (px) => `${Math.round(px * scale)}px`;
+        
         // Get textures from the texture folder
         const textureFiles = [
             'grass.png',
@@ -3907,10 +3931,10 @@ class EditorUI {
             
             const textureBtn = document.createElement('div');
             textureBtn.style.cssText = `
-                width: 50px;
-                height: 50px;
+                width: ${s(50)};
+                height: ${s(50)};
                 border: 2px solid ${this.editor.selectedTexture === texturePath ? '#4a9eff' : '#333'};
-                border-radius: 4px;
+                border-radius: ${s(4)};
                 cursor: pointer;
                 background-size: cover;
                 background-position: center;
@@ -3930,15 +3954,15 @@ class EditorUI {
         // Add "Load Custom" button
         const addBtn = document.createElement('div');
         addBtn.style.cssText = `
-            width: 50px;
-            height: 50px;
+            width: ${s(50)};
+            height: ${s(50)};
             border: 2px dashed #555;
-            border-radius: 4px;
+            border-radius: ${s(4)};
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
+            font-size: ${s(24)};
             color: #555;
         `;
         addBtn.textContent = '+';
@@ -4037,35 +4061,39 @@ class EditorUI {
         const existing = document.getElementById('zone-tool-panel');
         if (existing) existing.remove();
         
+        const scale = EditorStyles.getUIScale();
+        const s = (px) => `${Math.round(px * scale)}px`;
+        
         const panel = document.createElement('div');
         panel.id = 'zone-tool-panel';
         panel.style.cssText = `
             position: fixed;
-            right: 20px;
-            top: 80px;
-            width: 250px;
+            right: ${s(20)};
+            top: ${s(80)};
+            width: ${s(250)};
             background: rgba(0, 0, 0, 0.95);
-            border: 2px solid #4a9eff;
-            border-radius: 8px;
+            border: ${s(2)} solid #4a9eff;
+            border-radius: ${s(8)};
             color: white;
             font-family: Arial, sans-serif;
+            font-size: ${s(14)};
             z-index: 1001;
-            padding: 16px;
+            padding: ${s(16)};
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: ${s(12)};
         `;
         
         // Title
         const title = document.createElement('h3');
         title.textContent = '📐 Zone Tool';
-        title.style.cssText = 'margin: 0; color: #4a9eff; border-bottom: 1px solid #444; padding-bottom: 8px;';
+        title.style.cssText = `margin: 0; color: #4a9eff; border-bottom: 1px solid #444; padding-bottom: ${s(8)}; font-size: ${s(16)};`;
         panel.appendChild(title);
         
         // Zone Type Selector
         const typeLabel = document.createElement('div');
         typeLabel.textContent = 'Zone Type:';
-        typeLabel.style.cssText = 'font-size: 13px; font-weight: bold; color: #aaa;';
+        typeLabel.style.cssText = `font-size: ${s(13)}; font-weight: bold; color: #aaa;`;
         panel.appendChild(typeLabel);
         
         const zoneTypes = [
@@ -4088,14 +4116,14 @@ class EditorUI {
             
             btn.style.cssText = `
                 width: 100%;
-                padding: 10px;
+                padding: ${s(10)};
                 background: ${isSelected ? '#4a9eff' : '#333'};
                 color: white;
                 border: 1px solid #555;
-                border-left: 4px solid ${type.color};
-                border-radius: 4px;
+                border-left: ${s(4)} solid ${type.color};
+                border-radius: ${s(4)};
                 cursor: pointer;
-                font-size: 13px;
+                font-size: ${s(13)};
                 text-align: left;
                 transition: background 0.2s;
             `;
@@ -4116,7 +4144,7 @@ class EditorUI {
         // Instructions
         const instructions = document.createElement('div');
         instructions.innerHTML = `
-            <div style="font-size: 12px; color: #888; margin-top: 8px; line-height: 1.4;">
+            <div style="font-size: ${s(12)}; color: #888; margin-top: ${s(8)}; line-height: 1.4;">
                 <strong>Controls:</strong><br>
                 • Left Click: Add Point<br>
                 • Right Click: Close Loop<br>
@@ -4129,14 +4157,14 @@ class EditorUI {
         const closeBtn = document.createElement('button');
         closeBtn.textContent = 'Close Panel';
         closeBtn.style.cssText = `
-            margin-top: 8px;
-            padding: 8px;
+            margin-top: ${s(8)};
+            padding: ${s(8)};
             background: #555;
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: ${s(4)};
             cursor: pointer;
-            font-size: 12px;
+            font-size: ${s(12)};
         `;
         closeBtn.onclick = () => panel.remove();
         panel.appendChild(closeBtn);

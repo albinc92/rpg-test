@@ -87,10 +87,13 @@ class ObjectPlacementPanel {
         typeContainer.appendChild(typeSelect);
         content.appendChild(typeContainer);
         
+        const scale = EditorStyles.getUIScale();
+        const s = (px) => `${Math.round(px * scale)}px`;
+        
         // Template List Container
         const listContainer = document.createElement('div');
         listContainer.id = 'placement-template-list';
-        listContainer.style.marginBottom = '15px';
+        listContainer.style.marginBottom = s(15);
         content.appendChild(listContainer);
         
         // Placement Status
@@ -99,16 +102,16 @@ class ObjectPlacementPanel {
         statusDiv.style.cssText = `
             background: ${theme.primaryLight};
             border: 1px solid ${theme.primary};
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 15px;
+            padding: ${s(12)};
+            border-radius: ${s(8)};
+            margin-bottom: ${s(15)};
             display: none;
         `;
         statusDiv.innerHTML = `
-            <div style="font-size: 13px; margin-bottom: 5px; color: ${theme.accent}; font-weight: bold;">
+            <div style="font-size: ${s(13)}; margin-bottom: ${s(5)}; color: ${theme.accent}; font-weight: bold;">
                 Placement Active
             </div>
-            <div style="font-size: 12px; color: #bdc3c7;">
+            <div style="font-size: ${s(12)}; color: #bdc3c7;">
                 Selected: <span id="placement-selected-name" style="color: #fff;">-</span><br>
                 Click on map to place<br>
                 Press ESC to cancel
@@ -122,13 +125,14 @@ class ObjectPlacementPanel {
         cancelBtn.textContent = '🛑 Cancel Placement';
         cancelBtn.style.cssText = `
             width: 100%;
-            padding: 12px;
+            padding: ${s(12)};
             background: rgba(231, 76, 60, 0.2);
             border: 1px solid #e74c3c;
-            border-radius: 8px;
+            border-radius: ${s(8)};
             color: #e74c3c;
             cursor: pointer;
             font-weight: 700;
+            font-size: ${s(14)};
             display: none;
             transition: all 0.2s;
         `;
@@ -176,8 +180,11 @@ class ObjectPlacementPanel {
      * Populate template list based on selected type
      */
     async populateTemplates() {
+        const scale = EditorStyles.getUIScale();
+        const s = (px) => `${Math.round(px * scale)}px`;
+        
         const container = document.getElementById('placement-template-list');
-        container.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">Loading...</div>';
+        container.innerHTML = `<div style="padding: ${s(20)}; text-align: center; color: #999; font-size: ${s(14)};">Loading...</div>`;
         
         let templates = [];
         
@@ -225,9 +232,9 @@ class ObjectPlacementPanel {
         // Create template list
         const list = document.createElement('div');
         list.style.cssText = `
-            max-height: 300px;
+            max-height: ${s(300)};
             overflow-y: auto;
-            padding-right: 5px;
+            padding-right: ${s(5)};
         `;
         
         templates.forEach(template => {
@@ -238,11 +245,11 @@ class ObjectPlacementPanel {
             
             const icon = this.getTypeIcon(this.selectedType);
             item.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <span style="font-size: 24px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.3));">${icon}</span>
+                <div style="display: flex; align-items: center; gap: ${s(12)};">
+                    <span style="font-size: ${s(24)}; filter: drop-shadow(0 0 5px rgba(255,255,255,0.3));">${icon}</span>
                     <div style="flex: 1;">
-                        <div style="font-weight: 700; color: #fff; font-size: 14px;">${template.name || template.id}</div>
-                        <div style="font-size: 11px; color: #95a5a6; margin-top: 2px;">${this.getTemplateInfo(template)}</div>
+                        <div style="font-weight: 700; color: #fff; font-size: ${s(14)};">${template.name || template.id}</div>
+                        <div style="font-size: ${s(11)}; color: #95a5a6; margin-top: ${s(2)};">${this.getTemplateInfo(template)}</div>
                     </div>
                 </div>
             `;

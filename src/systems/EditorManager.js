@@ -857,35 +857,96 @@ class EditorManager {
     }
 
     /**
-     * Render grid
+     * Render grid with fake 3D perspective support
      */
     renderGrid(ctx) {
         const camera = this.game.camera;
-        const startX = Math.floor(camera.x / this.gridSize) * this.gridSize;
-        const startY = Math.floor(camera.y / this.gridSize) * this.gridSize;
-        const endX = startX + this.game.CANVAS_WIDTH + this.gridSize;
-        const endY = startY + this.game.CANVAS_HEIGHT + this.gridSize;
+        const webglRenderer = this.game.renderSystem?.webglRenderer;
+        const perspectiveParams = webglRenderer?.getPerspectiveParams?.() || { enabled: false };
+        const perspectiveActive = perspectiveParams.enabled && perspectiveParams.strength > 0;
+        
+        // Expand grid bounds to ensure coverage when perspective is applied
+        const extraMargin = perspectiveActive ? this.gridSize * 4 : 0;
+        const startX = Math.floor((camera.x - extraMargin) / this.gridSize) * this.gridSize;
+        const startY = Math.floor((camera.y - extraMargin) / this.gridSize) * this.gridSize;
+        const endX = startX + this.game.CANVAS_WIDTH + this.gridSize + extraMargin * 2;
+        const endY = startY + this.game.CANVAS_HEIGHT + this.gridSize + extraMargin * 2;
         
         ctx.save();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
         ctx.lineWidth = 1;
         
-        // Vertical lines
-        for (let x = startX; x < endX; x += this.gridSize) {
-            const screenX = x - camera.x;
-            ctx.beginPath();
-            ctx.moveTo(screenX, 0);
-            ctx.lineTo(screenX, this.game.CANVAS_HEIGHT);
-            ctx.stroke();
-        }
-        
-        // Horizontal lines
-        for (let y = startY; y < endY; y += this.gridSize) {
-            const screenY = y - camera.y;
-            ctx.beginPath();
-            ctx.moveTo(0, screenY);
-            ctx.lineTo(this.game.CANVAS_WIDTH, screenY);
-            ctx.stroke();
+        if (perspectiveActive && webglRenderer.transformWorldToScreen) {
+            // === PERSPECTIVE GRID ===
+            // Draw grid lines transformed through the perspective system
+            
+            // Reset transform to draw in screen space
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            
+            // Vertical lines (in world space, become converging lines in perspective)
+            for (let x = startX; x <= endX; x += this.gridSize) {
+                // Get screen positions for top and bottom of this vertical line
+                const topWorld = { x: x, y: startY };
+                const bottomWorld = { x: x, y: endY };
+                
+                const topScreen = webglRenderer.transformWorldToScreen(
+                    topWorld.x, topWorld.y, camera.x, camera.y
+                );
+                const bottomScreen = webglRenderer.transformWorldToScreen(
+                    bottomWorld.x, bottomWorld.y, camera.x, camera.y
+                );
+                
+                ctx.beginPath();
+                ctx.moveTo(topScreen.screenX, topScreen.screenY);
+                ctx.lineTo(bottomScreen.screenX, bottomScreen.screenY);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines (transform multiple points to create curved appearance)
+            for (let y = startY; y <= endY; y += this.gridSize) {
+                ctx.beginPath();
+                
+                // Sample multiple points along each horizontal line for smooth curves
+                const steps = Math.ceil((endX - startX) / this.gridSize) + 1;
+                let firstPoint = true;
+                
+                for (let i = 0; i <= steps; i++) {
+                    const worldX = startX + (i * this.gridSize);
+                    const worldY = y;
+                    
+                    const screenPos = webglRenderer.transformWorldToScreen(
+                        worldX, worldY, camera.x, camera.y
+                    );
+                    
+                    if (firstPoint) {
+                        ctx.moveTo(screenPos.screenX, screenPos.screenY);
+                        firstPoint = false;
+                    } else {
+                        ctx.lineTo(screenPos.screenX, screenPos.screenY);
+                    }
+                }
+                
+                ctx.stroke();
+            }
+        } else {
+            // === STANDARD 2D GRID ===
+            // Vertical lines
+            for (let x = startX; x < endX; x += this.gridSize) {
+                const screenX = x - camera.x;
+                ctx.beginPath();
+                ctx.moveTo(screenX, 0);
+                ctx.lineTo(screenX, this.game.CANVAS_HEIGHT);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines
+            for (let y = startY; y < endY; y += this.gridSize) {
+                const screenY = y - camera.y;
+                ctx.beginPath();
+                ctx.moveTo(0, screenY);
+                ctx.lineTo(this.game.CANVAS_WIDTH, screenY);
+                ctx.stroke();
+            }
         }
         
         ctx.restore();
@@ -3825,6 +3886,90 @@ class EditorManager {
     }
 
     /**
+     * Export paint layer data as base64 for a specific map
+     * @param {string} mapId - The map ID
+     * @returns {string|null} Base64 dataURL of the paint layer, or null if empty
+     */
+    exportPaintLayerData(mapId) {
+        const canvas = this.paintLayers[mapId];
+        if (!canvas) return null;
+        
+        // Check if canvas has any content
+        const ctx = canvas.getContext('2d');
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const hasContent = imageData.data.some((value, index) => index % 4 === 3 && value > 0); // Check alpha channel
+        
+        if (!hasContent) return null;
+        
+        return canvas.toDataURL('image/png');
+    }
+
+    /**
+     * Export all paint layers data
+     * @returns {Object} Map of mapId -> base64 dataURL
+     */
+    exportAllPaintLayers() {
+        const result = {};
+        for (const mapId of Object.keys(this.paintLayers)) {
+            const data = this.exportPaintLayerData(mapId);
+            if (data) {
+                result[mapId] = data;
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Import paint layer data for a specific map
+     * @param {string} mapId - The map ID
+     * @param {string} dataURL - Base64 dataURL of the paint layer
+     * @returns {Promise} Resolves when loaded
+     */
+    async importPaintLayerData(mapId, dataURL) {
+        if (!dataURL) return;
+        
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                // Initialize canvas if needed
+                if (!this.paintLayers[mapId]) {
+                    this.initializePaintLayer(mapId);
+                }
+                
+                const canvas = this.paintLayers[mapId];
+                const ctx = canvas.getContext('2d');
+                
+                // Clear and draw the loaded image
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                
+                console.log(`[EditorManager] Loaded paint layer for map ${mapId}`);
+                resolve();
+            };
+            img.onerror = () => {
+                console.warn(`[EditorManager] Failed to load paint layer for map ${mapId}`);
+                resolve();
+            };
+            img.src = dataURL;
+        });
+    }
+
+    /**
+     * Import all paint layers from map data
+     * @param {Object} mapsData - The maps data object (mapManager.maps)
+     */
+    async importAllPaintLayers(mapsData) {
+        const loadPromises = [];
+        for (const [mapId, mapData] of Object.entries(mapsData)) {
+            if (mapData.paintLayerData) {
+                loadPromises.push(this.importPaintLayerData(mapId, mapData.paintLayerData));
+            }
+        }
+        await Promise.all(loadPromises);
+        console.log(`[EditorManager] Loaded ${loadPromises.length} paint layers`);
+    }
+
+    /**
      * Render brush preview
      * NOTE: This is called AFTER RenderSystem restores camera transform,
      * so we need to manually apply the camera transform to draw the preview
@@ -3852,9 +3997,16 @@ class EditorManager {
         // Apply camera translation
         ctx.translate(-camera.x, -camera.y);
         
-        // Now draw in world coordinates
-        const worldX = this.mouseWorldX;
-        const worldY = this.mouseWorldY;
+        // Use screen-relative world position for POSITION (so preview stays at cursor)
+        // This matches how object placement preview works
+        let worldX = this.mouseScreenWorldX;
+        let worldY = this.mouseScreenWorldY;
+        
+        // Apply grid snap to position if enabled
+        if (this.snapToGrid) {
+            worldX = Math.round(worldX / this.gridSize) * this.gridSize;
+            worldY = Math.round(worldY / this.gridSize) * this.gridSize;
+        }
         
         // Draw brush preview
         ctx.strokeStyle = this.selectedTexture ? 'rgba(74, 158, 255, 0.8)' : 'rgba(255, 0, 0, 0.8)';

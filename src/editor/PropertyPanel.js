@@ -23,16 +23,19 @@ class PropertyPanel {
      * Create UI elements
      */
     createUI() {
+        const scale = EditorStyles.getUIScale();
+        const s = (px) => `${Math.round(px * scale)}px`;
+        
         this.container = document.createElement('div');
         this.container.id = 'property-panel';
         
         // Use EditorStyles for consistent look
         this.container.style.cssText = EditorStyles.getPanelStyle(this.theme);
         // Override some specific styles for property panel positioning
-        this.container.style.right = '10px';
-        this.container.style.top = '70px';
-        this.container.style.width = '320px';
-        this.container.style.maxHeight = 'calc(100vh - 90px)';
+        this.container.style.right = s(10);
+        this.container.style.top = s(70);
+        this.container.style.width = s(320);
+        this.container.style.maxHeight = `calc(100vh - ${s(90)})`;
         this.container.style.display = 'none';
 
         // Header
@@ -353,18 +356,21 @@ class PropertyPanel {
         });
 
         // Delete button
+        const scale = EditorStyles.getUIScale();
+        const s = (px) => `${Math.round(px * scale)}px`;
+        
         const deleteBtn = document.createElement('button');
         deleteBtn.textContent = '🗑️ Delete Object';
         deleteBtn.style.cssText = `
             width: 100%;
-            padding: 10px;
-            margin-top: 20px;
+            padding: ${s(10)};
+            margin-top: ${s(20)};
             background: #d32f2f;
             color: white;
             border: none;
             cursor: pointer;
-            border-radius: 4px;
-            font-size: 14px;
+            border-radius: ${s(4)};
+            font-size: ${s(14)};
         `;
         deleteBtn.onclick = () => {
             if (confirm('Delete this object?')) {
@@ -386,17 +392,20 @@ class PropertyPanel {
      * Add label
      */
     addLabel(text) {
+        const scale = EditorStyles.getUIScale();
+        const s = (px) => `${Math.round(px * scale)}px`;
+        
         const label = document.createElement('div');
         label.textContent = text;
         label.style.cssText = `
             font-weight: bold;
-            margin-bottom: 10px;
-            padding: 8px;
+            margin-bottom: ${s(10)};
+            padding: ${s(8)};
             background: ${this.theme.primaryLight};
-            border-left: 3px solid ${this.theme.accent};
-            border-radius: 4px;
+            border-left: ${s(3)} solid ${this.theme.accent};
+            border-radius: ${s(4)};
             color: #fff;
-            font-size: 13px;
+            font-size: ${s(13)};
         `;
         this.propertiesContainer.appendChild(label);
     }
@@ -405,31 +414,34 @@ class PropertyPanel {
      * Add dropdown select
      */
     addDropdown(label, value, options, onChange) {
+        const scale = EditorStyles.getUIScale();
+        const s = (px) => `${Math.round(px * scale)}px`;
+        
         const container = document.createElement('div');
         container.style.cssText = EditorStyles.getListItemStyle();
-        container.style.padding = '10px';
+        container.style.padding = s(10);
         container.style.display = 'flex';
         container.style.alignItems = 'center';
-        container.style.gap = '10px';
+        container.style.gap = s(10);
 
         const labelEl = document.createElement('label');
         labelEl.textContent = label;
         labelEl.style.cssText = `
-            font-size: 13px;
+            font-size: ${s(13)};
             color: #ecf0f1;
             flex: 1;
-            min-width: 80px;
+            min-width: ${s(80)};
         `;
 
         const select = document.createElement('select');
         select.style.cssText = `
             flex: 2;
-            padding: 6px 10px;
+            padding: ${s(6)} ${s(10)};
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
+            border-radius: ${s(4)};
             color: #ecf0f1;
-            font-size: 12px;
+            font-size: ${s(12)};
             cursor: pointer;
         `;
         
@@ -453,14 +465,17 @@ class PropertyPanel {
      * Add checkbox
      */
     addCheckbox(label, value, onChange) {
+        const scale = EditorStyles.getUIScale();
+        const s = (px) => `${Math.round(px * scale)}px`;
+        
         const container = document.createElement('div');
         container.style.cssText = EditorStyles.getListItemStyle();
-        container.style.padding = '10px';
+        container.style.padding = s(10);
 
         const labelEl = document.createElement('label');
         labelEl.textContent = label;
         labelEl.style.cssText = `
-            font-size: 13px;
+            font-size: ${s(13)};
             cursor: pointer;
             user-select: none;
             color: #ecf0f1;
@@ -471,8 +486,8 @@ class PropertyPanel {
         checkbox.type = 'checkbox';
         checkbox.checked = value;
         checkbox.style.cssText = `
-            width: 18px;
-            height: 18px;
+            width: ${s(18)};
+            height: ${s(18)};
             cursor: pointer;
             accent-color: ${this.theme.accent};
         `;

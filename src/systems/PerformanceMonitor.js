@@ -54,118 +54,132 @@ class PerformanceMonitor {
         // If neither is enabled, don't render anything
         if (!settings?.showFPS && !settings?.showDebugInfo) return;
 
+        // Get UI scale from settings (or default to 1.0)
+        const uiScale = (settings?.uiScale || 100) / 100;
+        
+        // Scale helper
+        const s = (px) => Math.round(px * uiScale);
+
         // If ONLY FPS is enabled (and not full debug info)
         if (settings.showFPS && !settings.showDebugInfo) {
             ctx.save();
             ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-            ctx.fillRect(canvasWidth - 80, 10, 70, 25);
+            ctx.fillRect(canvasWidth - s(80), s(10), s(70), s(25));
             
             ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
             ctx.lineWidth = 1;
-            ctx.strokeRect(canvasWidth - 80, 10, 70, 25);
+            ctx.strokeRect(canvasWidth - s(80), s(10), s(70), s(25));
             
             ctx.fillStyle = '#00ff00';
-            ctx.font = 'bold 14px Courier New, monospace';
+            ctx.font = `bold ${s(14)}px Courier New, monospace`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(`FPS: ${this.fps}`, canvasWidth - 45, 22.5);
+            ctx.fillText(`FPS: ${this.fps}`, canvasWidth - s(45), s(22.5));
             ctx.restore();
             return;
         }
 
         // Full Debug Info Panel (includes FPS)
-        const panelWidth = 260;
-        const panelHeight = 226; // Increased for day/night controls + shader info
-        const padding = 12;
-        const lineHeight = 16;
+        const panelWidth = s(280);
+        const lineHeight = s(16);
+        const padding = s(12);
+        
+        // Calculate total content height
+        let contentLines = 6; // FPS, Min/Max, State, Map, Player, Collision
+        if (window.game?.dayNightCycle && window.game?.currentMap?.dayNightCycle) {
+            contentLines += 6; // Title, Time, Speed, Shader, hint1, hint2
+        }
+        contentLines += 1; // F1 hint
+        
+        const panelHeight = (contentLines * lineHeight) + (padding * 2) + s(10);
         
         // Semi-transparent background with border
         ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.fillRect(10, canvasHeight - panelHeight - 10, panelWidth, panelHeight);
+        ctx.fillRect(s(10), canvasHeight - panelHeight - s(10), panelWidth, panelHeight);
         
         // Border
         ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
         ctx.lineWidth = 1;
-        ctx.strokeRect(10, canvasHeight - panelHeight - 10, panelWidth, panelHeight);
+        ctx.strokeRect(s(10), canvasHeight - panelHeight - s(10), panelWidth, panelHeight);
         
         // Text styling
         ctx.fillStyle = '#00ff00';
-        ctx.font = '14px Courier New, monospace';
+        ctx.font = `${s(14)}px Courier New, monospace`;
         ctx.textAlign = 'left';
         
         let y = canvasHeight - panelHeight + padding;
         
         // FPS info
-        ctx.fillText(`FPS: ${this.fps}`, 20, y);
+        ctx.fillText(`FPS: ${this.fps}`, s(20), y);
         y += lineHeight;
         
         // Display min/max (show "--" if not yet initialized)
         const minDisplay = this.minFPS === Infinity ? '--' : this.minFPS;
         const maxDisplay = this.maxFPS === 0 ? '--' : this.maxFPS;
-        ctx.fillText(`Min: ${minDisplay}  Max: ${maxDisplay}`, 20, y);
+        ctx.fillText(`Min: ${minDisplay}  Max: ${maxDisplay}`, s(20), y);
         y += lineHeight;
         
         // Game state info
-        ctx.fillText(`State: ${currentState}`, 20, y);
+        ctx.fillText(`State: ${currentState}`, s(20), y);
         y += lineHeight;
-        ctx.fillText(`Map: ${currentMapId}`, 20, y);
+        ctx.fillText(`Map: ${currentMapId}`, s(20), y);
         y += lineHeight;
         
         // Player position
         if (window.game && window.game.player) {
             const playerX = Math.round(window.game.player.x);
             const playerY = Math.round(window.game.player.y);
-            ctx.fillText(`Player: (${playerX}, ${playerY})`, 20, y);
+            ctx.fillText(`Player: (${playerX}, ${playerY})`, s(20), y);
             y += lineHeight;
         }
         
         // Collision boxes indicator
         ctx.fillStyle = '#ff0000';
-        ctx.fillText('■ Collision boxes visible', 20, y);
+        ctx.fillText('■ Collision boxes visible', s(20), y);
         y += lineHeight;
         
         // Day/Night cycle info (if available)
         if (window.game?.dayNightCycle && window.game?.currentMap?.dayNightCycle) {
-            y += 4; // Extra spacing
+            y += s(4); // Extra spacing
             ctx.fillStyle = '#00ffff';
-            ctx.fillText('─── Day/Night Cycle ───', 20, y);
+            ctx.fillText('─── Day/Night Cycle ───', s(20), y);
             y += lineHeight;
             
             ctx.fillStyle = '#00ff00';
             const timeStr = window.game.dayNightCycle.getTimeString();
             const phase = window.game.dayNightCycle.getCurrentPhase();
-            ctx.fillText(`Time: ${timeStr} (${phase})`, 20, y);
+            ctx.fillText(`Time: ${timeStr} (${phase})`, s(20), y);
             y += lineHeight;
             
             const timeScale = window.game.dayNightCycle.timeScale;
-            ctx.fillText(`Speed: ${timeScale.toFixed(1)}x`, 20, y);
+            ctx.fillText(`Speed: ${timeScale.toFixed(1)}x`, s(20), y);
             y += lineHeight;
             
             // Show shader info (WebGL-only now)
             if (window.game.dayNightCycle.shader && window.game.dayNightCycle.shader.initialized) {
                 const shaderInfo = window.game.dayNightCycle.shader.getDebugInfo();
                 ctx.fillStyle = '#00ff00';
-                ctx.fillText(`WebGL Shader: B:${shaderInfo.brightness} S:${shaderInfo.saturation} T:${shaderInfo.temperature}`, 20, y);
+                ctx.fillText(`WebGL Shader: B:${shaderInfo.brightness} S:${shaderInfo.saturation} T:${shaderInfo.temperature}`, s(20), y);
                 y += lineHeight;
             } else {
                 ctx.fillStyle = '#ff0000';
-                ctx.fillText('❌ WebGL shader failed to initialize', 20, y);
+                ctx.fillText('❌ WebGL shader failed to initialize', s(20), y);
                 y += lineHeight;
             }
             
             // Quick time buttons hint
             ctx.fillStyle = '#666666';
-            ctx.font = '11px Courier New, monospace';
-            ctx.fillText('Shift+F6: Dawn  Shift+F7: Noon  Shift+F8: Dusk  Shift+F9: Night', 20, y);
-            y += 14;
-            ctx.fillText('F6: Speed +10x  F7: Speed -10x', 20, y);
+            ctx.font = `${s(11)}px Courier New, monospace`;
+            ctx.fillText('Shift+F6: Dawn  Shift+F7: Noon  Shift+F8: Dusk  Shift+F9: Night', s(20), y);
+            y += s(14);
+            ctx.fillText('F6: Speed +10x  F7: Speed -10x', s(20), y);
             y += lineHeight;
         }
         
         // F1 hint in dimmer color
         ctx.fillStyle = '#666666';
-        ctx.font = '12px Courier New, monospace';
-        ctx.fillText('Press F1 to toggle debug info', 20, y);
+        ctx.font = `${s(12)}px Courier New, monospace`;
+        ctx.fillText('Press F1 to toggle debug info', s(20), y);
     }
     
     /**

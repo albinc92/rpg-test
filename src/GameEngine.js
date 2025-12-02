@@ -231,6 +231,9 @@ class GameEngine {
             
             this.maps = this.mapManager.maps;
             
+            // Load paint layers from map data (if any)
+            await this.editorManager.importAllPaintLayers(this.mapManager.maps);
+            
             console.log('[GameEngine] ✅ All game data loaded successfully');
             
             // Don't load map yet - wait until game starts

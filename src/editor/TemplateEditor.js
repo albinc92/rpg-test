@@ -13,6 +13,9 @@ class TemplateEditor {
      * Create template editor UI
      */
     createUI() {
+        const scale = EditorStyles.getUIScale();
+        const s = (px) => `${Math.round(px * scale)}px`;
+        
         this.container = document.createElement('div');
         this.container.id = 'template-editor';
         this.container.style.cssText = `
@@ -20,19 +23,20 @@ class TemplateEditor {
             left: 50%;
             top: 50%;
             transform: translate(-50%, -50%);
-            width: 500px;
+            width: ${s(500)};
             max-height: 80vh;
             background: rgba(20, 20, 20, 0.98);
             color: white;
-            padding: 20px;
+            padding: ${s(20)};
             font-family: Arial, sans-serif;
+            font-size: ${s(14)};
             z-index: 2000;
             display: none;
-            border: 3px solid #4a9eff;
-            border-radius: 12px;
+            border: ${s(3)} solid #4a9eff;
+            border-radius: ${s(12)};
             overflow-y: auto;
             overflow-x: hidden;
-            box-shadow: 0 10px 50px rgba(0,0,0,0.8);
+            box-shadow: 0 ${s(10)} ${s(50)} rgba(0,0,0,0.8);
             box-sizing: border-box;
         `;
 
@@ -44,6 +48,9 @@ class TemplateEditor {
      */
     showTemplateList() {
         if (!this.container) this.createUI();
+        
+        const scale = EditorStyles.getUIScale();
+        const s = (px) => `${Math.round(px * scale)}px`;
 
         this.container.style.display = 'block';
         this.container.innerHTML = '';
@@ -54,14 +61,15 @@ class TemplateEditor {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #4a9eff;
+            margin-bottom: ${s(20)};
+            padding-bottom: ${s(15)};
+            border-bottom: ${s(2)} solid #4a9eff;
         `;
 
         const title = document.createElement('h2');
         title.textContent = '🎨 Template Editor';
         title.style.margin = '0';
+        title.style.fontSize = s(20);
         header.appendChild(title);
 
         const closeBtn = document.createElement('button');
@@ -70,11 +78,11 @@ class TemplateEditor {
             background: #ff4444;
             color: white;
             border: none;
-            width: 30px;
-            height: 30px;
+            width: ${s(30)};
+            height: ${s(30)};
             border-radius: 50%;
             cursor: pointer;
-            font-size: 18px;
+            font-size: ${s(18)};
         `;
         closeBtn.onclick = () => this.hide();
         header.appendChild(closeBtn);
@@ -85,10 +93,10 @@ class TemplateEditor {
         const info = document.createElement('div');
         info.style.cssText = `
             background: rgba(74, 158, 255, 0.2);
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            font-size: 13px;
+            padding: ${s(12)};
+            border-radius: ${s(6)};
+            margin-bottom: ${s(20)};
+            font-size: ${s(13)};
             line-height: 1.6;
         `;
         info.innerHTML = `
@@ -106,11 +114,11 @@ class TemplateEditor {
             const templateCard = document.createElement('div');
             templateCard.style.cssText = `
                 background: rgba(50, 50, 50, 0.8);
-                padding: 15px;
-                margin-bottom: 10px;
-                border-radius: 8px;
+                padding: ${s(15)};
+                margin-bottom: ${s(10)};
+                border-radius: ${s(8)};
                 cursor: pointer;
-                border: 2px solid transparent;
+                border: ${s(2)} solid transparent;
                 transition: all 0.2s;
             `;
             templateCard.onmouseover = () => templateCard.style.borderColor = '#4a9eff';
@@ -121,25 +129,25 @@ class TemplateEditor {
             templateHeader.style.cssText = `
                 display: flex;
                 align-items: center;
-                gap: 10px;
-                font-size: 16px;
+                gap: ${s(10)};
+                font-size: ${s(16)};
                 font-weight: bold;
-                margin-bottom: 8px;
+                margin-bottom: ${s(8)};
             `;
             templateHeader.innerHTML = `
-                <span style="font-size: 24px;">${template.icon}</span>
+                <span style="font-size: ${s(24)};">${template.icon}</span>
                 <span>${template.name}</span>
-                ${template.modified ? '<span style="color: #ffa500; font-size: 12px;">(Modified)</span>' : ''}
+                ${template.modified ? `<span style="color: #ffa500; font-size: ${s(12)};">(Modified)</span>` : ''}
             `;
             templateCard.appendChild(templateHeader);
 
             const templateInfo = document.createElement('div');
             templateInfo.style.cssText = `
-                font-size: 12px;
+                font-size: ${s(12)};
                 color: #aaa;
                 display: grid;
                 grid-template-columns: 1fr 1fr;
-                gap: 5px;
+                gap: ${s(5)};
             `;
             templateInfo.innerHTML = `
                 <div>📦 ${template.category}</div>
@@ -157,6 +165,9 @@ class TemplateEditor {
      * Edit a specific template
      */
     editTemplate(templateId) {
+        const scale = EditorStyles.getUIScale();
+        const s = (px) => `${Math.round(px * scale)}px`;
+        
         const template = this.game.templateManager.getTemplate(templateId);
         if (!template) return;
 
@@ -169,9 +180,9 @@ class TemplateEditor {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #4a9eff;
+            margin-bottom: ${s(20)};
+            padding-bottom: ${s(15)};
+            border-bottom: ${s(2)} solid #4a9eff;
         `;
 
         const backBtn = document.createElement('button');
@@ -180,8 +191,8 @@ class TemplateEditor {
             background: #555;
             color: white;
             border: none;
-            padding: 8px 15px;
-            border-radius: 5px;
+            padding: ${s(8)} ${s(15)};
+            border-radius: ${s(5)};
             cursor: pointer;
         `;
         backBtn.onclick = () => this.showTemplateList();

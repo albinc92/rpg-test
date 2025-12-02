@@ -32,14 +32,17 @@ class LayerPanel {
      * Create the layer panel UI
      */
     createUI() {
+        const scale = EditorStyles.getUIScale();
+        const s = (px) => `${Math.round(px * scale)}px`;
+        
         // Create container
         this.container = document.createElement('div');
         this.container.id = 'layer-panel';
         this.container.style.cssText = EditorStyles.getPanelStyle(this.theme);
         // Override specific styles
-        this.container.style.right = '20px';
-        this.container.style.top = '80px';
-        this.container.style.width = '280px';
+        this.container.style.right = s(20);
+        this.container.style.top = s(80);
+        this.container.style.width = s(280);
         this.container.style.maxHeight = '500px';
         this.container.style.display = 'none';
 
@@ -57,15 +60,15 @@ class LayerPanel {
         // Show All toggle
         const showAllContainer = document.createElement('div');
         showAllContainer.style.cssText = EditorStyles.getListItemStyle();
-        showAllContainer.style.marginBottom = '15px';
-        showAllContainer.style.padding = '10px';
+        showAllContainer.style.marginBottom = s(15);
+        showAllContainer.style.padding = s(10);
 
         const showAllLabel = document.createElement('label');
         showAllLabel.textContent = 'Show All (Preview)';
         showAllLabel.htmlFor = 'show-all-layers';
         showAllLabel.style.cssText = `
             cursor: pointer;
-            font-size: 12px;
+            font-size: ${s(12)};
             color: #ecf0f1;
             flex: 1;
             font-weight: 600;
@@ -76,8 +79,8 @@ class LayerPanel {
         showAllCheckbox.id = 'show-all-layers';
         showAllCheckbox.checked = this.showAllMode;
         showAllCheckbox.style.cssText = `
-            width: 16px;
-            height: 16px;
+            width: ${s(16)};
+            height: ${s(16)};
             cursor: pointer;
             accent-color: ${this.theme.accent};
         `;
@@ -107,10 +110,10 @@ class LayerPanel {
         this.layerListContainer = document.createElement('div');
         this.layerListContainer.id = 'layer-list';
         this.layerListContainer.style.cssText = `
-            margin-bottom: 15px;
+            margin-bottom: ${s(15)};
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: ${s(8)};
         `;
         content.appendChild(this.layerListContainer);
 
@@ -137,6 +140,9 @@ class LayerPanel {
     updateLayerList() {
         if (!this.game.currentMapId) return;
 
+        const scale = EditorStyles.getUIScale();
+        const s = (px) => `${Math.round(px * scale)}px`;
+
         const layers = this.game.layerManager.getLayers(this.game.currentMapId);
         const activeLayerId = this.game.layerManager.activeLayerId;
 
@@ -152,8 +158,8 @@ class LayerPanel {
             layerItem.style.cssText = `
                 background: ${isActive ? 'rgba(46, 204, 113, 0.15)' : 'rgba(255, 255, 255, 0.03)'};
                 border: 1px solid ${isActive ? this.theme.accent : 'rgba(255, 255, 255, 0.05)'};
-                border-radius: 8px;
-                padding: 12px;
+                border-radius: ${s(8)};
+                padding: ${s(12)};
                 cursor: pointer;
                 transition: all 0.2s;
                 position: relative;
@@ -161,7 +167,7 @@ class LayerPanel {
             `;
             
             if (isActive) {
-                layerItem.style.boxShadow = `0 0 10px ${this.theme.primaryDark}`;
+                layerItem.style.boxShadow = `0 0 ${s(10)} ${this.theme.primaryDark}`;
             }
 
             // Layer header (name and visibility)
@@ -170,14 +176,14 @@ class LayerPanel {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                margin-bottom: 8px;
+                margin-bottom: ${s(8)};
             `;
 
             // Layer name
             const nameSpan = document.createElement('span');
             nameSpan.textContent = `${layer.name} ${layer.locked ? '🔒' : ''}`;
             nameSpan.style.cssText = `
-                font-size: 13px;
+                font-size: ${s(13)};
                 font-weight: 700;
                 color: ${isActive ? this.theme.accent : '#ecf0f1'};
                 font-family: 'Lato', sans-serif;
@@ -192,9 +198,9 @@ class LayerPanel {
                 border: none;
                 color: ${layer.visible ? '#ecf0f1' : '#7f8c8d'};
                 cursor: pointer;
-                font-size: 16px;
-                padding: 4px;
-                border-radius: 4px;
+                font-size: ${s(16)};
+                padding: ${s(4)};
+                border-radius: ${s(4)};
                 transition: all 0.2s;
             `;
             visibilityButton.addEventListener('click', (e) => {
@@ -211,9 +217,9 @@ class LayerPanel {
             // Layer info
             const info = document.createElement('div');
             info.style.cssText = `
-                font-size: 10px;
+                font-size: ${s(10)};
                 color: #95a5a6;
-                margin-bottom: 10px;
+                margin-bottom: ${s(10)};
                 font-family: 'Lato', sans-serif;
             `;
             info.textContent = `z-index: ${layer.zIndex}`;
@@ -224,7 +230,7 @@ class LayerPanel {
                 const controls = document.createElement('div');
                 controls.style.cssText = `
                     display: flex;
-                    gap: 8px;
+                    gap: ${s(8)};
                     justify-content: flex-end;
                 `;
 
@@ -289,21 +295,24 @@ class LayerPanel {
      * Create a control button
      */
     createControlButton(text, onClick) {
+        const scale = EditorStyles.getUIScale();
+        const s = (px) => `${Math.round(px * scale)}px`;
+        
         const button = document.createElement('button');
         button.textContent = text;
         button.style.cssText = `
-            padding: 6px 10px;
+            padding: ${s(6)} ${s(10)};
             background: rgba(255, 255, 255, 0.1);
             color: #ecf0f1;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 4px;
+            border-radius: ${s(4)};
             cursor: pointer;
-            font-size: 12px;
+            font-size: ${s(12)};
             transition: all 0.2s;
             display: flex;
             align-items: center;
             justify-content: center;
-            min-width: 28px;
+            min-width: ${s(28)};
         `;
         button.addEventListener('click', (e) => {
             e.stopPropagation();
