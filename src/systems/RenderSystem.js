@@ -543,6 +543,7 @@ class RenderSystem {
         // Their position is transformed by perspective, but their shape stays rectangular
         if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
             this.webglRenderer.beginSpritePass();
+            console.log('[RENDER] beginSpritePass called, billboardMode should be ON');
         }
 
         // Collect and sort all renderable objects
@@ -580,6 +581,13 @@ class RenderSystem {
         
         renderables.sort((a, b) => a.depth - b.depth);
         
+        // DEBUG: Log ALL objects being rendered
+        console.log(`[RENDER] Rendering ${renderables.length} objects. WebGL: ${this.useWebGL}, billboardMode: ${this.webglRenderer?.billboardMode}`);
+        for (let idx = 0; idx < renderables.length; idx++) {
+            const obj = renderables[idx].obj;
+            console.log(`[RENDER] Object ${idx}: ${obj.constructor.name} id=${obj.id} pos=(${obj.x?.toFixed(1)}, ${obj.y?.toFixed(1)}) sprite=${obj.sprite ? 'YES' : 'NO'} spriteLoaded=${obj.spriteLoaded} spriteSrc=${obj.spriteSrc}`);
+        }
+
         renderables.forEach(({ obj }) => {
             obj.render(this.ctx, game, this.webglRenderer);
         });

@@ -132,16 +132,22 @@ class StaticObject extends GameObject {
         const screenX = scaledX - width / 2;
         const screenY = scaledY - height / 2 - altitudeOffset;
         
+        // DEBUG: Log rendering details for first few frames
+        if (!this._renderLogCount) this._renderLogCount = 0;
+        if (this._renderLogCount < 3) {
+            console.log(`[RENDER ${this.id}] renderSprite called`);
+            console.log(`[RENDER ${this.id}] x=${this.x}, y=${this.y}, scaledX=${scaledX}, scaledY=${scaledY}`);
+            console.log(`[RENDER ${this.id}] screenX=${screenX}, screenY=${screenY}, width=${width}, height=${height}`);
+            console.log(`[RENDER ${this.id}] webglRenderer=${webglRenderer ? 'YES' : 'NO'}, initialized=${webglRenderer?.initialized}`);
+            console.log(`[RENDER ${this.id}] sprite=${this.sprite ? 'loaded' : 'null'}, src=${this.sprite?.src}`);
+            this._renderLogCount++;
+        }
+        
         // Determine if we should flip horizontally
         const shouldFlip = this.reverseFacing === true || this.direction === 'right';
         
-        // Complex animations (rotate, sway) need Canvas2D for now
-        // TODO: Implement rotation/sway in WebGL shader or pre-render to canvas
-        const hasComplexAnimation = (this.animationType === 'rotate' && this.rotation) ||
-                                   (this.animationType === 'sway' && this.swayOffset);
-        
-        // Use WebGL for simple static objects
-        if (webglRenderer && webglRenderer.initialized && !hasComplexAnimation) {
+        // Use WebGL for all static objects
+        if (webglRenderer && webglRenderer.initialized) {
             const imageUrl = this.sprite.src || `sprite_${this.id}`;
             webglRenderer.drawSprite(
                 screenX, 
@@ -157,39 +163,15 @@ class StaticObject extends GameObject {
             return;
         }
         
-        // Fallback to Canvas2D for complex animations or when WebGL unavailable
+        // Fallback to Canvas2D when WebGL unavailable
         ctx.save();
-        
-        // Apply rotation if needed
-        if (this.animationType === 'rotate' && this.rotation) {
+        if (shouldFlip) {
             ctx.translate(scaledX, scaledY - altitudeOffset);
-            ctx.rotate(this.rotation);
-            if (shouldFlip) {
-                ctx.scale(-1, 1);
-            }
+            ctx.scale(-1, 1);
             ctx.drawImage(this.sprite, -width / 2, -height / 2, width, height);
+        } else {
+            ctx.drawImage(this.sprite, screenX, screenY, width, height);
         }
-        // Apply swaying if needed
-        else if (this.animationType === 'sway' && this.swayOffset) {
-            const resolutionScale = game?.resolutionScale || 1.0;
-            const scaledSwayOffset = this.swayOffset * resolutionScale;
-            ctx.translate(scaledX + scaledSwayOffset, scaledY - altitudeOffset);
-            if (shouldFlip) {
-                ctx.scale(-1, 1);
-            }
-            ctx.drawImage(this.sprite, -width / 2, -height / 2, width, height);
-        }
-        // Normal rendering
-        else {
-            if (shouldFlip) {
-                ctx.translate(scaledX, scaledY - altitudeOffset);
-                ctx.scale(-1, 1);
-                ctx.drawImage(this.sprite, -width / 2, -height / 2, width, height);
-            } else {
-                ctx.drawImage(this.sprite, screenX, screenY, width, height);
-            }
-        }
-        
         ctx.restore();
     }
     

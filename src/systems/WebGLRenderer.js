@@ -958,6 +958,8 @@ class WebGLRenderer {
      * @returns {Object} { worldX, worldY } - Approximate world position
      */
     transformScreenToWorld(screenX, screenY, cameraX, cameraY) {
+        console.log('[TRANSFORM] transformScreenToWorld called with screen:', screenX, screenY, 'camera:', cameraX, cameraY);
+        
         // Default result (no perspective) - simple camera addition
         let worldX = screenX + cameraX;
         let worldY = screenY + cameraY;
@@ -968,34 +970,48 @@ class WebGLRenderer {
             const pm = this.projectionMatrix;
             const zoom = vm[0];
             
+            console.log('[TRANSFORM] Perspective active. Strength:', this.perspectiveStrength, 'Zoom:', zoom);
+            
             // This is an iterative approximation since the perspective transform
             // is not easily invertible (depth depends on Y which changes with perspective)
             
             // Start with a guess: the non-perspective world position
+            // screenX/Y are already zoom-adjusted canvas coords, so add camera to get world
             let guessWorldX = screenX + cameraX;
             let guessWorldY = screenY + cameraY;
             
             // Iterate to refine the guess (usually converges in 3-5 iterations)
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < 10; i++) {
                 // Transform our guess to screen space
                 const transformed = this.transformWorldToScreen(guessWorldX, guessWorldY, cameraX, cameraY);
                 
-                // Calculate error
+                // Calculate error - compare against zoom-adjusted screen position
                 const errorX = screenX - transformed.screenX;
                 const errorY = screenY - transformed.screenY;
                 
+                if (i === 0) {
+                    console.log('[TRANSFORM] Iteration 0 - guess:', guessWorldX.toFixed(1), guessWorldY.toFixed(1), 
+                        'transformed back to screen:', transformed.screenX.toFixed(1), transformed.screenY.toFixed(1),
+                        'error:', errorX.toFixed(1), errorY.toFixed(1));
+                }
+                
                 // If error is small enough, we're done
                 if (Math.abs(errorX) < 0.5 && Math.abs(errorY) < 0.5) {
+                    console.log('[TRANSFORM] Converged at iteration', i);
                     break;
                 }
                 
-                // Adjust guess based on error (scale by zoom to convert screen to world units)
-                guessWorldX += errorX / zoom;
-                guessWorldY += errorY / zoom;
+                // Adjust guess based on error
+                // Don't divide by zoom - error is already in screen space matching our input
+                guessWorldX += errorX;
+                guessWorldY += errorY;
             }
             
             worldX = guessWorldX;
             worldY = guessWorldY;
+            console.log('[TRANSFORM] Final world coords:', worldX.toFixed(1), worldY.toFixed(1));
+        } else {
+            console.log('[TRANSFORM] No perspective - simple camera offset. Result:', worldX, worldY);
         }
         
         return { worldX, worldY };
@@ -1139,6 +1155,11 @@ class WebGLRenderer {
     
     drawSprite(x, y, width, height, image, imageUrl, alpha = 1.0, flipX = false, flipY = false) {
         if (!this.initialized) return;
+        
+        // DEBUG: Log ALL draw calls for tree sprites (reset counter each frame in beginFrame)
+        if (imageUrl && imageUrl.includes('tree')) {
+            console.log(`[DRAWSPRITE] ${imageUrl} at (${x.toFixed(1)}, ${y.toFixed(1)}) size ${width.toFixed(1)}x${height.toFixed(1)} billboardMode=${this.billboardMode} perspStr=${this.perspectiveStrength}`);
+        }
         
         const texture = this.textures.get(imageUrl) || this.loadTexture(image, imageUrl);
         

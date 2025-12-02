@@ -425,6 +425,7 @@ class ObjectPlacementPanel {
                     category: 'Actor',
                     actorType: 'spirit',
                     ...template,  // Include ALL template properties (collision, stats, etc.)
+                    id: undefined,  // Force UUID generation - don't use template ID
                     templateId: template.id
                 };
                 
@@ -432,6 +433,7 @@ class ObjectPlacementPanel {
                 return {
                     category: 'StaticObject',
                     ...template,  // Include ALL template properties (collision, sway, shadow, etc.)
+                    id: undefined,  // Force UUID generation - don't use template name as ID
                     templateId: template.id,
                     castsShadow: template.castsShadow !== false // Enable shadows by default
                 };
