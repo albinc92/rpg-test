@@ -1847,13 +1847,22 @@ class SettingsState extends GameState {
     populateControlsOptions() {
         const options = [];
         
-        // Device Selector
+        // Check if controller is connected
+        const controllerConnected = this.game.inputManager?.gamepadState?.connected || false;
+        
+        // Device Selector - disabled if no controller connected
         options.push({ 
             name: 'Input Device', 
             type: 'select', 
             key: 'controlDevice', 
-            values: ['Keyboard', 'Gamepad'] 
+            values: ['Keyboard', 'Gamepad'],
+            disabledWhen: 'noController'
         });
+        
+        // If no controller, force keyboard mode
+        if (!controllerConnected && this.controlDevice === 'Gamepad') {
+            this.controlDevice = 'Keyboard';
+        }
         
         if (this.controlDevice === 'Keyboard') {
             // Keyboard Bindings
@@ -2188,9 +2197,13 @@ class SettingsState extends GameState {
         const option = this.options[this.selectedOption];
         if (!option || !option.key) return;
         
-        // Check if option is disabled (e.g., Always Run when controller connected)
-        if (option.disabledWhen === 'controller' && this.game.inputManager?.gamepadState?.connected) {
-            return; // Don't allow changing disabled options
+        // Check if option is disabled
+        const controllerConnected = this.game.inputManager?.gamepadState?.connected || false;
+        if (option.disabledWhen === 'controller' && controllerConnected) {
+            return; // Don't allow changing when controller connected
+        }
+        if (option.disabledWhen === 'noController' && !controllerConnected) {
+            return; // Don't allow changing when NO controller connected
         }
         
         // Use live settings for instant preview
@@ -2544,6 +2557,9 @@ class SettingsState extends GameState {
             if (option.disabledWhen === 'controller') {
                 // Disable when a controller is connected (analog controls speed)
                 disabled = this.game.inputManager?.gamepadState?.connected || false;
+            } else if (option.disabledWhen === 'noController') {
+                // Disable when NO controller is connected
+                disabled = !(this.game.inputManager?.gamepadState?.connected || false);
             }
             
             if (option.type === 'slider') {
@@ -2584,10 +2600,11 @@ class SettingsState extends GameState {
                 disabled: disabled
             };
             
-            // Add tooltip for disabled options
+            // Add tooltip for disabled options (only for controller-connected case)
             if (disabled && option.disabledWhen === 'controller') {
                 result.name = option.name + ' (Controller)';
             }
+            // Note: noController disabled options don't need a suffix - it's obvious
             
             return result;
         });

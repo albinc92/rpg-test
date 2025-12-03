@@ -368,11 +368,12 @@ class MenuRenderer {
         options.forEach((option, index) => {
             const y = menuStartY + (index * lineHeight);
             const isSelected = index === selectedIndex;
+            const isDisabled = option.disabled === true;
             
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
             
-            // Selection highlight (Glass bar)
+            // Selection highlight (Glass bar) - show even for disabled, but user can't change value
             if (isSelected) {
                 if (this.ds) {
                     this.ds.drawSelectionHighlight(
@@ -397,7 +398,16 @@ class MenuRenderer {
                     ctx.lineWidth = 1;
                     ctx.strokeRect(panelX + 20, y - lineHeight/2 + 5, panelWidth - 40, lineHeight - 10);
                 }
-                
+            }
+            
+            // Text styling based on selected and disabled state
+            if (isDisabled) {
+                // Greyed out disabled option
+                ctx.fillStyle = colors.text.muted || '#666';
+                ctx.font = this.ds
+                    ? this.ds.font('md', 'normal', 'body')
+                    : `400 ${sizes.menu}px 'Lato', sans-serif`;
+            } else if (isSelected) {
                 ctx.fillStyle = colors.text.primary;
                 ctx.font = this.ds 
                     ? this.ds.font('md', 'bold', 'body')
@@ -415,7 +425,8 @@ class MenuRenderer {
             // Draw Value
             if (option.value !== undefined) {
                 ctx.textAlign = 'right';
-                ctx.fillStyle = isSelected ? colors.primary : colors.text.muted;
+                // Use muted color for disabled, otherwise normal styling
+                ctx.fillStyle = isDisabled ? (colors.text.muted || '#666') : (isSelected ? colors.primary : colors.text.muted);
                 ctx.fillText(option.value, panelX + panelWidth - itemMargin, y);
             }
         });
