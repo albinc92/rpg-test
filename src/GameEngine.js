@@ -99,6 +99,11 @@ class GameEngine {
         this.settingsManager.load();
         this.settings = this.settingsManager.getAll();
         
+        // Locale manager for internationalization (i18n)
+        // Must be initialized after settings are loaded to get user's language preference
+        this.localeManager = new LocaleManager();
+        // Note: loadLocale is async, will be called in init()
+        
         // Pass settings to RenderSystem for WebGL configuration (AA, filtering)
         this.renderSystem = new RenderSystem(this.canvas, this.ctx, this.webglCanvas, this.settings);
         this.hudSystem = new HUDSystem(this); // NEW: HUD system
@@ -248,6 +253,12 @@ class GameEngine {
     async initialize() {
         try {
             console.log('[GameEngine] Loading game data...');
+            
+            // Load locale for internationalization (i18n)
+            // Must be loaded before any UI strings are needed
+            const language = this.settings.language || 'en';
+            await this.localeManager.loadLocale(language);
+            console.log(`[GameEngine] Loaded locale: ${language}`);
             
             // Load all game data from JSON files
             await this.dataLoader.loadAll();
@@ -2092,6 +2103,40 @@ class GameEngine {
         this.updateCamera();
         
         console.log(`[GameEngine] ✅ Game zoom applied: ${zoomPercent}% (worldScale=${this.worldScale.toFixed(3)}, visible=${this.visibleWorldWidth.toFixed(0)}x${this.visibleWorldHeight.toFixed(0)} world units)`);
+    }
+    
+    /**
+     * Translation helper - shortcut to localeManager.t()
+     * @param {string} key - Translation key (e.g., 'menu.main.newGame')
+     * @param {Object} params - Optional parameters for interpolation
+     * @returns {string} Translated string
+     */
+    t(key, params = {}) {
+        return this.localeManager.t(key, params);
+    }
+    
+    /**
+     * Change the current language
+     * @param {string} localeCode - Locale code (e.g., 'en', 'ja', 'es')
+     * @returns {Promise<boolean>} Success status
+     */
+    async changeLanguage(localeCode) {
+        const success = await this.localeManager.setLocale(localeCode);
+        if (success) {
+            // Update settings
+            this.settings.language = localeCode;
+            this.settingsManager.set('language', localeCode);
+            console.log(`[GameEngine] ✅ Language changed to: ${localeCode}`);
+        }
+        return success;
+    }
+    
+    /**
+     * Get available languages for settings UI
+     * @returns {Array<{code: string, name: string, nativeName: string}>}
+     */
+    getAvailableLanguages() {
+        return this.localeManager.getSupportedLocales();
     }
     
     /**

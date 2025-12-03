@@ -1,0 +1,227 @@
+{
+  "meta": {
+    "locale": "fr",
+    "name": "French",
+    "nativeName": "Français",
+    "direction": "ltr"
+  },
+  
+  "menu": {
+    "main": {
+      "title": "RPG Game",
+      "continue": "Continuer",
+      "loadGame": "Charger",
+      "newGame": "Nouvelle Partie",
+      "settings": "Options",
+      "exit": "Quitter"
+    },
+    "pause": {
+      "title": "Pause",
+      "resume": "Reprendre",
+      "saveLoad": "Sauv./Charger",
+      "saveGame": "Sauvegarder",
+      "loadGame": "Charger",
+      "settings": "Options",
+      "mainMenu": "Menu Principal",
+      "exit": "Quitter le Jeu",
+      "quitConfirmTitle": "Retourner au Menu ?",
+      "quitConfirmMessage": "Êtes-vous sûr de vouloir quitter ?",
+      "unsavedWarning": "La progression non sauvegardée sera perdue."
+    },
+    "common": {
+      "back": "Retour",
+      "confirm": "Confirmer",
+      "cancel": "Annuler",
+      "yes": "Oui",
+      "no": "Non",
+      "ok": "OK",
+      "apply": "Appliquer",
+      "save": "Sauvegarder",
+      "load": "Charger",
+      "delete": "Supprimer"
+    }
+  },
+  
+  "settings": {
+    "title": "Options",
+    "tabs": {
+      "audio": "Audio",
+      "graphics": "Graphismes",
+      "gameplay": "Gameplay",
+      "controls": "Contrôles"
+    },
+    "values": {
+      "on": "OUI",
+      "off": "NON"
+    },
+    "audio": {
+      "masterVolume": "Volume Principal",
+      "musicVolume": "Volume Musique",
+      "effectsVolume": "Volume Effets",
+      "ambienceVolume": "Volume Ambiance",
+      "mute": "Tout Couper"
+    },
+    "graphics": {
+      "resolution": "Résolution",
+      "fullscreen": "Plein Écran",
+      "vsync": "Synchro Verticale (Redémarrer)",
+      "antiAliasing": "Anti-Crénelage",
+      "textureFiltering": "Filtrage Textures",
+      "uiScale": "Échelle Interface",
+      "gameZoom": "Zoom du Jeu",
+      "perspective": "Pseudo 3D",
+      "showFPS": "Afficher FPS",
+      "aaOptions": {
+        "none": "Aucun",
+        "msaa": "MSAA"
+      },
+      "filterOptions": {
+        "smooth": "Lisse",
+        "sharp": "Net"
+      }
+    },
+    "gameplay": {
+      "language": "Langue",
+      "alwaysRun": "Toujours Courir",
+      "showDebugInfo": "Infos de Débogage",
+      "perspectiveEffect": "Effet Perspective",
+      "perspectiveStrength": "Force Perspective",
+      "timeScale": "Vitesse Jour/Nuit"
+    },
+    "controls": {
+      "inputDevice": "Périphérique",
+      "keyboard": "Clavier",
+      "gamepad": "Manette",
+      "moveUp": "Haut",
+      "moveDown": "Bas",
+      "moveLeft": "Gauche",
+      "moveRight": "Droite",
+      "interact": "Interagir",
+      "run": "Courir",
+      "menu": "Menu",
+      "inventory": "Inventaire",
+      "confirm": "Confirmer",
+      "cancel": "Annuler",
+      "unbound": "Non Assigné"
+    },
+    "messages": {
+      "unsavedChanges": "Vous avez des modifications non sauvegardées. Voulez-vous les sauvegarder?",
+      "restartRequired": "Note: Redémarrage de l'application requis.",
+      "pressKey": "> APPUYEZ <",
+      "noController": "Pas de Manette",
+      "controller": "Manette"
+    },
+    "unsavedChanges": {
+      "title": "Modifications Non Sauvegardées",
+      "message": "Voulez-vous sauvegarder vos modifications?",
+      "discard": "Annuler"
+    },
+    "reset": {
+      "title": "Réinitialiser",
+      "message": "Que voulez-vous réinitialiser?",
+      "all": "Tout",
+      "warning": "Cela restaurera les valeurs par défaut."
+    },
+    "buttons": {
+      "apply": "Appliquer",
+      "cancel": "Annuler",
+      "restoreDefaults": "Par Défaut"
+    }
+  },
+  
+  "saveLoad": {
+    "title": {
+      "save": "Sauvegarder",
+      "load": "Charger"
+    },
+    "slot": "Emplacement {number}",
+    "emptySlot": "Emplacement Vide",
+    "autoSave": "Sauvegarde Auto",
+    "playTime": "Temps de Jeu: {time}",
+    "level": "Niveau {level}",
+    "location": "Lieu: {location}",
+    "confirmOverwrite": "Écraser la sauvegarde existante?",
+    "confirmDelete": "Supprimer cette sauvegarde?",
+    "saveSuccess": "Partie sauvegardée!",
+    "loadSuccess": "Partie chargée!",
+    "saveFailed": "Échec de la sauvegarde.",
+    "loadFailed": "Échec du chargement."
+  },
+  
+  "gameplay": {
+    "interact": "Appuyez sur {key} pour interagir",
+    "talkTo": "Parler à {name}",
+    "open": "Ouvrir",
+    "pickup": "Ramasser {item}",
+    "examine": "Examiner",
+    "locked": "Verrouillé",
+    "needsKey": "Nécessite {key}",
+    "inventory": {
+      "title": "Inventaire",
+      "empty": "Votre inventaire est vide",
+      "use": "Utiliser",
+      "drop": "Jeter",
+      "equip": "Équiper",
+      "unequip": "Déséquiper"
+    },
+    "gold": "{amount} Or",
+    "level": "Niveau {level}",
+    "exp": "EXP: {current}/{next}"
+  },
+  
+  "dialogue": {
+    "continue": "Appuyez sur {key} pour continuer",
+    "chooseOption": "Choisissez une option"
+  },
+  
+  "hud": {
+    "hp": "PV",
+    "mp": "PM",
+    "menu": "Menu"
+  },
+  
+  "time": {
+    "dawn": "Aube",
+    "morning": "Matin",
+    "noon": "Midi",
+    "afternoon": "Après-midi",
+    "evening": "Soir",
+    "dusk": "Crépuscule",
+    "night": "Nuit",
+    "midnight": "Minuit"
+  },
+  
+  "weather": {
+    "clear": "Dégagé",
+    "cloudy": "Nuageux",
+    "rain": "Pluie",
+    "storm": "Orage",
+    "snow": "Neige",
+    "fog": "Brouillard"
+  },
+  
+  "hints": {
+    "audioStart": "L'audio démarrera avec votre première interaction",
+    "controllerConnected": "Manette connectée",
+    "controllerDisconnected": "Manette déconnectée",
+    "pressEscToClose": "Appuyez sur ESC pour fermer"
+  },
+  
+  "instructions": {
+    "tapToSelect": "Appuyez pour Sélectionner",
+    "pauseMenu": "Flèches: Naviguer • Entrée: Sélectionner • ESC: Reprendre",
+    "settingsMenu": "Flèches: Naviguer • G/D: Ajuster • Entrée: Sélectionner • ESC: Retour",
+    "settingsMobile": "Joystick: Naviguer • A: Sélectionner • B: Retour",
+    "rebinding": "Appuyez sur une touche... (ESC pour annuler)",
+    "saveLoadMenu": "Flèches: Naviguer • Entrée: Sélectionner • SUPPR: Supprimer • ESC: Retour"
+  },
+  
+  "errors": {
+    "generic": "Une erreur s'est produite",
+    "connectionLost": "Connexion perdue",
+    "saveFailed": "Échec de la sauvegarde",
+    "loadFailed": "Échec du chargement"
+  },
+  
+  "version": "Version: {version}"
+}

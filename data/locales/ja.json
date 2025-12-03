@@ -1,0 +1,235 @@
+{
+  "meta": {
+    "locale": "ja",
+    "name": "Japanese",
+    "nativeName": "日本語",
+    "direction": "ltr"
+  },
+  
+  "menu": {
+    "main": {
+      "title": "RPG Game",
+      "continue": "つづきから",
+      "loadGame": "ロード",
+      "newGame": "はじめから",
+      "settings": "設定",
+      "exit": "終了"
+    },
+    "pause": {
+      "title": "ポーズ",
+      "resume": "再開",
+      "saveLoad": "セーブ/ロード",
+      "saveGame": "セーブ",
+      "loadGame": "ロード",
+      "settings": "設定",
+      "mainMenu": "タイトルへ",
+      "exit": "ゲーム終了",
+      "quitConfirmTitle": "タイトルに戻りますか？",
+      "quitConfirmMessage": "本当にタイトルに戻りますか？",
+      "unsavedWarning": "セーブしていないデータは失われます。"
+    },
+    "common": {
+      "back": "戻る",
+      "confirm": "決定",
+      "cancel": "キャンセル",
+      "yes": "はい",
+      "no": "いいえ",
+      "ok": "OK",
+      "apply": "適用",
+      "save": "保存",
+      "load": "読込",
+      "delete": "削除"
+    }
+  },
+  
+  "settings": {
+    "title": "設定",
+    "tabs": {
+      "audio": "サウンド",
+      "graphics": "グラフィック",
+      "gameplay": "ゲームプレイ",
+      "controls": "操作"
+    },
+    "values": {
+      "on": "オン",
+      "off": "オフ"
+    },
+    "audio": {
+      "masterVolume": "マスター音量",
+      "musicVolume": "BGM音量",
+      "effectsVolume": "効果音音量",
+      "ambienceVolume": "環境音音量",
+      "mute": "すべて消音"
+    },
+    "graphics": {
+      "resolution": "解像度",
+      "fullscreen": "フルスクリーン",
+      "vsync": "垂直同期（再起動）",
+      "antiAliasing": "アンチエイリアス",
+      "textureFiltering": "テクスチャフィルタ",
+      "uiScale": "UI拡大率",
+      "gameZoom": "ゲームズーム",
+      "perspective": "疑似3D",
+      "showFPS": "FPS表示",
+      "aaOptions": {
+        "none": "オフ",
+        "msaa": "MSAA"
+      },
+      "filterOptions": {
+        "smooth": "スムーズ",
+        "sharp": "シャープ"
+      }
+    },
+    "gameplay": {
+      "language": "言語",
+      "alwaysRun": "常に走る",
+      "showDebugInfo": "デバッグ情報表示",
+      "perspectiveEffect": "遠近効果",
+      "perspectiveStrength": "遠近強度",
+      "timeScale": "時間の速さ"
+    },
+    "controls": {
+      "inputDevice": "入力デバイス",
+      "keyboard": "キーボード",
+      "gamepad": "コントローラー",
+      "moveUp": "上移動",
+      "moveDown": "下移動",
+      "moveLeft": "左移動",
+      "moveRight": "右移動",
+      "interact": "調べる",
+      "run": "走る",
+      "menu": "メニュー",
+      "inventory": "アイテム",
+      "confirm": "決定",
+      "cancel": "キャンセル",
+      "unbound": "未設定"
+    },
+    "messages": {
+      "unsavedChanges": "保存していない変更があります。保存しますか？",
+      "restartRequired": "注: アプリケーションの再起動が必要です。",
+      "pressKey": "> キーを押す <",
+      "noController": "コントローラーなし",
+      "controller": "コントローラー"
+    },
+    "unsavedChanges": {
+      "title": "未保存の変更",
+      "message": "変更を保存しますか？",
+      "discard": "破棄"
+    },
+    "reset": {
+      "title": "設定のリセット",
+      "message": "何をリセットしますか？",
+      "all": "すべて",
+      "warning": "初期値に戻ります。"
+    },
+    "buttons": {
+      "apply": "適用",
+      "cancel": "キャンセル",
+      "restoreDefaults": "初期設定に戻す"
+    }
+  },
+  
+  "saveLoad": {
+    "menuTitle": "セーブ / ロード",
+    "title": {
+      "save": "セーブ",
+      "load": "ロード"
+    },
+    "slot": "スロット {number}",
+    "emptySlot": "空きスロット",
+    "newSave": "[ 新規セーブ ]",
+    "createNewSave": "新しいセーブファイルを作成",
+    "selectSlotSave": "セーブするスロットを選択",
+    "selectSlotLoad": "ロードするセーブを選択",
+    "noSaves": "セーブデータがありません",
+    "autoSave": "オートセーブ",
+    "playTime": "プレイ時間: {time}",
+    "level": "レベル {level}",
+    "location": "場所: {location}",
+    "confirmOverwrite": "上書きしますか？",
+    "confirmDelete": "削除しますか？",
+    "overwriteWarning": "既存のセーブデータを上書きします。",
+    "deleteWarning": "この操作は取り消せません。",
+    "saveSuccess": "セーブしました！",
+    "loadSuccess": "ロードしました！",
+    "saveFailed": "セーブに失敗しました。",
+    "loadFailed": "ロードに失敗しました。"
+  },
+  
+  "gameplay": {
+    "interact": "{key}で調べる",
+    "talkTo": "{name}と話す",
+    "open": "開ける",
+    "pickup": "{item}を拾う",
+    "examine": "調べる",
+    "locked": "鍵がかかっている",
+    "needsKey": "{key}が必要",
+    "inventory": {
+      "title": "アイテム",
+      "empty": "アイテムがありません",
+      "use": "使う",
+      "drop": "捨てる",
+      "equip": "装備",
+      "unequip": "外す"
+    },
+    "gold": "{amount} ゴールド",
+    "level": "レベル {level}",
+    "exp": "経験値: {current}/{next}"
+  },
+  
+  "dialogue": {
+    "continue": "{key}で次へ",
+    "chooseOption": "選択してください"
+  },
+  
+  "hud": {
+    "hp": "HP",
+    "mp": "MP",
+    "menu": "メニュー"
+  },
+  
+  "time": {
+    "dawn": "夜明け",
+    "morning": "朝",
+    "noon": "昼",
+    "afternoon": "午後",
+    "evening": "夕方",
+    "dusk": "黄昏",
+    "night": "夜",
+    "midnight": "深夜"
+  },
+  
+  "weather": {
+    "clear": "晴れ",
+    "cloudy": "曇り",
+    "rain": "雨",
+    "storm": "嵐",
+    "snow": "雪",
+    "fog": "霧"
+  },
+  
+  "hints": {
+    "audioStart": "最初の操作でサウンドが開始されます",
+    "controllerConnected": "コントローラー接続",
+    "controllerDisconnected": "コントローラー切断",
+    "pressEscToClose": "ESCで閉じる"
+  },
+  
+  "instructions": {
+    "tapToSelect": "タップして選択",
+    "pauseMenu": "方向キー：移動 • Enter：決定 • ESC：再開",
+    "settingsMenu": "方向キー：移動 • 左/右：調整 • Enter：決定 • ESC：戻る",
+    "settingsMobile": "スティック：移動 • A：決定 • B：戻る",
+    "rebinding": "キーを押してください...（ESCでキャンセル）",
+    "saveLoadMenu": "方向キー：移動 • Enter：決定 • DEL：削除 • ESC：戻る"
+  },
+  
+  "errors": {
+    "generic": "エラーが発生しました",
+    "connectionLost": "接続が切れました",
+    "saveFailed": "保存に失敗",
+    "loadFailed": "読込に失敗"
+  },
+  
+  "version": "バージョン: {version}"
+}

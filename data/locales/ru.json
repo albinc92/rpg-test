@@ -1,0 +1,227 @@
+{
+  "meta": {
+    "locale": "ru",
+    "name": "Russian",
+    "nativeName": "Русский",
+    "direction": "ltr"
+  },
+  
+  "menu": {
+    "main": {
+      "title": "RPG Game",
+      "continue": "Продолжить",
+      "loadGame": "Загрузить",
+      "newGame": "Новая Игра",
+      "settings": "Настройки",
+      "exit": "Выход"
+    },
+    "pause": {
+      "title": "Пауза",
+      "resume": "Продолжить",
+      "saveLoad": "Сохр./Загр.",
+      "saveGame": "Сохранить",
+      "loadGame": "Загрузить",
+      "settings": "Настройки",
+      "mainMenu": "Главное Меню",
+      "exit": "Выйти из Игры",
+      "quitConfirmTitle": "Вернуться в меню?",
+      "quitConfirmMessage": "Вы уверены, что хотите выйти?",
+      "unsavedWarning": "Несохранённый прогресс будет потерян."
+    },
+    "common": {
+      "back": "Назад",
+      "confirm": "Подтвердить",
+      "cancel": "Отмена",
+      "yes": "Да",
+      "no": "Нет",
+      "ok": "ОК",
+      "apply": "Применить",
+      "save": "Сохранить",
+      "load": "Загрузить",
+      "delete": "Удалить"
+    }
+  },
+  
+  "settings": {
+    "title": "Настройки",
+    "tabs": {
+      "audio": "Звук",
+      "graphics": "Графика",
+      "gameplay": "Игра",
+      "controls": "Управление"
+    },
+    "values": {
+      "on": "ДА",
+      "off": "НЕТ"
+    },
+    "audio": {
+      "masterVolume": "Общая Громкость",
+      "musicVolume": "Громкость Музыки",
+      "effectsVolume": "Громкость Эффектов",
+      "ambienceVolume": "Громкость Окружения",
+      "mute": "Выключить Звук"
+    },
+    "graphics": {
+      "resolution": "Разрешение",
+      "fullscreen": "Полный Экран",
+      "vsync": "Верт. Синхр. (Перезапуск)",
+      "antiAliasing": "Сглаживание",
+      "textureFiltering": "Фильтрация Текстур",
+      "uiScale": "Масштаб Интерфейса",
+      "gameZoom": "Масштаб Игры",
+      "perspective": "Псевдо 3D",
+      "showFPS": "Показать FPS",
+      "aaOptions": {
+        "none": "Выкл",
+        "msaa": "MSAA"
+      },
+      "filterOptions": {
+        "smooth": "Мягкий",
+        "sharp": "Чёткий"
+      }
+    },
+    "gameplay": {
+      "language": "Язык",
+      "alwaysRun": "Всегда Бежать",
+      "showDebugInfo": "Отладочная Инфо",
+      "perspectiveEffect": "Эффект Перспективы",
+      "perspectiveStrength": "Сила Перспективы",
+      "timeScale": "Скорость Времени"
+    },
+    "controls": {
+      "inputDevice": "Устройство Ввода",
+      "keyboard": "Клавиатура",
+      "gamepad": "Геймпад",
+      "moveUp": "Вверх",
+      "moveDown": "Вниз",
+      "moveLeft": "Влево",
+      "moveRight": "Вправо",
+      "interact": "Взаимодействие",
+      "run": "Бег",
+      "menu": "Меню",
+      "inventory": "Инвентарь",
+      "confirm": "Подтвердить",
+      "cancel": "Отмена",
+      "unbound": "Не Назначено"
+    },
+    "messages": {
+      "unsavedChanges": "Есть несохранённые изменения. Сохранить?",
+      "restartRequired": "Требуется перезапуск.",
+      "pressKey": "> НАЖМИТЕ <",
+      "noController": "Нет Геймпада",
+      "controller": "Геймпад"
+    },
+    "unsavedChanges": {
+      "title": "Несохранённые Изменения",
+      "message": "Сохранить изменения?",
+      "discard": "Отменить"
+    },
+    "reset": {
+      "title": "Сброс Настроек",
+      "message": "Что сбросить?",
+      "all": "Всё",
+      "warning": "Это восстановит значения по умолчанию."
+    },
+    "buttons": {
+      "apply": "Применить",
+      "cancel": "Отмена",
+      "restoreDefaults": "По Умолчанию"
+    }
+  },
+  
+  "saveLoad": {
+    "title": {
+      "save": "Сохранить Игру",
+      "load": "Загрузить Игру"
+    },
+    "slot": "Слот {number}",
+    "emptySlot": "Пустой Слот",
+    "autoSave": "Автосохранение",
+    "playTime": "Время Игры: {time}",
+    "level": "Уровень {level}",
+    "location": "Место: {location}",
+    "confirmOverwrite": "Перезаписать сохранение?",
+    "confirmDelete": "Удалить сохранение?",
+    "saveSuccess": "Игра сохранена!",
+    "loadSuccess": "Игра загружена!",
+    "saveFailed": "Ошибка сохранения.",
+    "loadFailed": "Ошибка загрузки."
+  },
+  
+  "gameplay": {
+    "interact": "Нажмите {key} для взаимодействия",
+    "talkTo": "Поговорить с {name}",
+    "open": "Открыть",
+    "pickup": "Подобрать {item}",
+    "examine": "Осмотреть",
+    "locked": "Заперто",
+    "needsKey": "Нужен {key}",
+    "inventory": {
+      "title": "Инвентарь",
+      "empty": "Инвентарь пуст",
+      "use": "Использовать",
+      "drop": "Выбросить",
+      "equip": "Надеть",
+      "unequip": "Снять"
+    },
+    "gold": "{amount} Золота",
+    "level": "Уровень {level}",
+    "exp": "Опыт: {current}/{next}"
+  },
+  
+  "dialogue": {
+    "continue": "Нажмите {key} для продолжения",
+    "chooseOption": "Выберите вариант"
+  },
+  
+  "hud": {
+    "hp": "ОЗ",
+    "mp": "МП",
+    "menu": "Меню"
+  },
+  
+  "time": {
+    "dawn": "Рассвет",
+    "morning": "Утро",
+    "noon": "Полдень",
+    "afternoon": "День",
+    "evening": "Вечер",
+    "dusk": "Сумерки",
+    "night": "Ночь",
+    "midnight": "Полночь"
+  },
+  
+  "weather": {
+    "clear": "Ясно",
+    "cloudy": "Облачно",
+    "rain": "Дождь",
+    "storm": "Гроза",
+    "snow": "Снег",
+    "fog": "Туман"
+  },
+  
+  "hints": {
+    "audioStart": "Звук начнётся после первого взаимодействия",
+    "controllerConnected": "Геймпад подключён",
+    "controllerDisconnected": "Геймпад отключён",
+    "pressEscToClose": "Нажмите ESC для закрытия"
+  },
+  
+  "instructions": {
+    "tapToSelect": "Нажмите для Выбора",
+    "pauseMenu": "Стрелки: Навигация • Enter: Выбор • ESC: Продолжить",
+    "settingsMenu": "Стрелки: Навигация • Влево/Вправо: Настройка • Enter: Выбор • ESC: Назад",
+    "settingsMobile": "Джойстик: Навигация • A: Выбор • B: Назад",
+    "rebinding": "Нажмите клавишу... (ESC для отмены)",
+    "saveLoadMenu": "Стрелки: Навигация • Enter: Выбор • DEL: Удалить • ESC: Назад"
+  },
+  
+  "errors": {
+    "generic": "Произошла ошибка",
+    "connectionLost": "Соединение потеряно",
+    "saveFailed": "Ошибка сохранения",
+    "loadFailed": "Ошибка загрузки"
+  },
+  
+  "version": "Версия: {version}"
+}

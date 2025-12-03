@@ -534,12 +534,13 @@ class MainMenuState extends GameState {
         this.hasSaveFiles = this.game.saveGameManager?.hasSaves() || false;
         
         // Build options dynamically - Always show all options, but disable some
+        // Use translation keys for localization
         this.options = [
-            { text: 'Continue', disabled: !this.hasSaveFiles },
-            { text: 'Load Game', disabled: !this.hasSaveFiles },
-            { text: 'New Game', disabled: false },
-            { text: 'Settings', disabled: false },
-            { text: 'Exit', disabled: false }
+            { key: 'menu.main.continue', text: this.game.t('menu.main.continue'), disabled: !this.hasSaveFiles },
+            { key: 'menu.main.loadGame', text: this.game.t('menu.main.loadGame'), disabled: !this.hasSaveFiles },
+            { key: 'menu.main.newGame', text: this.game.t('menu.main.newGame'), disabled: false },
+            { key: 'menu.main.settings', text: this.game.t('menu.main.settings'), disabled: false },
+            { key: 'menu.main.exit', text: this.game.t('menu.main.exit'), disabled: false }
         ];
         
         console.log('🎮 MainMenuState options:', this.options);
@@ -650,10 +651,10 @@ class MainMenuState extends GameState {
         const option = this.options[this.selectedOption];
         if (option.disabled) return;
         
-        const optionName = option.text;
+        const optionKey = option.key;
         
-        switch (optionName) {
-            case 'Continue':
+        switch (optionKey) {
+            case 'menu.main.continue':
                 // Load the most recent save
                 const mostRecentSave = this.game.saveGameManager.getLatestSave();
                 if (mostRecentSave) {
@@ -664,19 +665,19 @@ class MainMenuState extends GameState {
                     });
                 }
                 break;
-            case 'New Game':
+            case 'menu.main.newGame':
                 // Start new game - reset everything
                 this.game.resetGame();
                 this.stateManager.changeState('PLAYING', { isNewGame: true });
                 break;
-            case 'Load Game':
+            case 'menu.main.loadGame':
                 // Open save/load menu in load mode from main menu
                 this.stateManager.pushState('SAVE_LOAD', { mode: 'load_list', fromMainMenu: true });
                 break;
-            case 'Settings':
+            case 'menu.main.settings':
                 this.stateManager.pushState('SETTINGS');
                 break;
-            case 'Exit':
+            case 'menu.main.exit':
                 // Exit game
                 if (window.electronAPI && window.electronAPI.exitApp) {
                     window.electronAPI.exitApp();
@@ -766,8 +767,8 @@ class MainMenuState extends GameState {
         // Use MenuRenderer for consistent styling
         const menuRenderer = this.stateManager.menuRenderer;
         
-        // Draw title
-        menuRenderer.drawTitle(ctx, 'RPG Game', canvasWidth, canvasHeight, 0.25);
+        // Draw title (using localized title)
+        menuRenderer.drawTitle(ctx, this.game.t('menu.main.title'), canvasWidth, canvasHeight, 0.25);
         
         // Draw menu options
         menuRenderer.drawMenuOptions(
@@ -982,8 +983,8 @@ class PlayingState extends GameState {
         const menuRenderer = this.stateManager.menuRenderer;
         const sizes = menuRenderer.getFontSizes(canvasHeight);
         
-        // Button properties
-        const buttonText = 'Menu';
+        // Button properties (localized)
+        const buttonText = this.game.t('hud.menu');
         const padding = 15;
         const margin = 10;
         
@@ -1045,7 +1046,13 @@ class PausedState extends GameState {
         console.log('⏸️ PAUSE MENU ENTERED');
         console.log('Current BGM:', this.game.audioManager?.currentBGM?.src || 'none');
         this.selectedOption = 0;
-        this.options = ['Resume', 'Save/Load', 'Settings', 'Main Menu'];
+        // Use translation keys for menu options
+        this.options = [
+            { key: 'menu.pause.resume', text: this.game.t('menu.pause.resume') },
+            { key: 'menu.pause.saveLoad', text: this.game.t('menu.pause.saveLoad') },
+            { key: 'menu.pause.settings', text: this.game.t('menu.pause.settings') },
+            { key: 'menu.pause.mainMenu', text: this.game.t('menu.pause.mainMenu') }
+        ];
         this.inputCooldown = 0.2; // Add cooldown
         
         this.showExitConfirm = false;
@@ -1111,17 +1118,18 @@ class PausedState extends GameState {
     }
     
     selectOption() {
-        switch (this.selectedOption) {
-            case 0: // Resume
+        const optionKey = this.options[this.selectedOption].key;
+        switch (optionKey) {
+            case 'menu.pause.resume':
                 this.stateManager.popState();
                 break;
-            case 1: // Save/Load
+            case 'menu.pause.saveLoad':
                 this.stateManager.pushState('SAVE_LOAD');
                 break;
-            case 2: // Settings
+            case 'menu.pause.settings':
                 this.stateManager.pushState('SETTINGS');
                 break;
-            case 3: // Main Menu
+            case 'menu.pause.mainMenu':
                 this.showExitConfirm = true;
                 this.exitConfirmOption = 1; // Default to No
                 break;
@@ -1136,8 +1144,8 @@ class PausedState extends GameState {
         // Draw overlay
         menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.7);
         
-        // Draw title
-        menuRenderer.drawTitle(ctx, 'Paused', canvasWidth, canvasHeight, 0.25);
+        // Draw title (localized)
+        menuRenderer.drawTitle(ctx, this.game.t('menu.pause.title'), canvasWidth, canvasHeight, 0.25);
         
         // Draw options
         menuRenderer.drawMenuOptions(ctx, this.options, this.selectedOption, canvasWidth, canvasHeight, 0.45, 0.1);
@@ -1146,20 +1154,20 @@ class PausedState extends GameState {
         if (this.showExitConfirm) {
             menuRenderer.drawModal(
                 ctx, 
-                'Quit to Main Menu?', 
-                'Are you sure you want to quit?', 
-                ['Yes', 'No'],
+                this.game.t('menu.pause.quitConfirmTitle'), 
+                this.game.t('menu.pause.quitConfirmMessage'), 
+                [this.game.t('menu.common.yes'), this.game.t('menu.common.no')],
                 this.exitConfirmOption, 
                 canvasWidth, 
                 canvasHeight,
-                'Unsaved progress will be lost.'
+                this.game.t('menu.pause.unsavedWarning')
             );
         }
         
-        // Draw instructions
+        // Draw instructions (localized)
         const instructions = this.game.inputManager.isMobile 
-            ? 'Tap to Select'
-            : 'Arrow Keys: Navigate • Enter: Select • ESC: Resume';
+            ? this.game.t('instructions.tapToSelect')
+            : this.game.t('instructions.pauseMenu');
         menuRenderer.drawInstruction(ctx, instructions, canvasWidth, canvasHeight, 0.9);
     }
 }
@@ -1173,13 +1181,18 @@ class SaveLoadState extends GameState {
         this.mode = data.mode || 'main'; // 'main', 'save_list', 'load_list', 'delete_confirm', 'overwrite_confirm'
         this.fromMainMenu = data.fromMainMenu || false;
         this.selectedOption = 0;
-        this.mainOptions = ['Save Game', 'Load Game', 'Back'];
+        // Use localized strings for menu options
+        this.mainOptions = [
+            { key: 'saveLoad.save', text: this.game.t('saveLoad.title.save') },
+            { key: 'saveLoad.load', text: this.game.t('saveLoad.title.load') },
+            { key: 'menu.common.back', text: this.game.t('menu.common.back') }
+        ];
         this.saves = [];
         this.scrollOffset = 0;
         this.maxVisibleSaves = 5; // Reduced to make room for empty slot
         this.saveToDelete = null;
         this.saveToOverwrite = null;
-        this.confirmOptions = ['Yes', 'No'];
+        this.confirmOptions = [this.game.t('menu.common.yes'), this.game.t('menu.common.no')];
         
         // Show touch controls if on mobile
         if (this.game.touchControlsUI) {
@@ -1486,8 +1499,8 @@ class SaveLoadState extends GameState {
         // Use MenuRenderer for consistent styling
         const menuRenderer = this.stateManager.menuRenderer;
         
-        // Draw title
-        menuRenderer.drawTitle(ctx, 'Save / Load', canvasWidth, canvasHeight, 0.25);
+        // Draw title (localized)
+        menuRenderer.drawTitle(ctx, this.game.t('saveLoad.menuTitle'), canvasWidth, canvasHeight, 0.25);
         
         // Draw menu options
         menuRenderer.drawMenuOptions(
@@ -1502,7 +1515,9 @@ class SaveLoadState extends GameState {
     }
     
     renderSaveList(ctx, canvasWidth, canvasHeight, showSelection = true) {
-        const title = this.mode === 'save_list' ? 'Save Game' : 'Load Game';
+        const title = this.mode === 'save_list' 
+            ? this.game.t('saveLoad.title.save') 
+            : this.game.t('saveLoad.title.load');
         
         // Use MenuRenderer for consistent styling
         const menuRenderer = this.stateManager.menuRenderer;
@@ -1513,7 +1528,7 @@ class SaveLoadState extends GameState {
         
         // Subtitle / Context
         if (this.mode === 'save_list') {
-            menuRenderer.drawInstruction(ctx, 'Select a slot to save your progress', canvasWidth, canvasHeight, 0.22);
+            menuRenderer.drawInstruction(ctx, this.game.t('saveLoad.selectSlotSave'), canvasWidth, canvasHeight, 0.22);
         }
         
         const startY = canvasHeight * 0.32; // Moved down to prevent clipping with instruction text
@@ -1530,8 +1545,8 @@ class SaveLoadState extends GameState {
             menuRenderer.drawDetailedListItem(
                 ctx, 
                 boxX, boxY, boxWidth, boxHeight,
-                '[ New Save ]', 
-                'Create a new save file', 
+                this.game.t('saveLoad.newSave'), 
+                this.game.t('saveLoad.createNewSave'), 
                 isSelected, 
                 true
             );
@@ -1542,7 +1557,7 @@ class SaveLoadState extends GameState {
             ctx.fillStyle = '#888';
             ctx.font = `${sizes.subtitle}px 'Lato', sans-serif`;
             ctx.textAlign = 'center';
-            ctx.fillText('No save files found', canvasWidth / 2, canvasHeight * 0.5);
+            ctx.fillText(this.game.t('saveLoad.noSaves'), canvasWidth / 2, canvasHeight * 0.5);
         } else if (this.saves.length > 0) {
             const saveListStartY = this.mode === 'save_list' ? startY + lineHeight : startY;
             const visibleSaves = this.saves.slice(
@@ -1611,13 +1626,13 @@ class SaveLoadState extends GameState {
         
         menuRenderer.drawModal(
             ctx,
-            'Delete Save?',
+            this.game.t('saveLoad.confirmDelete'),
             saveName,
             this.confirmOptions,
             this.selectedOption,
             canvasWidth,
             canvasHeight,
-            'This action cannot be undone!'
+            this.game.t('saveLoad.deleteWarning')
         );
     }
     
@@ -1627,13 +1642,13 @@ class SaveLoadState extends GameState {
         
         menuRenderer.drawModal(
             ctx,
-            'Overwrite Save?',
+            this.game.t('saveLoad.confirmOverwrite'),
             saveName,
             this.confirmOptions,
             this.selectedOption,
             canvasWidth,
             canvasHeight,
-            'This will replace the existing save!'
+            this.game.t('saveLoad.overwriteWarning')
         );
     }
 }
@@ -1703,25 +1718,26 @@ class SettingsState extends GameState {
         // Define options per category
         this.allOptions = {
             'Audio': [
-                { name: 'Master Volume', type: 'slider', key: 'masterVolume', min: 0, max: 100, step: 10 },
-                { name: 'BGM Volume', type: 'slider', key: 'musicVolume', min: 0, max: 100, step: 10 },
-                { name: 'Effect Volume', type: 'slider', key: 'effectsVolume', min: 0, max: 100, step: 10 },
-                { name: 'Mute Audio', type: 'toggle', key: 'isMuted' }
+                { nameKey: 'settings.audio.masterVolume', type: 'slider', key: 'masterVolume', min: 0, max: 100, step: 10 },
+                { nameKey: 'settings.audio.musicVolume', type: 'slider', key: 'musicVolume', min: 0, max: 100, step: 10 },
+                { nameKey: 'settings.audio.effectsVolume', type: 'slider', key: 'effectsVolume', min: 0, max: 100, step: 10 },
+                { nameKey: 'settings.audio.mute', type: 'toggle', key: 'isMuted' }
             ],
             'Graphics': [
-                { name: 'Resolution', type: 'select', key: 'resolution', values: this.resolutions },
-                { name: 'Fullscreen', type: 'toggle', key: 'fullscreen' },
-                { name: 'VSync (Restart)', type: 'toggle', key: 'vsync' },
-                { name: 'Anti-Aliasing', type: 'select', key: 'antiAliasing', values: ['None', 'MSAA'], valueMap: { 'None': 'none', 'MSAA': 'msaa' } },
-                { name: 'Texture Filter', type: 'select', key: 'textureFiltering', values: ['Smooth', 'Sharp'], valueMap: { 'Smooth': 'smooth', 'Sharp': 'sharp' } },
-                { name: 'Game Zoom', type: 'slider', key: 'gameZoom', min: 85, max: 115, step: 5, suffix: '%' },
-                { name: 'UI Scale', type: 'slider', key: 'uiScale', min: 50, max: 200, step: 10, suffix: '%' },
-                { name: 'Fake 3D', type: 'toggle', key: 'perspectiveEnabled' },
-                { name: 'Show FPS', type: 'toggle', key: 'showFPS' }
+                { nameKey: 'settings.graphics.resolution', type: 'select', key: 'resolution', values: this.resolutions },
+                { nameKey: 'settings.graphics.fullscreen', type: 'toggle', key: 'fullscreen' },
+                { nameKey: 'settings.graphics.vsync', type: 'toggle', key: 'vsync' },
+                { nameKey: 'settings.graphics.antiAliasing', type: 'select', key: 'antiAliasing', values: ['None', 'MSAA'], valueMap: { 'None': 'none', 'MSAA': 'msaa' }, valueKeys: { 'None': 'settings.graphics.aaOptions.none', 'MSAA': 'settings.graphics.aaOptions.msaa' } },
+                { nameKey: 'settings.graphics.textureFiltering', type: 'select', key: 'textureFiltering', values: ['Smooth', 'Sharp'], valueMap: { 'Smooth': 'smooth', 'Sharp': 'sharp' }, valueKeys: { 'Smooth': 'settings.graphics.filterOptions.smooth', 'Sharp': 'settings.graphics.filterOptions.sharp' } },
+                { nameKey: 'settings.graphics.gameZoom', type: 'slider', key: 'gameZoom', min: 85, max: 115, step: 5, suffix: '%' },
+                { nameKey: 'settings.graphics.uiScale', type: 'slider', key: 'uiScale', min: 50, max: 200, step: 10, suffix: '%' },
+                { nameKey: 'settings.graphics.perspective', type: 'toggle', key: 'perspectiveEnabled' },
+                { nameKey: 'settings.graphics.showFPS', type: 'toggle', key: 'showFPS' }
             ],
             'Gameplay': [
-                { name: 'Always Run', type: 'toggle', key: 'alwaysRun', disabledWhen: 'controller' },
-                { name: 'Show Debug Info', type: 'toggle', key: 'showDebugInfo' }
+                { nameKey: 'settings.gameplay.language', type: 'select', key: 'language', values: [], dynamicValues: 'languages' },
+                { nameKey: 'settings.gameplay.alwaysRun', type: 'toggle', key: 'alwaysRun', disabledWhen: 'controller' },
+                { nameKey: 'settings.gameplay.showDebugInfo', type: 'toggle', key: 'showDebugInfo' }
             ],
             'Controls': [] // Populated dynamically
         };
@@ -1841,6 +1857,9 @@ class SettingsState extends GameState {
         if (this.currentCategory === 'Controls') {
             this.populateControlsOptions();
         }
+        
+        // Populate dynamic values (like Language options)
+        this.populateDynamicValues();
 
         // Get options for current category (Back button is now separate)
         this.options = [
@@ -1854,6 +1873,29 @@ class SettingsState extends GameState {
             this.selectedOption = -1;
         }
     }
+    
+    /**
+     * Populate dynamic option values (e.g., languages from LocaleManager)
+     */
+    populateDynamicValues() {
+        // Populate language options from LocaleManager
+        const gameplayOptions = this.allOptions['Gameplay'];
+        const languageOption = gameplayOptions.find(opt => opt.key === 'language');
+        if (languageOption && languageOption.dynamicValues === 'languages') {
+            const availableLocales = this.game.getAvailableLanguages();
+            // Create display values and a map to locale codes
+            languageOption.values = availableLocales.map(l => l.nativeName);
+            languageOption.valueMap = {};
+            availableLocales.forEach(l => {
+                languageOption.valueMap[l.nativeName] = l.code;
+            });
+            // Also create reverse map for display
+            languageOption.reverseMap = {};
+            availableLocales.forEach(l => {
+                languageOption.reverseMap[l.code] = l.nativeName;
+            });
+        }
+    }
 
     populateControlsOptions() {
         const options = [];
@@ -1863,10 +1905,14 @@ class SettingsState extends GameState {
         
         // Device Selector - disabled if no controller connected
         options.push({ 
-            name: 'Input Device', 
+            nameKey: 'settings.controls.inputDevice', 
             type: 'select', 
             key: 'controlDevice', 
             values: ['Keyboard', 'Gamepad'],
+            valueKeys: {
+                'Keyboard': 'settings.controls.keyboard',
+                'Gamepad': 'settings.controls.gamepad'
+            },
             disabledWhen: 'noController'
         });
         
@@ -1888,7 +1934,7 @@ class SettingsState extends GameState {
             actions.forEach(action => {
                 const keys = bindings[action] || [];
                 options.push({
-                    name: this.formatActionName(action),
+                    nameKey: `settings.controls.${action}`,
                     type: 'binding',
                     key: action,
                     value: keys.join(' / ')
@@ -1916,9 +1962,9 @@ class SettingsState extends GameState {
             actions.forEach(action => {
                 const buttons = actionToButtons[action] || [];
                 options.push({
-                    name: this.formatActionName(action),
+                    nameKey: `settings.controls.${action}`,
                     type: 'info', // Read-only
-                    value: buttons.join(' / ') || 'Unbound'
+                    value: buttons.join(' / ') || this.game.t('settings.controls.unbound')
                 });
             });
         }
@@ -2302,6 +2348,7 @@ class SettingsState extends GameState {
                 if (option.key === 'resolution') this.applyGraphicsSettings(option.key);
                 if (option.key === 'antiAliasing') this.applyAntiAliasingSetting();
                 if (option.key === 'textureFiltering') this.applyTextureFilteringSetting();
+                if (option.key === 'language') this.applyLanguageSetting(newValue);
             }
         } else if (option.key === 'controlDevice') {
             if (isRepeat) return; // Don't repeat device selection
@@ -2477,6 +2524,22 @@ class SettingsState extends GameState {
         }
     }
     
+    /**
+     * Apply language setting - loads new locale and refreshes UI strings
+     * @param {string} localeCode - The locale code (e.g., 'en', 'ja', 'es')
+     */
+    async applyLanguageSetting(localeCode) {
+        console.log(`[SettingsState] Changing language to: ${localeCode}`);
+        const success = await this.game.changeLanguage(localeCode);
+        if (success) {
+            // Refresh the main menu options if we need to return there
+            // The menu strings will be updated when we return to main menu
+            console.log(`[SettingsState] Language changed successfully to: ${localeCode}`);
+        } else {
+            console.warn(`[SettingsState] Failed to change language to: ${localeCode}`);
+        }
+    }
+    
     saveSettings() {
         // Sync changes back to SettingsManager and save (handles Electron IPC)
         if (this.game.settingsManager) {
@@ -2538,8 +2601,8 @@ class SettingsState extends GameState {
         // Draw overlay (still useful for vignette/scanlines if desired, but background is already black)
         menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.8);
         
-        // Draw title
-        menuRenderer.drawTitle(ctx, 'Settings', canvasWidth, canvasHeight, 0.08);
+        // Draw title (localized)
+        menuRenderer.drawTitle(ctx, this.game.t('settings.title'), canvasWidth, canvasHeight, 0.08);
         
         // Draw Category Tabs - matching panel width with consistent inner gaps
         // Container margin matches panel (10% on each side = 80% width)
@@ -2568,12 +2631,14 @@ class SettingsState extends GameState {
             ctx.lineWidth = isSelected ? 2 : 1;
             ctx.strokeRect(x, tabY, tabWidth, tabHeight);
             
-            // Tab Text
+            // Tab Text (localized)
+            const tabKey = `settings.tabs.${category.toLowerCase()}`;
+            const tabText = this.game.t(tabKey);
             ctx.fillStyle = isSelected ? '#fff' : 'rgba(255, 255, 255, 0.6)';
             ctx.font = `${isSelected ? 'bold' : 'normal'} ${sizes.menu * 0.8}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(category, x + (tabWidth / 2), tabY + (tabHeight / 2));
+            ctx.fillText(tabText, x + (tabWidth / 2), tabY + (tabHeight / 2));
         });
         
         // Prepare options with formatted values for MenuRenderer
@@ -2596,7 +2661,9 @@ class SettingsState extends GameState {
                 const suffix = option.suffix || '%';
                 value = `< ${settings[option.key]}${suffix} >`;
             } else if (option.type === 'toggle') {
-                value = `< ${settings[option.key] ? 'ON' : 'OFF'} >`;
+                const onText = this.game.t('settings.values.on');
+                const offText = this.game.t('settings.values.off');
+                value = `< ${settings[option.key] ? onText : offText} >`;
             } else if (option.type === 'select') {
                 // Only show arrows if there are multiple options
                 if (option.values && option.values.length > 1) {
@@ -2607,15 +2674,24 @@ class SettingsState extends GameState {
                         const reverseMap = Object.entries(option.valueMap).find(([display, internal]) => internal === displayValue);
                         displayValue = reverseMap ? reverseMap[0] : displayValue;
                     }
+                    // Translate display value if valueKeys is provided
+                    if (option.valueKeys && option.valueKeys[displayValue]) {
+                        displayValue = this.game.t(option.valueKeys[displayValue]);
+                    }
                     value = `< ${displayValue} >`;
                 } else {
                     value = `${settings[option.key]}`;
                 }
             } else if (option.key === 'controlDevice') {
-                value = `< ${this.controlDevice} >`;
+                // Translate the device value using valueKeys if available
+                let deviceDisplay = this.controlDevice;
+                if (option.valueKeys && option.valueKeys[this.controlDevice]) {
+                    deviceDisplay = this.game.t(option.valueKeys[this.controlDevice]);
+                }
+                value = `< ${deviceDisplay} >`;
             } else if (option.type === 'binding') {
                 if (this.rebindingAction === option.key) {
-                    value = '> PRESS KEY <';
+                    value = this.game.t('settings.messages.pressKey');
                 } else {
                     value = option.value;
                 }
@@ -2623,16 +2699,19 @@ class SettingsState extends GameState {
                 value = option.value;
             }
             
+            // Resolve translated name from nameKey
+            const displayName = option.nameKey ? this.game.t(option.nameKey) : option.name;
+            
             // Build result with disabled state and tooltip
             const result = {
-                name: option.name,
+                name: displayName,
                 value: value,
                 disabled: disabled
             };
             
             // Add tooltip for disabled options (only for controller-connected case)
             if (disabled && option.disabledWhen === 'controller') {
-                result.name = option.name + ' (Controller)';
+                result.name = displayName + ` (${this.game.t('settings.messages.controller')})`;
             }
             // Note: noController disabled options don't need a suffix - it's obvious
             
@@ -2690,11 +2769,9 @@ class SettingsState extends GameState {
         );
         
         // Draw Back and Reset buttons at the bottom (side by side)
-        const btnWidth = 150;
         const btnHeight = canvasHeight * btnHeightRatio;
         const btnGap = 20;
-        const totalButtonsWidth = btnWidth * 2 + btnGap;
-        const buttonsStartX = (canvasWidth - totalButtonsWidth) / 2;
+        const btnPadding = 30; // Horizontal padding inside buttons
         
         const isBackSelected = this.selectedOption === this.options.length;
         const isResetSelected = this.selectedOption === this.options.length + 1;
@@ -2704,91 +2781,104 @@ class SettingsState extends GameState {
         
         // Use DesignSystem to draw buttons for consistent vertical text centering
         const ds = menuRenderer.ds;
+        const backText = this.game.t('menu.common.back');
+        const resetText = this.game.t('settings.buttons.restoreDefaults');
+        
+        // Measure text widths to dynamically size buttons
+        ctx.font = `bold ${sizes.menu}px 'Cinzel', serif`;
+        const backTextWidth = ctx.measureText(backText).width;
+        const resetTextWidth = ctx.measureText(resetText).width;
+        const backBtnWidth = Math.max(100, backTextWidth + btnPadding);
+        const resetBtnWidth = Math.max(100, resetTextWidth + btnPadding);
+        
+        const totalButtonsWidth = backBtnWidth + resetBtnWidth + btnGap;
+        const buttonsStartX = (canvasWidth - totalButtonsWidth) / 2;
+        
         if (ds) {
             // Use DesignSystem's drawButton which has proper font centering
-            ds.drawButton(ctx, buttonsStartX + btnWidth / 2, buttonY, btnWidth, btnHeight, 'Back', isBackSelected, false);
-            ds.drawButton(ctx, buttonsStartX + btnWidth + btnGap + btnWidth / 2, buttonY, btnWidth, btnHeight, 'Reset', isResetSelected, false);
+            ds.drawButton(ctx, buttonsStartX + backBtnWidth / 2, buttonY, backBtnWidth, btnHeight, backText, isBackSelected, false);
+            ds.drawButton(ctx, buttonsStartX + backBtnWidth + btnGap + resetBtnWidth / 2, buttonY, resetBtnWidth, btnHeight, resetText, isResetSelected, false);
         } else {
             // Legacy fallback with vertical offset correction for Cinzel font
             const fontVerticalOffset = sizes.menu * 0.08; // Cinzel needs ~8% downward adjustment
             
-            const drawButton = (text, x, isSelected) => {
+            const drawButton = (text, x, width, isSelected) => {
                 const btnX = x;
                 const btnY = buttonY - btnHeight / 2;
                 
                 if (isSelected) {
                     // Selected Button (Glass style)
-                    const gradient = ctx.createLinearGradient(btnX, btnY, btnX + btnWidth, btnY + btnHeight);
+                    const gradient = ctx.createLinearGradient(btnX, btnY, btnX + width, btnY + btnHeight);
                     gradient.addColorStop(0, 'rgba(74, 158, 255, 0.1)');
                     gradient.addColorStop(0.5, 'rgba(74, 158, 255, 0.25)');
                     gradient.addColorStop(1, 'rgba(74, 158, 255, 0.1)');
                     
                     ctx.fillStyle = gradient;
-                    ctx.fillRect(btnX, btnY, btnWidth, btnHeight);
+                    ctx.fillRect(btnX, btnY, width, btnHeight);
                     
                     ctx.strokeStyle = '#4a9eff';
                     ctx.lineWidth = 2;
-                    ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
+                    ctx.strokeRect(btnX, btnY, width, btnHeight);
                     
                     // Corner accents
                     const cornerSize = 4;
                     ctx.fillStyle = '#4a9eff';
                     ctx.fillRect(btnX, btnY, cornerSize, 2);
                     ctx.fillRect(btnX, btnY, 2, cornerSize);
-                    ctx.fillRect(btnX + btnWidth - cornerSize, btnY, cornerSize, 2);
-                    ctx.fillRect(btnX + btnWidth - 2, btnY, 2, cornerSize);
+                    ctx.fillRect(btnX + width - cornerSize, btnY, cornerSize, 2);
+                    ctx.fillRect(btnX + width - 2, btnY, 2, cornerSize);
                     ctx.fillRect(btnX, btnY + btnHeight - 2, cornerSize, 2);
                     ctx.fillRect(btnX, btnY + btnHeight - cornerSize, 2, cornerSize);
-                    ctx.fillRect(btnX + btnWidth - cornerSize, btnY + btnHeight - 2, cornerSize, 2);
-                    ctx.fillRect(btnX + btnWidth - 2, btnY + btnHeight - cornerSize, 2, cornerSize);
+                    ctx.fillRect(btnX + width - cornerSize, btnY + btnHeight - 2, cornerSize, 2);
+                    ctx.fillRect(btnX + width - 2, btnY + btnHeight - cornerSize, 2, cornerSize);
                     
                     ctx.fillStyle = '#fff';
                     ctx.font = `bold ${sizes.menu}px 'Cinzel', serif`;
                     ctx.shadowColor = '#4a9eff';
                     ctx.shadowBlur = 10;
-                    ctx.fillText(text, btnX + btnWidth / 2, buttonY + fontVerticalOffset);
+                    ctx.fillText(text, btnX + width / 2, buttonY + fontVerticalOffset);
                     ctx.shadowBlur = 0;
                 } else {
                     // Unselected Button
                     ctx.fillStyle = 'rgba(30, 30, 40, 0.6)';
-                    ctx.fillRect(btnX, btnY, btnWidth, btnHeight);
+                    ctx.fillRect(btnX, btnY, width, btnHeight);
                     
                     ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
                     ctx.lineWidth = 1;
-                    ctx.strokeRect(btnX, btnY, btnWidth, btnHeight);
+                    ctx.strokeRect(btnX, btnY, width, btnHeight);
                     
                     ctx.fillStyle = '#888';
                     ctx.font = `${sizes.menu}px 'Cinzel', serif`;
                     ctx.shadowBlur = 0;
-                    ctx.fillText(text, btnX + btnWidth / 2, buttonY + fontVerticalOffset);
+                    ctx.fillText(text, btnX + width / 2, buttonY + fontVerticalOffset);
                 }
             };
             
-            drawButton('Back', buttonsStartX, isBackSelected);
-            drawButton('Reset', buttonsStartX + btnWidth + btnGap, isResetSelected);
+            drawButton(backText, buttonsStartX, backBtnWidth, isBackSelected);
+            drawButton(resetText, buttonsStartX + backBtnWidth + btnGap, resetBtnWidth, isResetSelected);
         }
         
         ctx.shadowBlur = 0;
         
-        // Draw instructions using calculated position
+        // Draw instructions using calculated position (localized)
         let instructions = this.game.inputManager.isMobile 
-            ? 'Joystick: Navigate • A: Select • B: Back'
-            : 'Arrow Keys: Navigate • Left/Right: Adjust • Enter: Select • ESC: Back';
+            ? this.game.t('instructions.settingsMobile')
+            : this.game.t('instructions.settingsMenu');
             
         if (this.rebindingAction) {
-            instructions = 'Press any key to rebind... (ESC to cancel)';
+            instructions = this.game.t('instructions.rebinding');
         }
         
         menuRenderer.drawInstruction(ctx, instructions, canvasWidth, canvasHeight, instructionsCenterY);
 
         // Draw Exit Modal
         if (this.showExitModal) {
-            const warning = this.restartRequired ? 'Note: Application restart required.' : null;
+            const warning = this.restartRequired ? this.game.t('settings.messages.restartRequired') : null;
             menuRenderer.drawModal(
                 ctx,
-                'Unsaved Changes',
-                'Do you want to save your changes?',
-                ['Save', 'Discard', 'Cancel'],
+                this.game.t('settings.unsavedChanges.title'),
+                this.game.t('settings.unsavedChanges.message'),
+                [this.game.t('menu.common.save'), this.game.t('settings.unsavedChanges.discard'), this.game.t('menu.common.cancel')],
                 this.exitModalOption,
                 canvasWidth,
                 canvasHeight,
@@ -2800,13 +2890,13 @@ class SettingsState extends GameState {
         if (this.showResetModal) {
             menuRenderer.drawModal(
                 ctx,
-                'Reset Settings',
-                'What would you like to reset?',
-                ['All', this.currentCategory, 'Cancel'],
+                this.game.t('settings.reset.title'),
+                this.game.t('settings.reset.message'),
+                [this.game.t('settings.reset.all'), this.currentCategory, this.game.t('menu.common.cancel')],
                 this.resetModalOption,
                 canvasWidth,
                 canvasHeight,
-                'This will restore default values.'
+                this.game.t('settings.reset.warning')
             );
         }
     }
@@ -3000,12 +3090,12 @@ class InventoryState extends GameState {
         // Draw overlay
         menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.85);
         
-        // Draw title
-        menuRenderer.drawTitle(ctx, 'Inventory', canvasWidth, canvasHeight, 0.15);
+        // Draw title (localized)
+        menuRenderer.drawTitle(ctx, this.game.t('gameplay.inventory.title'), canvasWidth, canvasHeight, 0.15);
         
         if (this.items.length === 0) {
-            menuRenderer.drawInstruction(ctx, 'Inventory is empty', canvasWidth, canvasHeight, 0.5);
-            menuRenderer.drawHint(ctx, 'Press ESC to close', canvasWidth, canvasHeight);
+            menuRenderer.drawInstruction(ctx, this.game.t('gameplay.inventory.empty'), canvasWidth, canvasHeight, 0.5);
+            menuRenderer.drawHint(ctx, this.game.t('hints.pressEscToClose'), canvasWidth, canvasHeight);
             return;
         }
         

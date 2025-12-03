@@ -30,7 +30,9 @@ class SettingsManager {
             alwaysRun: false, // When true, player always runs (hold shift to walk)
             // Graphics quality settings
             antiAliasing: 'msaa', // 'none' or 'msaa'
-            textureFiltering: 'smooth' // 'smooth' (bilinear) or 'sharp' (nearest)
+            textureFiltering: 'smooth', // 'smooth' (bilinear) or 'sharp' (nearest)
+            // Language / Localization
+            language: 'en' // Default to English
         };
         
         this.settings = { ...this.defaults };

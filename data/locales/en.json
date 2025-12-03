@@ -1,0 +1,235 @@
+{
+  "meta": {
+    "locale": "en",
+    "name": "English",
+    "nativeName": "English",
+    "direction": "ltr"
+  },
+  
+  "menu": {
+    "main": {
+      "title": "RPG Game",
+      "continue": "Continue",
+      "loadGame": "Load Game",
+      "newGame": "New Game",
+      "settings": "Settings",
+      "exit": "Exit"
+    },
+    "pause": {
+      "title": "Paused",
+      "resume": "Resume",
+      "saveLoad": "Save/Load",
+      "saveGame": "Save Game",
+      "loadGame": "Load Game",
+      "settings": "Settings",
+      "mainMenu": "Main Menu",
+      "exit": "Exit Game",
+      "quitConfirmTitle": "Quit to Main Menu?",
+      "quitConfirmMessage": "Are you sure you want to quit?",
+      "unsavedWarning": "Unsaved progress will be lost."
+    },
+    "common": {
+      "back": "Back",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "yes": "Yes",
+      "no": "No",
+      "ok": "OK",
+      "apply": "Apply",
+      "save": "Save",
+      "load": "Load",
+      "delete": "Delete"
+    }
+  },
+  
+  "settings": {
+    "title": "Settings",
+    "tabs": {
+      "audio": "Audio",
+      "graphics": "Graphics",
+      "gameplay": "Gameplay",
+      "controls": "Controls"
+    },
+    "values": {
+      "on": "ON",
+      "off": "OFF"
+    },
+    "audio": {
+      "masterVolume": "Master Volume",
+      "musicVolume": "Music Volume",
+      "effectsVolume": "Effects Volume",
+      "ambienceVolume": "Ambience Volume",
+      "mute": "Mute Audio"
+    },
+    "graphics": {
+      "resolution": "Resolution",
+      "fullscreen": "Fullscreen",
+      "vsync": "VSync (Restart)",
+      "antiAliasing": "Anti-Aliasing",
+      "textureFiltering": "Texture Filter",
+      "uiScale": "UI Scale",
+      "gameZoom": "Game Zoom",
+      "perspective": "Fake 3D",
+      "showFPS": "Show FPS",
+      "aaOptions": {
+        "none": "None",
+        "msaa": "MSAA"
+      },
+      "filterOptions": {
+        "smooth": "Smooth",
+        "sharp": "Sharp"
+      }
+    },
+    "gameplay": {
+      "language": "Language",
+      "alwaysRun": "Always Run",
+      "showDebugInfo": "Show Debug Info",
+      "perspectiveEffect": "Perspective Effect",
+      "perspectiveStrength": "Perspective Strength",
+      "timeScale": "Day/Night Speed"
+    },
+    "controls": {
+      "inputDevice": "Input Device",
+      "keyboard": "Keyboard",
+      "gamepad": "Gamepad",
+      "moveUp": "Move Up",
+      "moveDown": "Move Down",
+      "moveLeft": "Move Left",
+      "moveRight": "Move Right",
+      "interact": "Interact",
+      "run": "Run",
+      "menu": "Menu",
+      "inventory": "Inventory",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "unbound": "Unbound"
+    },
+    "messages": {
+      "unsavedChanges": "You have unsaved changes. Do you want to save them?",
+      "restartRequired": "Note: Application restart required.",
+      "pressKey": "> PRESS KEY <",
+      "noController": "No Controller",
+      "controller": "Controller"
+    },
+    "unsavedChanges": {
+      "title": "Unsaved Changes",
+      "message": "Do you want to save your changes?",
+      "discard": "Discard"
+    },
+    "reset": {
+      "title": "Reset Settings",
+      "message": "What would you like to reset?",
+      "all": "All",
+      "warning": "This will restore default values."
+    },
+    "buttons": {
+      "apply": "Apply",
+      "cancel": "Cancel",
+      "restoreDefaults": "Restore Defaults"
+    }
+  },
+  
+  "saveLoad": {
+    "menuTitle": "Save / Load",
+    "title": {
+      "save": "Save Game",
+      "load": "Load Game"
+    },
+    "slot": "Slot {number}",
+    "emptySlot": "Empty Slot",
+    "newSave": "[ New Save ]",
+    "createNewSave": "Create a new save file",
+    "selectSlotSave": "Select a slot to save your progress",
+    "selectSlotLoad": "Select a save to load",
+    "noSaves": "No save files found",
+    "autoSave": "Auto Save",
+    "playTime": "Play Time: {time}",
+    "level": "Level {level}",
+    "location": "Location: {location}",
+    "confirmOverwrite": "Overwrite existing save?",
+    "confirmDelete": "Delete this save?",
+    "overwriteWarning": "This will replace the existing save data.",
+    "deleteWarning": "This action cannot be undone.",
+    "saveSuccess": "Game saved successfully!",
+    "loadSuccess": "Game loaded successfully!",
+    "saveFailed": "Failed to save game.",
+    "loadFailed": "Failed to load game."
+  },
+  
+  "gameplay": {
+    "interact": "Press {key} to interact",
+    "talkTo": "Talk to {name}",
+    "open": "Open",
+    "pickup": "Pick up {item}",
+    "examine": "Examine",
+    "locked": "Locked",
+    "needsKey": "Needs {key}",
+    "inventory": {
+      "title": "Inventory",
+      "empty": "Your inventory is empty",
+      "use": "Use",
+      "drop": "Drop",
+      "equip": "Equip",
+      "unequip": "Unequip"
+    },
+    "gold": "{amount} Gold",
+    "level": "Level {level}",
+    "exp": "EXP: {current}/{next}"
+  },
+  
+  "dialogue": {
+    "continue": "Press {key} to continue",
+    "chooseOption": "Choose an option"
+  },
+  
+  "hud": {
+    "hp": "HP",
+    "mp": "MP",
+    "menu": "Menu"
+  },
+  
+  "time": {
+    "dawn": "Dawn",
+    "morning": "Morning",
+    "noon": "Noon",
+    "afternoon": "Afternoon",
+    "evening": "Evening",
+    "dusk": "Dusk",
+    "night": "Night",
+    "midnight": "Midnight"
+  },
+  
+  "weather": {
+    "clear": "Clear",
+    "cloudy": "Cloudy",
+    "rain": "Rain",
+    "storm": "Storm",
+    "snow": "Snow",
+    "fog": "Fog"
+  },
+  
+  "hints": {
+    "audioStart": "Audio will start with your first interaction",
+    "controllerConnected": "Controller connected",
+    "controllerDisconnected": "Controller disconnected",
+    "pressEscToClose": "Press ESC to close"
+  },
+  
+  "instructions": {
+    "tapToSelect": "Tap to Select",
+    "pauseMenu": "Arrow Keys: Navigate • Enter: Select • ESC: Resume",
+    "settingsMenu": "Arrow Keys: Navigate • Left/Right: Adjust • Enter: Select • ESC: Back",
+    "settingsMobile": "Joystick: Navigate • A: Select • B: Back",
+    "rebinding": "Press any key to rebind... (ESC to cancel)",
+    "saveLoadMenu": "Arrow Keys: Navigate • Enter: Select • DEL: Delete • ESC: Back"
+  },
+  
+  "errors": {
+    "generic": "An error occurred",
+    "connectionLost": "Connection lost",
+    "saveFailed": "Failed to save",
+    "loadFailed": "Failed to load"
+  },
+  
+  "version": "Version: {version}"
+}

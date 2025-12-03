@@ -1,0 +1,227 @@
+{
+  "meta": {
+    "locale": "pt",
+    "name": "Portuguese",
+    "nativeName": "Português",
+    "direction": "ltr"
+  },
+  
+  "menu": {
+    "main": {
+      "title": "RPG Game",
+      "continue": "Continuar",
+      "loadGame": "Carregar Jogo",
+      "newGame": "Novo Jogo",
+      "settings": "Configurações",
+      "exit": "Sair"
+    },
+    "pause": {
+      "title": "Pausado",
+      "resume": "Continuar",
+      "saveLoad": "Salvar/Carregar",
+      "saveGame": "Salvar Jogo",
+      "loadGame": "Carregar Jogo",
+      "settings": "Configurações",
+      "mainMenu": "Menu Principal",
+      "exit": "Sair do Jogo",
+      "quitConfirmTitle": "Voltar ao Menu?",
+      "quitConfirmMessage": "Tem certeza de que deseja sair?",
+      "unsavedWarning": "Progresso não salvo será perdido."
+    },
+    "common": {
+      "back": "Voltar",
+      "confirm": "Confirmar",
+      "cancel": "Cancelar",
+      "yes": "Sim",
+      "no": "Não",
+      "ok": "OK",
+      "apply": "Aplicar",
+      "save": "Salvar",
+      "load": "Carregar",
+      "delete": "Excluir"
+    }
+  },
+  
+  "settings": {
+    "title": "Configurações",
+    "tabs": {
+      "audio": "Áudio",
+      "graphics": "Gráficos",
+      "gameplay": "Jogabilidade",
+      "controls": "Controles"
+    },
+    "values": {
+      "on": "SIM",
+      "off": "NÃO"
+    },
+    "audio": {
+      "masterVolume": "Volume Geral",
+      "musicVolume": "Volume da Música",
+      "effectsVolume": "Volume dos Efeitos",
+      "ambienceVolume": "Volume Ambiente",
+      "mute": "Silenciar Tudo"
+    },
+    "graphics": {
+      "resolution": "Resolução",
+      "fullscreen": "Tela Cheia",
+      "vsync": "Sincronização Vertical (Reiniciar)",
+      "antiAliasing": "Anti-Aliasing",
+      "textureFiltering": "Filtro de Textura",
+      "uiScale": "Escala da Interface",
+      "gameZoom": "Zoom do Jogo",
+      "perspective": "Pseudo 3D",
+      "showFPS": "Mostrar FPS",
+      "aaOptions": {
+        "none": "Desligado",
+        "msaa": "MSAA"
+      },
+      "filterOptions": {
+        "smooth": "Suave",
+        "sharp": "Nítido"
+      }
+    },
+    "gameplay": {
+      "language": "Idioma",
+      "alwaysRun": "Sempre Correr",
+      "showDebugInfo": "Mostrar Info de Debug",
+      "perspectiveEffect": "Efeito de Perspectiva",
+      "perspectiveStrength": "Intensidade da Perspectiva",
+      "timeScale": "Velocidade Dia/Noite"
+    },
+    "controls": {
+      "inputDevice": "Dispositivo de Entrada",
+      "keyboard": "Teclado",
+      "gamepad": "Controle",
+      "moveUp": "Mover Cima",
+      "moveDown": "Mover Baixo",
+      "moveLeft": "Mover Esquerda",
+      "moveRight": "Mover Direita",
+      "interact": "Interagir",
+      "run": "Correr",
+      "menu": "Menu",
+      "inventory": "Inventário",
+      "confirm": "Confirmar",
+      "cancel": "Cancelar",
+      "unbound": "Não Atribuído"
+    },
+    "messages": {
+      "unsavedChanges": "Você tem alterações não salvas. Deseja salvá-las?",
+      "restartRequired": "Nota: Reinício do aplicativo necessário.",
+      "pressKey": "> PRESSIONE <",
+      "noController": "Sem Controle",
+      "controller": "Controle"
+    },
+    "unsavedChanges": {
+      "title": "Alterações Não Salvas",
+      "message": "Deseja salvar suas alterações?",
+      "discard": "Descartar"
+    },
+    "reset": {
+      "title": "Restaurar Configurações",
+      "message": "O que deseja restaurar?",
+      "all": "Tudo",
+      "warning": "Isso restaurará os valores padrão."
+    },
+    "buttons": {
+      "apply": "Aplicar",
+      "cancel": "Cancelar",
+      "restoreDefaults": "Restaurar Padrões"
+    }
+  },
+  
+  "saveLoad": {
+    "title": {
+      "save": "Salvar Jogo",
+      "load": "Carregar Jogo"
+    },
+    "slot": "Slot {number}",
+    "emptySlot": "Slot Vazio",
+    "autoSave": "Auto Save",
+    "playTime": "Tempo de Jogo: {time}",
+    "level": "Nível {level}",
+    "location": "Local: {location}",
+    "confirmOverwrite": "Sobrescrever save existente?",
+    "confirmDelete": "Excluir este save?",
+    "saveSuccess": "Jogo salvo com sucesso!",
+    "loadSuccess": "Jogo carregado com sucesso!",
+    "saveFailed": "Falha ao salvar o jogo.",
+    "loadFailed": "Falha ao carregar o jogo."
+  },
+  
+  "gameplay": {
+    "interact": "Pressione {key} para interagir",
+    "talkTo": "Falar com {name}",
+    "open": "Abrir",
+    "pickup": "Pegar {item}",
+    "examine": "Examinar",
+    "locked": "Trancado",
+    "needsKey": "Precisa de {key}",
+    "inventory": {
+      "title": "Inventário",
+      "empty": "Seu inventário está vazio",
+      "use": "Usar",
+      "drop": "Largar",
+      "equip": "Equipar",
+      "unequip": "Desequipar"
+    },
+    "gold": "{amount} Ouro",
+    "level": "Nível {level}",
+    "exp": "EXP: {current}/{next}"
+  },
+  
+  "dialogue": {
+    "continue": "Pressione {key} para continuar",
+    "chooseOption": "Escolha uma opção"
+  },
+  
+  "hud": {
+    "hp": "PV",
+    "mp": "PM",
+    "menu": "Menu"
+  },
+  
+  "time": {
+    "dawn": "Amanhecer",
+    "morning": "Manhã",
+    "noon": "Meio-dia",
+    "afternoon": "Tarde",
+    "evening": "Entardecer",
+    "dusk": "Crepúsculo",
+    "night": "Noite",
+    "midnight": "Meia-noite"
+  },
+  
+  "weather": {
+    "clear": "Limpo",
+    "cloudy": "Nublado",
+    "rain": "Chuva",
+    "storm": "Tempestade",
+    "snow": "Neve",
+    "fog": "Neblina"
+  },
+  
+  "hints": {
+    "audioStart": "O áudio iniciará com sua primeira interação",
+    "controllerConnected": "Controle conectado",
+    "controllerDisconnected": "Controle desconectado",
+    "pressEscToClose": "Pressione ESC para fechar"
+  },
+  
+  "instructions": {
+    "tapToSelect": "Toque para Selecionar",
+    "pauseMenu": "Setas: Navegar • Enter: Selecionar • ESC: Continuar",
+    "settingsMenu": "Setas: Navegar • Esq/Dir: Ajustar • Enter: Selecionar • ESC: Voltar",
+    "settingsMobile": "Joystick: Navegar • A: Selecionar • B: Voltar",
+    "rebinding": "Pressione uma tecla... (ESC para cancelar)",
+    "saveLoadMenu": "Setas: Navegar • Enter: Selecionar • DEL: Excluir • ESC: Voltar"
+  },
+  
+  "errors": {
+    "generic": "Ocorreu um erro",
+    "connectionLost": "Conexão perdida",
+    "saveFailed": "Falha ao salvar",
+    "loadFailed": "Falha ao carregar"
+  },
+  
+  "version": "Versão: {version}"
+}

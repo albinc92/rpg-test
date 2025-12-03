@@ -1,0 +1,227 @@
+{
+  "meta": {
+    "locale": "zh",
+    "name": "Chinese (Simplified)",
+    "nativeName": "简体中文",
+    "direction": "ltr"
+  },
+  
+  "menu": {
+    "main": {
+      "title": "RPG Game",
+      "continue": "继续游戏",
+      "loadGame": "读取存档",
+      "newGame": "新游戏",
+      "settings": "设置",
+      "exit": "退出"
+    },
+    "pause": {
+      "title": "暂停",
+      "resume": "继续",
+      "saveLoad": "存读档",
+      "saveGame": "保存游戏",
+      "loadGame": "读取存档",
+      "settings": "设置",
+      "mainMenu": "主菜单",
+      "exit": "退出游戏",
+      "quitConfirmTitle": "返回主菜单？",
+      "quitConfirmMessage": "确定要退出吗？",
+      "unsavedWarning": "未保存的进度将丢失。"
+    },
+    "common": {
+      "back": "返回",
+      "confirm": "确认",
+      "cancel": "取消",
+      "yes": "是",
+      "no": "否",
+      "ok": "好的",
+      "apply": "应用",
+      "save": "保存",
+      "load": "读取",
+      "delete": "删除"
+    }
+  },
+  
+  "settings": {
+    "title": "设置",
+    "tabs": {
+      "audio": "音频",
+      "graphics": "画面",
+      "gameplay": "游戏性",
+      "controls": "控制"
+    },
+    "values": {
+      "on": "开",
+      "off": "关"
+    },
+    "audio": {
+      "masterVolume": "主音量",
+      "musicVolume": "音乐音量",
+      "effectsVolume": "音效音量",
+      "ambienceVolume": "环境音量",
+      "mute": "静音"
+    },
+    "graphics": {
+      "resolution": "分辨率",
+      "fullscreen": "全屏",
+      "vsync": "垂直同步（需重启）",
+      "antiAliasing": "抗锯齿",
+      "textureFiltering": "纹理过滤",
+      "uiScale": "界面缩放",
+      "gameZoom": "游戏缩放",
+      "perspective": "伪3D效果",
+      "showFPS": "显示帧率",
+      "aaOptions": {
+        "none": "关闭",
+        "msaa": "MSAA"
+      },
+      "filterOptions": {
+        "smooth": "平滑",
+        "sharp": "锐利"
+      }
+    },
+    "gameplay": {
+      "language": "语言",
+      "alwaysRun": "始终奔跑",
+      "showDebugInfo": "显示调试信息",
+      "perspectiveEffect": "透视效果",
+      "perspectiveStrength": "透视强度",
+      "timeScale": "时间流速"
+    },
+    "controls": {
+      "inputDevice": "输入设备",
+      "keyboard": "键盘",
+      "gamepad": "手柄",
+      "moveUp": "向上移动",
+      "moveDown": "向下移动",
+      "moveLeft": "向左移动",
+      "moveRight": "向右移动",
+      "interact": "互动",
+      "run": "奔跑",
+      "menu": "菜单",
+      "inventory": "背包",
+      "confirm": "确认",
+      "cancel": "取消",
+      "unbound": "未绑定"
+    },
+    "messages": {
+      "unsavedChanges": "您有未保存的更改。是否保存？",
+      "restartRequired": "注意：需要重启应用程序。",
+      "pressKey": "> 请按键 <",
+      "noController": "无手柄",
+      "controller": "手柄"
+    },
+    "unsavedChanges": {
+      "title": "未保存的更改",
+      "message": "是否保存更改？",
+      "discard": "放弃"
+    },
+    "reset": {
+      "title": "重置设置",
+      "message": "要重置什么？",
+      "all": "全部",
+      "warning": "这将恢复默认值。"
+    },
+    "buttons": {
+      "apply": "应用",
+      "cancel": "取消",
+      "restoreDefaults": "恢复默认"
+    }
+  },
+  
+  "saveLoad": {
+    "title": {
+      "save": "保存游戏",
+      "load": "读取存档"
+    },
+    "slot": "存档位 {number}",
+    "emptySlot": "空存档位",
+    "autoSave": "自动存档",
+    "playTime": "游戏时间: {time}",
+    "level": "等级 {level}",
+    "location": "位置: {location}",
+    "confirmOverwrite": "覆盖现有存档？",
+    "confirmDelete": "删除此存档？",
+    "saveSuccess": "保存成功！",
+    "loadSuccess": "读取成功！",
+    "saveFailed": "保存失败。",
+    "loadFailed": "读取失败。"
+  },
+  
+  "gameplay": {
+    "interact": "按 {key} 互动",
+    "talkTo": "与 {name} 交谈",
+    "open": "打开",
+    "pickup": "拾取 {item}",
+    "examine": "查看",
+    "locked": "已锁定",
+    "needsKey": "需要 {key}",
+    "inventory": {
+      "title": "背包",
+      "empty": "背包是空的",
+      "use": "使用",
+      "drop": "丢弃",
+      "equip": "装备",
+      "unequip": "卸下"
+    },
+    "gold": "{amount} 金币",
+    "level": "等级 {level}",
+    "exp": "经验: {current}/{next}"
+  },
+  
+  "dialogue": {
+    "continue": "按 {key} 继续",
+    "chooseOption": "选择一个选项"
+  },
+  
+  "hud": {
+    "hp": "生命",
+    "mp": "魔法",
+    "menu": "菜单"
+  },
+  
+  "time": {
+    "dawn": "黎明",
+    "morning": "早晨",
+    "noon": "中午",
+    "afternoon": "下午",
+    "evening": "傍晚",
+    "dusk": "黄昏",
+    "night": "夜晚",
+    "midnight": "午夜"
+  },
+  
+  "weather": {
+    "clear": "晴朗",
+    "cloudy": "多云",
+    "rain": "下雨",
+    "storm": "暴风雨",
+    "snow": "下雪",
+    "fog": "大雾"
+  },
+  
+  "hints": {
+    "audioStart": "首次操作后将开启音效",
+    "controllerConnected": "手柄已连接",
+    "controllerDisconnected": "手柄已断开",
+    "pressEscToClose": "按ESC关闭"
+  },
+  
+  "instructions": {
+    "tapToSelect": "点击选择",
+    "pauseMenu": "方向键：导航 • 回车：选择 • ESC：继续",
+    "settingsMenu": "方向键：导航 • 左/右：调整 • 回车：选择 • ESC：返回",
+    "settingsMobile": "摇杆：导航 • A：选择 • B：返回",
+    "rebinding": "按任意键重新绑定...（ESC取消）",
+    "saveLoadMenu": "方向键：导航 • 回车：选择 • DEL：删除 • ESC：返回"
+  },
+  
+  "errors": {
+    "generic": "发生错误",
+    "connectionLost": "连接丢失",
+    "saveFailed": "保存失败",
+    "loadFailed": "读取失败"
+  },
+  
+  "version": "版本: {version}"
+}
