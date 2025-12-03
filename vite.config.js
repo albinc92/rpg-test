@@ -1,4 +1,13 @@
 import { defineConfig } from 'vite';
+import { execSync } from 'child_process';
+
+// Get git commit SHA at build time
+let gitCommitSha = 'dev';
+try {
+  gitCommitSha = execSync('git rev-parse --short HEAD').toString().trim();
+} catch (e) {
+  console.warn('Could not get git commit SHA:', e.message);
+}
 
 export default defineConfig({
   // Base public path when served in development or production.
@@ -10,6 +19,11 @@ export default defineConfig({
   
   // Public directory for static assets
   // publicDir: 'assets',
+  
+  // Define global constants
+  define: {
+    '__GIT_COMMIT_SHA__': JSON.stringify(gitCommitSha)
+  },
   
   // Server configuration
   server: {

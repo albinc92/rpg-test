@@ -207,17 +207,32 @@ class GameEngine {
         // We need to do this after a short delay to ensure Electron window is ready
         if (window.electronAPI) {
             setTimeout(() => {
-                // Apply fullscreen
+                // Apply fullscreen and track state
                 if (this.settings.fullscreen) {
+                    this.isFullscreen = true;
                     window.electronAPI.setFullscreen(true);
+                } else {
+                    this.isFullscreen = false;
                 }
                 
-                // Apply resolution
+                // Apply resolution - in fullscreen this affects rendering resolution
+                // In windowed mode this affects window size
                 if (this.settings.resolution) {
-                    const [width, height] = this.settings.resolution.split('x').map(Number);
-                    if (width && height) {
+                    const match = this.settings.resolution.match(/(\d+)x(\d+)/);
+                    if (match) {
+                        const width = parseInt(match[1]);
+                        const height = parseInt(match[2]);
                         console.log(`[GameEngine] Applying saved resolution: ${width}x${height}`);
-                        window.electronAPI.setResolution(width, height);
+                        
+                        if (this.isFullscreen) {
+                            // In fullscreen, trigger resize to apply rendering resolution
+                            if (this.handleResize) {
+                                this.handleResize();
+                            }
+                        } else {
+                            // In windowed mode, set window size
+                            window.electronAPI.setResolution(width, height);
+                        }
                     }
                 }
             }, 100);
@@ -443,11 +458,35 @@ class GameEngine {
             
             // Desktop resize handler (for when dev tools open/close)
             this.handleResize = () => {
-                // If we have a pending resolution from settings, use that exact size
-                // instead of reading window.innerWidth/Height which may be slightly off
+                // Determine rendering resolution based on mode
                 let newWidth, newHeight;
+                let isFullscreen = false;
                 
-                if (this.pendingResolution) {
+                // Check if we're in fullscreen mode
+                if (window.electronAPI) {
+                    // In Electron, use the cached fullscreen state
+                    isFullscreen = this.isFullscreen || false;
+                } else {
+                    // Web fallback
+                    isFullscreen = document.fullscreenElement != null;
+                }
+                
+                if (isFullscreen && this.settings?.resolution) {
+                    // FULLSCREEN MODE: Use the resolution setting as the RENDERING resolution
+                    // This allows lower resolution for performance on weaker PCs
+                    // The canvas CSS (100vw x 100vh) stretches it to fill the screen
+                    const match = this.settings.resolution.match(/(\d+)x(\d+)/);
+                    if (match) {
+                        newWidth = parseInt(match[1]);
+                        newHeight = parseInt(match[2]);
+                        console.log(`[handleResize] Fullscreen - rendering at ${newWidth}x${newHeight} (stretched to fill screen)`);
+                    } else {
+                        // Fallback to screen size if resolution parsing fails
+                        newWidth = Math.round(window.innerWidth);
+                        newHeight = Math.round(window.innerHeight);
+                    }
+                } else if (this.pendingResolution) {
+                    // WINDOWED MODE with pending resolution from settings change
                     newWidth = this.pendingResolution.width;
                     newHeight = this.pendingResolution.height;
                     console.log(`[handleResize] Using pending resolution: ${newWidth}x${newHeight}`);
@@ -460,6 +499,7 @@ class GameEngine {
                         }, 500);
                     }
                 } else {
+                    // WINDOWED MODE: Use actual window size
                     newWidth = Math.round(window.innerWidth);
                     newHeight = Math.round(window.innerHeight);
                     console.log(`[handleResize] Using window size: ${newWidth}x${newHeight}`);
@@ -514,7 +554,8 @@ class GameEngine {
                 this.updateCamera();
                 
                 // Update resolution setting to reflect current window size
-                if (this.settings) {
+                // BUT NOT in fullscreen mode - the resolution setting is the rendering resolution there
+                if (this.settings && !this.isFullscreen) {
                     // All standard resolutions with aspect ratios
                     const standardResolutions = [
                         // 16:9

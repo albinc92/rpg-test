@@ -784,6 +784,17 @@ class MainMenuState extends GameState {
         if (this.game.audioManager && !this.game.audioManager.audioEnabled) {
             menuRenderer.drawHint(ctx, 'Audio will start with your first interaction', canvasWidth, canvasHeight);
         }
+        
+        // Draw version/commit SHA in bottom left corner
+        const commitSha = typeof __GIT_COMMIT_SHA__ !== 'undefined' ? __GIT_COMMIT_SHA__ : 'dev';
+        ctx.save();
+        ctx.font = `400 ${Math.round(canvasHeight * 0.018)}px 'Lato', sans-serif`;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'bottom';
+        const padding = canvasHeight * 0.02;
+        ctx.fillText(`Version: ${commitSha}`, padding, canvasHeight - padding);
+        ctx.restore();
     }
 }
 
@@ -2371,7 +2382,16 @@ class SettingsState extends GameState {
         if (window.electronAPI) {
             if (key === 'fullscreen') {
                 console.log('[SettingsState] Calling electronAPI.setFullscreen', settings.fullscreen);
+                // Track fullscreen state on game engine for resolution handling
+                this.game.isFullscreen = settings.fullscreen;
                 window.electronAPI.setFullscreen(settings.fullscreen);
+                
+                // Trigger resize to recalculate rendering resolution
+                setTimeout(() => {
+                    if (this.game.handleResize) {
+                        this.game.handleResize();
+                    }
+                }, 100);
             } else if (key === 'resolution') {
                 let width, height;
                 
@@ -2394,10 +2414,20 @@ class SettingsState extends GameState {
                 if (width && height) {
                     console.log('[SettingsState] Calling electronAPI.setResolution', width, height);
                     
-                    // Set a flag to tell handleResize to use our exact dimensions
-                    this.game.pendingResolution = { width, height };
-                    
-                    window.electronAPI.setResolution(width, height);
+                    // Check if we're in fullscreen mode
+                    if (this.game.isFullscreen) {
+                        // In fullscreen, just trigger resize to apply new rendering resolution
+                        // The canvas CSS stays at 100vw x 100vh, but buffer size changes
+                        console.log('[SettingsState] Fullscreen mode - applying rendering resolution');
+                        if (this.game.handleResize) {
+                            this.game.handleResize();
+                        }
+                    } else {
+                        // In windowed mode, change the window size
+                        // Set a flag to tell handleResize to use our exact dimensions
+                        this.game.pendingResolution = { width, height };
+                        window.electronAPI.setResolution(width, height);
+                    }
                 }
             }
         } else {
