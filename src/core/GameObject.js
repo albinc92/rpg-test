@@ -104,28 +104,30 @@ class GameObject {
     }
     
     /**
-     * Get scaled X position for rendering (applies resolution scale to position)
+     * Get scaled X position for rendering (world coords → screen pixels)
+     * Uses worldScale (aliased as resolutionScale) for resolution-agnostic rendering
      */
     getScaledX(game) {
-        const resolutionScale = game?.resolutionScale || 1.0;
-        return this.x * resolutionScale;
+        const worldScale = game?.resolutionScale || 1.0;
+        return this.x * worldScale;
     }
     
     /**
-     * Get scaled Y position for rendering (applies resolution scale to position)
+     * Get scaled Y position for rendering (world coords → screen pixels)
+     * Uses worldScale (aliased as resolutionScale) for resolution-agnostic rendering
      */
     getScaledY(game) {
-        const resolutionScale = game?.resolutionScale || 1.0;
-        return this.y * resolutionScale;
+        const worldScale = game?.resolutionScale || 1.0;
+        return this.y * worldScale;
     }
     
     /**
-     * Get final render scale (object scale × resolution scale)
-     * This combines per-object artistic scale with screen-size adaptation
+     * Get final render scale (object scale × worldScale)
+     * This combines per-object artistic scale with resolution-agnostic scaling
      */
     getFinalScale(game) {
-        const resolutionScale = game?.resolutionScale || 1.0;
-        return this.scale * resolutionScale;
+        const worldScale = game?.resolutionScale || 1.0;
+        return this.scale * worldScale;
     }
     
     /**

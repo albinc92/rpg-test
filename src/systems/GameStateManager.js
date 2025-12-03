@@ -1695,6 +1695,7 @@ class SettingsState extends GameState {
                 { name: 'Resolution', type: 'select', key: 'resolution', values: this.resolutions },
                 { name: 'Fullscreen', type: 'toggle', key: 'fullscreen' },
                 { name: 'VSync (Restart)', type: 'toggle', key: 'vsync' },
+                { name: 'Game Zoom', type: 'slider', key: 'gameZoom', min: 85, max: 115, step: 5, suffix: '%' },
                 { name: 'UI Scale', type: 'slider', key: 'uiScale', min: 50, max: 200, step: 10, suffix: '%' },
                 { name: 'Fake 3D', type: 'toggle', key: 'perspectiveEnabled' },
                 { name: 'Show FPS', type: 'toggle', key: 'showFPS' }
@@ -2201,6 +2202,11 @@ class SettingsState extends GameState {
                     this.applyUIScaleSetting();
                 }
                 
+                // Apply game zoom changes immediately
+                if (option.key === 'gameZoom') {
+                    this.applyGameZoomSetting();
+                }
+                
                 // Play a test sound for volume adjustment feedback (preview only)
                 // Don't spam sound when repeating rapidly
                 if ((option.key === 'effectsVolume' || option.key === 'masterVolume') && !isRepeat) {
@@ -2366,6 +2372,13 @@ class SettingsState extends GameState {
         if (typeof EditorStyles !== 'undefined') {
             EditorStyles.updateCachedScale();
             console.log(`[SettingsState] UI Scale updated to ${this.game.settings.uiScale}%`);
+        }
+    }
+    
+    applyGameZoomSetting() {
+        // Delegate to GameEngine's method
+        if (this.game.applyGameZoomSetting) {
+            this.game.applyGameZoomSetting();
         }
     }
     

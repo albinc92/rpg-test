@@ -21,11 +21,25 @@ class GameEngine {
         // Mobile: Full device resolution (native size)
         this.isMobile = this.detectMobile();
         
-        // Base resolution for sprite scaling (1920x1080 is our design resolution)
-        // Base resolution - the maximum canvas resolution we support
-        // This defines the upper limit of rendering resolution
-        this.BASE_WIDTH = 3840;  // Support up to 4K
+        // MAXIMUM CANVAS RESOLUTION - Up to 4K supported for crisp rendering
+        this.BASE_WIDTH = 3840;
         this.BASE_HEIGHT = 2160;
+        
+        // WORLD COORDINATE SYSTEM - All game positions use these units
+        // Objects, maps, and coordinates are stored in world units
+        // This is independent of screen resolution
+        this.WORLD_WIDTH = 3840;
+        this.WORLD_HEIGHT = 2160;
+        
+        // BASELINE ZOOM - Developer-controlled zoom for the default "100%" view
+        // Higher = more zoomed in (see less world), Lower = more zoomed out (see more world)
+        // Tuned so player character is ~1/8 to 1/10 of screen height (Pokémon-style)
+        // At 1.0: You'd see 3840x2160 world units on a 1920x1080 screen (tiny sprites)
+        // At 2.0: You see ~1920x1080 world units on a 1920x1080 screen (1:1 feel)
+        this.BASELINE_ZOOM = 2.0;
+        
+        // USER ZOOM - From settings, allows 85%-115% adjustment
+        this.userZoom = 1.0; // Will be loaded from settings
         
         if (this.isMobile) {
             // Mobile: Use full native resolution for sharp rendering
@@ -37,19 +51,18 @@ class GameEngine {
             this.CANVAS_HEIGHT = 1080;
         }
         
-        // Calculate resolution scale factor (how much to scale sprites relative to base resolution)
-        // This ensures sprites look proportionally correct on any screen size
-        this.resolutionScale = Math.min(
-            this.CANVAS_WIDTH / this.BASE_WIDTH,
-            this.CANVAS_HEIGHT / this.BASE_HEIGHT
-        );
+        // WORLD SCALE - Core of the resolution-agnostic rendering
+        // Converts world coordinates to screen pixels
+        // worldScale = (canvasHeight / worldHeight) × baselineZoom × userZoom
+        this.updateWorldScale();
         
-        console.log(`[GameEngine] Resolution scale: ${this.resolutionScale.toFixed(3)} (${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT} / ${this.BASE_WIDTH}x${this.BASE_HEIGHT})`);
+        console.log(`[GameEngine] World scale: ${this.worldScale.toFixed(3)} (canvas ${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT}, baseline ${this.BASELINE_ZOOM}, user ${this.userZoom})`);
+        console.log(`[GameEngine] Visible area: ${this.visibleWorldWidth.toFixed(0)}x${this.visibleWorldHeight.toFixed(0)} world units`);
         
-        // STANDARD MAP SIZE - All maps must be this size (4K)
-        // This is the source of truth for map dimensions everywhere
-        this.MAP_WIDTH = 3840;
-        this.MAP_HEIGHT = 2160;
+        // STANDARD MAP SIZE - All maps use world coordinate system
+        // Maps are designed at world resolution (3840×2160 world units)
+        this.MAP_WIDTH = this.WORLD_WIDTH;
+        this.MAP_HEIGHT = this.WORLD_HEIGHT;
 
         this.setupCanvas();
         
@@ -176,6 +189,9 @@ class GameEngine {
         // Apply loaded settings to audio manager
         this.applyAudioSettings();
         
+        // Apply game zoom setting
+        this.applyGameZoomSetting();
+        
         // Apply perspective settings from saved settings
         if (this.perspectiveSystem) {
             this.perspectiveSystem.setEnabled(this.settings.perspectiveEnabled !== false);
@@ -271,6 +287,29 @@ class GameEngine {
         const isSmallScreen = screen.width < 1024 || screen.height < 768;
         return isTouchDevice && isSmallScreen;
     }
+    
+    /**
+     * Update the world scale factor
+     * This is the core of the resolution-agnostic rendering system
+     * Called when canvas resizes or user zoom changes
+     */
+    updateWorldScale() {
+        // Base scale: how many screen pixels per world unit (without zoom)
+        // Uses height for aspect-ratio independent scaling
+        const baseScale = this.CANVAS_HEIGHT / this.WORLD_HEIGHT;
+        
+        // Final world scale includes baseline zoom and user zoom
+        // Higher worldScale = sprites appear larger, see less world
+        this.worldScale = baseScale * this.BASELINE_ZOOM * this.userZoom;
+        
+        // For backwards compatibility, expose as resolutionScale
+        // (existing code references this.resolutionScale)
+        this.resolutionScale = this.worldScale;
+        
+        // Calculate how much of the world is visible on screen
+        this.visibleWorldWidth = this.CANVAS_WIDTH / this.worldScale;
+        this.visibleWorldHeight = this.CANVAS_HEIGHT / this.worldScale;
+    }
 
     /**
      * Setup canvas with smart scaling
@@ -280,8 +319,8 @@ class GameEngine {
     setupCanvas() {
         const screenWidth = window.innerWidth;
         const screenHeight = window.innerHeight;
-        const maxWidth = this.BASE_WIDTH;  // 1920
-        const maxHeight = this.BASE_HEIGHT; // 1080
+        const maxWidth = this.BASE_WIDTH;
+        const maxHeight = this.BASE_HEIGHT;
         
         // Determine canvas logical size
         if (screenWidth <= maxWidth && screenHeight <= maxHeight) {
@@ -294,13 +333,10 @@ class GameEngine {
             this.CANVAS_HEIGHT = maxHeight;
         }
         
-        // Recalculate resolution scale
-        this.resolutionScale = Math.min(
-            this.CANVAS_WIDTH / this.BASE_WIDTH,
-            this.CANVAS_HEIGHT / this.BASE_HEIGHT
-        );
+        // Recalculate world scale for new canvas size
+        this.updateWorldScale();
         
-        console.log(`[GameEngine] Canvas: ${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT}, Scale: ${this.resolutionScale.toFixed(3)}`);
+        console.log(`[GameEngine] Canvas: ${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT}, WorldScale: ${this.worldScale.toFixed(3)}`);
         
         // Helper function to sync WebGL canvas with main canvas
         const syncWebGLCanvas = () => {
@@ -346,12 +382,9 @@ class GameEngine {
                     this.CANVAS_HEIGHT = maxHeight;
                 }
                 
-                // Recalculate resolution scale
-                this.resolutionScale = Math.min(
-                    this.CANVAS_WIDTH / this.BASE_WIDTH,
-                    this.CANVAS_HEIGHT / this.BASE_HEIGHT
-                );
-                console.log(`[GameEngine] Resize: ${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT}, Scale: ${this.resolutionScale.toFixed(3)}`);
+                // Recalculate world scale for new canvas size
+                this.updateWorldScale();
+                console.log(`[GameEngine] Resize: ${this.CANVAS_WIDTH}x${this.CANVAS_HEIGHT}, WorldScale: ${this.worldScale.toFixed(3)}`);
                 
                 const dpr = window.devicePixelRatio || 1;
                 this.canvas.width = this.CANVAS_WIDTH * dpr;
@@ -437,11 +470,8 @@ class GameEngine {
                     this.CANVAS_HEIGHT = maxHeight;
                 }
 
-                // Recalculate resolution scale
-                this.resolutionScale = Math.min(
-                    this.CANVAS_WIDTH / this.BASE_WIDTH,
-                    this.CANVAS_HEIGHT / this.BASE_HEIGHT
-                );
+                // Recalculate world scale for new canvas size
+                this.updateWorldScale();
 
                 // With force-device-scale-factor=1, dpr should be 1, but we keep it for robustness
                 const dpr = window.devicePixelRatio || 1;
@@ -1390,22 +1420,22 @@ class GameEngine {
     updateCamera() {
         if (!this.player || !this.currentMap) return;
         
-        // Calculate actual map dimensions (using standard 4K map size)
-        const actualMapWidth = this.MAP_WIDTH * this.resolutionScale;
-        const actualMapHeight = this.MAP_HEIGHT * this.resolutionScale;
+        // Map dimensions in screen space (world coords × worldScale)
+        const screenMapWidth = this.MAP_WIDTH * this.worldScale;
+        const screenMapHeight = this.MAP_HEIGHT * this.worldScale;
         
-        // Get scaled player position for camera following
-        const scaledPlayerX = this.player.getScaledX(this);
-        const scaledPlayerY = this.player.getScaledY(this);
+        // Get player position in screen space for camera following
+        const screenPlayerX = this.player.getScaledX(this);
+        const screenPlayerY = this.player.getScaledY(this);
         
         // Delegate camera update to RenderSystem
         this.renderSystem.updateCamera(
-            scaledPlayerX,
-            scaledPlayerY,
+            screenPlayerX,
+            screenPlayerY,
             this.CANVAS_WIDTH,
             this.CANVAS_HEIGHT,
-            actualMapWidth,
-            actualMapHeight,
+            screenMapWidth,
+            screenMapHeight,
             this.currentMap.adjacentMaps || {}
         );
     }
@@ -1958,6 +1988,34 @@ class GameEngine {
                 muted: this.settings.isMuted
             });
         }
+    }
+    
+    /**
+     * Apply game zoom setting
+     * Updates userZoom and recalculates worldScale
+     */
+    applyGameZoomSetting() {
+        const zoomPercent = this.settings.gameZoom || 100;
+        
+        // Convert percentage to multiplier
+        // 85% = 0.85 (zoomed in, see less world, bigger sprites)
+        // 100% = 1.0 (default)
+        // 115% = 1.15 (zoomed out, see more world, smaller sprites)
+        this.userZoom = zoomPercent / 100;
+        
+        // Recalculate world scale with new user zoom
+        this.updateWorldScale();
+        
+        // Force camera to snap instantly to new position (no smoothing)
+        // This prevents the "character jumping" effect when zoom changes
+        if (this.renderSystem?.camera) {
+            this.renderSystem.camera.snapToTarget = true;
+        }
+        
+        // Immediately update camera with new scaled positions
+        this.updateCamera();
+        
+        console.log(`[GameEngine] ✅ Game zoom applied: ${zoomPercent}% (worldScale=${this.worldScale.toFixed(3)}, visible=${this.visibleWorldWidth.toFixed(0)}x${this.visibleWorldHeight.toFixed(0)} world units)`);
     }
     
     /**

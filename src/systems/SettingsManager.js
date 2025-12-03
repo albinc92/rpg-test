@@ -18,6 +18,9 @@ class SettingsManager {
             resolution: '1280x720',
             fullscreen: false,
             vsync: true, // Default to ON to prevent screen tearing
+            // Game Zoom (percentage - how much of the world to show)
+            // 85% = zoomed in (see less), 100% = default, 115% = zoomed out (see more)
+            gameZoom: 100,
             // UI Scale (percentage-based scaling for editor and menus)
             uiScale: 100, // 50-200%, default 100%
             // Perspective system (Diablo 2 style fake 3D)
