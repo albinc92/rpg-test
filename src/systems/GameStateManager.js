@@ -921,7 +921,13 @@ class PlayingState extends GameState {
     resume() {
         // Called when returning from a pushed state (like pause menu)
         console.log('🔄 Gameplay resumed - player position preserved');
-        // Don't do anything - player position should be preserved
+        
+        // Snap camera instantly to prevent visual glitch if resolution changed while paused
+        // Without this, the camera would smoothly interpolate to the new position causing a "glide"
+        if (this.game.renderSystem?.camera) {
+            this.game.renderSystem.camera.snapToTarget = true;
+        }
+        this.game.updateCamera();
         
         // Show touch controls when resuming
         if (this.game.touchControlsUI) {

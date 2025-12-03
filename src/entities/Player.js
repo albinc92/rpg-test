@@ -5,9 +5,9 @@ class Player extends Actor {
     constructor(options = {}) {
         super({
             scale: 1.0,
-            maxSpeed: 800,
-            acceleration: 2500,
-            friction: 0.8,
+            maxSpeed: 450,
+            acceleration: 3500,
+            friction: 0.85,
             spriteSrc: 'assets/npc/main-0.png',
             collisionShape: 'circle',
             collisionExpandTopPercent: -0.8,

@@ -410,6 +410,9 @@ class GameEngine {
                 if (this.editorManager) {
                     this.editorManager.handleResize();
                 }
+                
+                // Update camera immediately to prevent visible player jump
+                this.updateCamera();
             };
             
             window.addEventListener('resize', this.handleResize);
@@ -502,6 +505,10 @@ class GameEngine {
                 if (this.editorManager) {
                     this.editorManager.handleResize();
                 }
+                
+                // Update camera immediately to prevent visible player jump
+                // The worldScale changed, so player's screen position changed
+                this.updateCamera();
                 
                 // Update resolution setting to reflect current window size
                 if (this.settings) {
