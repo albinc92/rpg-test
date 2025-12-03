@@ -25,7 +25,12 @@ class SettingsManager {
             uiScale: 100, // 50-200%, default 100%
             // Perspective system (Diablo 2 style fake 3D)
             perspectiveEnabled: true, // Enable by default for immersion
-            perspectiveStrength: 0.35 // Subtle effect (0 = none, 1 = full)
+            perspectiveStrength: 0.35, // Subtle effect (0 = none, 1 = full)
+            // Gameplay settings
+            alwaysRun: false, // When true, player always runs (hold shift to walk)
+            // Graphics quality settings
+            antiAliasing: 'msaa', // 'none' or 'msaa'
+            textureFiltering: 'smooth' // 'smooth' (bilinear) or 'sharp' (nearest)
         };
         
         this.settings = { ...this.defaults };

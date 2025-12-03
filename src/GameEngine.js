@@ -93,7 +93,14 @@ class GameEngine {
         
         // NEW: Specialized subsystems for better architecture
         this.layerManager = new LayerManager(); // Multi-layer map system
-        this.renderSystem = new RenderSystem(this.canvas, this.ctx, this.webglCanvas);
+        
+        // Settings manager must be created and loaded before RenderSystem for AA/filtering
+        this.settingsManager = new SettingsManager();
+        this.settingsManager.load();
+        this.settings = this.settingsManager.getAll();
+        
+        // Pass settings to RenderSystem for WebGL configuration (AA, filtering)
+        this.renderSystem = new RenderSystem(this.canvas, this.ctx, this.webglCanvas, this.settings);
         this.hudSystem = new HUDSystem(this); // NEW: HUD system
         
         // CRITICAL: Initialize WebGL renderer with correct logical dimensions
@@ -104,7 +111,6 @@ class GameEngine {
         
         this.collisionSystem = new CollisionSystem();
         this.interactionSystem = new InteractionSystem();
-        this.settingsManager = new SettingsManager();
         this.performanceMonitor = new PerformanceMonitor();
         this.saveGameManager = new SaveGameManager();
         
@@ -170,11 +176,8 @@ class GameEngine {
         // Map transition state
         this.isTransitioning = false;
 
-        // Load saved settings using new SettingsManager
-        this.settingsManager.load();
-        this.settings = this.settingsManager.getAll();
-        
-        // Apply saved key bindings
+        // Settings already loaded above before RenderSystem creation
+        // Just apply saved key bindings
         if (this.settings.keyBindings) {
             this.inputManager.loadBindings(this.settings.keyBindings);
         }
@@ -1178,15 +1181,40 @@ class GameEngine {
         // Skip if editor is active
         if (this.editorManager.isActive) return;
         
-        // Get movement input
+        // Get movement input (includes analog magnitude for controller/touch)
         const movement = inputManager.getMovementInput();
         
         // Set player input
+        // alwaysRun: when enabled, player runs by default and holds shift to walk
+        const shiftHeld = inputManager.isPressed('run');
+        const alwaysRun = this.settings.alwaysRun || false;
+        
+        // For analog input (controller/touch): use stick magnitude for speed
+        // magnitude < 0.5 = walk, magnitude >= 0.5 = run (if not holding shift)
+        let isRunning;
+        if (movement.isAnalog) {
+            // Analog: magnitude controls walk/run threshold
+            const runThreshold = 0.7; // Push stick 70%+ to run
+            const analogWantsRun = movement.magnitude >= runThreshold;
+            isRunning = alwaysRun ? !shiftHeld && analogWantsRun : analogWantsRun || shiftHeld;
+        } else {
+            // Digital (keyboard): use shift key as before
+            isRunning = alwaysRun ? !shiftHeld : shiftHeld;
+        }
+        
         this.player.setInput({
             moveX: movement.x,
             moveY: movement.y,
-            isRunning: inputManager.isPressed('run')
+            isRunning: isRunning,
+            magnitude: movement.magnitude  // Pass magnitude for analog speed control
         });
+        
+        // Toggle always run mode with R key
+        if (inputManager.isJustPressed('toggleRun')) {
+            this.settings.alwaysRun = !this.settings.alwaysRun;
+            this.settingsManager.update(this.settings);
+            console.log(`[GameEngine] Always Run: ${this.settings.alwaysRun ? 'ON' : 'OFF'}`);
+        }
         
         // Handle interactions
         if (inputManager.isJustPressed('interact')) {

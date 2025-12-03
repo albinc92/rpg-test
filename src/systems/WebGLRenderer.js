@@ -55,16 +55,31 @@ class WebGLRenderer {
         // Perspective strength for fake 3D effect (0.0 = disabled)
         this.perspectiveStrength = 0.0;
         
+        // Texture filtering mode ('smooth' = LINEAR, 'sharp' = NEAREST)
+        this.currentFilterMode = 'smooth';
+        
+        // Anti-aliasing mode ('none' or 'msaa')
+        this.currentAA = 'msaa';
+        
         this.initialize();
+    }
+    
+    /**
+     * Initialize with settings
+     */
+    initializeWithSettings(settings = {}) {
+        this.currentFilterMode = settings.textureFiltering || 'smooth';
+        this.currentAA = settings.antiAliasing || 'msaa';
     }
     
     initialize() {
         try {
             // Request WebGL context with alpha channel and stencil buffer enabled
+            // Note: antialias must be set at context creation time
             const contextOptions = {
                 alpha: true,
                 premultipliedAlpha: false,
-                antialias: true,
+                antialias: this.currentAA === 'msaa',
                 stencil: true  // Required for polygon fill without overlap artifacts
             };
             this.gl = this.canvas.getContext('webgl2', contextOptions) || 
@@ -1295,8 +1310,11 @@ class WebGLRenderer {
         this.gl.pixelStorei(this.gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
         
         this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, image);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+        
+        // Use current filter mode setting (default to LINEAR for smooth)
+        const filterMode = this.currentFilterMode === 'sharp' ? this.gl.NEAREST : this.gl.LINEAR;
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, filterMode);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, filterMode);
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
         
@@ -1859,5 +1877,33 @@ class WebGLRenderer {
         this.batchTexCoords.push(0, 0, 1, 0, 1, 1, 0, 1);
         this.currentBatchSize++;
         this.flushWithColor(color);
+    }
+    
+    /**
+     * Set texture filtering mode for all textures
+     * @param {string} mode - 'smooth' (LINEAR) or 'sharp' (NEAREST)
+     */
+    setTextureFiltering(mode) {
+        if (!this.gl) return;
+        
+        const gl = this.gl;
+        const filterMode = mode === 'sharp' ? gl.NEAREST : gl.LINEAR;
+        
+        // Update all cached textures
+        for (const [url, texture] of this.textures.entries()) {
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filterMode);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filterMode);
+        }
+        
+        this.currentFilterMode = mode;
+        console.log(`[WebGLRenderer] Texture filtering set to: ${mode} (${mode === 'sharp' ? 'NEAREST' : 'LINEAR'})`);
+    }
+    
+    /**
+     * Get current texture filtering mode
+     */
+    getTextureFiltering() {
+        return this.currentFilterMode || 'smooth';
     }
 }

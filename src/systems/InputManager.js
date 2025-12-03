@@ -33,6 +33,7 @@ class InputManager {
             // Actions
             'interact': ['Space', 'Enter'],
             'run': ['ShiftLeft', 'ShiftRight'],
+            'toggleRun': ['KeyR'],  // Toggle always run mode
             'menu': ['Escape', 'Tab', 'KeyM'],
             'inventory': ['KeyI'],
             
@@ -299,13 +300,15 @@ class InputManager {
     }
     
     /**
-     * Get movement input as a normalized vector
+     * Get movement input as a vector with magnitude
+     * Returns { x, y, magnitude } where magnitude is 0-1 for analog control
      */
     getMovementInput() {
         let x = 0;
         let y = 0;
+        let isAnalog = false;
         
-        // Keyboard input
+        // Keyboard input (always full magnitude)
         if (this.isPressed('moveLeft')) x -= 1;
         if (this.isPressed('moveRight')) x += 1;
         if (this.isPressed('moveUp')) y -= 1;
@@ -320,6 +323,7 @@ class InputManager {
             if (Math.abs(axisX) > deadzone || Math.abs(axisY) > deadzone) {
                 x = axisX;
                 y = axisY;
+                isAnalog = true;
             }
         }
 
@@ -327,16 +331,29 @@ class InputManager {
         if (this.isMobile && this.touchControls.joystick.active) {
             x = this.touchControls.joystick.x;
             y = this.touchControls.joystick.y;
+            isAnalog = true;
         }
         
-        // Normalize diagonal movement
-        if (x !== 0 && y !== 0) {
-            const magnitude = Math.sqrt(x * x + y * y);
-            x /= magnitude;
-            y /= magnitude;
+        // Calculate raw magnitude before normalization
+        const rawMagnitude = Math.sqrt(x * x + y * y);
+        
+        // Normalize direction but preserve magnitude info for analog controls
+        // For analog: magnitude represents how far the stick is pushed (0-1)
+        // For digital (keyboard): magnitude is always 1 when moving
+        let magnitude = 1.0;
+        if (rawMagnitude > 0) {
+            if (isAnalog) {
+                // For analog input, clamp magnitude to 1.0 max but preserve partial values
+                magnitude = Math.min(rawMagnitude, 1.0);
+            }
+            // Normalize direction vector
+            x /= rawMagnitude;
+            y /= rawMagnitude;
+        } else {
+            magnitude = 0;
         }
         
-        return { x, y };
+        return { x, y, magnitude, isAnalog };
     }
     
     /**

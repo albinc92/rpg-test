@@ -3,7 +3,7 @@
  * Responsible for: camera, layers, sprite rendering, UI
  */
 class RenderSystem {
-    constructor(canvas, ctx, webglCanvas = null) {
+    constructor(canvas, ctx, webglCanvas = null, settings = {}) {
         // Canvas2D (foreground layer)
         this.canvas = canvas;
         this.ctx = ctx;
@@ -19,6 +19,11 @@ class RenderSystem {
                 // The correct logical dimensions will be set via resize() call after construction
                 console.log(`[RenderSystem] Initializing WebGL renderer...`);
                 this.webglRenderer = new WebGLRenderer(this.webglCanvas, 1920, 1080);
+                
+                // Apply graphics settings (AA was set at context creation, filtering can be set now)
+                if (this.webglRenderer.initialized && settings.textureFiltering) {
+                    this.webglRenderer.setTextureFiltering(settings.textureFiltering);
+                }
                 
                 if (this.webglRenderer.initialized) {
                     console.log('✅ WebGL rendering enabled on separate canvas');

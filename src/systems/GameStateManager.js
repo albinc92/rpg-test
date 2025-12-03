@@ -1701,12 +1701,15 @@ class SettingsState extends GameState {
                 { name: 'Resolution', type: 'select', key: 'resolution', values: this.resolutions },
                 { name: 'Fullscreen', type: 'toggle', key: 'fullscreen' },
                 { name: 'VSync (Restart)', type: 'toggle', key: 'vsync' },
+                { name: 'Anti-Aliasing', type: 'select', key: 'antiAliasing', values: ['None', 'MSAA'], valueMap: { 'None': 'none', 'MSAA': 'msaa' } },
+                { name: 'Texture Filter', type: 'select', key: 'textureFiltering', values: ['Smooth', 'Sharp'], valueMap: { 'Smooth': 'smooth', 'Sharp': 'sharp' } },
                 { name: 'Game Zoom', type: 'slider', key: 'gameZoom', min: 85, max: 115, step: 5, suffix: '%' },
                 { name: 'UI Scale', type: 'slider', key: 'uiScale', min: 50, max: 200, step: 10, suffix: '%' },
                 { name: 'Fake 3D', type: 'toggle', key: 'perspectiveEnabled' },
                 { name: 'Show FPS', type: 'toggle', key: 'showFPS' }
             ],
             'Gameplay': [
+                { name: 'Always Run', type: 'toggle', key: 'alwaysRun', disabledWhen: 'controller' },
                 { name: 'Show Debug Info', type: 'toggle', key: 'showDebugInfo' }
             ],
             'Controls': [] // Populated dynamically
@@ -2185,6 +2188,11 @@ class SettingsState extends GameState {
         const option = this.options[this.selectedOption];
         if (!option || !option.key) return;
         
+        // Check if option is disabled (e.g., Always Run when controller connected)
+        if (option.disabledWhen === 'controller' && this.game.inputManager?.gamepadState?.connected) {
+            return; // Don't allow changing disabled options
+        }
+        
         // Use live settings for instant preview
         const settings = this.game.settings;
         let changed = false;
@@ -2237,7 +2245,21 @@ class SettingsState extends GameState {
             // Prevent changing if there's only one option
             if (!option.values || option.values.length <= 1) return;
 
-            const currentIndex = option.values.indexOf(settings[option.key]);
+            // Support valueMap for display vs internal values
+            const hasValueMap = option.valueMap !== undefined;
+            let currentValue = settings[option.key];
+            
+            // Find current index - if using valueMap, find display value from internal value
+            let currentIndex;
+            if (hasValueMap) {
+                // Reverse lookup: find display value from internal value
+                const reverseMap = Object.entries(option.valueMap).find(([display, internal]) => internal === currentValue);
+                const displayValue = reverseMap ? reverseMap[0] : option.values[0];
+                currentIndex = option.values.indexOf(displayValue);
+            } else {
+                currentIndex = option.values.indexOf(currentValue);
+            }
+            
             let newIndex = currentIndex + direction;
             
             console.log(`[Settings] Changing ${option.key}: index ${currentIndex} -> ${newIndex} (Total: ${option.values.length})`);
@@ -2245,11 +2267,17 @@ class SettingsState extends GameState {
             if (newIndex < 0) newIndex = option.values.length - 1;
             if (newIndex >= option.values.length) newIndex = 0;
             
-            if (settings[option.key] !== option.values[newIndex]) {
-                settings[option.key] = option.values[newIndex];
+            // Get new value - map display to internal if using valueMap
+            const newDisplayValue = option.values[newIndex];
+            const newValue = hasValueMap ? option.valueMap[newDisplayValue] : newDisplayValue;
+            
+            if (settings[option.key] !== newValue) {
+                settings[option.key] = newValue;
                 changed = true;
                 
                 if (option.key === 'resolution') this.applyGraphicsSettings(option.key);
+                if (option.key === 'antiAliasing') this.applyAntiAliasingSetting();
+                if (option.key === 'textureFiltering') this.applyTextureFilteringSetting();
             }
         } else if (option.key === 'controlDevice') {
             if (isRepeat) return; // Don't repeat device selection
@@ -2388,6 +2416,24 @@ class SettingsState extends GameState {
         }
     }
     
+    applyAntiAliasingSetting() {
+        // Anti-aliasing requires WebGL context recreation - mark restart required
+        const currentAA = this.game.settings.antiAliasing;
+        console.log(`[SettingsState] Anti-Aliasing changed to: ${currentAA}`);
+        console.log('[SettingsState] Note: Anti-aliasing changes require game restart to take effect');
+        // Set a flag so we can show this message to user
+        this.restartRequired = true;
+    }
+    
+    applyTextureFilteringSetting() {
+        // Texture filtering can be changed on the fly
+        const filtering = this.game.settings.textureFiltering;
+        if (this.game.renderSystem?.webglRenderer) {
+            this.game.renderSystem.webglRenderer.setTextureFiltering(filtering);
+            console.log(`[SettingsState] Texture Filtering changed to: ${filtering}`);
+        }
+    }
+    
     saveSettings() {
         // Sync changes back to SettingsManager and save (handles Electron IPC)
         if (this.game.settingsManager) {
@@ -2493,6 +2539,13 @@ class SettingsState extends GameState {
             // Use pendingSettings for display
             const settings = this.pendingSettings;
             
+            // Check if option should be disabled
+            let disabled = false;
+            if (option.disabledWhen === 'controller') {
+                // Disable when a controller is connected (analog controls speed)
+                disabled = this.game.inputManager?.gamepadState?.connected || false;
+            }
+            
             if (option.type === 'slider') {
                 const suffix = option.suffix || '%';
                 value = `< ${settings[option.key]}${suffix} >`;
@@ -2501,7 +2554,14 @@ class SettingsState extends GameState {
             } else if (option.type === 'select') {
                 // Only show arrows if there are multiple options
                 if (option.values && option.values.length > 1) {
-                    value = `< ${settings[option.key]} >`;
+                    // Support valueMap for display vs internal values
+                    let displayValue = settings[option.key];
+                    if (option.valueMap) {
+                        // Reverse lookup: find display value from internal value
+                        const reverseMap = Object.entries(option.valueMap).find(([display, internal]) => internal === displayValue);
+                        displayValue = reverseMap ? reverseMap[0] : displayValue;
+                    }
+                    value = `< ${displayValue} >`;
                 } else {
                     value = `${settings[option.key]}`;
                 }
@@ -2517,10 +2577,19 @@ class SettingsState extends GameState {
                 value = option.value;
             }
             
-            return {
+            // Build result with disabled state and tooltip
+            const result = {
                 name: option.name,
-                value: value
+                value: value,
+                disabled: disabled
             };
+            
+            // Add tooltip for disabled options
+            if (disabled && option.disabledWhen === 'controller') {
+                result.name = option.name + ' (Controller)';
+            }
+            
+            return result;
         });
         
         // Slice options for scrolling

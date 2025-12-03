@@ -25,6 +25,7 @@ class Player extends Actor {
         this.inputX = 0;
         this.inputY = 0;
         this.isRunning = false;
+        this.inputMagnitude = 1.0; // Analog stick magnitude (0-1), default 1 for keyboard
         
         // Footstep audio
         this.footstepTimer = 0;
@@ -41,8 +42,12 @@ class Player extends Actor {
      * Update player behavior
      */
     updateBehavior(deltaTime, game) {
-        // Apply speed multiplier to acceleration based on running state
-        const speedMultiplier = this.isRunning ? 1.8 : 1.0;
+        // Base speed multiplier from running state
+        let speedMultiplier = this.isRunning ? 1.8 : 1.0;
+        
+        // Apply analog stick magnitude for smooth speed control
+        // This allows controller users to walk slowly by tilting slightly
+        speedMultiplier *= this.inputMagnitude;
         
         // Player movement is handled by input, not AI
         this.applyMovement(this.inputX, this.inputY, deltaTime, speedMultiplier);
@@ -113,6 +118,7 @@ class Player extends Actor {
         this.inputX = input.moveX || 0;
         this.inputY = input.moveY || 0;
         this.isRunning = input.isRunning || false;
+        this.inputMagnitude = input.magnitude !== undefined ? input.magnitude : 1.0;
     }
     
     /**
