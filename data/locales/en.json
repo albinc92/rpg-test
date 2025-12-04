@@ -221,7 +221,11 @@
     "settingsMenu": "Arrow Keys: Navigate • Left/Right: Adjust • Enter: Select • ESC: Back",
     "settingsMobile": "Joystick: Navigate • A: Select • B: Back",
     "rebinding": "Press any key to rebind... (ESC to cancel)",
-    "saveLoadMenu": "Arrow Keys: Navigate • Enter: Select • DEL: Delete • ESC: Back"
+    "saveLoadMenu": "Arrow Keys: Navigate • Enter: Select • DEL: Delete • ESC: Back",
+    "saveMenu": "Enter: Save • ESC: Back",
+    "saveMenuMobile": "Tap to Select • Back to Cancel",
+    "loadMenu": "Enter: Load • DEL: Delete • ESC: Back",
+    "loadMenuMobile": "Tap to Load • Long Press to Delete"
   },
   
   "errors": {
@@ -229,6 +233,20 @@
     "connectionLost": "Connection lost",
     "saveFailed": "Failed to save",
     "loadFailed": "Failed to load"
+  },
+  
+  "loading": {
+    "loading": "Loading...",
+    "audio": "Loading audio...",
+    "maps": "Loading maps...",
+    "initializing": "Initializing game...",
+    "saveData": "Loading save data...",
+    "map": "Loading map...",
+    "restoring": "Restoring game state...",
+    "ready": "Ready!",
+    "failed": "Failed to load save",
+    "clickToStart": "Click to Start",
+    "clickToStartHint": "Click anywhere or press any key to begin"
   },
   
   "version": "Version: {version}"

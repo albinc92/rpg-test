@@ -221,7 +221,11 @@
     "settingsMenu": "Flechas: Navegar • Izq/Der: Ajustar • Enter: Seleccionar • ESC: Volver",
     "settingsMobile": "Joystick: Navegar • A: Seleccionar • B: Volver",
     "rebinding": "Pulsa una tecla... (ESC para cancelar)",
-    "saveLoadMenu": "Flechas: Navegar • Enter: Seleccionar • DEL: Eliminar • ESC: Volver"
+    "saveLoadMenu": "Flechas: Navegar • Enter: Seleccionar • DEL: Eliminar • ESC: Volver",
+    "saveMenu": "Enter: Guardar • ESC: Volver",
+    "saveMenuMobile": "Toca para Seleccionar • Atrás para Cancelar",
+    "loadMenu": "Enter: Cargar • DEL: Eliminar • ESC: Volver",
+    "loadMenuMobile": "Toca para Cargar • Mantén para Eliminar"
   },
   
   "errors": {
@@ -229,6 +233,20 @@
     "connectionLost": "Conexión perdida",
     "saveFailed": "Error al guardar",
     "loadFailed": "Error al cargar"
+  },
+  
+  "loading": {
+    "loading": "Cargando...",
+    "audio": "Cargando audio...",
+    "maps": "Cargando mapas...",
+    "initializing": "Inicializando juego...",
+    "saveData": "Cargando datos guardados...",
+    "map": "Cargando mapa...",
+    "restoring": "Restaurando estado del juego...",
+    "ready": "¡Listo!",
+    "failed": "Error al cargar partida",
+    "clickToStart": "Clic para Empezar",
+    "clickToStartHint": "Haz clic en cualquier lugar o pulsa cualquier tecla"
   },
   
   "version": "Versión: {version}"

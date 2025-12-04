@@ -213,7 +213,11 @@
     "settingsMenu": "Pfeiltasten: Navigieren • Links/Rechts: Anpassen • Enter: Auswählen • ESC: Zurück",
     "settingsMobile": "Joystick: Navigieren • A: Auswählen • B: Zurück",
     "rebinding": "Taste drücken... (ESC zum Abbrechen)",
-    "saveLoadMenu": "Pfeiltasten: Navigieren • Enter: Auswählen • ENTF: Löschen • ESC: Zurück"
+    "saveLoadMenu": "Pfeiltasten: Navigieren • Enter: Auswählen • ENTF: Löschen • ESC: Zurück",
+    "saveMenu": "Enter: Speichern • ESC: Zurück",
+    "saveMenuMobile": "Tippen zum Auswählen • Zurück zum Abbrechen",
+    "loadMenu": "Enter: Laden • ENTF: Löschen • ESC: Zurück",
+    "loadMenuMobile": "Tippen zum Laden • Halten zum Löschen"
   },
   
   "errors": {
@@ -221,6 +225,20 @@
     "connectionLost": "Verbindung verloren",
     "saveFailed": "Speichern fehlgeschlagen",
     "loadFailed": "Laden fehlgeschlagen"
+  },
+  
+  "loading": {
+    "loading": "Laden...",
+    "audio": "Audio laden...",
+    "maps": "Karten laden...",
+    "initializing": "Spiel initialisieren...",
+    "saveData": "Speicherdaten laden...",
+    "map": "Karte laden...",
+    "restoring": "Spielstand wiederherstellen...",
+    "ready": "Bereit!",
+    "failed": "Laden fehlgeschlagen",
+    "clickToStart": "Klicken zum Starten",
+    "clickToStartHint": "Klicken Sie irgendwo oder drücken Sie eine Taste"
   },
   
   "version": "Version: {version}"

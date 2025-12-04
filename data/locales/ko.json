@@ -213,7 +213,11 @@
     "settingsMenu": "화살표: 이동 • 좌/우: 조절 • Enter: 선택 • ESC: 뒤로",
     "settingsMobile": "조이스틱: 이동 • A: 선택 • B: 뒤로",
     "rebinding": "키를 입력하세요... (ESC로 취소)",
-    "saveLoadMenu": "화살표: 이동 • Enter: 선택 • DEL: 삭제 • ESC: 뒤로"
+    "saveLoadMenu": "화살표: 이동 • Enter: 선택 • DEL: 삭제 • ESC: 뒤로",
+    "saveMenu": "Enter: 저장 • ESC: 뒤로",
+    "saveMenuMobile": "터치하여 선택 • 뒤로로 취소",
+    "loadMenu": "Enter: 불러오기 • DEL: 삭제 • ESC: 뒤로",
+    "loadMenuMobile": "터치하여 불러오기 • 길게 눌러 삭제"
   },
   
   "errors": {
@@ -221,6 +225,20 @@
     "connectionLost": "연결이 끊어졌습니다",
     "saveFailed": "저장 실패",
     "loadFailed": "불러오기 실패"
+  },
+  
+  "loading": {
+    "loading": "로딩 중...",
+    "audio": "오디오 로딩 중...",
+    "maps": "맵 로딩 중...",
+    "initializing": "게임 초기화 중...",
+    "saveData": "저장 데이터 로딩 중...",
+    "map": "맵 로딩 중...",
+    "restoring": "게임 상태 복원 중...",
+    "ready": "준비 완료!",
+    "failed": "불러오기 실패",
+    "clickToStart": "클릭하여 시작",
+    "clickToStartHint": "화면을 클릭하거나 아무 키를 누르세요"
   },
   
   "version": "버전: {version}"

@@ -227,7 +227,7 @@ class GameState {
 class LoadingState extends GameState {
     enter(data = {}) {
         this.loadingProgress = 0;
-        this.loadingText = 'Loading...';
+        this.loadingText = this.game.t('loading.loading');
         this.loadSaveId = data.loadSaveId || null;
         this.isLoadedGame = data.isLoadedGame || false;
         this.fromPauseMenu = data.fromPauseMenu || false;
@@ -248,15 +248,15 @@ class LoadingState extends GameState {
         }
         
         // Normal game initialization (first time load)
-        this.loadingText = 'Loading audio...';
+        this.loadingText = this.game.t('loading.audio');
         await this.waitForAudio();
         this.loadingProgress = 0.4;
         
-        this.loadingText = 'Loading maps...';
+        this.loadingText = this.game.t('loading.maps');
         // Load maps here
         this.loadingProgress = 0.7;
         
-        this.loadingText = 'Initializing game...';
+        this.loadingText = this.game.t('loading.initializing');
         // Initialize game systems
         this.loadingProgress = 1.0;
         
@@ -267,24 +267,24 @@ class LoadingState extends GameState {
     }
     
     async loadSavedGame() {
-        this.loadingText = 'Loading save data...';
+        this.loadingText = this.game.t('loading.saveData');
         this.loadingProgress = 0.2;
         
         await new Promise(resolve => setTimeout(resolve, 100)); // Brief pause
         
-        this.loadingText = 'Loading map...';
+        this.loadingText = this.game.t('loading.map');
         this.loadingProgress = 0.4;
         
         // Load the saved game
         const success = await this.game.saveGameManager.loadGame(this.loadSaveId, this.game);
         
         if (success) {
-            this.loadingText = 'Restoring game state...';
+            this.loadingText = this.game.t('loading.restoring');
             this.loadingProgress = 0.8;
             
             await new Promise(resolve => setTimeout(resolve, 200)); // Let objects spawn
             
-            this.loadingText = 'Ready!';
+            this.loadingText = this.game.t('loading.ready');
             this.loadingProgress = 1.0;
             
             // Transition to playing state
@@ -295,7 +295,7 @@ class LoadingState extends GameState {
             }, 300);
         } else {
             // Failed to load - go back to main menu
-            this.loadingText = 'Failed to load save';
+            this.loadingText = this.game.t('loading.failed');
             setTimeout(() => {
                 this.stateManager.changeState('MAIN_MENU');
             }, 1000);
@@ -313,7 +313,7 @@ class LoadingState extends GameState {
             }
 
             // Update loading text to indicate waiting for user interaction
-            this.loadingText = 'Click anywhere to start';
+            this.loadingText = this.game.t('loading.clickToStart');
             this.waitingForAudio = true;
 
             // Wait for audioReady event
@@ -384,13 +384,13 @@ class LoadingState extends GameState {
             if (ds) ds.applyShadow(ctx, 'glow');
             ctx.fillStyle = primaryColor;
             ctx.font = ds ? ds.font('xxl', 'bold', 'display') : `bold ${sizes.title}px Arial`;
-            ctx.fillText('Click to Start', canvasWidth / 2, canvasHeight / 2 - canvasHeight * 0.05);
+            ctx.fillText(this.game.t('loading.clickToStart'), canvasWidth / 2, canvasHeight / 2 - canvasHeight * 0.05);
             ctx.restore();
             
             // Subtitle
             ctx.fillStyle = textSecondary;
             ctx.font = ds ? ds.font('md', 'normal', 'body') : `${sizes.menu}px Arial`;
-            ctx.fillText('Click anywhere or press any key to begin', canvasWidth / 2, canvasHeight / 2 + canvasHeight * 0.05);
+            ctx.fillText(this.game.t('loading.clickToStartHint'), canvasWidth / 2, canvasHeight / 2 + canvasHeight * 0.05);
             
             // Animated pulse hint (using simple sine wave based on time)
             const pulseAlpha = 0.5 + Math.sin(Date.now() / 500) * 0.3;
@@ -1610,12 +1610,12 @@ class SaveLoadState extends GameState {
         let instructions = '';
         if (this.mode === 'save_list') {
             instructions = this.game.inputManager.isMobile 
-                ? 'Tap to Select • Back to Cancel'
-                : 'Enter: Save • ESC: Back';
+                ? this.game.t('instructions.saveMenuMobile')
+                : this.game.t('instructions.saveMenu');
         } else {
             instructions = this.game.inputManager.isMobile 
-                ? 'Tap to Load • Long Press to Delete'
-                : 'Enter: Load • Delete: Remove Save • ESC: Back';
+                ? this.game.t('instructions.loadMenuMobile')
+                : this.game.t('instructions.loadMenu');
         }
         menuRenderer.drawInstruction(ctx, instructions, canvasWidth, canvasHeight, 0.93);
     }

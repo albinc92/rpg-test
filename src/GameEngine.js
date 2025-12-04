@@ -2112,6 +2112,24 @@ class GameEngine {
      * @returns {string} Translated string
      */
     t(key, params = {}) {
+        // Fallback if localeManager isn't initialized yet (during early loading)
+        if (!this.localeManager) {
+            // Return a reasonable default based on the key
+            const fallbacks = {
+                'loading.loading': 'Loading...',
+                'loading.audio': 'Loading audio...',
+                'loading.maps': 'Loading maps...',
+                'loading.initializing': 'Initializing game...',
+                'loading.saveData': 'Loading save data...',
+                'loading.map': 'Loading map...',
+                'loading.restoring': 'Restoring game state...',
+                'loading.ready': 'Ready!',
+                'loading.failed': 'Failed to load save',
+                'loading.clickToStart': 'Click to Start',
+                'loading.clickToStartHint': 'Click anywhere or press any key to begin'
+            };
+            return fallbacks[key] || key.split('.').pop();
+        }
         return this.localeManager.t(key, params);
     }
     

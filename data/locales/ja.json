@@ -221,7 +221,11 @@
     "settingsMenu": "方向キー：移動 • 左/右：調整 • Enter：決定 • ESC：戻る",
     "settingsMobile": "スティック：移動 • A：決定 • B：戻る",
     "rebinding": "キーを押してください...（ESCでキャンセル）",
-    "saveLoadMenu": "方向キー：移動 • Enter：決定 • DEL：削除 • ESC：戻る"
+    "saveLoadMenu": "方向キー：移動 • Enter：決定 • DEL：削除 • ESC：戻る",
+    "saveMenu": "Enter：セーブ • ESC：戻る",
+    "saveMenuMobile": "タップで選択 • 戻るでキャンセル",
+    "loadMenu": "Enter：ロード • DEL：削除 • ESC：戻る",
+    "loadMenuMobile": "タップでロード • 長押しで削除"
   },
   
   "errors": {
@@ -229,6 +233,20 @@
     "connectionLost": "接続が切れました",
     "saveFailed": "保存に失敗",
     "loadFailed": "読込に失敗"
+  },
+  
+  "loading": {
+    "loading": "読み込み中...",
+    "audio": "オーディオを読み込み中...",
+    "maps": "マップを読み込み中...",
+    "initializing": "ゲームを初期化中...",
+    "saveData": "セーブデータを読み込み中...",
+    "map": "マップを読み込み中...",
+    "restoring": "ゲーム状態を復元中...",
+    "ready": "準備完了！",
+    "failed": "セーブの読み込みに失敗",
+    "clickToStart": "クリックでスタート",
+    "clickToStartHint": "画面をクリックまたは任意のキーを押してください"
   },
   
   "version": "バージョン: {version}"

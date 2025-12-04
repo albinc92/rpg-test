@@ -213,7 +213,11 @@
     "settingsMenu": "Flèches: Naviguer • G/D: Ajuster • Entrée: Sélectionner • ESC: Retour",
     "settingsMobile": "Joystick: Naviguer • A: Sélectionner • B: Retour",
     "rebinding": "Appuyez sur une touche... (ESC pour annuler)",
-    "saveLoadMenu": "Flèches: Naviguer • Entrée: Sélectionner • SUPPR: Supprimer • ESC: Retour"
+    "saveLoadMenu": "Flèches: Naviguer • Entrée: Sélectionner • SUPPR: Supprimer • ESC: Retour",
+    "saveMenu": "Entrée: Sauvegarder • ESC: Retour",
+    "saveMenuMobile": "Appuyez pour Sélectionner • Retour pour Annuler",
+    "loadMenu": "Entrée: Charger • SUPPR: Supprimer • ESC: Retour",
+    "loadMenuMobile": "Appuyez pour Charger • Maintenir pour Supprimer"
   },
   
   "errors": {
@@ -221,6 +225,20 @@
     "connectionLost": "Connexion perdue",
     "saveFailed": "Échec de la sauvegarde",
     "loadFailed": "Échec du chargement"
+  },
+  
+  "loading": {
+    "loading": "Chargement...",
+    "audio": "Chargement audio...",
+    "maps": "Chargement des cartes...",
+    "initializing": "Initialisation du jeu...",
+    "saveData": "Chargement des données...",
+    "map": "Chargement de la carte...",
+    "restoring": "Restauration de l'état du jeu...",
+    "ready": "Prêt !",
+    "failed": "Échec du chargement",
+    "clickToStart": "Cliquez pour Commencer",
+    "clickToStartHint": "Cliquez n'importe où ou appuyez sur une touche"
   },
   
   "version": "Version: {version}"

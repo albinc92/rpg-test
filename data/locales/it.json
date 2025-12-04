@@ -213,7 +213,11 @@
     "settingsMenu": "Frecce: Naviga • Sinistra/Destra: Regola • Invio: Seleziona • ESC: Indietro",
     "settingsMobile": "Joystick: Naviga • A: Seleziona • B: Indietro",
     "rebinding": "Premi un tasto... (ESC per annullare)",
-    "saveLoadMenu": "Frecce: Naviga • Invio: Seleziona • CANC: Elimina • ESC: Indietro"
+    "saveLoadMenu": "Frecce: Naviga • Invio: Seleziona • CANC: Elimina • ESC: Indietro",
+    "saveMenu": "Invio: Salva • ESC: Indietro",
+    "saveMenuMobile": "Tocca per Selezionare • Indietro per Annullare",
+    "loadMenu": "Invio: Carica • CANC: Elimina • ESC: Indietro",
+    "loadMenuMobile": "Tocca per Caricare • Tieni premuto per Eliminare"
   },
   
   "errors": {
@@ -221,6 +225,20 @@
     "connectionLost": "Connessione persa",
     "saveFailed": "Salvataggio fallito",
     "loadFailed": "Caricamento fallito"
+  },
+  
+  "loading": {
+    "loading": "Caricamento...",
+    "audio": "Caricamento audio...",
+    "maps": "Caricamento mappe...",
+    "initializing": "Inizializzazione gioco...",
+    "saveData": "Caricamento dati di salvataggio...",
+    "map": "Caricamento mappa...",
+    "restoring": "Ripristino stato del gioco...",
+    "ready": "Pronto!",
+    "failed": "Caricamento fallito",
+    "clickToStart": "Clicca per Iniziare",
+    "clickToStartHint": "Clicca ovunque o premi un tasto qualsiasi"
   },
   
   "version": "Versione: {version}"

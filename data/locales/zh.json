@@ -213,7 +213,11 @@
     "settingsMenu": "方向键：导航 • 左/右：调整 • 回车：选择 • ESC：返回",
     "settingsMobile": "摇杆：导航 • A：选择 • B：返回",
     "rebinding": "按任意键重新绑定...（ESC取消）",
-    "saveLoadMenu": "方向键：导航 • 回车：选择 • DEL：删除 • ESC：返回"
+    "saveLoadMenu": "方向键：导航 • 回车：选择 • DEL：删除 • ESC：返回",
+    "saveMenu": "回车：保存 • ESC：返回",
+    "saveMenuMobile": "点击选择 • 返回取消",
+    "loadMenu": "回车：读取 • DEL：删除 • ESC：返回",
+    "loadMenuMobile": "点击读取 • 长按删除"
   },
   
   "errors": {
@@ -221,6 +225,20 @@
     "connectionLost": "连接丢失",
     "saveFailed": "保存失败",
     "loadFailed": "读取失败"
+  },
+  
+  "loading": {
+    "loading": "加载中...",
+    "audio": "加载音频...",
+    "maps": "加载地图...",
+    "initializing": "初始化游戏...",
+    "saveData": "加载存档数据...",
+    "map": "加载地图...",
+    "restoring": "恢复游戏状态...",
+    "ready": "就绪！",
+    "failed": "加载存档失败",
+    "clickToStart": "点击开始",
+    "clickToStartHint": "点击任意位置或按任意键开始"
   },
   
   "version": "版本: {version}"
