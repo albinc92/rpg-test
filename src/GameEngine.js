@@ -881,8 +881,21 @@ class GameEngine {
      * Main render loop
      */
     render() {
-        // Clear canvas
+        // Clear Canvas2D
         this.ctx.clearRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+        
+        // Clear WebGL canvas if not in gameplay state (to prevent leftover frames showing through)
+        // The WebGL canvas is only rendered by PlayingState, so other states need to clear it
+        const currentState = this.stateManager.getCurrentState();
+        const isPlayingOnStack = this.stateManager.isStateInStack('PLAYING');
+        const isGameplayActive = currentState === 'PLAYING' || isPlayingOnStack;
+        
+        if (!isGameplayActive && this.renderSystem?.webglRenderer?.initialized) {
+            const gl = this.renderSystem.webglRenderer.gl;
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.clearColor(0, 0, 0, 1);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+        }
         
         // Render current state
         this.stateManager.render(this.ctx);
@@ -1241,18 +1254,9 @@ class GameEngine {
         const shiftHeld = inputManager.isPressed('run');
         const alwaysRun = this.settings.alwaysRun || false;
         
-        // For analog input (controller/touch): use stick magnitude for speed
-        // magnitude < 0.5 = walk, magnitude >= 0.5 = run (if not holding shift)
-        let isRunning;
-        if (movement.isAnalog) {
-            // Analog: magnitude controls walk/run threshold
-            const runThreshold = 0.7; // Push stick 70%+ to run
-            const analogWantsRun = movement.magnitude >= runThreshold;
-            isRunning = alwaysRun ? !shiftHeld && analogWantsRun : analogWantsRun || shiftHeld;
-        } else {
-            // Digital (keyboard): use shift key as before
-            isRunning = alwaysRun ? !shiftHeld : shiftHeld;
-        }
+        // Running requires holding the run button (same for keyboard and controller)
+        // alwaysRun inverts this: run by default, hold button to walk
+        const isRunning = alwaysRun ? !shiftHeld : shiftHeld;
         
         this.player.setInput({
             moveX: movement.x,

@@ -852,8 +852,9 @@ class MenuRenderer {
             danger: '#ff4444'
         };
         
-        // Semi-transparent black background for modal overlay
-        ctx.fillStyle = colors.background.overlay || 'rgba(0, 0, 0, 0.85)';
+        // Draw a semi-transparent overlay to darken content behind the modal
+        // Use a lighter alpha so stacked overlays don't become fully opaque
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
         // ═══════════════════════════════════════════════════════════════

@@ -1141,6 +1141,11 @@ class PausedState extends GameState {
         const canvasHeight = this.game.CANVAS_HEIGHT;
         const menuRenderer = this.stateManager.menuRenderer;
         
+        // Render game world behind pause menu (PLAYING is on stack)
+        if (this.stateManager.isStateInStack('PLAYING')) {
+            this.game.renderGameplay(ctx);
+        }
+        
         // Draw overlay
         menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.7);
         
@@ -1475,7 +1480,7 @@ class SaveLoadState extends GameState {
         const canvasWidth = this.game.CANVAS_WIDTH;
         const canvasHeight = this.game.CANVAS_HEIGHT;
         
-        // Draw translucent overlay
+        // Draw dark overlay (WebGL canvas is cleared when not in gameplay, so this works for both cases)
         ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
@@ -2589,16 +2594,12 @@ class SettingsState extends GameState {
         // Use the game's logical canvas dimensions
         const canvasWidth = this.game.CANVAS_WIDTH;
         const canvasHeight = this.game.CANVAS_HEIGHT;
-        
-        // Always draw opaque black background for Settings
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
         // Use MenuRenderer for consistent styling
         const menuRenderer = this.stateManager.menuRenderer;
         const sizes = menuRenderer.getFontSizes(canvasHeight);
         
-        // Draw overlay (still useful for vignette/scanlines if desired, but background is already black)
+        // Draw overlay (WebGL canvas is cleared when not in gameplay)
         menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.8);
         
         // Draw title (localized)
@@ -3086,6 +3087,11 @@ class InventoryState extends GameState {
         const canvasWidth = this.game.CANVAS_WIDTH;
         const canvasHeight = this.game.CANVAS_HEIGHT;
         const menuRenderer = this.stateManager.menuRenderer;
+        
+        // Render game world behind inventory (PLAYING is on stack)
+        if (this.stateManager.isStateInStack('PLAYING')) {
+            this.game.renderGameplay(ctx);
+        }
         
         // Draw overlay
         menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.85);
