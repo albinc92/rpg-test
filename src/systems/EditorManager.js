@@ -23,7 +23,7 @@ class EditorManager {
         
         // Paint tool state
         this.isPainting = false;
-        this.paintMode = 'texture'; // 'texture', 'collision', or 'spawn'
+        this.paintMode = 'texture'; // Only textures are paintable (collision/spawn use vector zones)
         this.toolAction = 'paint'; // 'paint', 'erase', or 'fill'
         this.selectedTexture = null; // Current texture to paint with
         this.brushSize = 64; // Brush radius in pixels

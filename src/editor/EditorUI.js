@@ -3628,39 +3628,8 @@ class EditorUI {
         title.style.cssText = `margin: 0; color: #4a9eff; border-bottom: 1px solid #444; padding-bottom: ${s(8)}; font-size: ${s(16)};`;
         panel.appendChild(title);
 
-        // === PAINT MODE SECTION ===
-        const modeSection = this.createPaintSection('Paint Mode', scale);
-        const modeButtons = document.createElement('div');
-        modeButtons.style.cssText = `display: flex; gap: ${s(4)};`;
-        
-        const modes = [
-            { id: 'texture', label: '🎨 Texture', title: 'Paint textures onto the map' },
-            { id: 'collision', label: '🚧 Collision', title: 'Paint collision areas' },
-            { id: 'spawn', label: '🌱 Spawn', title: 'Paint spawn zones' }
-        ];
-        
-        modes.forEach(mode => {
-            const btn = document.createElement('button');
-            btn.textContent = mode.label;
-            btn.title = mode.title;
-            btn.style.cssText = `
-                flex: 1;
-                padding: ${s(6)} ${s(4)};
-                background: ${this.editor.paintMode === mode.id ? '#4a9eff' : '#333'};
-                color: white;
-                border: 1px solid #555;
-                border-radius: ${s(4)};
-                cursor: pointer;
-                font-size: ${s(11)};
-            `;
-            btn.onclick = () => {
-                this.editor.paintMode = mode.id;
-                this.showPaintToolPanel(); // Refresh panel
-            };
-            modeButtons.appendChild(btn);
-        });
-        modeSection.appendChild(modeButtons);
-        panel.appendChild(modeSection);
+        // Paint mode is always 'texture' now (collision/spawn use vector zones instead)
+        this.editor.paintMode = 'texture';
 
         // === TOOL ACTION SECTION ===
         const actionSection = this.createPaintSection('Action', scale);
@@ -3694,27 +3663,25 @@ class EditorUI {
         actionSection.appendChild(actionButtons);
         panel.appendChild(actionSection);
 
-        // === TEXTURE SELECTION (only for texture mode) ===
-        if (this.editor.paintMode === 'texture') {
-            const textureSection = this.createPaintSection('Texture', scale);
-            const textureGrid = document.createElement('div');
-            textureGrid.style.cssText = `
-                display: grid;
-                grid-template-columns: repeat(4, 1fr);
-                gap: ${s(4)};
-                max-height: ${s(150)};
-                overflow-y: auto;
-                padding: ${s(4)};
-                background: #1a1a1a;
-                border-radius: ${s(4)};
-            `;
-            
-            // Load textures from assets/texture folder
-            this.loadTexturesForPanel(textureGrid, scale);
-            
-            textureSection.appendChild(textureGrid);
-            panel.appendChild(textureSection);
-        }
+        // === TEXTURE SELECTION ===
+        const textureSection = this.createPaintSection('Texture', scale);
+        const textureGrid = document.createElement('div');
+        textureGrid.style.cssText = `
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: ${s(4)};
+            max-height: ${s(150)};
+            overflow-y: auto;
+            padding: ${s(4)};
+            background: #1a1a1a;
+            border-radius: ${s(4)};
+        `;
+        
+        // Load textures from assets/texture folder
+        this.loadTexturesForPanel(textureGrid, scale);
+        
+        textureSection.appendChild(textureGrid);
+        panel.appendChild(textureSection);
 
         // === BRUSH SIZE ===
         const sizeSection = this.createPaintSection(`Brush Size: ${this.editor.brushSize}px`, scale);
@@ -3769,12 +3736,6 @@ class EditorUI {
         const styleButtons = document.createElement('div');
         styleButtons.style.cssText = `display: flex; gap: ${s(4)};`;
         
-        // Force hard brush for collision/spawn modes
-        const isHardEdgeOnly = this.editor.paintMode === 'collision' || this.editor.paintMode === 'spawn';
-        if (isHardEdgeOnly && this.editor.brushStyle !== 'hard') {
-            this.editor.brushStyle = 'hard';
-        }
-        
         const styles = [
             { id: 'hard', label: 'Hard' },
             { id: 'soft', label: 'Soft' },
@@ -3785,26 +3746,21 @@ class EditorUI {
             const btn = document.createElement('button');
             btn.textContent = style.label;
             
-            const isDisabled = isHardEdgeOnly && style.id !== 'hard';
-            
             btn.style.cssText = `
                 flex: 1;
                 padding: ${s(6)} ${s(8)};
                 background: ${this.editor.brushStyle === style.id ? '#4a9eff' : '#333'};
-                color: ${isDisabled ? '#666' : 'white'};
+                color: white;
                 border: 1px solid #555;
                 border-radius: ${s(4)};
-                cursor: ${isDisabled ? 'not-allowed' : 'pointer'};
+                cursor: pointer;
                 font-size: ${s(12)};
-                opacity: ${isDisabled ? '0.5' : '1'};
             `;
             
-            if (!isDisabled) {
-                btn.onclick = () => {
-                    this.editor.brushStyle = style.id;
-                    this.showPaintToolPanel(); // Refresh panel
-                };
-            }
+            btn.onclick = () => {
+                this.editor.brushStyle = style.id;
+                this.showPaintToolPanel(); // Refresh panel
+            };
             styleButtons.appendChild(btn);
         });
         styleSection.appendChild(styleButtons);
@@ -3845,7 +3801,7 @@ class EditorUI {
 
         // Clear layer button
         const clearBtn = document.createElement('button');
-        clearBtn.textContent = '🗑️ Clear Layer';
+        clearBtn.textContent = '🗑️ Clear Texture';
         clearBtn.style.cssText = `
             flex: 1;
             padding: ${s(8)};
@@ -3857,9 +3813,9 @@ class EditorUI {
             font-size: ${s(13)};
         `;
         clearBtn.onclick = () => {
-            if (confirm(`Clear all ${this.editor.paintMode} paint on this map?`)) {
-                this.editor.clearPaintLayer(this.game.currentMapId, this.editor.paintMode);
-                this.showNotification(`${this.editor.paintMode} layer cleared`);
+            if (confirm('Clear all painted textures on this map?')) {
+                this.editor.clearPaintLayer(this.game.currentMapId, 'texture');
+                this.showNotification('Texture layer cleared');
             }
         };
         buttonRow.appendChild(clearBtn);
