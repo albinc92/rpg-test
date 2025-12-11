@@ -1777,17 +1777,26 @@ class EditorManager {
                             this.dragOriginalY = this.selectedObject.y;
                         }
                         
-                        // Convert scaled mouse to unscaled storage coordinates
-                        const unscaledMouse = this.worldToUnscaled(this.mouseWorldXUnsnapped, this.mouseWorldYUnsnapped);
+                        // Check if perspective is active
+                        const webglRenderer = this.game.renderSystem?.webglRenderer;
+                        const perspectiveParams = webglRenderer?.getPerspectiveParams?.() || { enabled: false };
+                        const perspectiveActive = perspectiveParams.enabled && perspectiveParams.strength > 0;
                         
-                        // Calculate new position (all in unscaled space: obj.x, dragOffset, unscaledMouse)
-                        const newX = unscaledMouse.x - this.dragOffsetX;
-                        const newY = unscaledMouse.y - this.dragOffsetY;
+                        let newX, newY;
                         
-                        if (Math.random() < 0.05) { // Log occasionally to avoid spam
-                            console.log('[DRAG] mouse:', unscaledMouse.x.toFixed(1), unscaledMouse.y.toFixed(1),
-                                        'offset:', this.dragOffsetX.toFixed(1), this.dragOffsetY.toFixed(1),
-                                        'result:', newX.toFixed(1), newY.toFixed(1));
+                        if (perspectiveActive) {
+                            // In perspective mode, use SCREEN-RELATIVE movement
+                            // mouseScreenWorldX/Y is the pre-perspective world position (screen + camera)
+                            const unscaledScreenMouse = this.worldToUnscaled(this.mouseScreenWorldX, this.mouseScreenWorldY);
+                            
+                            // Calculate new position using screen-relative offset
+                            newX = unscaledScreenMouse.x - this.dragOffsetX;
+                            newY = unscaledScreenMouse.y - this.dragOffsetY;
+                        } else {
+                            // In 2D mode, use the regular world coordinates
+                            const unscaledMouse = this.worldToUnscaled(this.mouseWorldXUnsnapped, this.mouseWorldYUnsnapped);
+                            newX = unscaledMouse.x - this.dragOffsetX;
+                            newY = unscaledMouse.y - this.dragOffsetY;
                         }
                         
                         this.selectedObject.x = newX;
@@ -2092,12 +2101,21 @@ class EditorManager {
             if (hitTest) {
                 this.selectObject(obj);
                 
-                // For dragging, we need unscaled offset (obj.x/y are unscaled)
-                const unscaled = this.worldToUnscaled(worldX, worldY);
-                this.dragStartX = unscaled.x;
-                this.dragStartY = unscaled.y;
-                this.dragOffsetX = unscaled.x - obj.x;
-                this.dragOffsetY = unscaled.y - obj.y;
+                // For dragging, calculate offset based on mode
+                // In perspective mode, use screen-relative coords for consistent dragging
+                if (perspectiveActive) {
+                    const unscaledScreen = this.worldToUnscaled(this.mouseScreenWorldX, this.mouseScreenWorldY);
+                    this.dragStartX = unscaledScreen.x;
+                    this.dragStartY = unscaledScreen.y;
+                    this.dragOffsetX = unscaledScreen.x - obj.x;
+                    this.dragOffsetY = unscaledScreen.y - obj.y;
+                } else {
+                    const unscaled = this.worldToUnscaled(worldX, worldY);
+                    this.dragStartX = unscaled.x;
+                    this.dragStartY = unscaled.y;
+                    this.dragOffsetX = unscaled.x - obj.x;
+                    this.dragOffsetY = unscaled.y - obj.y;
+                }
                 
                 // Not multi-selecting when clicking an object
                 this.isMultiSelecting = false;
