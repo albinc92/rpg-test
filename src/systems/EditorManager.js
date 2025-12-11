@@ -876,12 +876,23 @@ class EditorManager {
         const perspectiveParams = webglRenderer?.getPerspectiveParams?.() || { enabled: false };
         const perspectiveActive = perspectiveParams.enabled && perspectiveParams.strength > 0;
         
-        // Expand grid bounds to ensure coverage when perspective is applied
-        const extraMargin = perspectiveActive ? this.gridSize * 4 : 0;
-        const startX = Math.floor((camera.x - extraMargin) / this.gridSize) * this.gridSize;
-        const startY = Math.floor((camera.y - extraMargin) / this.gridSize) * this.gridSize;
-        const endX = startX + this.game.CANVAS_WIDTH + this.gridSize + extraMargin * 2;
-        const endY = startY + this.game.CANVAS_HEIGHT + this.gridSize + extraMargin * 2;
+        // Get resolution scale for world-to-screen conversion
+        const resolutionScale = this.game.resolutionScale || 1.0;
+        
+        // Map dimensions in WORLD units (not screen pixels)
+        const mapWorldWidth = this.game.MAP_WIDTH;
+        const mapWorldHeight = this.game.MAP_HEIGHT;
+        
+        // Map dimensions in SCREEN pixels (for clipping)
+        const mapScreenWidth = mapWorldWidth * resolutionScale;
+        const mapScreenHeight = mapWorldHeight * resolutionScale;
+        
+        // Grid covers the ENTIRE map, from (0,0) to (mapWidth, mapHeight)
+        // Not based on player/camera position - always the full map area
+        const gridStartX = 0;
+        const gridStartY = 0;
+        const gridEndX = mapWorldWidth;
+        const gridEndY = mapWorldHeight;
         
         ctx.save();
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
@@ -895,16 +906,18 @@ class EditorManager {
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             
             // Vertical lines (in world space, become converging lines in perspective)
-            for (let x = startX; x <= endX; x += this.gridSize) {
-                // Get screen positions for top and bottom of this vertical line
-                const topWorld = { x: x, y: startY };
-                const bottomWorld = { x: x, y: endY };
+            for (let x = gridStartX; x <= gridEndX; x += this.gridSize) {
+                // Get screen positions for top and bottom of this vertical line (convert world to screen coords)
+                const topWorldScreenX = x * resolutionScale;
+                const topWorldScreenY = gridStartY * resolutionScale;
+                const bottomWorldScreenX = x * resolutionScale;
+                const bottomWorldScreenY = gridEndY * resolutionScale;
                 
                 const topScreen = webglRenderer.transformWorldToScreen(
-                    topWorld.x, topWorld.y, camera.x, camera.y
+                    topWorldScreenX, topWorldScreenY, camera.x, camera.y
                 );
                 const bottomScreen = webglRenderer.transformWorldToScreen(
-                    bottomWorld.x, bottomWorld.y, camera.x, camera.y
+                    bottomWorldScreenX, bottomWorldScreenY, camera.x, camera.y
                 );
                 
                 ctx.beginPath();
@@ -914,19 +927,19 @@ class EditorManager {
             }
             
             // Horizontal lines (transform multiple points to create curved appearance)
-            for (let y = startY; y <= endY; y += this.gridSize) {
+            for (let y = gridStartY; y <= gridEndY; y += this.gridSize) {
                 ctx.beginPath();
                 
                 // Sample multiple points along each horizontal line for smooth curves
-                const steps = Math.ceil((endX - startX) / this.gridSize) + 1;
+                const steps = Math.ceil((gridEndX - gridStartX) / this.gridSize) + 1;
                 let firstPoint = true;
                 
                 for (let i = 0; i <= steps; i++) {
-                    const worldX = startX + (i * this.gridSize);
+                    const worldX = gridStartX + (i * this.gridSize);
                     const worldY = y;
                     
                     const screenPos = webglRenderer.transformWorldToScreen(
-                        worldX, worldY, camera.x, camera.y
+                        worldX * resolutionScale, worldY * resolutionScale, camera.x, camera.y
                     );
                     
                     if (firstPoint) {
@@ -941,21 +954,29 @@ class EditorManager {
             }
         } else {
             // === STANDARD 2D GRID ===
-            // Vertical lines
-            for (let x = startX; x < endX; x += this.gridSize) {
-                const screenX = x - camera.x;
+            // Vertical lines - iterate over ENTIRE map in world units, convert to screen for drawing
+            for (let x = gridStartX; x <= gridEndX; x += this.gridSize) {
+                // Convert world X to screen X
+                const screenX = x * resolutionScale - camera.x;
+                // Y range: from top of map (0) to bottom of map
+                const screenStartY = 0 * resolutionScale - camera.y;
+                const screenEndY = mapScreenHeight - camera.y;
                 ctx.beginPath();
-                ctx.moveTo(screenX, 0);
-                ctx.lineTo(screenX, this.game.CANVAS_HEIGHT);
+                ctx.moveTo(screenX, screenStartY);
+                ctx.lineTo(screenX, screenEndY);
                 ctx.stroke();
             }
             
-            // Horizontal lines
-            for (let y = startY; y < endY; y += this.gridSize) {
-                const screenY = y - camera.y;
+            // Horizontal lines - iterate over ENTIRE map in world units, convert to screen for drawing
+            for (let y = gridStartY; y <= gridEndY; y += this.gridSize) {
+                // Convert world Y to screen Y
+                const screenY = y * resolutionScale - camera.y;
+                // X range: from left of map (0) to right of map
+                const screenStartX = 0 * resolutionScale - camera.x;
+                const screenEndX = mapScreenWidth - camera.x;
                 ctx.beginPath();
-                ctx.moveTo(0, screenY);
-                ctx.lineTo(this.game.CANVAS_WIDTH, screenY);
+                ctx.moveTo(screenStartX, screenY);
+                ctx.lineTo(screenEndX, screenY);
                 ctx.stroke();
             }
         }
