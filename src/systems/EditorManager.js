@@ -2013,6 +2013,16 @@ class EditorManager {
         const worldX = this.mouseWorldXUnsnapped;
         const worldY = this.mouseWorldYUnsnapped;
         
+        // Get screen coordinates for perspective-aware selection
+        const screenX = this.mouseCanvasX;
+        const screenY = this.mouseCanvasY;
+        
+        // Check if perspective is active
+        const webglRenderer = this.game.renderSystem?.webglRenderer;
+        const perspectiveParams = webglRenderer?.getPerspectiveParams?.() || { enabled: false };
+        const perspectiveActive = perspectiveParams.enabled && perspectiveParams.strength > 0;
+        const camera = this.game.camera;
+        
         // Check if light editor is in placement mode
         if (this.lightEditor && this.lightEditor.placementMode) {
             const handled = this.lightEditor.handleMapClick(worldX, worldY);
@@ -2043,15 +2053,43 @@ class EditorManager {
         // Find object at click position
         const objects = this.game.objectManager.getObjectsForMap(this.game.currentMapId);
         
-        // Check collision bounds (which return SCALED coordinates)
-        // We compare SCALED mouse position with SCALED bounds
+        // When perspective is active, compare in SCREEN SPACE
+        // Transform object bounds to screen, then compare with screen click position
         for (let i = objects.length - 1; i >= 0; i--) {
             const obj = objects[i];
-            const bounds = obj.getCollisionBounds(this.game);
             
-            if (worldX >= bounds.x && worldX <= bounds.x + bounds.width &&
-                worldY >= bounds.y && worldY <= bounds.y + bounds.height) {
+            // Use VISUAL bounds for editor selection (where the sprite is rendered)
+            // This works even for objects without collision boxes
+            const bounds = this.getVisualBounds(obj);
+            
+            // Skip objects with no valid bounds
+            if (!bounds || bounds.width <= 0 || bounds.height <= 0) continue;
+            
+            let hitTest = false;
+            
+            if (perspectiveActive && webglRenderer.transformWorldToScreen) {
+                // Transform object's bounding box corners to screen space
+                const topLeft = webglRenderer.transformWorldToScreen(bounds.x, bounds.y, camera.x, camera.y);
+                const topRight = webglRenderer.transformWorldToScreen(bounds.x + bounds.width, bounds.y, camera.x, camera.y);
+                const bottomLeft = webglRenderer.transformWorldToScreen(bounds.x, bounds.y + bounds.height, camera.x, camera.y);
+                const bottomRight = webglRenderer.transformWorldToScreen(bounds.x + bounds.width, bounds.y + bounds.height, camera.x, camera.y);
                 
+                // Get screen-space bounding box (perspective may skew the box)
+                const screenMinX = Math.min(topLeft.screenX, topRight.screenX, bottomLeft.screenX, bottomRight.screenX);
+                const screenMaxX = Math.max(topLeft.screenX, topRight.screenX, bottomLeft.screenX, bottomRight.screenX);
+                const screenMinY = Math.min(topLeft.screenY, topRight.screenY, bottomLeft.screenY, bottomRight.screenY);
+                const screenMaxY = Math.max(topLeft.screenY, topRight.screenY, bottomLeft.screenY, bottomRight.screenY);
+                
+                // Check if click is within screen-space bounds
+                hitTest = screenX >= screenMinX && screenX <= screenMaxX &&
+                          screenY >= screenMinY && screenY <= screenMaxY;
+            } else {
+                // Standard 2D comparison in world space
+                hitTest = worldX >= bounds.x && worldX <= bounds.x + bounds.width &&
+                          worldY >= bounds.y && worldY <= bounds.y + bounds.height;
+            }
+            
+            if (hitTest) {
                 this.selectObject(obj);
                 
                 // For dragging, we need unscaled offset (obj.x/y are unscaled)
