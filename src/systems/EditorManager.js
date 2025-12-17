@@ -873,126 +873,70 @@ class EditorManager {
     renderGrid(ctx) {
         const camera = this.game.camera;
         const webglRenderer = this.game.renderSystem?.webglRenderer;
-        const perspectiveParams = webglRenderer?.getPerspectiveParams?.() || { enabled: false };
-        const perspectiveActive = perspectiveParams.enabled && perspectiveParams.strength > 0;
+        
+        // Must have WebGL renderer for grid
+        if (!webglRenderer || !webglRenderer.transformWorldToScreen) {
+            return;
+        }
         
         // Get resolution scale for world-to-screen conversion
         const resolutionScale = this.game.resolutionScale || 1.0;
         
-        // Map dimensions in WORLD units (not screen pixels)
+        // Map dimensions in WORLD units
         const mapWorldWidth = this.game.MAP_WIDTH;
         const mapWorldHeight = this.game.MAP_HEIGHT;
         
-        // Map dimensions in SCREEN pixels (for clipping)
-        const mapScreenWidth = mapWorldWidth * resolutionScale;
-        const mapScreenHeight = mapWorldHeight * resolutionScale;
-        
         // Grid covers the ENTIRE map, from (0,0) to (mapWidth, mapHeight)
-        // Not based on player/camera position - always the full map area
         const gridStartX = 0;
         const gridStartY = 0;
         const gridEndX = mapWorldWidth;
         const gridEndY = mapWorldHeight;
         
         ctx.save();
+        
+        // Reset transform to draw in screen space - WebGL handles all transforms
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
         ctx.lineWidth = 1;
         
-        if (perspectiveActive && webglRenderer.transformWorldToScreen) {
-            // === PERSPECTIVE GRID ===
-            // Draw grid lines transformed through the perspective system
+        // Vertical lines
+        for (let x = gridStartX; x <= gridEndX; x += this.gridSize) {
+            const topScreen = webglRenderer.transformWorldToScreen(
+                x * resolutionScale, gridStartY * resolutionScale, camera.x, camera.y
+            );
+            const bottomScreen = webglRenderer.transformWorldToScreen(
+                x * resolutionScale, gridEndY * resolutionScale, camera.x, camera.y
+            );
             
-            // Reset transform to draw in screen space
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.beginPath();
+            ctx.moveTo(topScreen.screenX, topScreen.screenY);
+            ctx.lineTo(bottomScreen.screenX, bottomScreen.screenY);
+            ctx.stroke();
+        }
+        
+        // Horizontal lines - sample multiple points for perspective curves
+        for (let y = gridStartY; y <= gridEndY; y += this.gridSize) {
+            ctx.beginPath();
             
-            // Vertical lines (in world space, become converging lines in perspective)
-            for (let x = gridStartX; x <= gridEndX; x += this.gridSize) {
-                // Get screen positions for top and bottom of this vertical line (convert world to screen coords)
-                const topWorldScreenX = x * resolutionScale;
-                const topWorldScreenY = gridStartY * resolutionScale;
-                const bottomWorldScreenX = x * resolutionScale;
-                const bottomWorldScreenY = gridEndY * resolutionScale;
-                
-                const topScreen = webglRenderer.transformWorldToScreen(
-                    topWorldScreenX, topWorldScreenY, camera.x, camera.y
+            const steps = Math.ceil((gridEndX - gridStartX) / this.gridSize) + 1;
+            let firstPoint = true;
+            
+            for (let i = 0; i <= steps; i++) {
+                const worldX = gridStartX + (i * this.gridSize);
+                const screenPos = webglRenderer.transformWorldToScreen(
+                    worldX * resolutionScale, y * resolutionScale, camera.x, camera.y
                 );
-                const bottomScreen = webglRenderer.transformWorldToScreen(
-                    bottomWorldScreenX, bottomWorldScreenY, camera.x, camera.y
-                );
                 
-                ctx.beginPath();
-                ctx.moveTo(topScreen.screenX, topScreen.screenY);
-                ctx.lineTo(bottomScreen.screenX, bottomScreen.screenY);
-                ctx.stroke();
-            }
-            
-            // Horizontal lines (transform multiple points to create curved appearance)
-            for (let y = gridStartY; y <= gridEndY; y += this.gridSize) {
-                ctx.beginPath();
-                
-                // Sample multiple points along each horizontal line for smooth curves
-                const steps = Math.ceil((gridEndX - gridStartX) / this.gridSize) + 1;
-                let firstPoint = true;
-                
-                for (let i = 0; i <= steps; i++) {
-                    const worldX = gridStartX + (i * this.gridSize);
-                    const worldY = y;
-                    
-                    const screenPos = webglRenderer.transformWorldToScreen(
-                        worldX * resolutionScale, worldY * resolutionScale, camera.x, camera.y
-                    );
-                    
-                    if (firstPoint) {
-                        ctx.moveTo(screenPos.screenX, screenPos.screenY);
-                        firstPoint = false;
-                    } else {
-                        ctx.lineTo(screenPos.screenX, screenPos.screenY);
-                    }
+                if (firstPoint) {
+                    ctx.moveTo(screenPos.screenX, screenPos.screenY);
+                    firstPoint = false;
+                } else {
+                    ctx.lineTo(screenPos.screenX, screenPos.screenY);
                 }
-                
-                ctx.stroke();
-            }
-        } else {
-            // === STANDARD 2D GRID ===
-            // Reset transform to screen space (same as perspective mode)
-            // This ensures grid renders correctly regardless of any previous transforms
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            
-            // Apply zoom transform (scale around canvas center)
-            const zoom = camera.zoom || 1.0;
-            if (zoom !== 1.0) {
-                const canvasWidth = this.game.CANVAS_WIDTH;
-                const canvasHeight = this.game.CANVAS_HEIGHT;
-                ctx.translate(canvasWidth / 2, canvasHeight / 2);
-                ctx.scale(zoom, zoom);
-                ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
             }
             
-            // Vertical lines - iterate over ENTIRE map in world units, convert to screen for drawing
-            for (let x = gridStartX; x <= gridEndX; x += this.gridSize) {
-                // Convert world X to screen X
-                const screenX = x * resolutionScale - camera.x;
-                // Y range: from top of map (0) to bottom of map
-                const screenStartY = 0 * resolutionScale - camera.y;
-                const screenEndY = mapScreenHeight - camera.y;
-                ctx.beginPath();
-                ctx.moveTo(screenX, screenStartY);
-                ctx.lineTo(screenX, screenEndY);
-                ctx.stroke();
-            }
-            
-            // Horizontal lines - iterate over ENTIRE map in world units, convert to screen for drawing
-            for (let y = gridStartY; y <= gridEndY; y += this.gridSize) {
-                // Convert world Y to screen Y
-                const screenY = y * resolutionScale - camera.y;
-                // X range: from left of map (0) to right of map
-                const screenStartX = 0 * resolutionScale - camera.x;
-                const screenEndX = mapScreenWidth - camera.x;
-                ctx.beginPath();
-                ctx.moveTo(screenStartX, screenY);
-                ctx.lineTo(screenEndX, screenY);
-                ctx.stroke();
-            }
+            ctx.stroke();
         }
         
         ctx.restore();
