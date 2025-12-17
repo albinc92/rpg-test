@@ -307,7 +307,7 @@ class EditorManager {
                     console.log('[EditorManager] Brush size:', this.brushSize);
                 } else if (e.key === ']') {
                     e.preventDefault();
-                    this.brushSize = Math.min(256, this.brushSize + 8);
+                    this.brushSize = Math.min(512, this.brushSize + 8);
                     console.log('[EditorManager] Brush size:', this.brushSize);
                 }
             }
@@ -954,6 +954,20 @@ class EditorManager {
             }
         } else {
             // === STANDARD 2D GRID ===
+            // Reset transform to screen space (same as perspective mode)
+            // This ensures grid renders correctly regardless of any previous transforms
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            
+            // Apply zoom transform (scale around canvas center)
+            const zoom = camera.zoom || 1.0;
+            if (zoom !== 1.0) {
+                const canvasWidth = this.game.CANVAS_WIDTH;
+                const canvasHeight = this.game.CANVAS_HEIGHT;
+                ctx.translate(canvasWidth / 2, canvasHeight / 2);
+                ctx.scale(zoom, zoom);
+                ctx.translate(-canvasWidth / 2, -canvasHeight / 2);
+            }
+            
             // Vertical lines - iterate over ENTIRE map in world units, convert to screen for drawing
             for (let x = gridStartX; x <= gridEndX; x += this.gridSize) {
                 // Convert world X to screen X
@@ -4072,7 +4086,8 @@ class EditorManager {
             // Draw preview centered at cursor with perspective-distorted shape
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             
-            const brushSize = this.brushSize;
+            // brushSize is in world units - scale by zoom to get screen pixels
+            const screenBrushSize = this.brushSize * zoom;
             const centerX = this.mouseCanvasX;  // Draw at cursor screen position
             const centerY = this.mouseCanvasY;
             const canvasHeight = this.game.CANVAS_HEIGHT;
@@ -4083,7 +4098,6 @@ class EditorManager {
                 const normY = Math.max(0, Math.min(1, screenY / canvasHeight));
                 // normY: 0 at top, 1 at bottom
                 // At top (far): width is smaller; at bottom (close): width is larger
-                // Use inverse relationship: top has more "depth" effect
                 const depth = 1.0 - normY;  // 1 at top, 0 at bottom
                 const w = 1.0 + (depth * perspectiveParams.strength);
                 return 1.0 / w;  // Smaller scale at top, larger at bottom
@@ -4091,15 +4105,15 @@ class EditorManager {
             
             if (this.brushShape === 'square') {
                 // Draw trapezoid: narrower at top, wider at bottom
-                const halfHeight = brushSize;
+                const halfHeight = screenBrushSize;
                 const topY = centerY - halfHeight;
                 const bottomY = centerY + halfHeight;
                 
                 const topScale = getWidthScale(topY);
                 const bottomScale = getWidthScale(bottomY);
                 
-                const topHalfWidth = brushSize * topScale;
-                const bottomHalfWidth = brushSize * bottomScale;
+                const topHalfWidth = screenBrushSize * topScale;
+                const bottomHalfWidth = screenBrushSize * bottomScale;
                 
                 ctx.beginPath();
                 ctx.moveTo(centerX - topHalfWidth, topY);
@@ -4115,11 +4129,11 @@ class EditorManager {
                 
                 for (let i = 0; i <= numPoints; i++) {
                     const angle = (i / numPoints) * Math.PI * 2;
-                    const localY = Math.sin(angle) * brushSize;
+                    const localY = Math.sin(angle) * screenBrushSize;
                     const pointY = centerY + localY;
                     
                     const widthScale = getWidthScale(pointY);
-                    const localX = Math.cos(angle) * brushSize * widthScale;
+                    const localX = Math.cos(angle) * screenBrushSize * widthScale;
                     
                     if (i === 0) {
                         ctx.moveTo(centerX + localX, pointY);

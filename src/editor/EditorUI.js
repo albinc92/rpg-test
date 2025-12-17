@@ -3688,8 +3688,8 @@ class EditorUI {
         sizeSection.id = 'brush-size-section';
         const sizeSlider = document.createElement('input');
         sizeSlider.type = 'range';
-        sizeSlider.min = '8';
-        sizeSlider.max = '256';
+        sizeSlider.min = '16';
+        sizeSlider.max = '512';
         sizeSlider.value = this.editor.brushSize;
         sizeSlider.style.cssText = 'width: 100%;';
         sizeSlider.oninput = (e) => {
