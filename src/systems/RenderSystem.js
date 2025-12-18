@@ -404,23 +404,10 @@ class RenderSystem {
             this.ctx.fillRect(0, 0, scaledWidth, scaledHeight);
         }
         
-        // Render paint layer (user-painted terrain textures)
+        // NOTE: Paint layers are now rendered in renderAdjacentBackgrounds() for proper Y-priority
+        // (southern maps' bleed-over renders on top of northern maps)
+        
         if (game?.editorManager) {
-            const paintLayer = game.editorManager.getPaintLayer(game.currentMapId);
-            if (paintLayer) {
-                // Use WebGL if available for better performance
-                if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
-                    // Use consistent cache key for paint layers (same key whether current or adjacent)
-                    const imageUrl = `paint_layer_${game.currentMapId}`;
-                    this.webglRenderer.drawSprite(0, 0, scaledWidth, scaledHeight, paintLayer, imageUrl);
-                } else {
-                    this.ctx.save();
-                    this.ctx.globalAlpha = 1.0;
-                    this.ctx.drawImage(paintLayer, 0, 0);
-                    this.ctx.restore();
-                }
-            }
-            
             // Render collision layer (if editor has painted collision areas)
             // Only show when debug mode (F1) OR editor is active with collision boxes enabled
             const showCollisions = (game.settings && game.settings.showDebugInfo) || 
@@ -764,17 +751,17 @@ class RenderSystem {
     /**
      * Render adjacent maps (backgrounds only)
      * Includes diagonal maps for proper fake 3D perspective rendering
+     * Also renders ALL paint layers (including current map) in proper Y-order
      */
     renderAdjacentBackgrounds(adjacentMaps, currentMap, game) {
-        if (!adjacentMaps || Object.keys(adjacentMaps).length === 0) return;
-
         const resolutionScale = game.resolutionScale || 1.0;
         // Use standard 4K map size
         const currentWidth = game.MAP_WIDTH * resolutionScale;
         const currentHeight = game.MAP_HEIGHT * resolutionScale;
 
-        // Helper to render a map background and paint layer at offset
+        // Helper to render a map background (gray rect only)
         // mapId is the string key (e.g., "0-0") since mapData doesn't have an id property
+        // This only renders the gray background, NOT the paint layer
         const renderMapBackground = (mapId, mapData, offsetX, offsetY) => {
             if (!mapData) return;
             
@@ -782,25 +769,34 @@ class RenderSystem {
             const width = game.MAP_WIDTH * resolutionScale;
             const height = game.MAP_HEIGHT * resolutionScale;
             
-            // Render gray background
+            // Render gray background only
             if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
                 this.webglRenderer.drawRect(offsetX, offsetY, width, height, [0.3, 0.3, 0.3, 1.0]);
             } else {
                 this.ctx.fillStyle = '#4d4d4d';
                 this.ctx.fillRect(offsetX, offsetY, width, height);
             }
+        };
+        
+        // Render paint layer for a map at given offset
+        // Separate from background so we can control z-order (Y-priority)
+        const renderMapPaintLayer = (mapId, offsetX, offsetY) => {
+            if (!game?.editorManager) return;
             
-            // Render Paint Layer for adjacent map (if exists and has content)
-            if (game?.editorManager) {
-                // Check if paint layer exists without creating a new empty one
-                const paintLayer = game.editorManager.paintLayers[mapId];
-                if (paintLayer) {
-                    if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
-                        const imageUrl = `paint_layer_${mapId}`;
-                        this.webglRenderer.drawSprite(offsetX, offsetY, width, height, paintLayer, imageUrl);
-                    } else {
-                        this.ctx.drawImage(paintLayer, offsetX, offsetY, width, height);
-                    }
+            // Check if paint layer exists without creating a new empty one
+            const paintLayer = game.editorManager.paintLayers[mapId];
+            if (paintLayer) {
+                const bleedOffset = paintLayer._bleedOffset || 0;
+                const drawX = offsetX - bleedOffset;
+                const drawY = offsetY - bleedOffset;
+                const drawWidth = paintLayer.width;
+                const drawHeight = paintLayer.height;
+                
+                if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+                    const imageUrl = `paint_layer_${mapId}`;
+                    this.webglRenderer.drawSprite(drawX, drawY, drawWidth, drawHeight, paintLayer, imageUrl);
+                } else {
+                    this.ctx.drawImage(paintLayer, drawX, drawY, drawWidth, drawHeight);
                 }
             }
         };
@@ -814,58 +810,105 @@ class RenderSystem {
         };
 
         // Get the adjacent map IDs from the current map's adjacentMaps config
-        const adjacentIds = currentMap.adjacentMaps || {};
+        const adjacentIds = currentMap?.adjacentMaps || {};
+        
+        // Ensure adjacentMaps is an object for safe property access
+        const safeAdjacentMaps = adjacentMaps || {};
 
-        // Render Cardinal Directions
-        // Render North
-        if (adjacentMaps.north && adjacentIds.north) {
-            const mapData = adjacentMaps.north;
+        // =====================================================
+        // PHASE 1: Render all gray backgrounds
+        // =====================================================
+        
+        // Render Cardinal Directions backgrounds
+        // North
+        if (safeAdjacentMaps.north && adjacentIds.north) {
+            const mapData = safeAdjacentMaps.north;
             const { height } = getMapDimensions();
             renderMapBackground(adjacentIds.north, mapData, 0, -height);
         }
 
-        // Render South
-        if (adjacentMaps.south && adjacentIds.south) {
-            renderMapBackground(adjacentIds.south, adjacentMaps.south, 0, currentHeight);
+        // South
+        if (safeAdjacentMaps.south && adjacentIds.south) {
+            renderMapBackground(adjacentIds.south, safeAdjacentMaps.south, 0, currentHeight);
         }
 
-        // Render West
-        if (adjacentMaps.west && adjacentIds.west) {
-            const mapData = adjacentMaps.west;
+        // West
+        if (safeAdjacentMaps.west && adjacentIds.west) {
+            const mapData = safeAdjacentMaps.west;
             const { width } = getMapDimensions();
             renderMapBackground(adjacentIds.west, mapData, -width, 0);
         }
 
-        // Render East
-        if (adjacentMaps.east && adjacentIds.east) {
-            renderMapBackground(adjacentIds.east, adjacentMaps.east, currentWidth, 0);
+        // East
+        if (safeAdjacentMaps.east && adjacentIds.east) {
+            renderMapBackground(adjacentIds.east, safeAdjacentMaps.east, currentWidth, 0);
         }
 
-        // Render Diagonal Directions (for fake 3D perspective)
-        // Northwest: offset is (-westMapWidth, -northMapHeight)
-        if (adjacentMaps.northwest && adjacentIds.northwest) {
-            const mapData = adjacentMaps.northwest;
+        // Diagonal Directions backgrounds
+        // Northwest
+        if (safeAdjacentMaps.northwest && adjacentIds.northwest) {
+            const mapData = safeAdjacentMaps.northwest;
             const { width, height } = getMapDimensions();
             renderMapBackground(adjacentIds.northwest, mapData, -width, -height);
         }
 
-        // Northeast: offset is (currentWidth, -northeastMapHeight)
-        if (adjacentMaps.northeast && adjacentIds.northeast) {
-            const mapData = adjacentMaps.northeast;
+        // Northeast
+        if (safeAdjacentMaps.northeast && adjacentIds.northeast) {
+            const mapData = safeAdjacentMaps.northeast;
             const { height } = getMapDimensions();
             renderMapBackground(adjacentIds.northeast, mapData, currentWidth, -height);
         }
 
-        // Southwest: offset is (-southwestMapWidth, currentHeight)
-        if (adjacentMaps.southwest && adjacentIds.southwest) {
-            const mapData = adjacentMaps.southwest;
+        // Southwest
+        if (safeAdjacentMaps.southwest && adjacentIds.southwest) {
+            const mapData = safeAdjacentMaps.southwest;
             const { width } = getMapDimensions();
             renderMapBackground(adjacentIds.southwest, mapData, -width, currentHeight);
         }
 
-        // Southeast: offset is (currentWidth, currentHeight)
-        if (adjacentMaps.southeast && adjacentIds.southeast) {
-            renderMapBackground(adjacentIds.southeast, adjacentMaps.southeast, currentWidth, currentHeight);
+        // Southeast
+        if (safeAdjacentMaps.southeast && adjacentIds.southeast) {
+            renderMapBackground(adjacentIds.southeast, safeAdjacentMaps.southeast, currentWidth, currentHeight);
+        }
+        
+        // =====================================================
+        // PHASE 2: Render paint layers in Y-order (north to south)
+        // Southern maps (higher Y) render on top so their bleed-over
+        // covers northern maps' textures (like objects closer to camera)
+        // =====================================================
+        const { width, height } = getMapDimensions();
+        
+        // Row 1: Northern row (farthest from camera, render first)
+        if (safeAdjacentMaps.northwest && adjacentIds.northwest) {
+            renderMapPaintLayer(adjacentIds.northwest, -width, -height);
+        }
+        if (safeAdjacentMaps.north && adjacentIds.north) {
+            renderMapPaintLayer(adjacentIds.north, 0, -height);
+        }
+        if (safeAdjacentMaps.northeast && adjacentIds.northeast) {
+            renderMapPaintLayer(adjacentIds.northeast, currentWidth, -height);
+        }
+        
+        // Row 2: Middle row (west, CURRENT, east)
+        // All at same Y, so render order within row doesn't matter for Y-priority
+        if (safeAdjacentMaps.west && adjacentIds.west) {
+            renderMapPaintLayer(adjacentIds.west, -width, 0);
+        }
+        // Render CURRENT map's paint layer here (same Y as west/east)
+        renderMapPaintLayer(game.currentMapId, 0, 0);
+        if (safeAdjacentMaps.east && adjacentIds.east) {
+            renderMapPaintLayer(adjacentIds.east, currentWidth, 0);
+        }
+        
+        // Row 3: Southern row (closest to camera, render last)
+        if (safeAdjacentMaps.southwest && adjacentIds.southwest) {
+            renderMapPaintLayer(adjacentIds.southwest, -width, currentHeight);
+        }
+        if (safeAdjacentMaps.south && adjacentIds.south) {
+            renderMapPaintLayer(adjacentIds.south, 0, currentHeight);
+        }
+        if (safeAdjacentMaps.southeast && adjacentIds.southeast) {
+            renderMapPaintLayer(adjacentIds.southeast, currentWidth, currentHeight);
         }
     }
 

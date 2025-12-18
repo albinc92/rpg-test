@@ -31,6 +31,7 @@ class EditorManager {
         this.brushShape = 'circle'; // 'circle' or 'square' (for all paint modes)
         this.brushOpacity = 1.0; // Default to 100% opacity
         this.paintLayers = {}; // Store paint layers per map {mapId: canvas}
+        this.paintLayerBleed = 512; // Bleed margin in world units (pixels) for painting outside map bounds
         this.collisionLayers = {}; // Store collision layers per map {mapId: canvas}
         this.spawnLayers = {}; // Store spawn zone layers per map {mapId: canvas}
         this.textures = []; // Available textures for painting
@@ -2682,17 +2683,22 @@ class EditorManager {
         if (!mapData) return;
         
         // Calculate scaled dimensions using standard 4K map size
+        // Add bleed margin on all sides to allow painting outside map bounds
         const resolutionScale = this.game.resolutionScale || 1.0;
-        const scaledWidth = this.game.MAP_WIDTH * resolutionScale;
-        const scaledHeight = this.game.MAP_HEIGHT * resolutionScale;
+        const bleed = this.paintLayerBleed * resolutionScale;
+        const scaledWidth = this.game.MAP_WIDTH * resolutionScale + (bleed * 2);
+        const scaledHeight = this.game.MAP_HEIGHT * resolutionScale + (bleed * 2);
         
-        // Create canvas for paint layer with scaled dimensions
+        // Create canvas for paint layer with scaled dimensions + bleed
         const canvas = document.createElement('canvas');
         canvas.width = scaledWidth;
         canvas.height = scaledHeight;
         
+        // Store bleed offset so we know where map (0,0) starts on canvas
+        canvas._bleedOffset = bleed;
+        
         this.paintLayers[mapId] = canvas;
-        console.log(`[EditorManager] Initialized paint layer for map ${mapId}: ${scaledWidth}x${scaledHeight}`);
+        console.log(`[EditorManager] Initialized paint layer for map ${mapId}: ${scaledWidth}x${scaledHeight} (bleed: ${bleed})`);
     }
 
     /**
@@ -2857,9 +2863,11 @@ class EditorManager {
         tempCtx.drawImage(brushCanvas, 0, 0);
         
         // Draw the masked texture onto the paint layer
+        // Account for bleed offset - canvas has extra margin for painting outside bounds
+        const bleedOffset = canvas._bleedOffset || 0;
         ctx.save();
         ctx.globalCompositeOperation = 'source-over';
-        ctx.drawImage(tempCanvas, worldX - brushSize, worldY - brushSize);
+        ctx.drawImage(tempCanvas, worldX - brushSize + bleedOffset, worldY - brushSize + bleedOffset);
         ctx.restore();
         
         // Invalidate WebGL texture cache so the updated canvas renders immediately
