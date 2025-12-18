@@ -3998,87 +3998,90 @@ class EditorManager {
 
     /**
      * Render brush preview
-     * NOTE: This is called AFTER RenderSystem restores camera transform,
-     * so we need to manually apply the camera transform to draw the preview
-     * in the correct screen position.
+     * Preview is drawn centered on cursor position in screen space.
+     * In 3D mode, the shape gets perspective distortion.
      */
     renderBrushPreview(ctx) {
         if (this.selectedTool !== 'paint') return;
         
         const camera = this.game.camera;
+        const zoom = camera.zoom || 1.0;
         const webglRenderer = this.game.renderSystem?.webglRenderer;
-        
-        // Must have WebGL renderer
-        if (!webglRenderer || !webglRenderer.transformWorldToScreen) {
-            return;
-        }
-        
-        const resolutionScale = this.game.resolutionScale || 1.0;
+        const perspectiveParams = webglRenderer?.getPerspectiveParams?.() || { enabled: false };
+        const perspectiveActive = perspectiveParams.enabled && perspectiveParams.strength > 0;
         
         ctx.save();
-        
-        // Reset transform - WebGL handles all transforms
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         
-        // Use mouseScreenWorldX/Y for preview (world coords BEFORE perspective transform)
-        let worldX = this.mouseScreenWorldX;
-        let worldY = this.mouseScreenWorldY;
+        // Cursor position in canvas/screen coords
+        const cursorX = this.mouseCanvasX;
+        const cursorY = this.mouseCanvasY;
+        
+        // Brush size in screen pixels (adjusted for zoom)
+        const screenBrushSize = this.brushSize * zoom;
         
         // Draw brush preview
         ctx.strokeStyle = this.selectedTexture ? 'rgba(74, 158, 255, 0.8)' : 'rgba(255, 0, 0, 0.8)';
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
         
-        // Get center screen position
-        const centerScreen = webglRenderer.transformWorldToScreen(
-            worldX * resolutionScale, worldY * resolutionScale, camera.x, camera.y
-        );
-        
-        if (this.brushShape === 'square') {
-            // Draw 4 corners of the square transformed through perspective
-            const halfSize = this.brushSize;
-            const topLeft = webglRenderer.transformWorldToScreen(
-                (worldX - halfSize) * resolutionScale, (worldY - halfSize) * resolutionScale, camera.x, camera.y
-            );
-            const topRight = webglRenderer.transformWorldToScreen(
-                (worldX + halfSize) * resolutionScale, (worldY - halfSize) * resolutionScale, camera.x, camera.y
-            );
-            const bottomRight = webglRenderer.transformWorldToScreen(
-                (worldX + halfSize) * resolutionScale, (worldY + halfSize) * resolutionScale, camera.x, camera.y
-            );
-            const bottomLeft = webglRenderer.transformWorldToScreen(
-                (worldX - halfSize) * resolutionScale, (worldY + halfSize) * resolutionScale, camera.x, camera.y
-            );
+        if (perspectiveActive && webglRenderer) {
+            // 3D MODE: Draw perspective-distorted shape centered on cursor
+            const strength = perspectiveParams.strength;
+            const canvasHeight = this.game.CANVAS_HEIGHT;
             
-            ctx.beginPath();
-            ctx.moveTo(topLeft.screenX, topLeft.screenY);
-            ctx.lineTo(topRight.screenX, topRight.screenY);
-            ctx.lineTo(bottomRight.screenX, bottomRight.screenY);
-            ctx.lineTo(bottomLeft.screenX, bottomLeft.screenY);
-            ctx.closePath();
-            ctx.stroke();
-        } else {
-            // Circle - draw perspective-distorted ellipse using transformed points
-            const numPoints = 32;
-            ctx.beginPath();
+            // Perspective scale based on Y position (top=far/small, bottom=close/big)
+            const getScale = (screenY) => {
+                const normY = screenY / canvasHeight;
+                const depth = 1.0 - normY;
+                return 1.0 / (1.0 + depth * strength);
+            };
             
-            for (let i = 0; i <= numPoints; i++) {
-                const angle = (i / numPoints) * Math.PI * 2;
-                const localX = Math.cos(angle) * this.brushSize;
-                const localY = Math.sin(angle) * this.brushSize;
+            if (this.brushShape === 'square') {
+                // Draw trapezoid centered on cursor
+                const topY = cursorY - screenBrushSize;
+                const bottomY = cursorY + screenBrushSize;
+                const topScale = getScale(topY);
+                const bottomScale = getScale(bottomY);
+                const topHalfWidth = screenBrushSize * topScale;
+                const bottomHalfWidth = screenBrushSize * bottomScale;
                 
-                const pointScreen = webglRenderer.transformWorldToScreen(
-                    (worldX + localX) * resolutionScale, (worldY + localY) * resolutionScale, camera.x, camera.y
-                );
-                
-                if (i === 0) {
-                    ctx.moveTo(pointScreen.screenX, pointScreen.screenY);
-                } else {
-                    ctx.lineTo(pointScreen.screenX, pointScreen.screenY);
+                ctx.beginPath();
+                ctx.moveTo(cursorX - topHalfWidth, topY);
+                ctx.lineTo(cursorX + topHalfWidth, topY);
+                ctx.lineTo(cursorX + bottomHalfWidth, bottomY);
+                ctx.lineTo(cursorX - bottomHalfWidth, bottomY);
+                ctx.closePath();
+                ctx.stroke();
+            } else {
+                // Circle with perspective distortion
+                const numPoints = 32;
+                ctx.beginPath();
+                for (let i = 0; i <= numPoints; i++) {
+                    const angle = (i / numPoints) * Math.PI * 2;
+                    const localY = Math.sin(angle) * screenBrushSize;
+                    const pointY = cursorY + localY;
+                    const scale = getScale(pointY);
+                    const localX = Math.cos(angle) * screenBrushSize * scale;
+                    
+                    if (i === 0) {
+                        ctx.moveTo(cursorX + localX, pointY);
+                    } else {
+                        ctx.lineTo(cursorX + localX, pointY);
+                    }
                 }
+                ctx.closePath();
+                ctx.stroke();
             }
-            
-            ctx.closePath();
+        } else {
+            // 2D MODE: Simple shape centered on cursor
+            ctx.beginPath();
+            if (this.brushShape === 'square') {
+                ctx.rect(cursorX - screenBrushSize, cursorY - screenBrushSize, 
+                         screenBrushSize * 2, screenBrushSize * 2);
+            } else {
+                ctx.arc(cursorX, cursorY, screenBrushSize, 0, Math.PI * 2);
+            }
             ctx.stroke();
         }
         
@@ -4087,7 +4090,7 @@ class EditorManager {
         // Draw center dot at cursor
         ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
         ctx.beginPath();
-        ctx.arc(centerScreen.screenX, centerScreen.screenY, 3, 0, Math.PI * 2);
+        ctx.arc(cursorX, cursorY, 3, 0, Math.PI * 2);
         ctx.fill();
         
         ctx.restore();
