@@ -268,6 +268,7 @@ class RenderSystem {
         // Preview should appear exactly at cursor position
         if (game?.editorManager?.isActive && this.useWebGL && this.webglRenderer?.initialized) {
             game.editorManager.renderPreviewToWebGL(this.webglRenderer, this.camera.x, this.camera.y);
+            game.editorManager.renderBrushPreviewToWebGL(this.webglRenderer, this.camera.x, this.camera.y);
         }
         
         // Restore camera transform for real

@@ -853,10 +853,7 @@ class EditorManager {
             this.renderPlacementPreviewUI(ctx);
         }
         
-        // Render brush preview for paint tool
-        if (this.selectedTool === 'paint') {
-            this.renderBrushPreview(ctx);
-        }
+        // Brush preview now rendered via WebGL in renderBrushPreviewToWebGL()
 
         // Render zone editor
         if (this.selectedTool === 'zone' || this.zones.length > 0) {
@@ -4001,125 +3998,57 @@ class EditorManager {
      * Preview is drawn centered on cursor position in screen space.
      * In 3D mode, the shape gets perspective distortion.
      */
-    renderBrushPreview(ctx) {
+    /**
+     * Render brush preview using WebGL (called from RenderSystem)
+     * Uses world coordinates and goes through the same transform pipeline as everything else
+     */
+    renderBrushPreviewToWebGL(webglRenderer, cameraX, cameraY) {
+        if (!this.isActive) return;
         if (this.selectedTool !== 'paint') return;
+        if (!webglRenderer || !webglRenderer.drawLine) return;
         
-        const camera = this.game.camera;
-        const webglRenderer = this.game.renderSystem?.webglRenderer;
-        
-        // Must have WebGL renderer for consistent transforms (same as grid)
-        if (!webglRenderer || !webglRenderer.transformWorldToScreen) {
-            return;
-        }
-        
-        // mouseScreenWorldX/Y is in world coordinates (canvas + camera offset)
-        // This is where paintAt will paint on the map canvas
-        // For the preview, we need to transform from world coords to screen coords
-        // BUT: transformWorldToScreen with viewMatrix expects world coords in the
-        // same scale as MAP_WIDTH/HEIGHT (the viewMatrix is built with those)
-        // mouseScreenWorldX is already in that scale (it's canvas + camera, canvas is CANVAS_WIDTH which equals MAP_WIDTH * resolutionScale)
-        
-        // Actually mouseScreenWorldX = worldCanvasX + camera.x
-        // worldCanvasX is in canvas/logical space (0 to CANVAS_WIDTH)
-        // camera.x is in world space (0 to MAP_WIDTH)
-        // These are mixed scales! Let's use the pre-camera canvas coords instead
-        
-        // Actually check what paintAt receives... it receives mouseScreenWorldX which
-        // then draws at worldX-brushSize on the paint layer canvas.
-        // Paint layer canvas size = MAP_WIDTH * resolutionScale = CANVAS_WIDTH
-        // So mouseScreenWorldX should be in 0..CANVAS_WIDTH range which IS canvas scale.
-        
-        // The grid passes worldCoord * resolutionScale. 
-        // If we pass mouseScreenWorldX (already in canvas scale), we shouldn't multiply again.
-        
+        // Brush center in world coordinates (same as what paintAt uses)
         const centerWorldX = this.mouseScreenWorldX;
         const centerWorldY = this.mouseScreenWorldY;
         const brushSize = this.brushSize;
         
-        ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        // Line color - blue if texture selected, red if not
+        const color = this.selectedTexture 
+            ? [0.29, 0.62, 1.0, 0.8]  // rgba(74, 158, 255, 0.8)
+            : [1.0, 0.0, 0.0, 0.8];   // rgba(255, 0, 0, 0.8)
         
-        ctx.strokeStyle = this.selectedTexture ? 'rgba(74, 158, 255, 0.8)' : 'rgba(255, 0, 0, 0.8)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
+        const lineThickness = 2;
         
         if (this.brushShape === 'square') {
-            // Transform corners - mouseScreenWorldX is already in scaled/canvas coords
-            // Don't multiply by resolutionScale again
-            const topLeft = webglRenderer.transformWorldToScreen(
-                centerWorldX - brushSize,
-                centerWorldY - brushSize,
-                camera.x, camera.y
-            );
-            const topRight = webglRenderer.transformWorldToScreen(
-                centerWorldX + brushSize,
-                centerWorldY - brushSize,
-                camera.x, camera.y
-            );
-            const bottomRight = webglRenderer.transformWorldToScreen(
-                centerWorldX + brushSize,
-                centerWorldY + brushSize,
-                camera.x, camera.y
-            );
-            const bottomLeft = webglRenderer.transformWorldToScreen(
-                centerWorldX - brushSize,
-                centerWorldY + brushSize,
-                camera.x, camera.y
-            );
+            // Draw square outline - 4 corners in world space
+            const left = centerWorldX - brushSize;
+            const right = centerWorldX + brushSize;
+            const top = centerWorldY - brushSize;
+            const bottom = centerWorldY + brushSize;
             
-            ctx.beginPath();
-            ctx.moveTo(topLeft.screenX, topLeft.screenY);
-            ctx.lineTo(topRight.screenX, topRight.screenY);
-            ctx.lineTo(bottomRight.screenX, bottomRight.screenY);
-            ctx.lineTo(bottomLeft.screenX, bottomLeft.screenY);
-            ctx.closePath();
-            ctx.stroke();
-            
-            // Center marker
-            const center = webglRenderer.transformWorldToScreen(
-                centerWorldX, centerWorldY, camera.x, camera.y
-            );
-            ctx.setLineDash([]);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.beginPath();
-            ctx.arc(center.screenX, center.screenY, 3, 0, Math.PI * 2);
-            ctx.fill();
+            // Draw 4 lines (WebGL will apply perspective transform)
+            webglRenderer.drawLine(left, top, right, top, lineThickness, color);      // Top
+            webglRenderer.drawLine(right, top, right, bottom, lineThickness, color);  // Right
+            webglRenderer.drawLine(right, bottom, left, bottom, lineThickness, color); // Bottom
+            webglRenderer.drawLine(left, bottom, left, top, lineThickness, color);    // Left
         } else {
-            // Circle: sample points around perimeter
-            const numPoints = 32;
-            ctx.beginPath();
-            
-            for (let i = 0; i <= numPoints; i++) {
-                const angle = (i / numPoints) * Math.PI * 2;
-                const worldX = centerWorldX + Math.cos(angle) * brushSize;
-                const worldY = centerWorldY + Math.sin(angle) * brushSize;
+            // Draw circle outline - series of line segments
+            const numSegments = 32;
+            for (let i = 0; i < numSegments; i++) {
+                const angle1 = (i / numSegments) * Math.PI * 2;
+                const angle2 = ((i + 1) / numSegments) * Math.PI * 2;
                 
-                const screenPos = webglRenderer.transformWorldToScreen(
-                    worldX, worldY, camera.x, camera.y
-                );
+                const x1 = centerWorldX + Math.cos(angle1) * brushSize;
+                const y1 = centerWorldY + Math.sin(angle1) * brushSize;
+                const x2 = centerWorldX + Math.cos(angle2) * brushSize;
+                const y2 = centerWorldY + Math.sin(angle2) * brushSize;
                 
-                if (i === 0) {
-                    ctx.moveTo(screenPos.screenX, screenPos.screenY);
-                } else {
-                    ctx.lineTo(screenPos.screenX, screenPos.screenY);
-                }
+                webglRenderer.drawLine(x1, y1, x2, y2, lineThickness, color);
             }
-            
-            ctx.closePath();
-            ctx.stroke();
-            
-            // Center marker
-            const center = webglRenderer.transformWorldToScreen(
-                centerWorldX, centerWorldY, camera.x, camera.y
-            );
-            ctx.setLineDash([]);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.beginPath();
-            ctx.arc(center.screenX, center.screenY, 3, 0, Math.PI * 2);
-            ctx.fill();
         }
         
-        ctx.restore();
+        // Draw center dot
+        webglRenderer.drawCircle(centerWorldX, centerWorldY, 3, [1.0, 1.0, 1.0, 0.8]);
     }
 
     /**
