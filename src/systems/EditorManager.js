@@ -4005,50 +4005,134 @@ class EditorManager {
     renderBrushPreviewToWebGL(webglRenderer, cameraX, cameraY) {
         if (!this.isActive) return;
         if (this.selectedTool !== 'paint') return;
-        if (!webglRenderer || !webglRenderer.drawLine) return;
+        if (!webglRenderer || !webglRenderer.drawLineScreenSpace) return;
         
-        // Brush center in world coordinates (same as what paintAt uses)
-        const centerWorldX = this.mouseScreenWorldX;
-        const centerWorldY = this.mouseScreenWorldY;
-        const brushSize = this.brushSize;
+        // Preview is in SCREEN SPACE, centered on cursor
+        // The cursor position doesn't change when toggling 2D/3D
+        // Only the SHAPE gets perspective distortion (trapezoid), not the position
+        const cursorX = this.mouseCanvasX;
+        const cursorY = this.mouseCanvasY;
+        
+        const zoom = this.game.camera.zoom || 1.0;
+        const brushScreenSize = this.brushSize * zoom;
         
         // Line color - blue if texture selected, red if not
         const color = this.selectedTexture 
-            ? [0.29, 0.62, 1.0, 0.8]  // rgba(74, 158, 255, 0.8)
-            : [1.0, 0.0, 0.0, 0.8];   // rgba(255, 0, 0, 0.8)
+            ? [0.29, 0.62, 1.0, 0.8]
+            : [1.0, 0.0, 0.0, 0.8];
         
         const lineThickness = 2;
         
-        if (this.brushShape === 'square') {
-            // Draw square outline - 4 corners in world space
-            const left = centerWorldX - brushSize;
-            const right = centerWorldX + brushSize;
-            const top = centerWorldY - brushSize;
-            const bottom = centerWorldY + brushSize;
+        // Check if perspective is active
+        const perspectiveParams = webglRenderer.getPerspectiveParams?.() || { enabled: false };
+        const perspectiveActive = perspectiveParams.enabled && perspectiveParams.strength > 0;
+        
+        if (perspectiveActive) {
+            // 3D MODE: Shape gets trapezoid distortion, but stays centered on cursor
+            // Perspective divides X by W, where W = 1 + depth * strength
+            // depth = (ndcY + 1) * 0.5, and ndcY = 1 - 2*(screenY/canvasHeight)
+            // So depth = 1 - screenY/canvasHeight (top=1, bottom=0)
+            const strength = perspectiveParams.strength;
+            const canvasHeight = this.game.CANVAS_HEIGHT;
             
-            // Draw 4 lines (WebGL will apply perspective transform)
-            webglRenderer.drawLine(left, top, right, top, lineThickness, color);      // Top
-            webglRenderer.drawLine(right, top, right, bottom, lineThickness, color);  // Right
-            webglRenderer.drawLine(right, bottom, left, bottom, lineThickness, color); // Bottom
-            webglRenderer.drawLine(left, bottom, left, top, lineThickness, color);    // Left
+            // Get perspective W at a given screen Y
+            const getPerspectiveW = (screenY) => {
+                const depth = 1.0 - (screenY / canvasHeight);
+                return 1.0 + (depth * strength);
+            };
+            
+            if (this.brushShape === 'square') {
+                const topY = cursorY - brushScreenSize;
+                const bottomY = cursorY + brushScreenSize;
+                
+                // W values at top and bottom edges
+                const topW = getPerspectiveW(topY);
+                const bottomW = getPerspectiveW(bottomY);
+                
+                // X offset gets divided by W, so multiply by inverse to get screen position
+                // Top edge: narrower (divided by larger W)
+                // Bottom edge: wider (divided by smaller W)
+                const topHalfWidth = brushScreenSize / topW;
+                const bottomHalfWidth = brushScreenSize / bottomW;
+                
+                // Draw trapezoid centered on cursor
+                webglRenderer.drawLineScreenSpace(
+                    cursorX - topHalfWidth, topY,
+                    cursorX + topHalfWidth, topY,
+                    lineThickness, color
+                );
+                webglRenderer.drawLineScreenSpace(
+                    cursorX + topHalfWidth, topY,
+                    cursorX + bottomHalfWidth, bottomY,
+                    lineThickness, color
+                );
+                webglRenderer.drawLineScreenSpace(
+                    cursorX + bottomHalfWidth, bottomY,
+                    cursorX - bottomHalfWidth, bottomY,
+                    lineThickness, color
+                );
+                webglRenderer.drawLineScreenSpace(
+                    cursorX - bottomHalfWidth, bottomY,
+                    cursorX - topHalfWidth, topY,
+                    lineThickness, color
+                );
+            } else {
+                // Circle with perspective distortion
+                const numSegments = 32;
+                for (let i = 0; i < numSegments; i++) {
+                    const angle1 = (i / numSegments) * Math.PI * 2;
+                    const angle2 = ((i + 1) / numSegments) * Math.PI * 2;
+                    
+                    // Point 1
+                    const localY1 = Math.sin(angle1) * brushScreenSize;
+                    const screenY1 = cursorY + localY1;
+                    const w1 = getPerspectiveW(screenY1);
+                    const localX1 = (Math.cos(angle1) * brushScreenSize) / w1;
+                    
+                    // Point 2
+                    const localY2 = Math.sin(angle2) * brushScreenSize;
+                    const screenY2 = cursorY + localY2;
+                    const w2 = getPerspectiveW(screenY2);
+                    const localX2 = (Math.cos(angle2) * brushScreenSize) / w2;
+                    
+                    webglRenderer.drawLineScreenSpace(
+                        cursorX + localX1, screenY1,
+                        cursorX + localX2, screenY2,
+                        lineThickness, color
+                    );
+                }
+            }
         } else {
-            // Draw circle outline - series of line segments
-            const numSegments = 32;
-            for (let i = 0; i < numSegments; i++) {
-                const angle1 = (i / numSegments) * Math.PI * 2;
-                const angle2 = ((i + 1) / numSegments) * Math.PI * 2;
+            // 2D MODE: Simple shape centered on cursor
+            if (this.brushShape === 'square') {
+                const left = cursorX - brushScreenSize;
+                const right = cursorX + brushScreenSize;
+                const top = cursorY - brushScreenSize;
+                const bottom = cursorY + brushScreenSize;
                 
-                const x1 = centerWorldX + Math.cos(angle1) * brushSize;
-                const y1 = centerWorldY + Math.sin(angle1) * brushSize;
-                const x2 = centerWorldX + Math.cos(angle2) * brushSize;
-                const y2 = centerWorldY + Math.sin(angle2) * brushSize;
-                
-                webglRenderer.drawLine(x1, y1, x2, y2, lineThickness, color);
+                webglRenderer.drawLineScreenSpace(left, top, right, top, lineThickness, color);
+                webglRenderer.drawLineScreenSpace(right, top, right, bottom, lineThickness, color);
+                webglRenderer.drawLineScreenSpace(right, bottom, left, bottom, lineThickness, color);
+                webglRenderer.drawLineScreenSpace(left, bottom, left, top, lineThickness, color);
+            } else {
+                const numSegments = 32;
+                for (let i = 0; i < numSegments; i++) {
+                    const angle1 = (i / numSegments) * Math.PI * 2;
+                    const angle2 = ((i + 1) / numSegments) * Math.PI * 2;
+                    
+                    webglRenderer.drawLineScreenSpace(
+                        cursorX + Math.cos(angle1) * brushScreenSize,
+                        cursorY + Math.sin(angle1) * brushScreenSize,
+                        cursorX + Math.cos(angle2) * brushScreenSize,
+                        cursorY + Math.sin(angle2) * brushScreenSize,
+                        lineThickness, color
+                    );
+                }
             }
         }
         
-        // Draw center dot
-        webglRenderer.drawCircle(centerWorldX, centerWorldY, 3, [1.0, 1.0, 1.0, 0.8]);
+        // Draw center dot at cursor
+        webglRenderer.drawCircleScreenSpace(cursorX, cursorY, 3, [1.0, 1.0, 1.0, 0.8]);
     }
 
     /**

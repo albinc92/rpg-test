@@ -198,9 +198,16 @@ class PerspectiveSystem {
     /**
      * Update the WebGL renderer with current perspective settings
      * @param {WebGLRenderer} renderer - The WebGL renderer instance
+     * @param {Object} game - The game instance (optional, to check editor state)
      */
-    updateRenderer(renderer) {
+    updateRenderer(renderer, game = null) {
         if (!renderer || !renderer.initialized) return;
+        
+        // Disable perspective in editor mode - too many coordinate issues
+        if (game?.editorManager?.isActive) {
+            renderer.setPerspective(0.0);
+            return;
+        }
         
         if (this.enabled) {
             // Pass perspective strength to renderer

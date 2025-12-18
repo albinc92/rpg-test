@@ -1603,6 +1603,85 @@ class WebGLRenderer {
     }
     
     /**
+     * Draw a line in screen space (bypasses camera and perspective)
+     * Coordinates are in screen/canvas pixels
+     */
+    drawLineScreenSpace(x1, y1, x2, y2, thickness, color) {
+        if (!this.initialized) return;
+        
+        this.flush();
+        
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        
+        if (length < 0.1) return;
+        
+        const perpX = -dy / length * (thickness / 2);
+        const perpY = dx / length * (thickness / 2);
+        
+        const corners = [
+            [x1 - perpX, y1 - perpY],
+            [x1 + perpX, y1 + perpY],
+            [x2 + perpX, y2 + perpY],
+            [x2 - perpX, y2 - perpY]
+        ];
+        
+        if (!this.whiteTexture) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1;
+            canvas.height = 1;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, 1, 1);
+            this.whiteTexture = this.loadTexture(canvas, '__white__');
+        }
+        
+        this.currentTexture = this.whiteTexture;
+        
+        this.batchVertices.push(
+            corners[0][0], corners[0][1],
+            corners[1][0], corners[1][1],
+            corners[2][0], corners[2][1],
+            corners[3][0], corners[3][1]
+        );
+        
+        this.batchTexCoords.push(0, 0, 0, 1, 1, 1, 1, 0);
+        this.currentBatchSize++;
+        
+        // Flush in screen space (no view matrix, no perspective)
+        this.flushWithColor(color, true);
+    }
+    
+    /**
+     * Draw a circle in screen space (bypasses camera and perspective)
+     */
+    drawCircleScreenSpace(x, y, radius, color) {
+        if (!this.initialized) return;
+        
+        this.flush();
+        
+        this.currentTexture = this.getCircleTexture();
+        
+        const left = x - radius;
+        const right = x + radius;
+        const top = y - radius;
+        const bottom = y + radius;
+        
+        this.batchVertices.push(
+            left, top,
+            left, bottom,
+            right, bottom,
+            right, top
+        );
+        
+        this.batchTexCoords.push(0, 0, 0, 1, 1, 1, 1, 0);
+        this.currentBatchSize++;
+        
+        this.flushWithColor(color, true);
+    }
+    
+    /**
      * Draw a circle (for snow particles)
      * @param {number} x - Center X
      * @param {number} y - Center Y
@@ -1680,8 +1759,10 @@ class WebGLRenderer {
     
     /**
      * Flush with custom color (multiplies with texture)
+     * @param {Array} color - RGBA color
+     * @param {boolean} useScreenSpace - If true, bypass view matrix (draw directly in screen coords)
      */
-    flushWithColor(color) {
+    flushWithColor(color, useScreenSpace = false) {
         if (this.currentBatchSize === 0) return;
         
         this.gl.useProgram(this.spriteProgram);
@@ -1693,9 +1774,28 @@ class WebGLRenderer {
         }
         
         this.gl.uniformMatrix4fv(this.spriteProgram.locations.projection, false, this.projectionMatrix);
-        this.gl.uniformMatrix4fv(this.spriteProgram.locations.view, false, this.viewMatrix || this.createIdentityMatrix());
-        this.gl.uniform1f(this.spriteProgram.locations.alpha, color[3]); // Use alpha from color
-        this.gl.uniform3f(this.spriteProgram.locations.tint, color[0], color[1], color[2]); // Use RGB from color
+        
+        // Use identity matrix for screen space, view matrix for world space
+        if (useScreenSpace) {
+            this.gl.uniformMatrix4fv(this.spriteProgram.locations.view, false, this.createIdentityMatrix());
+            // No perspective in screen space
+            if (this.spriteProgram.locations.perspectiveStrength) {
+                this.gl.uniform1f(this.spriteProgram.locations.perspectiveStrength, 0.0);
+            }
+        } else {
+            this.gl.uniformMatrix4fv(this.spriteProgram.locations.view, false, this.viewMatrix || this.createIdentityMatrix());
+            // Apply perspective transform (not billboard mode - we want the 3D effect)
+            if (this.spriteProgram.locations.perspectiveStrength) {
+                this.gl.uniform1f(this.spriteProgram.locations.perspectiveStrength, this.perspectiveStrength || 0.0);
+            }
+        }
+        
+        if (this.spriteProgram.locations.billboardMode) {
+            this.gl.uniform1f(this.spriteProgram.locations.billboardMode, 0.0);
+        }
+        
+        this.gl.uniform1f(this.spriteProgram.locations.alpha, color[3]);
+        this.gl.uniform3f(this.spriteProgram.locations.tint, color[0], color[1], color[2]);
         
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.batchVertices), this.gl.DYNAMIC_DRAW);

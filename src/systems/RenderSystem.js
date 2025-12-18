@@ -161,9 +161,9 @@ class RenderSystem {
     renderWorld(map, objects, npcs, player, game, adjacentMapsData = {}) {
         // Initialize WebGL frame (if using WebGL)
         if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
-            // Update perspective settings
+            // Update perspective settings (pass game to disable in editor mode)
             if (game.perspectiveSystem) {
-                game.perspectiveSystem.updateRenderer(this.webglRenderer);
+                game.perspectiveSystem.updateRenderer(this.webglRenderer, game);
             }
             
             this.webglRenderer.beginFrame([0, 0, 0, 0]); // Clear to transparent
