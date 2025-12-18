@@ -2706,18 +2706,27 @@ class EditorManager {
      */
     clearPaintLayer(mapId, mode = 'texture') {
         let layer;
+        let cacheKey;
         if (mode === 'texture') {
             layer = this.paintLayers[mapId];
+            cacheKey = `paint_layer_${mapId}`;
         } else if (mode === 'collision') {
             layer = this.collisionLayers[mapId];
+            cacheKey = `collision_layer_${mapId}`;
         } else if (mode === 'spawn') {
             layer = this.spawnLayers[mapId];
+            cacheKey = `spawn_layer_${mapId}`;
         }
         
         if (layer) {
             const ctx = layer.getContext('2d');
             ctx.clearRect(0, 0, layer.width, layer.height);
             console.log(`[EditorManager] Cleared ${mode} layer for map ${mapId}`);
+            
+            // Invalidate WebGL texture cache so cleared canvas renders immediately
+            if (this.game?.renderSystem?.webglRenderer && cacheKey) {
+                this.game.renderSystem.webglRenderer.invalidateTexture(cacheKey);
+            }
         }
     }
 
@@ -3096,10 +3105,18 @@ class EditorManager {
         brushCtx.fillRect(0, 0, brushSize * 2, brushSize * 2);
         
         // Apply the eraser brush to the canvas
+        // Account for bleed offset - canvas has extra margin for painting outside bounds
+        const bleedOffset = canvas._bleedOffset || 0;
         ctx.save();
         ctx.globalCompositeOperation = 'destination-out';
-        ctx.drawImage(brushCanvas, worldX - brushSize, worldY - brushSize);
+        ctx.drawImage(brushCanvas, worldX - brushSize + bleedOffset, worldY - brushSize + bleedOffset);
         ctx.restore();
+        
+        // Invalidate WebGL texture cache so the erased area renders immediately
+        if (this.game?.renderSystem?.webglRenderer) {
+            const paintCanvasKey = `paint_layer_${mapId}`;
+            this.game.renderSystem.webglRenderer.invalidateTexture(paintCanvasKey);
+        }
     }
 
     /**
