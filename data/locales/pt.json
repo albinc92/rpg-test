@@ -67,6 +67,8 @@
       "vsync": "Sincronização Vertical (Reiniciar)",
       "antiAliasing": "Anti-Aliasing",
       "textureFiltering": "Filtro de Textura",
+      "sharpen": "Nitidez",
+      "bloom": "Brilho",
       "uiScale": "Escala da Interface",
       "gameZoom": "Zoom do Jogo",
       "perspective": "Pseudo 3D",

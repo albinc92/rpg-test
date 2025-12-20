@@ -67,6 +67,8 @@
       "vsync": "V-Sync (Neustart)",
       "antiAliasing": "Kantenglättung",
       "textureFiltering": "Texturfilter",
+      "sharpen": "Schärfen",
+      "bloom": "Bloom",
       "uiScale": "UI-Skalierung",
       "gameZoom": "Spielzoom",
       "perspective": "Pseudo 3D",

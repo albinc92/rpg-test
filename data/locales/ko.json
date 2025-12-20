@@ -67,6 +67,8 @@
       "vsync": "수직 동기화 (재시작)",
       "antiAliasing": "안티앨리어싱",
       "textureFiltering": "텍스처 필터링",
+      "sharpen": "선명도",
+      "bloom": "블룸",
       "uiScale": "UI 크기",
       "gameZoom": "게임 줌",
       "perspective": "의사 3D",

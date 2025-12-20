@@ -304,6 +304,12 @@ class RenderSystem {
                     if (isNaN(params.saturation)) params.saturation = 1.0;
                     if (isNaN(params.temperature)) params.temperature = 0.0;
                     
+                    // Add post-process effects from settings
+                    if (game.settings) {
+                        params.sharpenIntensity = (game.settings.sharpenIntensity || 0) / 100; // Convert 0-100 to 0-1
+                        params.bloomIntensity = (game.settings.bloomIntensity || 0) / 100; // Convert 0-100 to 0-1
+                    }
+                    
                     this.webglRenderer.setDayNightParams(params);
                 } else {
                     // Reset to neutral (Day) if disabled for this map
@@ -312,9 +318,21 @@ class RenderSystem {
                         contrast: 1.0,
                         saturation: 1.0,
                         temperature: 0.0,
-                        darknessColor: [1.0, 1.0, 1.0]
+                        darknessColor: [1.0, 1.0, 1.0],
+                        sharpenIntensity: game.settings ? (game.settings.sharpenIntensity || 0) / 100 : 0,
+                        bloomIntensity: game.settings ? (game.settings.bloomIntensity || 0) / 100 : 0
                     });
                 }
+            } else {
+                // No day/night cycle, but still apply post-process effects from settings
+                this.webglRenderer.setDayNightParams({
+                    brightness: 1.0,
+                    saturation: 1.0,
+                    temperature: 0.0,
+                    darknessColor: [1.0, 1.0, 1.0],
+                    sharpenIntensity: game.settings ? (game.settings.sharpenIntensity || 0) / 100 : 0,
+                    bloomIntensity: game.settings ? (game.settings.bloomIntensity || 0) / 100 : 0
+                });
             }
             
             // Update light mask

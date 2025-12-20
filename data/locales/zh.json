@@ -67,6 +67,8 @@
       "vsync": "垂直同步（需重启）",
       "antiAliasing": "抗锯齿",
       "textureFiltering": "纹理过滤",
+      "sharpen": "锐化",
+      "bloom": "泛光",
       "uiScale": "界面缩放",
       "gameZoom": "游戏缩放",
       "perspective": "伪3D效果",

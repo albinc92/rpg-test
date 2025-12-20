@@ -67,6 +67,8 @@
       "vsync": "垂直同期（再起動）",
       "antiAliasing": "アンチエイリアス",
       "textureFiltering": "テクスチャフィルタ",
+      "sharpen": "シャープ",
+      "bloom": "ブルーム",
       "uiScale": "UI拡大率",
       "gameZoom": "ゲームズーム",
       "perspective": "疑似3D",

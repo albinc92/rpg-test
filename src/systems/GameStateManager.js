@@ -1734,6 +1734,8 @@ class SettingsState extends GameState {
                 { nameKey: 'settings.graphics.vsync', type: 'toggle', key: 'vsync' },
                 { nameKey: 'settings.graphics.antiAliasing', type: 'select', key: 'antiAliasing', values: ['None', 'MSAA'], valueMap: { 'None': 'none', 'MSAA': 'msaa' }, valueKeys: { 'None': 'settings.graphics.aaOptions.none', 'MSAA': 'settings.graphics.aaOptions.msaa' } },
                 { nameKey: 'settings.graphics.textureFiltering', type: 'select', key: 'textureFiltering', values: ['Smooth', 'Sharp'], valueMap: { 'Smooth': 'smooth', 'Sharp': 'sharp' }, valueKeys: { 'Smooth': 'settings.graphics.filterOptions.smooth', 'Sharp': 'settings.graphics.filterOptions.sharp' } },
+                { nameKey: 'settings.graphics.sharpen', type: 'slider', key: 'sharpenIntensity', min: 0, max: 100, step: 10, suffix: '%' },
+                { nameKey: 'settings.graphics.bloom', type: 'slider', key: 'bloomIntensity', min: 0, max: 100, step: 10, suffix: '%' },
                 { nameKey: 'settings.graphics.gameZoom', type: 'slider', key: 'gameZoom', min: 85, max: 115, step: 5, suffix: '%' },
                 { nameKey: 'settings.graphics.uiScale', type: 'slider', key: 'uiScale', min: 50, max: 200, step: 10, suffix: '%' },
                 { nameKey: 'settings.graphics.perspective', type: 'toggle', key: 'perspectiveEnabled' },

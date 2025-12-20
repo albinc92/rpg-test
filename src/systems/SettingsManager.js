@@ -31,6 +31,8 @@ class SettingsManager {
             // Graphics quality settings
             antiAliasing: 'msaa', // 'none' or 'msaa'
             textureFiltering: 'smooth', // 'smooth' (bilinear) or 'sharp' (nearest)
+            sharpenIntensity: 0, // 0-100 (0 = off)
+            bloomIntensity: 0, // 0-100 (0 = off)
             // Language / Localization
             language: 'en' // Default to English
         };

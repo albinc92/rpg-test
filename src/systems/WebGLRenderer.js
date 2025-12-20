@@ -46,7 +46,9 @@ class WebGLRenderer {
             tint: [0, 0, 0, 0],
             darknessColor: [1, 1, 1],
             vignetteIntensity: 0.5, // Default vignette
-            aberrationIntensity: 0.5 // Default chromatic aberration
+            aberrationIntensity: 0.5, // Default chromatic aberration
+            sharpenIntensity: 0.0, // Default sharpening (0 = off)
+            bloomIntensity: 0.0 // Default bloom (0 = off)
         };
         
         this.circleTexture = null;
@@ -473,6 +475,9 @@ class WebGLRenderer {
             uniform vec4 u_tint;
             uniform float u_vignetteIntensity;
             uniform float u_aberrationIntensity;
+            uniform float u_sharpenIntensity;
+            uniform float u_bloomIntensity;
+            uniform vec2 u_resolution;
             
             varying vec2 v_texCoord;
             
@@ -559,6 +564,46 @@ class WebGLRenderer {
                     color = mix(color, u_tint.rgb, u_tint.a);
                 }
                 
+                // Sharpening (unsharp mask)
+                if (u_sharpenIntensity > 0.0) {
+                    vec2 texelSize = 1.0 / u_resolution;
+                    vec3 blur = vec3(0.0);
+                    blur += texture2D(u_texture, uv + vec2(-texelSize.x, -texelSize.y)).rgb;
+                    blur += texture2D(u_texture, uv + vec2(0.0, -texelSize.y)).rgb;
+                    blur += texture2D(u_texture, uv + vec2(texelSize.x, -texelSize.y)).rgb;
+                    blur += texture2D(u_texture, uv + vec2(-texelSize.x, 0.0)).rgb;
+                    blur += texture2D(u_texture, uv + vec2(texelSize.x, 0.0)).rgb;
+                    blur += texture2D(u_texture, uv + vec2(-texelSize.x, texelSize.y)).rgb;
+                    blur += texture2D(u_texture, uv + vec2(0.0, texelSize.y)).rgb;
+                    blur += texture2D(u_texture, uv + vec2(texelSize.x, texelSize.y)).rgb;
+                    blur /= 8.0;
+                    vec3 sharp = color + (color - blur) * u_sharpenIntensity;
+                    color = clamp(sharp, 0.0, 1.0);
+                }
+                
+                // Bloom (simple glow on bright areas)
+                if (u_bloomIntensity > 0.0) {
+                    vec2 texelSize = 1.0 / u_resolution;
+                    vec3 bloomColor = vec3(0.0);
+                    float bloomSamples = 0.0;
+                    // Sample in a larger radius for bloom
+                    for (float x = -2.0; x <= 2.0; x += 1.0) {
+                        for (float y = -2.0; y <= 2.0; y += 1.0) {
+                            vec3 sampleColor = texture2D(u_texture, uv + vec2(x, y) * texelSize * 3.0).rgb;
+                            float brightness = dot(sampleColor, vec3(0.299, 0.587, 0.114));
+                            // Only bloom bright areas
+                            if (brightness > 0.6) {
+                                bloomColor += sampleColor * (brightness - 0.6);
+                                bloomSamples += 1.0;
+                            }
+                        }
+                    }
+                    if (bloomSamples > 0.0) {
+                        bloomColor /= bloomSamples;
+                        color += bloomColor * u_bloomIntensity;
+                    }
+                }
+                
                 // Vignette
                 if (u_vignetteIntensity > 0.0) {
                     // Soft vignette that gets stronger at edges
@@ -602,7 +647,10 @@ class WebGLRenderer {
             temperature: this.gl.getUniformLocation(this.postProcessProgram, 'u_temperature'),
             tint: this.gl.getUniformLocation(this.postProcessProgram, 'u_tint'),
             vignetteIntensity: this.gl.getUniformLocation(this.postProcessProgram, 'u_vignetteIntensity'),
-            aberrationIntensity: this.gl.getUniformLocation(this.postProcessProgram, 'u_aberrationIntensity')
+            aberrationIntensity: this.gl.getUniformLocation(this.postProcessProgram, 'u_aberrationIntensity'),
+            sharpenIntensity: this.gl.getUniformLocation(this.postProcessProgram, 'u_sharpenIntensity'),
+            bloomIntensity: this.gl.getUniformLocation(this.postProcessProgram, 'u_bloomIntensity'),
+            resolution: this.gl.getUniformLocation(this.postProcessProgram, 'u_resolution')
         };
         
         return true;
@@ -1249,6 +1297,9 @@ class WebGLRenderer {
         this.gl.uniform4fv(this.postProcessProgram.locations.tint, p.tint || [0, 0, 0, 0]);
         this.gl.uniform1f(this.postProcessProgram.locations.vignetteIntensity, p.vignetteIntensity !== undefined ? p.vignetteIntensity : 0.5);
         this.gl.uniform1f(this.postProcessProgram.locations.aberrationIntensity, p.aberrationIntensity !== undefined ? p.aberrationIntensity : 0.5);
+        this.gl.uniform1f(this.postProcessProgram.locations.sharpenIntensity, p.sharpenIntensity !== undefined ? p.sharpenIntensity : 0.0);
+        this.gl.uniform1f(this.postProcessProgram.locations.bloomIntensity, p.bloomIntensity !== undefined ? p.bloomIntensity : 0.0);
+        this.gl.uniform2f(this.postProcessProgram.locations.resolution, this.canvas.width, this.canvas.height);
         
         // Draw full-screen quad
         // We reuse the vertex buffer from sprite rendering, but we need to fill it with a quad
