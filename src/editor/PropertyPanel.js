@@ -331,25 +331,25 @@ class PropertyPanel {
             if (obj.collisionExpandTopPercent !== undefined) {
                 section.appendChild(this.createNumberInput('Top %', obj.collisionExpandTopPercent, (value) => {
                     obj.collisionExpandTopPercent = value;
-                }, 0.01, 0.01));
+                }, 0.01, null));
             }
             
             if (obj.collisionExpandBottomPercent !== undefined) {
                 section.appendChild(this.createNumberInput('Bottom %', obj.collisionExpandBottomPercent, (value) => {
                     obj.collisionExpandBottomPercent = value;
-                }, 0.01, 0.01));
+                }, 0.01, null));
             }
             
             if (obj.collisionExpandLeftPercent !== undefined) {
                 section.appendChild(this.createNumberInput('Left %', obj.collisionExpandLeftPercent, (value) => {
                     obj.collisionExpandLeftPercent = value;
-                }, 0.01, 0.01));
+                }, 0.01, null));
             }
             
             if (obj.collisionExpandRightPercent !== undefined) {
                 section.appendChild(this.createNumberInput('Right %', obj.collisionExpandRightPercent, (value) => {
                     obj.collisionExpandRightPercent = value;
-                }, 0.01, 0.01));
+                }, 0.01, null));
             }
             
             return section;
