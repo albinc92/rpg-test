@@ -396,16 +396,8 @@ class RenderSystem {
         const scaledWidth = game.MAP_WIDTH * resolutionScale;
         const scaledHeight = game.MAP_HEIGHT * resolutionScale;
         
-        // Render gray background (user paints actual terrain with paint tool)
-        if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
-            this.webglRenderer.drawRect(0, 0, scaledWidth, scaledHeight, [0.3, 0.3, 0.3, 1.0]);
-        } else {
-            this.ctx.fillStyle = '#4d4d4d';
-            this.ctx.fillRect(0, 0, scaledWidth, scaledHeight);
-        }
-        
-        // NOTE: Paint layers are now rendered in renderAdjacentBackgrounds() for proper Y-priority
-        // (southern maps' bleed-over renders on top of northern maps)
+        // NOTE: Gray background AND paint layers are now rendered in renderAdjacentBackgrounds()
+        // for proper Y-priority (southern maps' bleed-over renders on top of northern maps)
         
         if (game?.editorManager) {
             // Render collision layer (if editor has painted collision areas)
@@ -818,6 +810,14 @@ class RenderSystem {
         // =====================================================
         // PHASE 1: Render all gray backgrounds
         // =====================================================
+        
+        // Render CURRENT map's gray background FIRST
+        if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+            this.webglRenderer.drawRect(0, 0, currentWidth, currentHeight, [0.3, 0.3, 0.3, 1.0]);
+        } else {
+            this.ctx.fillStyle = '#4d4d4d';
+            this.ctx.fillRect(0, 0, currentWidth, currentHeight);
+        }
         
         // Render Cardinal Directions backgrounds
         // North
