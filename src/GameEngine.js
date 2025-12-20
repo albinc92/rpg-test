@@ -36,7 +36,7 @@ class GameEngine {
         // Tuned so player character is ~1/8 to 1/10 of screen height (Pokémon-style)
         // At 1.0: You'd see 3840x2160 world units on a 1920x1080 screen (tiny sprites)
         // At 2.0: You see ~1920x1080 world units on a 1920x1080 screen (1:1 feel)
-        this.BASELINE_ZOOM = 2.5;
+        this.BASELINE_ZOOM = 2.2;
         
         // USER ZOOM - From settings, allows 85%-115% adjustment
         this.userZoom = 1.0; // Will be loaded from settings
