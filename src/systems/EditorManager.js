@@ -829,6 +829,9 @@ class EditorManager {
     render(ctx) {
         if (!this.isActive) return;
         
+        // Render map boundary outline
+        this.renderMapBoundary(ctx);
+        
         // Render grid
         if (this.gridEnabled) {
             this.renderGrid(ctx);
@@ -936,6 +939,49 @@ class EditorManager {
             
             ctx.stroke();
         }
+        
+        ctx.restore();
+    }
+
+    /**
+     * Render map boundary outline in editor mode
+     */
+    renderMapBoundary(ctx) {
+        const camera = this.game.camera;
+        const webglRenderer = this.game.renderSystem?.webglRenderer;
+        
+        // Must have WebGL renderer for coordinate transformation
+        if (!webglRenderer || !webglRenderer.transformWorldToScreen) {
+            return;
+        }
+        
+        const resolutionScale = this.game.resolutionScale || 1.0;
+        
+        // Map dimensions in world units
+        const mapWidth = this.game.MAP_WIDTH * resolutionScale;
+        const mapHeight = this.game.MAP_HEIGHT * resolutionScale;
+        
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        
+        // Get the four corners of the map in screen space
+        const topLeft = webglRenderer.transformWorldToScreen(0, 0, camera.x, camera.y);
+        const topRight = webglRenderer.transformWorldToScreen(mapWidth, 0, camera.x, camera.y);
+        const bottomRight = webglRenderer.transformWorldToScreen(mapWidth, mapHeight, camera.x, camera.y);
+        const bottomLeft = webglRenderer.transformWorldToScreen(0, mapHeight, camera.x, camera.y);
+        
+        // Draw map boundary with a visible color
+        ctx.strokeStyle = 'rgba(255, 200, 0, 0.8)';  // Yellow/gold color
+        ctx.lineWidth = 3;
+        ctx.setLineDash([]);  // Solid line
+        
+        ctx.beginPath();
+        ctx.moveTo(topLeft.screenX, topLeft.screenY);
+        ctx.lineTo(topRight.screenX, topRight.screenY);
+        ctx.lineTo(bottomRight.screenX, bottomRight.screenY);
+        ctx.lineTo(bottomLeft.screenX, bottomLeft.screenY);
+        ctx.closePath();
+        ctx.stroke();
         
         ctx.restore();
     }
