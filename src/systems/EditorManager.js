@@ -387,7 +387,7 @@ class EditorManager {
             console.log(`[EDITOR] Object ${idx}: ${obj.constructor.name} id=${obj.id} pos=(${obj.x}, ${obj.y})`);
         });
         
-        // Reset zoom to normal gameplay
+        // Reset zoom to 1.0 when exiting editor (game uses worldScale for its zoom)
         this.game.camera.zoom = 1.0;
         
         // Restore game pause state
