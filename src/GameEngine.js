@@ -298,8 +298,8 @@ class GameEngine {
      */
     initializePlayer() {
         this.player = new Player({
-            x: 768,
-            y: 512,
+            x: this.WORLD_WIDTH / 2,  // Center of map 0-0
+            y: this.WORLD_HEIGHT / 2, // Center of map 0-0
             spriteSrc: 'assets/npc/main-0.png',
             scale: 0.12,
             gold: 100
