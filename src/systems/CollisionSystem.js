@@ -236,55 +236,141 @@ class CollisionSystem {
         const mapData = game.mapManager.maps[targetMapId];
         if (!mapData || !mapData.zones) return false;
         
-        let pointsToCheck = [{x, y}];
-        
-        // If actor provided, check multiple points around their collision bounds
-        if (actor) {
-            // Get scaled collision bounds (current position)
-            // Note: If checking adjacent map, x/y should be in that map's local space
-            // The actor's getCollisionBounds uses its current x/y.
-            // If we are checking adjacent map, we assume x/y passed in are already local.
-            // BUT actor.getCollisionBounds() will return global bounds (or bounds relative to actor.x/y).
-            // We need bounds centered at x,y.
-            
-            // Calculate scale factors
-            const resolutionScale = game.resolutionScale || 1.0;
-            
-            // We need to reconstruct bounds at the target x,y
-            // Assuming actor is a circle or rect, we can just use width/height
-            const width = actor.width * resolutionScale; // Approximate
-            const height = actor.height * resolutionScale; // Approximate
-            // Better: use actor.getCollisionBounds() and shift it?
-            // But getCollisionBounds depends on game state.
-            
-            // Let's just use the passed x,y as center/base and check points around it
-            // Assuming x,y is the position we want to check (e.g. newX, newY)
-            
-            const halfWidth = (actor.width * resolutionScale) / 2;
-            const halfHeight = (actor.height * resolutionScale) / 2;
-            
-            // Check 4 corners + center
-            pointsToCheck = [
-                {x: x, y: y}, // Center/Base
-                {x: x - halfWidth * 0.8, y: y}, // Left
-                {x: x + halfWidth * 0.8, y: y}, // Right
-                {x: x, y: y - halfHeight * 0.8}, // Top
-                {x: x, y: y + halfHeight * 0.8}  // Bottom
-            ];
-        }
-        
         // Filter for collision zones only
         const collisionZones = mapData.zones.filter(z => z.type === 'collision');
+        if (collisionZones.length === 0) return false;
         
+        // If no actor, just check the single point
+        if (!actor) {
+            for (const zone of collisionZones) {
+                if (this.pointInPolygon({x, y}, zone.points)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        // Get actor's collision bounds in UNSCALED/logical space
+        // getCollisionBounds returns scaled coordinates, so we need to unscale
+        const resolutionScale = game.resolutionScale || 1.0;
+        const scaledBounds = actor.getCollisionBounds(game);
+        
+        // Convert to unscaled space (zone points are stored unscaled)
+        const rect = {
+            left: scaledBounds.left / resolutionScale,
+            right: scaledBounds.right / resolutionScale,
+            top: scaledBounds.top / resolutionScale,
+            bottom: scaledBounds.bottom / resolutionScale
+        };
+        
+        // Offset the rect to the new position (x, y) instead of actor's current position
+        const currentX = actor.x;
+        const currentY = actor.y;
+        const deltaX = x - currentX;
+        const deltaY = y - currentY;
+        
+        rect.left += deltaX;
+        rect.right += deltaX;
+        rect.top += deltaY;
+        rect.bottom += deltaY;
+        
+        // Check each collision zone for intersection with the rect
         for (const zone of collisionZones) {
-            for (const point of pointsToCheck) {
-                if (this.pointInPolygon(point, zone.points)) {
+            if (this.polygonRectIntersect(zone.points, rect)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Check if a polygon intersects with a rectangle
+     * Uses three checks:
+     * 1. Any corner of rect inside polygon
+     * 2. Any vertex of polygon inside rect
+     * 3. Any edge of polygon intersects any edge of rect
+     */
+    polygonRectIntersect(polygon, rect) {
+        // Check 1: Any corner of rect inside polygon
+        const rectCorners = [
+            {x: rect.left, y: rect.top},
+            {x: rect.right, y: rect.top},
+            {x: rect.right, y: rect.bottom},
+            {x: rect.left, y: rect.bottom}
+        ];
+        
+        for (const corner of rectCorners) {
+            if (this.pointInPolygon(corner, polygon)) {
+                return true;
+            }
+        }
+        
+        // Check 2: Any vertex of polygon inside rect
+        for (const vertex of polygon) {
+            if (vertex.x >= rect.left && vertex.x <= rect.right &&
+                vertex.y >= rect.top && vertex.y <= rect.bottom) {
+                return true;
+            }
+        }
+        
+        // Check 3: Any edge of polygon intersects any edge of rect
+        const rectEdges = [
+            [{x: rect.left, y: rect.top}, {x: rect.right, y: rect.top}],      // Top
+            [{x: rect.right, y: rect.top}, {x: rect.right, y: rect.bottom}],  // Right
+            [{x: rect.right, y: rect.bottom}, {x: rect.left, y: rect.bottom}], // Bottom
+            [{x: rect.left, y: rect.bottom}, {x: rect.left, y: rect.top}]     // Left
+        ];
+        
+        for (let i = 0; i < polygon.length; i++) {
+            const p1 = polygon[i];
+            const p2 = polygon[(i + 1) % polygon.length];
+            
+            for (const rectEdge of rectEdges) {
+                if (this.lineSegmentsIntersect(p1, p2, rectEdge[0], rectEdge[1])) {
                     return true;
                 }
             }
         }
         
         return false;
+    }
+    
+    /**
+     * Check if two line segments intersect
+     */
+    lineSegmentsIntersect(p1, p2, p3, p4) {
+        const d1 = this.direction(p3, p4, p1);
+        const d2 = this.direction(p3, p4, p2);
+        const d3 = this.direction(p1, p2, p3);
+        const d4 = this.direction(p1, p2, p4);
+        
+        if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+            ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) {
+            return true;
+        }
+        
+        if (d1 === 0 && this.onSegment(p3, p4, p1)) return true;
+        if (d2 === 0 && this.onSegment(p3, p4, p2)) return true;
+        if (d3 === 0 && this.onSegment(p1, p2, p3)) return true;
+        if (d4 === 0 && this.onSegment(p1, p2, p4)) return true;
+        
+        return false;
+    }
+    
+    /**
+     * Calculate cross product direction
+     */
+    direction(p1, p2, p3) {
+        return (p3.x - p1.x) * (p2.y - p1.y) - (p2.x - p1.x) * (p3.y - p1.y);
+    }
+    
+    /**
+     * Check if point is on line segment
+     */
+    onSegment(p1, p2, p) {
+        return Math.min(p1.x, p2.x) <= p.x && p.x <= Math.max(p1.x, p2.x) &&
+               Math.min(p1.y, p2.y) <= p.y && p.y <= Math.max(p1.y, p2.y);
     }
 
 

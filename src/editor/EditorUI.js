@@ -3871,6 +3871,8 @@ class EditorUI {
         const textureFiles = [
             'grass.png',
             'dirt.png',
+            'water.png',
+            'water2.png',
             // Add more textures here as they're added to the folder
         ];
         
