@@ -3243,6 +3243,12 @@ class DialogueState extends GameState {
         this.npc = data.npc || null;
         this.message = data.message || null;
         
+        // Stop player movement when entering dialogue
+        if (this.game.player) {
+            this.game.player.velocityX = 0;
+            this.game.player.velocityY = 0;
+        }
+        
         // Ignore input on first frame (so the key that initiated dialogue doesn't skip the message)
         this.ignoreFirstInput = true;
         
