@@ -3484,13 +3484,21 @@ class DialogueState extends GameState {
         
         if (this.npc && this.game.camera) {
             const camera = this.game.camera;
-            const scale = camera.scale || 1;
-            bubbleX = (this.npc.x - camera.x) * scale + canvasWidth / 2;
-            bubbleY = (this.npc.y - camera.y) * scale + canvasHeight / 2;
+            const zoom = camera.zoom || 1;
+            const worldScale = this.game.resolutionScale || 1;
+            
+            // Get NPC world position (scaled for resolution)
+            const worldX = this.npc.x * worldScale;
+            const worldY = this.npc.y * worldScale;
+            
+            // Convert world position to screen position
+            bubbleX = (worldX - camera.x) * zoom + canvasWidth / 2;
+            bubbleY = (worldY - camera.y) * zoom + canvasHeight / 2;
             
             // Position bubble above NPC sprite
-            const spriteHeight = (this.npc.collision?.height || 64) * scale;
-            bubbleY -= spriteHeight + 20;
+            const finalScale = (this.npc.scale || 1) * worldScale;
+            const spriteHeight = (this.npc.spriteHeight || 64) * finalScale * zoom;
+            bubbleY -= spriteHeight / 2 + 20;
         }
         
         // Calculate bubble size based on content

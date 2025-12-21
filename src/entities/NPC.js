@@ -35,6 +35,11 @@ class NPC extends Actor {
         // Talk bubble indicator
         this.showTalkBubble = options.showTalkBubble !== false && (this.script || this.messages.length > 0);
         this.talkBubbleAnimation = 0;
+        
+        // Store last rendered screen position for UI overlays
+        this.lastScreenX = 0;
+        this.lastScreenY = 0;
+        this.lastSpriteHeight = 0;
     }
     
     /**
@@ -58,82 +63,135 @@ class NPC extends Actor {
     }
     
     /**
-     * Override render to add talk bubble after sprite
+     * Override render to track screen position (talk bubble rendered separately)
      */
     render(ctx, game, webglRenderer = null) {
         // Call parent render first (renders sprite/shadow)
         super.render(ctx, game, webglRenderer);
         
-        // Don't render talk bubble during shadow pass
+        // Don't track during shadow pass
         if (webglRenderer && webglRenderer.renderingShadows) {
             return;
         }
         
-        // Render talk bubble on top of sprite
-        if (this.showTalkBubble && this.hasDialogue() && this.spriteLoaded) {
+        // Store screen position for talk bubble overlay
+        if (this.spriteLoaded && game) {
             const finalScale = this.getFinalScale(game);
             const baseHeight = this.spriteHeight || this.fallbackHeight;
-            const scaledHeight = baseHeight * finalScale;
+            const spriteHeight = baseHeight * finalScale;
             const scaledX = this.getScaledX(game);
             const scaledY = this.getScaledY(game);
             
-            // Render talk bubble (using Canvas2D for simplicity)
-            this.renderTalkBubble(ctx, scaledX, scaledY, scaledHeight);
+            // Calculate screen position from world position
+            // Account for perspective if enabled
+            if (webglRenderer && webglRenderer.perspectiveStrength > 0) {
+                // Get the billboard delta that was applied to the sprite
+                const drawX = scaledX - (this.spriteWidth || this.fallbackWidth) * finalScale / 2;
+                const drawY = scaledY - spriteHeight / 2;
+                const delta = webglRenderer.calculateBillboardDelta(drawX, drawY, 
+                    (this.spriteWidth || this.fallbackWidth) * finalScale, spriteHeight);
+                
+                // Apply same delta to get correct screen position
+                this.lastScreenX = scaledX + delta.x;
+                this.lastScreenY = scaledY + delta.y;
+            } else {
+                this.lastScreenX = scaledX;
+                this.lastScreenY = scaledY;
+            }
+            this.lastSpriteHeight = spriteHeight;
         }
+    }
+    
+    /**
+     * Render talk bubble as Canvas2D overlay (called AFTER WebGL pass)
+     */
+    renderTalkBubbleOverlay(ctx, game, webglRenderer = null) {
+        if (!this.showTalkBubble || !this.hasDialogue() || !this.spriteLoaded) return;
+        
+        const camera = game.camera;
+        if (!camera) return;
+        
+        // Get canvas dimensions
+        const canvasWidth = game.CANVAS_WIDTH || ctx.canvas.width;
+        const canvasHeight = game.CANVAS_HEIGHT || ctx.canvas.height;
+        const worldScale = game.resolutionScale || 1;
+        
+        // Get NPC world position (scaled for resolution - this is what the renderer uses)
+        const worldX = this.x * worldScale;
+        const worldY = this.y * worldScale;
+        
+        // Calculate sprite height for positioning bubble above NPC
+        const finalScale = this.getFinalScale(game);
+        const baseHeight = this.spriteHeight || this.fallbackHeight;
+        const spriteHeight = baseHeight * finalScale;
+        
+        let screenX, screenY;
+        
+        // Use WebGL transform if available (handles perspective)
+        if (webglRenderer && webglRenderer.transformWorldToScreen) {
+            const result = webglRenderer.transformWorldToScreen(worldX, worldY, camera.x, camera.y);
+            screenX = result.screenX;
+            screenY = result.screenY - spriteHeight / 2;
+        } else {
+            // Fallback: simple camera offset (no perspective)
+            const zoom = camera.zoom || 1;
+            screenX = (worldX - camera.x) * zoom + canvasWidth / 2 * (1 - 1/zoom);
+            screenY = (worldY - camera.y) * zoom + canvasHeight / 2 * (1 - 1/zoom) - spriteHeight / 2;
+        }
+        
+        // Position bubble above sprite
+        const bubbleY = screenY - 30;
+        
+        this.renderTalkBubble(ctx, screenX, bubbleY, 0);
     }
     
     /**
      * Render talk bubble indicator above NPC
      * @param {CanvasRenderingContext2D} ctx
-     * @param {number} screenX - NPC screen X position
-     * @param {number} screenY - NPC screen Y position  
-     * @param {number} spriteHeight - Height of NPC sprite
+     * @param {number} screenX - Bubble center X position (screen coords)
+     * @param {number} screenY - Bubble center Y position (screen coords)
+     * @param {number} unused - Kept for compatibility
      */
-    renderTalkBubble(ctx, screenX, screenY, spriteHeight) {
+    renderTalkBubble(ctx, screenX, screenY, unused = 0) {
         if (!this.showTalkBubble || !this.hasDialogue()) return;
-        
-        // Position closer to sprite (reduced gap from 25 to 8)
-        const bubbleX = screenX;
-        const bubbleY = screenY - spriteHeight - 8;
         
         // Bobbing animation
         const bobOffset = Math.sin(this.talkBubbleAnimation) * 4;
-        const finalY = bubbleY + bobOffset;
+        const finalY = screenY + bobOffset;
         
         // Draw speech bubble icon
         ctx.save();
         
-        // Bubble background - larger size
+        // Bubble background
         ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
         ctx.lineWidth = 2;
         
-        // Main bubble - bigger (was 14x10, now 22x16)
+        // Main bubble ellipse
         ctx.beginPath();
-        ctx.ellipse(bubbleX, finalY, 22, 16, 0, 0, Math.PI * 2);
+        ctx.ellipse(screenX, finalY, 22, 16, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
         
-        // Triangle pointer - adjusted for larger bubble
+        // Triangle pointer
         ctx.beginPath();
-        ctx.moveTo(bubbleX - 5, finalY + 14);
-        ctx.lineTo(bubbleX + 5, finalY + 14);
-        ctx.lineTo(bubbleX, finalY + 22);
+        ctx.moveTo(screenX - 5, finalY + 14);
+        ctx.lineTo(screenX + 5, finalY + 14);
+        ctx.lineTo(screenX, finalY + 22);
         ctx.closePath();
         ctx.fill();
         
-        // Three dots inside bubble - larger and better spaced
+        // Three dots
         ctx.fillStyle = '#555555';
-        const dotY = finalY;
         const dotSpacing = 9;
         
         // Animate dots
         const dotPhase = (this.talkBubbleAnimation * 2) % 3;
         for (let i = 0; i < 3; i++) {
-            const dotX = bubbleX + (i - 1) * dotSpacing;
+            const dotX = screenX + (i - 1) * dotSpacing;
             const dotScale = (Math.floor(dotPhase) === i) ? 1.6 : 1;
             ctx.beginPath();
-            ctx.arc(dotX, dotY, 3 * dotScale, 0, Math.PI * 2);
+            ctx.arc(dotX, finalY, 3 * dotScale, 0, Math.PI * 2);
             ctx.fill();
         }
         

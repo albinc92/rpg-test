@@ -447,6 +447,15 @@ class RenderSystem {
             
             this.webglRenderer.endFrame();
 
+            // Render NPC talk bubbles as Canvas2D overlay (AFTER shaders)
+            if (npcs && npcs.length > 0) {
+                for (const npc of npcs) {
+                    if (npc.renderTalkBubbleOverlay) {
+                        npc.renderTalkBubbleOverlay(this.ctx, game, this.webglRenderer);
+                    }
+                }
+            }
+
             // Draw lens flare on top of everything (Screen Space)
             // Only if sun is visible and weather is clear
             if (game?.dayNightCycle) {
