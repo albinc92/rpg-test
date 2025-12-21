@@ -2097,6 +2097,11 @@ class GameEngine {
         // Recalculate world scale with new user zoom
         this.updateWorldScale();
         
+        // Resize paint/collision/spawn layers to match new resolution scale
+        if (this.editorManager) {
+            this.editorManager.handleResize();
+        }
+        
         // Force camera to snap instantly to new position (no smoothing)
         // This prevents the "character jumping" effect when zoom changes
         if (this.renderSystem?.camera) {

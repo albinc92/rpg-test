@@ -3885,23 +3885,54 @@ class EditorManager {
     }
 
     /**
-     * Handle window resize - rescale collision and spawn layers to match new resolution
-     * This fixes the issue where painted zones move around when window is resized
+     * Handle window resize - rescale collision, spawn, and paint layers to match new resolution
+     * This fixes the issue where painted zones move around when window is resized or zoom changes
      */
     handleResize() {
-        const mapId = this.game.currentMapId;
-        if (!mapId) return;
-        
-        const mapData = this.game.mapManager.maps[mapId];
-        if (!mapData) return;
-        
         const resolutionScale = this.game.resolutionScale || 1.0;
         const newWidth = this.game.MAP_WIDTH * resolutionScale;
         const newHeight = this.game.MAP_HEIGHT * resolutionScale;
         
-        // Rescale collision layer if it exists
-        if (this.collisionLayers[mapId]) {
+        // Calculate new bleed based on current resolution (for paint layers)
+        const newBleed = this.paintLayerBleed * resolutionScale;
+        const newPaintWidth = newWidth + (newBleed * 2);
+        const newPaintHeight = newHeight + (newBleed * 2);
+        
+        // Rescale ALL paint layers (texture) - not just current map, as adjacent maps are also rendered
+        for (const mapId of Object.keys(this.paintLayers)) {
+            const oldCanvas = this.paintLayers[mapId];
+            if (!oldCanvas) continue;
+            
+            const oldBleed = oldCanvas._bleedOffset || 0;
+            const oldWidth = oldCanvas.width;
+            const oldHeight = oldCanvas.height;
+            
+            // Only resize if dimensions changed
+            if (oldWidth !== newPaintWidth || oldHeight !== newPaintHeight) {
+                const newCanvas = document.createElement('canvas');
+                newCanvas.width = newPaintWidth;
+                newCanvas.height = newPaintHeight;
+                newCanvas._bleedOffset = newBleed;
+                
+                const ctx = newCanvas.getContext('2d');
+                // Scale the old canvas content to fit new size
+                ctx.drawImage(oldCanvas, 0, 0, oldWidth, oldHeight, 0, 0, newPaintWidth, newPaintHeight);
+                
+                this.paintLayers[mapId] = newCanvas;
+                
+                // Invalidate WebGL texture cache
+                if (this.game?.renderSystem?.webglRenderer) {
+                    this.game.renderSystem.webglRenderer.invalidateTexture(`paint_layer_${mapId}`);
+                }
+                
+                console.log(`[EditorManager] Resized paint layer for map ${mapId}: ${oldWidth}x${oldHeight} → ${newPaintWidth}x${newPaintHeight} (bleed: ${oldBleed} → ${newBleed})`);
+            }
+        }
+        
+        // Rescale ALL collision layers
+        for (const mapId of Object.keys(this.collisionLayers)) {
             const oldCanvas = this.collisionLayers[mapId];
+            if (!oldCanvas) continue;
             const oldWidth = oldCanvas.width;
             const oldHeight = oldCanvas.height;
             
@@ -3931,13 +3962,14 @@ class EditorManager {
                     this.game.renderSystem.webglRenderer.invalidateTexture(`collision_layer_${mapId}`);
                 }
                 
-                console.log(`[EditorManager] Resized collision layer: ${oldWidth}x${oldHeight} → ${newWidth}x${newHeight}`);
+                console.log(`[EditorManager] Resized collision layer for map ${mapId}: ${oldWidth}x${oldHeight} → ${newWidth}x${newHeight}`);
             }
         }
         
-        // Rescale spawn layer if it exists
-        if (this.spawnLayers[mapId]) {
+        // Rescale ALL spawn layers
+        for (const mapId of Object.keys(this.spawnLayers)) {
             const oldCanvas = this.spawnLayers[mapId];
+            if (!oldCanvas) continue;
             const oldWidth = oldCanvas.width;
             const oldHeight = oldCanvas.height;
             
@@ -3972,7 +4004,7 @@ class EditorManager {
                     this.game.renderSystem.webglRenderer.invalidateTexture(`spawn_layer_${mapId}`);
                 }
                 
-                console.log(`[EditorManager] Resized spawn layer: ${oldWidth}x${oldHeight} → ${newWidth}x${newHeight}`);
+                console.log(`[EditorManager] Resized spawn layer for map ${mapId}: ${oldWidth}x${oldHeight} → ${newWidth}x${newHeight}`);
             }
         }
     }
