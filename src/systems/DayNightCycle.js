@@ -598,7 +598,6 @@ class DayNightCycle {
             intensity = sunHeight * angleFactor * 1.5; // Boost overall intensity
         }
         
-        console.log(`[DayNightCycle] Sun Pos: x=${x.toFixed(2)}, y=${y.toFixed(2)}, intensity=${intensity.toFixed(2)}`);
         return { x, y, intensity };
     }
 }

@@ -1926,17 +1926,6 @@ class GameEngine {
             const ctx = collisionLayer.getContext('2d');
             collisionLayer._cachedImageData = ctx.getImageData(0, 0, collisionLayer.width, collisionLayer.height);
             collisionLayer._dataDirty = false;
-            
-            // Debug: Sample pixels to verify the image data
-            const data = collisionLayer._cachedImageData.data;
-            let redCount = 0;
-            for (let i = 0; i < data.length; i += 4) {
-                if (data[i] > 200 && data[i + 1] < 50 && data[i + 2] < 50 && data[i + 3] > 200) {
-                    redCount++;
-                }
-            }
-            
-            console.log(`🎨 [Collision] Reading from canvas (${collisionLayer.width}x${collisionLayer.height}), red pixels: ${redCount}`);
         }
         
         const imageData = collisionLayer._cachedImageData;

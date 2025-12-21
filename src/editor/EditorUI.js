@@ -272,7 +272,7 @@ class EditorUI {
                 shortcut: '+',
                 action: () => {
                     this.editor.zoomIn();
-                    console.log('[Editor] Zoom In:', (this.editor.game.camera.zoom * 100).toFixed(0) + '%');
+                    // Zoom logged (disabled to reduce console spam)
                 }
             },
             {
@@ -280,7 +280,7 @@ class EditorUI {
                 shortcut: '-',
                 action: () => {
                     this.editor.zoomOut();
-                    console.log('[Editor] Zoom Out:', (this.editor.game.camera.zoom * 100).toFixed(0) + '%');
+                    // Zoom logged (disabled to reduce console spam)
                 }
             },
             {

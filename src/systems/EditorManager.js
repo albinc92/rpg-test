@@ -2810,7 +2810,6 @@ class EditorManager {
     zoomIn() {
         const camera = this.game.camera;
         camera.zoom = Math.min(camera.maxZoom, camera.zoom + 0.25);
-        console.log(`[EditorManager] Zoom: ${(camera.zoom * 100).toFixed(0)}%`);
         
         // Invalidate light mask when zoom changes
         if (this.game.lightManager) {
@@ -2824,7 +2823,6 @@ class EditorManager {
     zoomOut() {
         const camera = this.game.camera;
         camera.zoom = Math.max(camera.minZoom, camera.zoom - 0.25);
-        console.log(`[EditorManager] Zoom: ${(camera.zoom * 100).toFixed(0)}%`);
         
         // Invalidate light mask when zoom changes
         if (this.game.lightManager) {
@@ -3087,8 +3085,6 @@ class EditorManager {
         const ctx = canvas.getContext('2d');
         const brushSize = this.brushSize;
         
-        console.log(`🎨 [Collision Paint] world:(${worldX.toFixed(1)}, ${worldY.toFixed(1)}) brush:${brushSize} canvas:${canvas.width}x${canvas.height}`);
-        
         // Draw collision area (solid red, no transparency)
         ctx.save();
         ctx.fillStyle = 'rgba(255, 0, 0, 1.0)'; // Solid red
@@ -3098,13 +3094,11 @@ class EditorManager {
         if (this.brushShape === 'square') {
             // Square brush
             ctx.fillRect(worldX - brushSize, worldY - brushSize, brushSize * 2, brushSize * 2);
-            console.log(`🎨 [Collision] Drew square at (${worldX}, ${worldY}) size ${brushSize * 2}x${brushSize * 2}`);
         } else {
             // Circle brush (default)
             ctx.beginPath();
             ctx.arc(worldX, worldY, brushSize, 0, Math.PI * 2);
             ctx.fill();
-            console.log(`🎨 [Collision] Drew circle at (${worldX}, ${worldY}) radius ${brushSize}`);
         }
         
         ctx.restore();
@@ -3145,9 +3139,6 @@ class EditorManager {
         
         const ctx = canvas.getContext('2d');
         const brushSize = this.brushSize;
-        
-        // EXACT SAME BEHAVIOR AS TEXTURE PAINTING: Use worldX/worldY directly
-        console.log(`🎨 [Spawn Paint] world:(${worldX.toFixed(1)}, ${worldY.toFixed(1)}) brush:${brushSize} canvas:${canvas.width}x${canvas.height}`);
         
         // Draw spawn zone (solid blue for binary pixel detection)
         ctx.save();
