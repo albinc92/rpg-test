@@ -737,11 +737,11 @@ class VisualScriptEditor {
         el.className = 'vse-block' + (block.collapsed ? ' collapsed' : '');
         el.style.borderLeftColor = def.color;
         el.dataset.blockId = block.id;
-        el.draggable = true;
         
-        // Header
+        // Header (drag handle)
         const header = document.createElement('div');
         header.className = 'vse-block-header';
+        header.draggable = true; // Make only the header draggable, not the whole block
         header.innerHTML = `
             <span class="vse-block-icon">${def.icon}</span>
             <span class="vse-block-title">${def.name}</span>
@@ -749,8 +749,8 @@ class VisualScriptEditor {
             <button class="vse-block-delete">✕</button>
         `;
         
-        // Drag events
-        el.ondragstart = (e) => {
+        // Drag events - only on header
+        header.ondragstart = (e) => {
             this.draggedBlock = block;
             this.draggedIndex = index;
             this.draggedList = blockList;
@@ -758,7 +758,7 @@ class VisualScriptEditor {
             e.dataTransfer.effectAllowed = 'move';
         };
         
-        el.ondragend = () => {
+        header.ondragend = () => {
             el.classList.remove('dragging');
             this.draggedBlock = null;
             this.draggedIndex = -1;
