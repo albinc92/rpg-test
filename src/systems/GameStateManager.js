@@ -3491,14 +3491,33 @@ class DialogueState extends GameState {
             const worldX = this.npc.x * worldScale;
             const worldY = this.npc.y * worldScale;
             
+            // Calculate sprite dimensions
+            const finalScale = (this.npc.scale || 1) * worldScale;
+            const spriteWidth = (this.npc.spriteWidth || 64) * finalScale;
+            const spriteHeight = (this.npc.spriteHeight || 64) * finalScale;
+            
+            // Calculate draw position (top-left of sprite)
+            const drawX = worldX - spriteWidth / 2;
+            const drawY = worldY - spriteHeight / 2;
+            
+            // Apply billboard delta if perspective is enabled
+            let adjustedWorldX = worldX;
+            let adjustedWorldY = worldY - spriteHeight / 2; // Top of sprite
+            
+            const webglRenderer = this.game.renderSystem?.webglRenderer;
+            if (webglRenderer && webglRenderer.perspectiveStrength > 0 && webglRenderer.calculateBillboardDelta) {
+                const delta = webglRenderer.calculateBillboardDelta(drawX, drawY, spriteWidth, spriteHeight);
+                adjustedWorldX += delta.x;
+                adjustedWorldY += delta.y;
+            }
+            
             // Convert world position to screen position
-            bubbleX = (worldX - camera.x) * zoom + canvasWidth / 2;
-            bubbleY = (worldY - camera.y) * zoom + canvasHeight / 2;
+            // Canvas2D transform: translate(center) → scale(zoom) → translate(-center) → translate(-camera)
+            bubbleX = (adjustedWorldX - camera.x) * zoom + canvasWidth / 2 * (1 - zoom);
+            bubbleY = (adjustedWorldY - camera.y) * zoom + canvasHeight / 2 * (1 - zoom);
             
             // Position bubble above NPC sprite
-            const finalScale = (this.npc.scale || 1) * worldScale;
-            const spriteHeight = (this.npc.spriteHeight || 64) * finalScale * zoom;
-            bubbleY -= spriteHeight / 2 + 20;
+            bubbleY -= 20;
         }
         
         // Calculate bubble size based on content

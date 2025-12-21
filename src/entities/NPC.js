@@ -115,29 +115,38 @@ class NPC extends Actor {
         const canvasWidth = game.CANVAS_WIDTH || ctx.canvas.width;
         const canvasHeight = game.CANVAS_HEIGHT || ctx.canvas.height;
         const worldScale = game.resolutionScale || 1;
+        const zoom = camera.zoom || 1;
         
         // Get NPC world position (scaled for resolution - this is what the renderer uses)
         const worldX = this.x * worldScale;
         const worldY = this.y * worldScale;
         
-        // Calculate sprite height for positioning bubble above NPC
+        // Calculate sprite dimensions
         const finalScale = this.getFinalScale(game);
+        const baseWidth = this.spriteWidth || this.fallbackWidth;
         const baseHeight = this.spriteHeight || this.fallbackHeight;
+        const spriteWidth = baseWidth * finalScale;
         const spriteHeight = baseHeight * finalScale;
         
-        let screenX, screenY;
+        // Calculate draw position (top-left of sprite, as used by drawSprite)
+        const drawX = worldX - spriteWidth / 2;
+        const drawY = worldY - spriteHeight / 2;
         
-        // Use WebGL transform if available (handles perspective)
-        if (webglRenderer && webglRenderer.transformWorldToScreen) {
-            const result = webglRenderer.transformWorldToScreen(worldX, worldY, camera.x, camera.y);
-            screenX = result.screenX;
-            screenY = result.screenY - spriteHeight / 2;
-        } else {
-            // Fallback: simple camera offset (no perspective)
-            const zoom = camera.zoom || 1;
-            screenX = (worldX - camera.x) * zoom + canvasWidth / 2 * (1 - 1/zoom);
-            screenY = (worldY - camera.y) * zoom + canvasHeight / 2 * (1 - 1/zoom) - spriteHeight / 2;
+        // Apply billboard delta if perspective is enabled
+        let adjustedWorldX = worldX;
+        let adjustedWorldY = worldY - spriteHeight / 2; // Top of sprite
+        
+        if (webglRenderer && webglRenderer.perspectiveStrength > 0 && webglRenderer.calculateBillboardDelta) {
+            const delta = webglRenderer.calculateBillboardDelta(drawX, drawY, spriteWidth, spriteHeight);
+            adjustedWorldX += delta.x;
+            adjustedWorldY += delta.y;
         }
+        
+        // Convert adjusted world position to screen position
+        // Canvas2D transform: translate(center) → scale(zoom) → translate(-center) → translate(-camera)
+        // So: screenX = (worldX - camera.x) * zoom + canvasWidth/2 * (1 - zoom)
+        const screenX = (adjustedWorldX - camera.x) * zoom + canvasWidth / 2 * (1 - zoom);
+        const screenY = (adjustedWorldY - camera.y) * zoom + canvasHeight / 2 * (1 - zoom);
         
         // Position bubble above sprite
         const bubbleY = screenY - 30;
