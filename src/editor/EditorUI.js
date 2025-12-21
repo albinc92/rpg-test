@@ -774,7 +774,7 @@ class EditorUI {
             }
         }, { min: 0, step: 1 });
         densityContainer.appendChild(densityField);
-        form.append
+        form.appendChild(densityContainer);
 
         // Spawn table container
         const spawnTableContainer = document.createElement('div');
