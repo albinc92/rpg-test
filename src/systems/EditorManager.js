@@ -207,7 +207,7 @@ class EditorManager {
      */
     setupKeyboardShortcuts() {
         window.addEventListener('keydown', (e) => {
-            // Toggle editor with F2 or Ctrl+E
+            // Toggle editor with F2 or Ctrl+E (always works)
             if (e.key === 'F2' || (e.ctrlKey && e.key === 'e')) {
                 e.preventDefault();
                 this.toggle();
@@ -216,6 +216,20 @@ class EditorManager {
             
             // Only process other shortcuts when editor is active
             if (!this.isActive) return;
+            
+            // Don't process shortcuts if user is typing in a text field
+            const isTyping = document.activeElement && 
+                            (document.activeElement.tagName === 'INPUT' || 
+                             document.activeElement.tagName === 'TEXTAREA' ||
+                             document.activeElement.isContentEditable);
+            
+            if (isTyping) {
+                // Allow Escape to blur the field
+                if (e.key === 'Escape') {
+                    document.activeElement.blur();
+                }
+                return; // Don't process any other shortcuts while typing
+            }
             
             // Escape cancels placement mode or light placement mode
             if (e.key === 'Escape') {
@@ -359,35 +373,27 @@ class EditorManager {
                 if (this.ui) this.ui.updateViewMenu();
             }
             
-            // Check if user is typing in a text field
-            const isTyping = document.activeElement && 
-                            (document.activeElement.tagName === 'INPUT' || 
-                             document.activeElement.tagName === 'TEXTAREA' ||
-                             document.activeElement.isContentEditable);
+            // Zoom controls
+            else if (e.key === '+' || e.key === '=') {
+                e.preventDefault();
+                this.zoomIn();
+            } else if (e.key === '-' || e.key === '_') {
+                e.preventDefault();
+                this.zoomOut();
+            } else if (e.key === '0') {
+                e.preventDefault();
+                this.resetZoom();
+            }
             
-            // Zoom controls (only if not typing)
-            if (!isTyping) {
-                if (e.key === '+' || e.key === '=') {
-                    e.preventDefault();
-                    this.zoomIn();
-                } else if (e.key === '-' || e.key === '_') {
-                    e.preventDefault();
-                    this.zoomOut();
-                } else if (e.key === '0') {
-                    e.preventDefault();
-                    this.resetZoom();
-                }
-                
-                // Brush size controls for paint tool (only if not typing)
-                else if (e.key === '[') {
-                    e.preventDefault();
-                    this.brushSize = Math.max(16, this.brushSize - 8);
-                    console.log('[EditorManager] Brush size:', this.brushSize);
-                } else if (e.key === ']') {
-                    e.preventDefault();
-                    this.brushSize = Math.min(512, this.brushSize + 8);
-                    console.log('[EditorManager] Brush size:', this.brushSize);
-                }
+            // Brush size controls for paint tool
+            else if (e.key === '[') {
+                e.preventDefault();
+                this.brushSize = Math.max(16, this.brushSize - 8);
+                console.log('[EditorManager] Brush size:', this.brushSize);
+            } else if (e.key === ']') {
+                e.preventDefault();
+                this.brushSize = Math.min(512, this.brushSize + 8);
+                console.log('[EditorManager] Brush size:', this.brushSize);
             }
         });
         
