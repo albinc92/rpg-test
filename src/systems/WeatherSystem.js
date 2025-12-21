@@ -237,21 +237,26 @@ class WeatherSystem {
     updateWeatherSounds() {
         if (!this.game.audioManager) return;
         
+        // Use target precipitation if transitioning, otherwise use current
+        // This ensures sound starts immediately when entering a map with weather
+        const effectivePrecip = this.isTransitioning ? this.targetPrecipitation : this.precipitation;
+        const effectiveWind = this.isTransitioning ? this.targetWind : this.wind;
+        
         // Determine which sound to play
         // Priority: Rain/Snow > Wind
         let weatherSound = 'none';
         
-        if (this.precipitation.startsWith('rain')) {
-            weatherSound = this.precipitation; // rain-light, rain-medium, rain-heavy
-        } else if (this.precipitation.startsWith('snow')) {
+        if (effectivePrecip.startsWith('rain')) {
+            weatherSound = effectivePrecip; // rain-light, rain-medium, rain-heavy
+        } else if (effectivePrecip.startsWith('snow')) {
             // Snow uses wind sounds (wind with snow visual)
-            if (this.wind !== 'none' && this.wind !== 'dynamic') {
-                weatherSound = `wind-${this.wind}`; // wind-light, wind-medium, wind-heavy
+            if (effectiveWind !== 'none' && effectiveWind !== 'dynamic') {
+                weatherSound = `wind-${effectiveWind}`; // wind-light, wind-medium, wind-heavy
             } else {
                 weatherSound = 'wind-light'; // Default gentle wind for snow
             }
-        } else if (this.wind !== 'none' && this.wind !== 'dynamic') {
-            weatherSound = `wind-${this.wind}`; // wind-light, wind-medium, wind-heavy
+        } else if (effectiveWind !== 'none' && effectiveWind !== 'dynamic') {
+            weatherSound = `wind-${effectiveWind}`; // wind-light, wind-medium, wind-heavy
         }
         
         this.game.audioManager.playWeatherSound(weatherSound);
