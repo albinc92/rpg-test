@@ -60,8 +60,14 @@ class WebGLRenderer {
         // Texture filtering mode ('smooth' = LINEAR, 'sharp' = NEAREST)
         this.currentFilterMode = 'smooth';
         
-        // Anti-aliasing mode ('none' or 'msaa')
+        // Anti-aliasing mode ('none', 'msaa', 'fxaa', or 'msaa+fxaa')
         this.currentAA = 'msaa';
+        
+        // FXAA framebuffer and shader (for edge smoothing)
+        this.fxaaFramebuffer = null;
+        this.fxaaTexture = null;
+        this.fxaaProgram = null;
+        this.fxaaEnabled = false;
         
         this.initialize();
     }
@@ -72,6 +78,7 @@ class WebGLRenderer {
     initializeWithSettings(settings = {}) {
         this.currentFilterMode = settings.textureFiltering || 'smooth';
         this.currentAA = settings.antiAliasing || 'msaa';
+        this.fxaaEnabled = this.currentAA === 'fxaa' || this.currentAA === 'msaa+fxaa';
     }
     
     initialize() {
@@ -114,6 +121,12 @@ class WebGLRenderer {
             this.createBuffers();
             this.createShadowFramebuffer();
             this.createSceneFramebuffer();
+            this.createFXAAFramebuffer();
+            
+            if (!this.createFXAAShader()) {
+                console.warn('Failed to create FXAA shader');
+            }
+            
             this.updateProjection(this.logicalWidth, this.logicalHeight);
             this.initialized = true;
             
@@ -206,6 +219,166 @@ class WebGLRenderer {
         
         // Unbind
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    }
+    
+    createFXAAFramebuffer() {
+        // Create framebuffer for FXAA pass (intermediate between post-process and screen)
+        if (this.fxaaFramebuffer) {
+            this.gl.deleteFramebuffer(this.fxaaFramebuffer);
+        }
+        if (this.fxaaTexture) {
+            this.gl.deleteTexture(this.fxaaTexture);
+        }
+
+        this.fxaaFramebuffer = this.gl.createFramebuffer();
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.fxaaFramebuffer);
+        
+        // Create texture for FXAA input
+        this.fxaaTexture = this.gl.createTexture();
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.fxaaTexture);
+        this.gl.texImage2D(
+            this.gl.TEXTURE_2D, 0, this.gl.RGBA,
+            this.logicalWidth, this.logicalHeight, 0,
+            this.gl.RGBA, this.gl.UNSIGNED_BYTE, null
+        );
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+        
+        // Attach texture to framebuffer
+        this.gl.framebufferTexture2D(
+            this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0,
+            this.gl.TEXTURE_2D, this.fxaaTexture, 0
+        );
+        
+        // Check framebuffer is complete
+        if (this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER) !== this.gl.FRAMEBUFFER_COMPLETE) {
+            console.error('FXAA framebuffer incomplete');
+        }
+        
+        // Unbind
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    }
+    
+    createFXAAShader() {
+        // FXAA 3.11 Quality - Fast Approximate Anti-Aliasing
+        // Based on NVIDIA's FXAA algorithm, simplified for WebGL
+        const vs = `
+            attribute vec2 a_position;
+            attribute vec2 a_texCoord;
+            varying vec2 v_texCoord;
+            void main() {
+                gl_Position = vec4(a_position, 0.0, 1.0);
+                v_texCoord = a_texCoord;
+            }
+        `;
+        
+        // FXAA fragment shader - smooths edges based on luminance contrast
+        const fs = `
+            precision mediump float;
+            
+            uniform sampler2D u_texture;
+            uniform vec2 u_resolution;
+            
+            varying vec2 v_texCoord;
+            
+            // FXAA quality settings
+            #define FXAA_REDUCE_MIN (1.0 / 128.0)
+            #define FXAA_REDUCE_MUL (1.0 / 8.0)
+            #define FXAA_SPAN_MAX 8.0
+            
+            float luminance(vec3 color) {
+                return dot(color, vec3(0.299, 0.587, 0.114));
+            }
+            
+            void main() {
+                vec2 texelSize = 1.0 / u_resolution;
+                
+                // Sample the 4 corners and center
+                vec3 rgbNW = texture2D(u_texture, v_texCoord + vec2(-1.0, -1.0) * texelSize).rgb;
+                vec3 rgbNE = texture2D(u_texture, v_texCoord + vec2( 1.0, -1.0) * texelSize).rgb;
+                vec3 rgbSW = texture2D(u_texture, v_texCoord + vec2(-1.0,  1.0) * texelSize).rgb;
+                vec3 rgbSE = texture2D(u_texture, v_texCoord + vec2( 1.0,  1.0) * texelSize).rgb;
+                vec4 rgbaM = texture2D(u_texture, v_texCoord);
+                vec3 rgbM = rgbaM.rgb;
+                
+                // Convert to luminance
+                float lumaNW = luminance(rgbNW);
+                float lumaNE = luminance(rgbNE);
+                float lumaSW = luminance(rgbSW);
+                float lumaSE = luminance(rgbSE);
+                float lumaM = luminance(rgbM);
+                
+                // Find the min and max luminance
+                float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));
+                float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));
+                
+                // Calculate the luminance range (contrast)
+                float lumaRange = lumaMax - lumaMin;
+                
+                // If contrast is too low, skip FXAA (early exit for flat areas)
+                if (lumaRange < max(0.0312, lumaMax * 0.125)) {
+                    gl_FragColor = rgbaM;
+                    return;
+                }
+                
+                // Calculate blur direction based on luminance gradient
+                vec2 dir;
+                dir.x = -((lumaNW + lumaNE) - (lumaSW + lumaSE));
+                dir.y =  ((lumaNW + lumaSW) - (lumaNE + lumaSE));
+                
+                // Normalize and limit the direction
+                float dirReduce = max((lumaNW + lumaNE + lumaSW + lumaSE) * (0.25 * FXAA_REDUCE_MUL), FXAA_REDUCE_MIN);
+                float rcpDirMin = 1.0 / (min(abs(dir.x), abs(dir.y)) + dirReduce);
+                dir = min(vec2(FXAA_SPAN_MAX), max(vec2(-FXAA_SPAN_MAX), dir * rcpDirMin)) * texelSize;
+                
+                // Sample along the blur direction
+                vec3 rgbA = 0.5 * (
+                    texture2D(u_texture, v_texCoord + dir * (1.0 / 3.0 - 0.5)).rgb +
+                    texture2D(u_texture, v_texCoord + dir * (2.0 / 3.0 - 0.5)).rgb
+                );
+                
+                vec3 rgbB = rgbA * 0.5 + 0.25 * (
+                    texture2D(u_texture, v_texCoord + dir * -0.5).rgb +
+                    texture2D(u_texture, v_texCoord + dir *  0.5).rgb
+                );
+                
+                float lumaB = luminance(rgbB);
+                
+                // Use rgbB if it's within the local contrast range, otherwise use rgbA
+                if (lumaB < lumaMin || lumaB > lumaMax) {
+                    gl_FragColor = vec4(rgbA, rgbaM.a);
+                } else {
+                    gl_FragColor = vec4(rgbB, rgbaM.a);
+                }
+            }
+        `;
+        
+        const vertexShader = this.compileShader(vs, this.gl.VERTEX_SHADER);
+        const fragmentShader = this.compileShader(fs, this.gl.FRAGMENT_SHADER);
+        
+        if (!vertexShader || !fragmentShader) return false;
+        
+        this.fxaaProgram = this.gl.createProgram();
+        this.gl.attachShader(this.fxaaProgram, vertexShader);
+        this.gl.attachShader(this.fxaaProgram, fragmentShader);
+        this.gl.linkProgram(this.fxaaProgram);
+        
+        if (!this.gl.getProgramParameter(this.fxaaProgram, this.gl.LINK_STATUS)) {
+            console.error('FXAA program link failed');
+            return false;
+        }
+        
+        this.fxaaProgram.locations = {
+            position: this.gl.getAttribLocation(this.fxaaProgram, 'a_position'),
+            texCoord: this.gl.getAttribLocation(this.fxaaProgram, 'a_texCoord'),
+            texture: this.gl.getUniformLocation(this.fxaaProgram, 'u_texture'),
+            resolution: this.gl.getUniformLocation(this.fxaaProgram, 'u_resolution')
+        };
+        
+        console.log('[WebGLRenderer] FXAA shader created successfully');
+        return true;
     }
 
     createSpriteShader() {
@@ -1266,8 +1439,31 @@ class WebGLRenderer {
 
         const p = this.dayNightParams;
         
-        // Switch to default framebuffer (screen)
-        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        // Full-screen quad vertices and texCoords (shared between passes)
+        const vertices = [
+            -1, -1,
+             1, -1,
+             1,  1,
+            -1,  1
+        ];
+        
+        const texCoords = [
+            0, 0,
+            1, 0,
+            1, 1,
+            0, 1
+        ];
+        
+        // Determine if FXAA is enabled
+        const useFXAA = this.fxaaEnabled && this.fxaaProgram && this.fxaaFramebuffer;
+        
+        // PASS 1: Post-process (day/night, effects)
+        // If FXAA is enabled, render to FXAA framebuffer; otherwise render to screen
+        if (useFXAA) {
+            this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.fxaaFramebuffer);
+        } else {
+            this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        }
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         
         this.gl.clearColor(0, 0, 0, 1);
@@ -1303,31 +1499,7 @@ class WebGLRenderer {
         this.gl.uniform1f(this.postProcessProgram.locations.bloomIntensity, p.bloomIntensity !== undefined ? p.bloomIntensity : 0.0);
         this.gl.uniform2f(this.postProcessProgram.locations.resolution, this.canvas.width, this.canvas.height);
         
-        // Draw full-screen quad
-        // We reuse the vertex buffer from sprite rendering, but we need to fill it with a quad
-        // Since we're not using the sprite batching system here, we'll just manually set up attributes
-        // or simpler: just use the batch system but with a special "draw immediate" mode?
-        // No, let's just push a quad to the batch buffers and draw it using a custom draw call
-        // Wait, the sprite shader attributes might be different from post-process shader attributes?
-        // Let's check:
-        // Sprite: a_position, a_texCoord
-        // PostProcess: a_position, a_texCoord
-        // They match! So we can use the same buffers.
-        
-        const vertices = [
-            -1, -1,
-             1, -1,
-             1,  1,
-            -1,  1
-        ];
-        
-        const texCoords = [
-            0, 0,
-            1, 0,
-            1, 1,
-            0, 1
-        ];
-        
+        // Set up vertex buffers for post-process quad
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(vertices), this.gl.STATIC_DRAW);
         this.gl.enableVertexAttribArray(this.postProcessProgram.locations.position);
@@ -1339,10 +1511,40 @@ class WebGLRenderer {
         this.gl.vertexAttribPointer(this.postProcessProgram.locations.texCoord, 2, this.gl.FLOAT, false, 0, 0);
         
         this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-        // We need to make sure index buffer has at least 6 indices (0,1,2, 0,2,3)
-        // The initialize() creates enough indices for maxBatchSize, so we are good.
-        
         this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        
+        // PASS 2: FXAA (if enabled)
+        if (useFXAA) {
+            // Render to screen
+            this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+            this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+            
+            this.gl.clearColor(0, 0, 0, 1);
+            this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+            
+            // Use FXAA shader
+            this.gl.useProgram(this.fxaaProgram);
+            
+            // Bind the post-processed texture (from fxaaFramebuffer)
+            this.gl.activeTexture(this.gl.TEXTURE0);
+            this.gl.bindTexture(this.gl.TEXTURE_2D, this.fxaaTexture);
+            this.gl.uniform1i(this.fxaaProgram.locations.texture, 0);
+            this.gl.uniform2f(this.fxaaProgram.locations.resolution, this.canvas.width, this.canvas.height);
+            
+            // Set up vertex buffers for FXAA quad
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(vertices), this.gl.STATIC_DRAW);
+            this.gl.enableVertexAttribArray(this.fxaaProgram.locations.position);
+            this.gl.vertexAttribPointer(this.fxaaProgram.locations.position, 2, this.gl.FLOAT, false, 0, 0);
+            
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.texCoordBuffer);
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(texCoords), this.gl.STATIC_DRAW);
+            this.gl.enableVertexAttribArray(this.fxaaProgram.locations.texCoord);
+            this.gl.vertexAttribPointer(this.fxaaProgram.locations.texCoord, 2, this.gl.FLOAT, false, 0, 0);
+            
+            this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+            this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        }
     }
     
     setDayNightParams(params) {
@@ -1877,6 +2079,7 @@ class WebGLRenderer {
         if (this.initialized) {
             this.createShadowFramebuffer();
             this.createSceneFramebuffer();
+            this.createFXAAFramebuffer();
         }
     }
 
@@ -2063,5 +2266,27 @@ class WebGLRenderer {
      */
     getTextureFiltering() {
         return this.currentFilterMode || 'smooth';
+    }
+    
+    /**
+     * Set anti-aliasing mode
+     * @param {string} mode - 'none', 'msaa', 'fxaa', or 'msaa+fxaa'
+     */
+    setAntiAliasing(mode) {
+        this.currentAA = mode;
+        this.fxaaEnabled = mode === 'fxaa' || mode === 'msaa+fxaa';
+        console.log(`[WebGLRenderer] Anti-Aliasing set to: ${mode} (FXAA: ${this.fxaaEnabled ? 'ON' : 'OFF'})`);
+        
+        // Note: MSAA requires context recreation (restart), but FXAA can be toggled immediately
+        if (mode === 'msaa' || mode === 'msaa+fxaa') {
+            console.log('[WebGLRenderer] Note: MSAA changes require game restart to take effect');
+        }
+    }
+    
+    /**
+     * Get current anti-aliasing mode
+     */
+    getAntiAliasing() {
+        return this.currentAA || 'msaa';
     }
 }

@@ -75,7 +75,9 @@
       "showFPS": "显示帧率",
       "aaOptions": {
         "none": "关闭",
-        "msaa": "MSAA"
+        "msaa": "MSAA",
+        "fxaa": "FXAA",
+        "msaafxaa": "MSAA+FXAA"
       },
       "filterOptions": {
         "smooth": "平滑",

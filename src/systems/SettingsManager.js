@@ -29,7 +29,7 @@ class SettingsManager {
             // Gameplay settings
             alwaysRun: false, // When true, player always runs (hold shift to walk)
             // Graphics quality settings
-            antiAliasing: 'msaa', // 'none' or 'msaa'
+            antiAliasing: 'fxaa', // 'none', 'msaa', 'fxaa', or 'msaa+fxaa'
             textureFiltering: 'smooth', // 'smooth' (bilinear) or 'sharp' (nearest)
             sharpenIntensity: 0, // 0-100 (0 = off)
             bloomIntensity: 0, // 0-100 (0 = off)

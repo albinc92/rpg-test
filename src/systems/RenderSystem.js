@@ -20,9 +20,19 @@ class RenderSystem {
                 console.log(`[RenderSystem] Initializing WebGL renderer...`);
                 this.webglRenderer = new WebGLRenderer(this.webglCanvas, 1920, 1080);
                 
-                // Apply graphics settings (AA was set at context creation, filtering can be set now)
-                if (this.webglRenderer.initialized && settings.textureFiltering) {
-                    this.webglRenderer.setTextureFiltering(settings.textureFiltering);
+                // Initialize with graphics settings (before context creation for AA)
+                if (this.webglRenderer.initialized) {
+                    this.webglRenderer.initializeWithSettings(settings);
+                    
+                    // Apply texture filtering
+                    if (settings.textureFiltering) {
+                        this.webglRenderer.setTextureFiltering(settings.textureFiltering);
+                    }
+                    
+                    // Apply anti-aliasing (FXAA can be toggled, MSAA is set at context creation)
+                    if (settings.antiAliasing) {
+                        this.webglRenderer.setAntiAliasing(settings.antiAliasing);
+                    }
                 }
                 
                 if (this.webglRenderer.initialized) {

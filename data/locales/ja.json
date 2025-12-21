@@ -75,7 +75,9 @@
       "showFPS": "FPS表示",
       "aaOptions": {
         "none": "オフ",
-        "msaa": "MSAA"
+        "msaa": "MSAA",
+        "fxaa": "FXAA",
+        "msaafxaa": "MSAA+FXAA"
       },
       "filterOptions": {
         "smooth": "スムーズ",

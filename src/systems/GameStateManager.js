@@ -1732,7 +1732,7 @@ class SettingsState extends GameState {
                 { nameKey: 'settings.graphics.resolution', type: 'select', key: 'resolution', values: this.resolutions },
                 { nameKey: 'settings.graphics.fullscreen', type: 'toggle', key: 'fullscreen' },
                 { nameKey: 'settings.graphics.vsync', type: 'toggle', key: 'vsync' },
-                { nameKey: 'settings.graphics.antiAliasing', type: 'select', key: 'antiAliasing', values: ['None', 'MSAA'], valueMap: { 'None': 'none', 'MSAA': 'msaa' }, valueKeys: { 'None': 'settings.graphics.aaOptions.none', 'MSAA': 'settings.graphics.aaOptions.msaa' } },
+                { nameKey: 'settings.graphics.antiAliasing', type: 'select', key: 'antiAliasing', values: ['None', 'MSAA', 'FXAA', 'MSAA+FXAA'], valueMap: { 'None': 'none', 'MSAA': 'msaa', 'FXAA': 'fxaa', 'MSAA+FXAA': 'msaa+fxaa' }, valueKeys: { 'None': 'settings.graphics.aaOptions.none', 'MSAA': 'settings.graphics.aaOptions.msaa', 'FXAA': 'settings.graphics.aaOptions.fxaa', 'MSAA+FXAA': 'settings.graphics.aaOptions.msaafxaa' } },
                 { nameKey: 'settings.graphics.textureFiltering', type: 'select', key: 'textureFiltering', values: ['Smooth', 'Sharp'], valueMap: { 'Smooth': 'smooth', 'Sharp': 'sharp' }, valueKeys: { 'Smooth': 'settings.graphics.filterOptions.smooth', 'Sharp': 'settings.graphics.filterOptions.sharp' } },
                 { nameKey: 'settings.graphics.sharpen', type: 'slider', key: 'sharpenIntensity', min: 0, max: 100, step: 10, suffix: '%' },
                 { nameKey: 'settings.graphics.bloom', type: 'slider', key: 'bloomIntensity', min: 0, max: 100, step: 10, suffix: '%' },
@@ -2514,12 +2514,20 @@ class SettingsState extends GameState {
     }
     
     applyAntiAliasingSetting() {
-        // Anti-aliasing requires WebGL context recreation - mark restart required
         const currentAA = this.game.settings.antiAliasing;
         console.log(`[SettingsState] Anti-Aliasing changed to: ${currentAA}`);
-        console.log('[SettingsState] Note: Anti-aliasing changes require game restart to take effect');
-        // Set a flag so we can show this message to user
-        this.restartRequired = true;
+        
+        // FXAA can be toggled immediately without restart
+        if (this.game.renderSystem?.webglRenderer) {
+            this.game.renderSystem.webglRenderer.setAntiAliasing(currentAA);
+        }
+        
+        // MSAA requires WebGL context recreation - mark restart required only for MSAA changes
+        const needsRestart = currentAA === 'msaa' || currentAA === 'msaa+fxaa';
+        if (needsRestart) {
+            console.log('[SettingsState] Note: MSAA changes require game restart to take effect');
+            this.restartRequired = true;
+        }
     }
     
     applyTextureFilteringSetting() {

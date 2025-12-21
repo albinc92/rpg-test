@@ -75,7 +75,9 @@
       "showFPS": "Afficher FPS",
       "aaOptions": {
         "none": "Aucun",
-        "msaa": "MSAA"
+        "msaa": "MSAA",
+        "fxaa": "FXAA",
+        "msaafxaa": "MSAA+FXAA"
       },
       "filterOptions": {
         "smooth": "Lisse",

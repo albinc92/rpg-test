@@ -75,7 +75,9 @@
       "showFPS": "FPS 표시",
       "aaOptions": {
         "none": "없음",
-        "msaa": "MSAA"
+        "msaa": "MSAA",
+        "fxaa": "FXAA",
+        "msaafxaa": "MSAA+FXAA"
       },
       "filterOptions": {
         "smooth": "부드럽게",

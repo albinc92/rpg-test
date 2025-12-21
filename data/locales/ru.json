@@ -73,7 +73,9 @@
       "showFPS": "Показать FPS",
       "aaOptions": {
         "none": "Выкл",
-        "msaa": "MSAA"
+        "msaa": "MSAA",
+        "fxaa": "FXAA",
+        "msaafxaa": "MSAA+FXAA"
       },
       "filterOptions": {
         "smooth": "Мягкий",
