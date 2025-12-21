@@ -2691,15 +2691,8 @@ class EditorManager {
             for (const mapId of Object.keys(mapsData)) {
                 const paintData = this.exportPaintLayerData(mapId);
                 if (paintData) {
-                    // Compress paint layer data for storage
-                    const compressed = CompressionUtils.compressPaintData(paintData);
-                    if (compressed) {
-                        const stats = CompressionUtils.getCompressionStats(paintData, compressed);
-                        console.log(`[EditorManager] Paint layer ${mapId} compressed: ${stats.compressionRatio} saved (${stats.savedBytes} bytes)`);
-                        mapsData[mapId].paintLayerData = compressed;
-                    } else {
-                        mapsData[mapId].paintLayerData = paintData;
-                    }
+                    // Store paint layer data directly (PNG is already compressed)
+                    mapsData[mapId].paintLayerData = paintData;
                 }
             }
             
@@ -4161,6 +4154,13 @@ class EditorManager {
         
         if (!hasContent) return null;
         
+        // Use WebP format for much smaller file size (50-80% smaller than PNG)
+        // Falls back to PNG if WebP not supported
+        const webpData = canvas.toDataURL('image/webp', 0.9);
+        if (webpData.startsWith('data:image/webp')) {
+            return webpData;
+        }
+        // Fallback to PNG
         return canvas.toDataURL('image/png');
     }
 

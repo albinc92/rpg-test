@@ -503,57 +503,61 @@ class CompressionUtils {
     }
 
     /**
-     * Migrate existing maps.json to use compressed paint data
+     * Migrate existing maps.json to use WebP format for smaller paint data
      * Run this from browser console: CompressionUtils.migrateMapData()
-     * This will download a new compressed maps.json file
+     * This will download a new maps.json file with WebP paint layers
      */
     static async migrateMapData() {
         try {
-            console.log('🔄 Starting map data migration...');
+            console.log('🔄 Starting map data migration (PNG → WebP)...');
             
             // Fetch current maps.json
             const response = await fetch('/data/maps.json');
             const mapsData = await response.json();
             
             let totalOriginalSize = 0;
-            let totalCompressedSize = 0;
+            let totalNewSize = 0;
             let mapsConverted = 0;
             
             const entries = Object.entries(mapsData);
-            const mapsWithPaintData = entries.filter(([k, v]) => v.paintLayerData && !v.paintLayerData.startsWith('lz:'));
+            const mapsWithPaintData = entries.filter(([k, v]) => v.paintLayerData && v.paintLayerData.startsWith('data:image/png'));
             
-            console.log(`   Found ${mapsWithPaintData.length} maps with uncompressed paint data`);
+            console.log(`   Found ${mapsWithPaintData.length} maps with PNG paint data to convert`);
             
-            // Process each map with async breaks to prevent freezing
+            // Process each map
             for (let i = 0; i < entries.length; i++) {
                 const [mapKey, mapData] = entries[i];
                 
                 if (mapData.paintLayerData) {
-                    // Skip if already compressed
-                    if (mapData.paintLayerData.startsWith('lz:')) {
-                        console.log(`  ⏭️ ${mapKey}: Already compressed`);
+                    // Skip if already WebP or compressed
+                    if (mapData.paintLayerData.startsWith('data:image/webp') || mapData.paintLayerData.startsWith('lz:')) {
+                        console.log(`  ⏭️ ${mapKey}: Already optimized`);
                         continue;
                     }
                     
                     const original = mapData.paintLayerData;
                     const sizeKB = (original.length / 1024).toFixed(1);
-                    console.log(`  ⏳ ${mapKey}: Compressing ${sizeKB}KB... (this may take a moment)`);
+                    console.log(`  ⏳ ${mapKey}: Converting ${sizeKB}KB PNG to WebP...`);
                     
-                    // Yield to UI to show the log message
+                    // Yield to UI
                     await new Promise(r => setTimeout(r, 10));
                     
-                    const startTime = performance.now();
-                    const compressed = CompressionUtils.compressPaintData(original);
-                    const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+                    // Convert PNG to WebP using canvas
+                    const webpData = await CompressionUtils.convertToWebP(original, 0.9);
                     
-                    totalOriginalSize += original.length;
-                    totalCompressedSize += compressed.length;
-                    
-                    mapData.paintLayerData = compressed;
-                    mapsConverted++;
-                    
-                    const stats = CompressionUtils.getCompressionStats(original, compressed);
-                    console.log(`  ✅ ${mapKey}: ${stats.compressionRatio} reduction (${(stats.originalSize/1024).toFixed(1)}KB → ${(stats.compressedSize/1024).toFixed(1)}KB) in ${elapsed}s`);
+                    if (webpData) {
+                        totalOriginalSize += original.length;
+                        totalNewSize += webpData.length;
+                        
+                        mapData.paintLayerData = webpData;
+                        mapsConverted++;
+                        
+                        const newSizeKB = (webpData.length / 1024).toFixed(1);
+                        const reduction = ((1 - webpData.length / original.length) * 100).toFixed(1);
+                        console.log(`  ✅ ${mapKey}: ${reduction}% smaller (${sizeKB}KB → ${newSizeKB}KB)`);
+                    } else {
+                        console.log(`  ⚠️ ${mapKey}: WebP conversion failed, keeping PNG`);
+                    }
                     
                     // Yield after each map
                     await new Promise(r => setTimeout(r, 10));
@@ -561,7 +565,7 @@ class CompressionUtils {
             }
             
             if (mapsConverted === 0) {
-                console.log('✨ All maps already compressed, nothing to migrate!');
+                console.log('✨ All maps already optimized, nothing to migrate!');
                 return;
             }
             
@@ -579,15 +583,15 @@ class CompressionUtils {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             
-            const totalSaved = totalOriginalSize - totalCompressedSize;
-            const totalRatio = ((1 - totalCompressedSize / totalOriginalSize) * 100).toFixed(1);
+            const totalSaved = totalOriginalSize - totalNewSize;
+            const totalRatio = ((1 - totalNewSize / totalOriginalSize) * 100).toFixed(1);
             
             console.log('');
             console.log('📊 Migration Complete!');
             console.log(`   Maps converted: ${mapsConverted}`);
-            console.log(`   Total original: ${(totalOriginalSize/1024).toFixed(1)} KB`);
-            console.log(`   Total compressed: ${(totalCompressedSize/1024).toFixed(1)} KB`);
-            console.log(`   Space saved: ${(totalSaved/1024).toFixed(1)} KB (${totalRatio}%)`);
+            console.log(`   Total original: ${(totalOriginalSize/1024/1024).toFixed(2)} MB`);
+            console.log(`   Total new: ${(totalNewSize/1024/1024).toFixed(2)} MB`);
+            console.log(`   Space saved: ${(totalSaved/1024/1024).toFixed(2)} MB (${totalRatio}%)`);
             console.log('');
             console.log('📁 A new maps.json file has been downloaded.');
             console.log('   Replace your data/maps.json with the downloaded file.');
@@ -595,6 +599,34 @@ class CompressionUtils {
         } catch (error) {
             console.error('❌ Migration failed:', error);
         }
+    }
+    
+    /**
+     * Convert a data URL image to WebP format
+     * @param {string} dataURL - The original image data URL
+     * @param {number} quality - WebP quality (0-1)
+     * @returns {Promise<string|null>} WebP data URL or null if failed
+     */
+    static convertToWebP(dataURL, quality = 0.9) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                
+                const webpData = canvas.toDataURL('image/webp', quality);
+                if (webpData.startsWith('data:image/webp')) {
+                    resolve(webpData);
+                } else {
+                    resolve(null); // WebP not supported
+                }
+            };
+            img.onerror = () => resolve(null);
+            img.src = dataURL;
+        });
     }
 }
 
