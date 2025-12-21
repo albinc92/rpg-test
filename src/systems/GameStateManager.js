@@ -3329,6 +3329,9 @@ class DialogueState extends GameState {
         this.isTyping = true;
         this.lastCharTime = Date.now();
         this.isShowingChoices = false;
+        
+        // Play speech bubble pop sound
+        this.game.audioManager?.playEffect('speech-bubble.mp3');
     }
     
     /**
@@ -3339,6 +3342,9 @@ class DialogueState extends GameState {
         this.selectedChoice = 0;
         this.isShowingChoices = true;
         this.isTyping = false;
+        
+        // Play sound when choices appear
+        this.game.audioManager?.playEffect('speech-bubble.mp3');
     }
     
     update(deltaTime) {
@@ -3411,6 +3417,7 @@ class DialogueState extends GameState {
             if (this.isShowingChoices) {
                 // Select choice
                 if (this.choiceResolver) {
+                    this.game.audioManager?.playEffect('speech-bubble.mp3');
                     this.choiceResolver(this.selectedChoice);
                     this.choiceResolver = null;
                     this.isShowingChoices = false;
@@ -3467,106 +3474,170 @@ class DialogueState extends GameState {
         const canvasWidth = ctx.canvas.width;
         const canvasHeight = ctx.canvas.height;
         
-        // Semi-transparent overlay (lighter than pause menu)
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        // Light overlay to focus on dialogue
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
-        // Dialogue box dimensions
-        const boxWidth = canvasWidth * 0.85;
-        const boxHeight = 180;
-        const boxX = (canvasWidth - boxWidth) / 2;
-        const boxY = canvasHeight - boxHeight - 40;
-        const cornerRadius = 12;
+        // Get NPC screen position for chat bubble
+        let bubbleX = canvasWidth / 2;
+        let bubbleY = canvasHeight / 3;
         
-        // Draw dialogue box background
-        ctx.fillStyle = 'rgba(20, 20, 30, 0.95)';
-        this.roundRect(ctx, boxX, boxY, boxWidth, boxHeight, cornerRadius);
+        if (this.npc && this.game.camera) {
+            const camera = this.game.camera;
+            const scale = camera.scale || 1;
+            bubbleX = (this.npc.x - camera.x) * scale + canvasWidth / 2;
+            bubbleY = (this.npc.y - camera.y) * scale + canvasHeight / 2;
+            
+            // Position bubble above NPC sprite
+            const spriteHeight = (this.npc.collision?.height || 64) * scale;
+            bubbleY -= spriteHeight + 20;
+        }
+        
+        // Calculate bubble size based on content
+        const padding = 20;
+        const maxBubbleWidth = Math.min(400, canvasWidth * 0.7);
+        const minBubbleWidth = 150;
+        
+        // Measure text to determine bubble size
+        ctx.font = '15px Arial';
+        const displayText = this.getDisplayedText();
+        const plainText = displayText.replace(/<[^>]*>/g, '');
+        
+        // Word wrap to calculate height
+        const words = plainText.split(' ');
+        let lines = [];
+        let currentLine = '';
+        const lineHeight = 22;
+        
+        for (const word of words) {
+            const testLine = currentLine ? currentLine + ' ' + word : word;
+            const metrics = ctx.measureText(testLine);
+            if (metrics.width > maxBubbleWidth - padding * 2 && currentLine) {
+                lines.push(currentLine);
+                currentLine = word;
+            } else {
+                currentLine = testLine;
+            }
+        }
+        if (currentLine) lines.push(currentLine);
+        if (lines.length === 0) lines.push('');
+        
+        // Add lines for choices
+        let choiceLines = 0;
+        if (this.isShowingChoices && this.choices.length > 0) {
+            choiceLines = this.choices.length + 1; // +1 for spacing
+        }
+        
+        const textHeight = (lines.length + choiceLines) * lineHeight;
+        const bubbleWidth = Math.max(minBubbleWidth, Math.min(maxBubbleWidth, ctx.measureText(lines[0] || '').width + padding * 2 + 40));
+        const bubbleHeight = Math.max(60, textHeight + padding * 2 + 30); // +30 for name
+        
+        // Clamp bubble position to screen
+        bubbleX = Math.max(bubbleWidth / 2 + 10, Math.min(canvasWidth - bubbleWidth / 2 - 10, bubbleX));
+        bubbleY = Math.max(bubbleHeight + 30, Math.min(canvasHeight - 60, bubbleY));
+        
+        const boxX = bubbleX - bubbleWidth / 2;
+        const boxY = bubbleY - bubbleHeight;
+        const cornerRadius = 16;
+        
+        // Draw chat bubble shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        this.roundRect(ctx, boxX + 4, boxY + 4, bubbleWidth, bubbleHeight, cornerRadius);
+        ctx.fill();
+        
+        // Draw chat bubble background
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.97)';
+        this.roundRect(ctx, boxX, boxY, bubbleWidth, bubbleHeight, cornerRadius);
         ctx.fill();
         
         // Border
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
         ctx.lineWidth = 2;
-        this.roundRect(ctx, boxX, boxY, boxWidth, boxHeight, cornerRadius);
+        this.roundRect(ctx, boxX, boxY, bubbleWidth, bubbleHeight, cornerRadius);
+        ctx.stroke();
+        
+        // Chat bubble pointer (triangle pointing down to NPC)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.97)';
+        ctx.beginPath();
+        ctx.moveTo(bubbleX - 12, boxY + bubbleHeight - 1);
+        ctx.lineTo(bubbleX + 12, boxY + bubbleHeight - 1);
+        ctx.lineTo(bubbleX, boxY + bubbleHeight + 18);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Pointer border
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+        ctx.beginPath();
+        ctx.moveTo(bubbleX - 12, boxY + bubbleHeight);
+        ctx.lineTo(bubbleX, boxY + bubbleHeight + 18);
+        ctx.lineTo(bubbleX + 12, boxY + bubbleHeight);
         ctx.stroke();
         
         // NPC name (if available)
+        let textStartY = boxY + padding;
         if (this.npc?.name) {
-            const nameBoxWidth = Math.min(200, ctx.measureText(this.npc.name).width + 40);
-            const nameBoxHeight = 32;
-            const nameBoxX = boxX + 20;
-            const nameBoxY = boxY - nameBoxHeight + 5;
-            
-            // Name background
-            ctx.fillStyle = 'rgba(50, 50, 80, 0.95)';
-            this.roundRect(ctx, nameBoxX, nameBoxY, nameBoxWidth, nameBoxHeight, 8);
-            ctx.fill();
-            
-            ctx.strokeStyle = 'rgba(100, 100, 200, 0.5)';
-            this.roundRect(ctx, nameBoxX, nameBoxY, nameBoxWidth, nameBoxHeight, 8);
-            ctx.stroke();
-            
-            // Name text
-            ctx.fillStyle = '#88ccff';
-            ctx.font = 'bold 16px Arial';
+            ctx.fillStyle = '#4a7dbd';
+            ctx.font = 'bold 14px Arial';
             ctx.textAlign = 'left';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(this.npc.name, nameBoxX + 15, nameBoxY + nameBoxHeight / 2);
+            ctx.textBaseline = 'top';
+            ctx.fillText(this.npc.name, boxX + padding, textStartY);
+            textStartY += 24;
         }
         
         // Message text with HTML rendering
-        const textX = boxX + 25;
-        const textY = boxY + 30;
-        const maxWidth = boxWidth - 50;
+        const textX = boxX + padding;
+        const maxWidth = bubbleWidth - padding * 2;
         
-        this.renderHtmlText(ctx, this.getDisplayedText(), textX, textY, maxWidth);
+        this.renderHtmlText(ctx, displayText, textX, textStartY, maxWidth, '#333333');
         
         // Choices (if showing)
         if (this.isShowingChoices && this.choices.length > 0) {
-            const choiceStartY = boxY + 80;
-            const choiceHeight = 28;
+            const choiceStartY = textStartY + lines.length * lineHeight + 10;
+            const choiceHeight = 26;
             
             this.choices.forEach((choice, index) => {
                 const isSelected = index === this.selectedChoice;
                 const choiceY = choiceStartY + index * choiceHeight;
                 
                 if (isSelected) {
-                    ctx.fillStyle = 'rgba(100, 150, 255, 0.3)';
-                    ctx.fillRect(textX - 10, choiceY - 5, maxWidth + 20, choiceHeight);
+                    ctx.fillStyle = 'rgba(74, 125, 189, 0.2)';
+                    this.roundRect(ctx, textX - 5, choiceY - 3, maxWidth + 10, choiceHeight, 6);
+                    ctx.fill();
                 }
                 
-                ctx.fillStyle = isSelected ? '#ffffff' : '#aaaaaa';
-                ctx.font = isSelected ? 'bold 16px Arial' : '16px Arial';
+                ctx.fillStyle = isSelected ? '#2a5d9d' : '#666666';
+                ctx.font = isSelected ? 'bold 14px Arial' : '14px Arial';
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'top';
-                ctx.fillText((isSelected ? '▶ ' : '   ') + choice, textX, choiceY);
+                ctx.fillText((isSelected ? '▸ ' : '   ') + choice, textX, choiceY);
             });
         }
         
-        // Continue prompt (blinking)
+        // Continue prompt (blinking) - inside bubble
         if (!this.isTyping && !this.isShowingChoices) {
             const blink = Math.floor(Date.now() / 500) % 2 === 0;
             if (blink) {
-                ctx.fillStyle = '#ffffff';
-                ctx.font = '14px Arial';
+                ctx.fillStyle = '#999999';
+                ctx.font = '12px Arial';
                 ctx.textAlign = 'right';
                 ctx.textBaseline = 'bottom';
-                ctx.fillText('▼ Continue', boxX + boxWidth - 20, boxY + boxHeight - 15);
+                ctx.fillText('▼', boxX + bubbleWidth - padding, boxY + bubbleHeight - 10);
             }
         }
         
-        // Controls hint
-        const hintText = this.game.inputManager?.isMobile ? 'A: Continue | B: Close' : 'Enter/Space: Continue | ESC: Close';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.font = '12px Arial';
+        // Controls hint at bottom of screen
+        const hintText = this.game.inputManager?.isMobile ? 'Tap to continue' : 'Enter: Continue | ESC: Close';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.font = '11px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(hintText, canvasWidth / 2, canvasHeight - 15);
+        ctx.fillText(hintText, canvasWidth / 2, canvasHeight - 12);
     }
     
     /**
      * Render text with simple HTML tag support
      * Supports: <b>, <i>, <color=#hex>
      */
-    renderHtmlText(ctx, html, x, y, maxWidth) {
+    renderHtmlText(ctx, html, x, y, maxWidth, defaultColor = '#ffffff') {
         if (!html) return;
         
         ctx.textAlign = 'left';
@@ -3577,9 +3648,9 @@ class DialogueState extends GameState {
         let currentY = y;
         let isBold = false;
         let isItalic = false;
-        let currentColor = '#ffffff';
-        const lineHeight = 24;
-        const fontSize = 18;
+        let currentColor = defaultColor;
+        const lineHeight = 22;
+        const fontSize = 15;
         
         // Split into tokens (text and tags)
         const tokens = html.split(/(<[^>]+>)/g).filter(t => t);
@@ -3596,7 +3667,7 @@ class DialogueState extends GameState {
                     const match = tag.match(/<color=([^>]+)>/);
                     if (match) currentColor = match[1];
                 } else if (tag === '</color>') {
-                    currentColor = '#ffffff';
+                    currentColor = defaultColor;
                 }
             } else {
                 // Render text

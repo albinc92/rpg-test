@@ -92,48 +92,48 @@ class NPC extends Actor {
     renderTalkBubble(ctx, screenX, screenY, spriteHeight) {
         if (!this.showTalkBubble || !this.hasDialogue()) return;
         
-        // Position above sprite
+        // Position closer to sprite (reduced gap from 25 to 8)
         const bubbleX = screenX;
-        const bubbleY = screenY - spriteHeight - 25;
+        const bubbleY = screenY - spriteHeight - 8;
         
         // Bobbing animation
-        const bobOffset = Math.sin(this.talkBubbleAnimation) * 3;
+        const bobOffset = Math.sin(this.talkBubbleAnimation) * 4;
         const finalY = bubbleY + bobOffset;
         
         // Draw speech bubble icon
         ctx.save();
         
-        // Bubble background
+        // Bubble background - larger size
         ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
         ctx.lineWidth = 2;
         
-        // Main bubble
+        // Main bubble - bigger (was 14x10, now 22x16)
         ctx.beginPath();
-        ctx.ellipse(bubbleX, finalY, 14, 10, 0, 0, Math.PI * 2);
+        ctx.ellipse(bubbleX, finalY, 22, 16, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
         
-        // Small triangle pointer
+        // Triangle pointer - adjusted for larger bubble
         ctx.beginPath();
-        ctx.moveTo(bubbleX - 3, finalY + 8);
-        ctx.lineTo(bubbleX + 3, finalY + 8);
-        ctx.lineTo(bubbleX, finalY + 14);
+        ctx.moveTo(bubbleX - 5, finalY + 14);
+        ctx.lineTo(bubbleX + 5, finalY + 14);
+        ctx.lineTo(bubbleX, finalY + 22);
         ctx.closePath();
         ctx.fill();
         
-        // Three dots inside bubble
-        ctx.fillStyle = '#666666';
+        // Three dots inside bubble - larger and better spaced
+        ctx.fillStyle = '#555555';
         const dotY = finalY;
-        const dotSpacing = 6;
+        const dotSpacing = 9;
         
         // Animate dots
         const dotPhase = (this.talkBubbleAnimation * 2) % 3;
         for (let i = 0; i < 3; i++) {
             const dotX = bubbleX + (i - 1) * dotSpacing;
-            const dotScale = (Math.floor(dotPhase) === i) ? 1.5 : 1;
+            const dotScale = (Math.floor(dotPhase) === i) ? 1.6 : 1;
             ctx.beginPath();
-            ctx.arc(dotX, dotY, 2 * dotScale, 0, Math.PI * 2);
+            ctx.arc(dotX, dotY, 3 * dotScale, 0, Math.PI * 2);
             ctx.fill();
         }
         
