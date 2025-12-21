@@ -3406,10 +3406,7 @@ class DialogueState extends GameState {
     
     handleInput(inputManager) {
         // Confirm/advance (Enter, Space, E, or gamepad A)
-        if (inputManager.isKeyJustPressed('Enter') || 
-            inputManager.isKeyJustPressed('Space') ||
-            inputManager.isKeyJustPressed('KeyE') ||
-            inputManager.isButtonJustPressed(0)) {
+        if (inputManager.isJustPressed('confirm') || inputManager.isJustPressed('interact')) {
             
             if (this.isShowingChoices) {
                 // Select choice
@@ -3443,7 +3440,7 @@ class DialogueState extends GameState {
         }
         
         // Cancel/Close (Escape, B button)
-        if (inputManager.isKeyJustPressed('Escape') || inputManager.isButtonJustPressed(1)) {
+        if (inputManager.isJustPressed('cancel')) {
             if (!this.isRunningScript || !this.isShowingChoices) {
                 if (this.scriptEngine) {
                     this.scriptEngine.stop();
@@ -3455,11 +3452,11 @@ class DialogueState extends GameState {
         
         // Choice navigation
         if (this.isShowingChoices) {
-            if (inputManager.isKeyJustPressed('ArrowUp') || inputManager.isKeyJustPressed('KeyW')) {
+            if (inputManager.isJustPressed('up')) {
                 this.selectedChoice = Math.max(0, this.selectedChoice - 1);
                 this.game.audioManager?.playEffect('menu-move.mp3');
             }
-            if (inputManager.isKeyJustPressed('ArrowDown') || inputManager.isKeyJustPressed('KeyS')) {
+            if (inputManager.isJustPressed('down')) {
                 this.selectedChoice = Math.min(this.choices.length - 1, this.selectedChoice + 1);
                 this.game.audioManager?.playEffect('menu-move.mp3');
             }
