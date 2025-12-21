@@ -3232,7 +3232,419 @@ class InventoryState extends GameState {
         ctx.fillText(line, x, currentY);
     }
 }
-class DialogueState extends GameState {}
+
+/**
+ * Dialogue State - Handles NPC conversations with script support
+ * Supports HTML-styled text, choices, and script commands
+ */
+class DialogueState extends GameState {
+    enter(data = {}) {
+        this.npc = data.npc || null;
+        this.message = data.message || null;
+        
+        // Current message being displayed
+        this.currentMessage = '';
+        this.displayedChars = 0;
+        this.charRevealSpeed = 30; // chars per second
+        this.lastCharTime = 0;
+        this.isTyping = true;
+        
+        // Choice handling
+        this.choices = [];
+        this.selectedChoice = 0;
+        this.isShowingChoices = false;
+        this.choiceResolver = null;
+        
+        // Message resolver (for script engine)
+        this.messageResolver = null;
+        
+        // Script execution
+        this.scriptEngine = null;
+        this.isRunningScript = false;
+        
+        // Start script if NPC has one
+        if (this.npc?.script) {
+            this.startScript(this.npc.script);
+        } else if (this.npc?.messages?.length > 0) {
+            // Fall back to simple messages if no script
+            this.showMessage(this.npc.messages[this.npc.currentMessageIndex] || this.npc.messages[0]);
+        } else if (this.message) {
+            this.showMessage(this.message);
+        }
+    }
+    
+    exit() {
+        // Stop any running script
+        if (this.scriptEngine) {
+            this.scriptEngine.stop();
+        }
+        
+        // Reset NPC dialogue state
+        if (this.npc) {
+            this.npc.resetDialogue?.();
+        }
+    }
+    
+    /**
+     * Start executing an NPC script
+     */
+    async startScript(scriptText) {
+        this.isRunningScript = true;
+        
+        // Create script engine if needed
+        if (!this.scriptEngine) {
+            this.scriptEngine = new ScriptEngine(this.game);
+        }
+        
+        // Set up callbacks
+        this.scriptEngine.onMessage = (text, npc) => {
+            return new Promise((resolve) => {
+                this.messageResolver = resolve;
+                this.showMessage(text);
+            });
+        };
+        
+        this.scriptEngine.onChoice = (choices, npc) => {
+            return new Promise((resolve) => {
+                this.choiceResolver = resolve;
+                this.showChoices(choices);
+            });
+        };
+        
+        this.scriptEngine.onComplete = () => {
+            this.isRunningScript = false;
+            this.stateManager.popState();
+        };
+        
+        // Run the script
+        await this.scriptEngine.run(scriptText, this.npc);
+    }
+    
+    /**
+     * Show a message in the dialogue box
+     */
+    showMessage(text) {
+        this.currentMessage = text;
+        this.displayedChars = 0;
+        this.isTyping = true;
+        this.lastCharTime = Date.now();
+        this.isShowingChoices = false;
+    }
+    
+    /**
+     * Show choices to the player
+     */
+    showChoices(choices) {
+        this.choices = choices;
+        this.selectedChoice = 0;
+        this.isShowingChoices = true;
+        this.isTyping = false;
+    }
+    
+    update(deltaTime) {
+        // Typewriter effect
+        if (this.isTyping && this.displayedChars < this.getPlainTextLength(this.currentMessage)) {
+            const now = Date.now();
+            const elapsed = now - this.lastCharTime;
+            const charsToAdd = Math.floor(elapsed / (1000 / this.charRevealSpeed));
+            
+            if (charsToAdd > 0) {
+                this.displayedChars = Math.min(
+                    this.displayedChars + charsToAdd,
+                    this.getPlainTextLength(this.currentMessage)
+                );
+                this.lastCharTime = now;
+            }
+            
+            // Check if done typing
+            if (this.displayedChars >= this.getPlainTextLength(this.currentMessage)) {
+                this.isTyping = false;
+            }
+        }
+    }
+    
+    /**
+     * Get plain text length (excluding HTML tags)
+     */
+    getPlainTextLength(html) {
+        if (!html) return 0;
+        return html.replace(/<[^>]*>/g, '').length;
+    }
+    
+    /**
+     * Get partially revealed text with HTML support
+     */
+    getDisplayedText() {
+        if (!this.currentMessage) return '';
+        
+        const fullText = this.currentMessage;
+        let visibleChars = 0;
+        let result = '';
+        let inTag = false;
+        
+        for (let i = 0; i < fullText.length; i++) {
+            const char = fullText[i];
+            
+            if (char === '<') {
+                inTag = true;
+                result += char;
+            } else if (char === '>') {
+                inTag = false;
+                result += char;
+            } else if (inTag) {
+                result += char;
+            } else {
+                if (visibleChars < this.displayedChars) {
+                    result += char;
+                    visibleChars++;
+                }
+            }
+        }
+        
+        return result;
+    }
+    
+    handleInput(inputManager) {
+        // Confirm/advance (Enter, Space, E, or gamepad A)
+        if (inputManager.isKeyJustPressed('Enter') || 
+            inputManager.isKeyJustPressed('Space') ||
+            inputManager.isKeyJustPressed('KeyE') ||
+            inputManager.isButtonJustPressed(0)) {
+            
+            if (this.isShowingChoices) {
+                // Select choice
+                if (this.choiceResolver) {
+                    this.choiceResolver(this.selectedChoice);
+                    this.choiceResolver = null;
+                    this.isShowingChoices = false;
+                }
+            } else if (this.isTyping) {
+                // Skip to end of message
+                this.displayedChars = this.getPlainTextLength(this.currentMessage);
+                this.isTyping = false;
+            } else if (this.messageResolver) {
+                // Continue to next script command
+                this.messageResolver();
+                this.messageResolver = null;
+            } else if (!this.isRunningScript) {
+                // No script, advance simple dialogue
+                if (this.npc && this.npc.nextMessage) {
+                    const nextMsg = this.npc.nextMessage();
+                    if (nextMsg) {
+                        this.showMessage(nextMsg);
+                    } else {
+                        this.stateManager.popState();
+                    }
+                } else {
+                    this.stateManager.popState();
+                }
+            }
+            return;
+        }
+        
+        // Cancel/Close (Escape, B button)
+        if (inputManager.isKeyJustPressed('Escape') || inputManager.isButtonJustPressed(1)) {
+            if (!this.isRunningScript || !this.isShowingChoices) {
+                if (this.scriptEngine) {
+                    this.scriptEngine.stop();
+                }
+                this.stateManager.popState();
+            }
+            return;
+        }
+        
+        // Choice navigation
+        if (this.isShowingChoices) {
+            if (inputManager.isKeyJustPressed('ArrowUp') || inputManager.isKeyJustPressed('KeyW')) {
+                this.selectedChoice = Math.max(0, this.selectedChoice - 1);
+                this.game.audioManager?.playEffect('menu-move.mp3');
+            }
+            if (inputManager.isKeyJustPressed('ArrowDown') || inputManager.isKeyJustPressed('KeyS')) {
+                this.selectedChoice = Math.min(this.choices.length - 1, this.selectedChoice + 1);
+                this.game.audioManager?.playEffect('menu-move.mp3');
+            }
+        }
+    }
+    
+    render(ctx) {
+        const canvasWidth = ctx.canvas.width;
+        const canvasHeight = ctx.canvas.height;
+        
+        // Semi-transparent overlay (lighter than pause menu)
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        // Dialogue box dimensions
+        const boxWidth = canvasWidth * 0.85;
+        const boxHeight = 180;
+        const boxX = (canvasWidth - boxWidth) / 2;
+        const boxY = canvasHeight - boxHeight - 40;
+        const cornerRadius = 12;
+        
+        // Draw dialogue box background
+        ctx.fillStyle = 'rgba(20, 20, 30, 0.95)';
+        this.roundRect(ctx, boxX, boxY, boxWidth, boxHeight, cornerRadius);
+        ctx.fill();
+        
+        // Border
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 2;
+        this.roundRect(ctx, boxX, boxY, boxWidth, boxHeight, cornerRadius);
+        ctx.stroke();
+        
+        // NPC name (if available)
+        if (this.npc?.name) {
+            const nameBoxWidth = Math.min(200, ctx.measureText(this.npc.name).width + 40);
+            const nameBoxHeight = 32;
+            const nameBoxX = boxX + 20;
+            const nameBoxY = boxY - nameBoxHeight + 5;
+            
+            // Name background
+            ctx.fillStyle = 'rgba(50, 50, 80, 0.95)';
+            this.roundRect(ctx, nameBoxX, nameBoxY, nameBoxWidth, nameBoxHeight, 8);
+            ctx.fill();
+            
+            ctx.strokeStyle = 'rgba(100, 100, 200, 0.5)';
+            this.roundRect(ctx, nameBoxX, nameBoxY, nameBoxWidth, nameBoxHeight, 8);
+            ctx.stroke();
+            
+            // Name text
+            ctx.fillStyle = '#88ccff';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(this.npc.name, nameBoxX + 15, nameBoxY + nameBoxHeight / 2);
+        }
+        
+        // Message text with HTML rendering
+        const textX = boxX + 25;
+        const textY = boxY + 30;
+        const maxWidth = boxWidth - 50;
+        
+        this.renderHtmlText(ctx, this.getDisplayedText(), textX, textY, maxWidth);
+        
+        // Choices (if showing)
+        if (this.isShowingChoices && this.choices.length > 0) {
+            const choiceStartY = boxY + 80;
+            const choiceHeight = 28;
+            
+            this.choices.forEach((choice, index) => {
+                const isSelected = index === this.selectedChoice;
+                const choiceY = choiceStartY + index * choiceHeight;
+                
+                if (isSelected) {
+                    ctx.fillStyle = 'rgba(100, 150, 255, 0.3)';
+                    ctx.fillRect(textX - 10, choiceY - 5, maxWidth + 20, choiceHeight);
+                }
+                
+                ctx.fillStyle = isSelected ? '#ffffff' : '#aaaaaa';
+                ctx.font = isSelected ? 'bold 16px Arial' : '16px Arial';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                ctx.fillText((isSelected ? '▶ ' : '   ') + choice, textX, choiceY);
+            });
+        }
+        
+        // Continue prompt (blinking)
+        if (!this.isTyping && !this.isShowingChoices) {
+            const blink = Math.floor(Date.now() / 500) % 2 === 0;
+            if (blink) {
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText('▼ Continue', boxX + boxWidth - 20, boxY + boxHeight - 15);
+            }
+        }
+        
+        // Controls hint
+        const hintText = this.game.inputManager?.isMobile ? 'A: Continue | B: Close' : 'Enter/Space: Continue | ESC: Close';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(hintText, canvasWidth / 2, canvasHeight - 15);
+    }
+    
+    /**
+     * Render text with simple HTML tag support
+     * Supports: <b>, <i>, <color=#hex>
+     */
+    renderHtmlText(ctx, html, x, y, maxWidth) {
+        if (!html) return;
+        
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        
+        // Parse and render with style tags
+        let currentX = x;
+        let currentY = y;
+        let isBold = false;
+        let isItalic = false;
+        let currentColor = '#ffffff';
+        const lineHeight = 24;
+        const fontSize = 18;
+        
+        // Split into tokens (text and tags)
+        const tokens = html.split(/(<[^>]+>)/g).filter(t => t);
+        
+        for (const token of tokens) {
+            if (token.startsWith('<')) {
+                // Handle tag
+                const tag = token.toLowerCase();
+                if (tag === '<b>') isBold = true;
+                else if (tag === '</b>') isBold = false;
+                else if (tag === '<i>') isItalic = true;
+                else if (tag === '</i>') isItalic = false;
+                else if (tag.startsWith('<color=')) {
+                    const match = tag.match(/<color=([^>]+)>/);
+                    if (match) currentColor = match[1];
+                } else if (tag === '</color>') {
+                    currentColor = '#ffffff';
+                }
+            } else {
+                // Render text
+                let fontStyle = '';
+                if (isBold) fontStyle += 'bold ';
+                if (isItalic) fontStyle += 'italic ';
+                ctx.font = `${fontStyle}${fontSize}px Arial`;
+                ctx.fillStyle = currentColor;
+                
+                // Word wrap
+                const words = token.split(' ');
+                for (let i = 0; i < words.length; i++) {
+                    const word = words[i] + (i < words.length - 1 ? ' ' : '');
+                    const wordWidth = ctx.measureText(word).width;
+                    
+                    if (currentX + wordWidth > x + maxWidth && currentX > x) {
+                        currentX = x;
+                        currentY += lineHeight;
+                    }
+                    
+                    ctx.fillText(word, currentX, currentY);
+                    currentX += wordWidth;
+                }
+            }
+        }
+    }
+    
+    /**
+     * Draw rounded rectangle
+     */
+    roundRect(ctx, x, y, width, height, radius) {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+    }
+}
+
 class ShopState extends GameState {}
 class LootWindowState extends GameState {}
 class BattleState extends GameState {}

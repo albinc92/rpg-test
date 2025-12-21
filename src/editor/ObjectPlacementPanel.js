@@ -442,12 +442,10 @@ class ObjectPlacementPanel {
                 return {
                     category: 'Actor',
                     actorType: 'npc',
-                    spriteSrc: '/assets/npc/main-0.png',
-                    name: template.name,
-                    npcType: template.npcType,
-                    dialogue: 'Hello!',
-                    scale: 0.15,
-                    castsShadow: true // Enable shadows for NPCs
+                    ...template,  // Include ALL template properties (spriteSrc, scale, script, collision, etc.)
+                    id: undefined,  // Force UUID generation - don't use template name as ID
+                    templateId: template.name,
+                    castsShadow: template.castsShadow !== false // Enable shadows by default
                 };
                 
             case 'chests':

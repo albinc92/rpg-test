@@ -85,6 +85,9 @@ class GameEngine {
         this.inputManager = new InputManager();
         this.stateManager = new GameStateManager(this);
         
+        // Global game variables for quest/state tracking
+        this.gameVariables = new GameVariables();
+        
         // Game systems (now accept dataLoader)
         this.mapManager = new MapManager(this.dataLoader);
         this.objectManager = new ObjectManager(this.dataLoader); // NEW: Unified object manager

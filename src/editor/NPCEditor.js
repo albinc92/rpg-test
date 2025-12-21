@@ -189,6 +189,55 @@ class NPCEditor {
         collisionRow.appendChild(this.createField('Height', 'number', 'collisionHeight', template?.collision?.height || 32, null, 1));
         form.appendChild(collisionRow);
 
+        // Script Section
+        const scriptTitle = document.createElement('div');
+        scriptTitle.textContent = 'NPC Script (Dialogue)';
+        scriptTitle.style.cssText = EditorStyles.getSectionTitleStyle(this.game);
+        form.appendChild(scriptTitle);
+        
+        // Script help text
+        const scriptHelp = document.createElement('div');
+        scriptHelp.style.cssText = 'font-size: 11px; color: #95a5a6; margin-bottom: 8px; line-height: 1.4;';
+        scriptHelp.innerHTML = `
+            <b>Commands:</b> message "text"; | additem "id", qty; | delitem "id", qty; | setvar "name", value;<br>
+            <b>Conditions:</b> if (hasitem("id", qty)) { } else { } | getvar("name")<br>
+            <b>HTML:</b> &lt;b&gt;bold&lt;/b&gt; | &lt;i&gt;italic&lt;/i&gt; | &lt;color=#hex&gt;colored&lt;/color&gt;
+        `;
+        form.appendChild(scriptHelp);
+        
+        // Script textarea
+        const scriptContainer = document.createElement('div');
+        scriptContainer.style.cssText = EditorStyles.getFieldContainerStyle(this.game);
+        
+        const scriptTextarea = document.createElement('textarea');
+        scriptTextarea.name = 'script';
+        scriptTextarea.id = 'npcScript';
+        scriptTextarea.rows = 10;
+        scriptTextarea.placeholder = `// Example NPC script
+if (getvar("talked_before")) {
+    message "Good to see you again!";
+} else {
+    message "Hello <b>traveler</b>! Welcome to our village.";
+    setvar "talked_before", true;
+}
+end;`;
+        scriptTextarea.value = template?.script || '';
+        scriptTextarea.style.cssText = `
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #555;
+            border-radius: 4px;
+            background: #1a1a2e;
+            color: #ecf0f1;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            resize: vertical;
+            min-height: 150px;
+            line-height: 1.4;
+        `;
+        scriptContainer.appendChild(scriptTextarea);
+        form.appendChild(scriptContainer);
+
         // Buttons
         const buttonRow = document.createElement('div');
         buttonRow.style.cssText = 'display: flex; gap: 8px; margin-top: 15px;';
@@ -243,11 +292,16 @@ class NPCEditor {
     saveTemplate(form) {
         const formData = new FormData(form);
         
+        // Get script from textarea
+        const scriptTextarea = form.querySelector('#npcScript');
+        const script = scriptTextarea?.value?.trim() || null;
+        
         const templateData = {
             name: formData.get('name'),
             spritePath: formData.get('spritePath'),
             dialogId: formData.get('dialogId') || null,
             isInteractive: form.querySelector('#isInteractive').checked,
+            script: script,
             collision: {
                 width: parseFloat(formData.get('collisionWidth')),
                 height: parseFloat(formData.get('collisionHeight'))

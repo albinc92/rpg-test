@@ -54,6 +54,8 @@ async function loadGameScripts() {
         await loadScript('/src/systems/LocaleManager.js'); // NEW: Internationalization (i18n)
         await loadScript('/src/systems/DesignSystem.js'); // NEW: Centralized design tokens
         await loadScript('/src/systems/MenuRenderer.js'); // NEW: Standardized menu rendering
+        await loadScript('/src/systems/GameVariables.js'); // NEW: Global game variables for quest tracking
+        await loadScript('/src/systems/ScriptEngine.js'); // NEW: NPC script parser and executor
         await loadScript('/src/systems/GameStateManager.js');
         await loadScript('/src/systems/MapManager.js');
         await loadScript('/src/systems/ObjectManager.js'); // NEW: Unified object manager

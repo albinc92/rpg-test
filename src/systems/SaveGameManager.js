@@ -80,6 +80,9 @@ class SaveGameManager {
                 // Interactive objects state (opened chests, etc.)
                 interactiveObjects: this.serializeInteractiveObjects(game),
                 
+                // Global game variables (quest progress, NPC dialogue flags, etc.)
+                gameVariables: game.gameVariables ? game.gameVariables.serialize() : {},
+                
                 // Settings
                 settings: game.settings
             };
@@ -158,6 +161,12 @@ class SaveGameManager {
             // Restore interactive objects state
             if (saveData.interactiveObjects) {
                 this.deserializeInteractiveObjects(saveData.interactiveObjects, game);
+            }
+
+            // Restore global game variables (quest progress, etc.)
+            if (saveData.gameVariables && game.gameVariables) {
+                game.gameVariables.deserialize(saveData.gameVariables);
+                console.log('📝 Restored game variables:', Object.keys(saveData.gameVariables).length, 'entries');
             }
 
             // Restore settings

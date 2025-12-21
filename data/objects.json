@@ -310,15 +310,11 @@
     },
     {
       "category": "StaticObject",
-      "x": 2328.9002371390316,
-      "y": 777.4207018461327,
+      "x": 2286.78073924888,
+      "y": 751.7466149950648,
       "scale": 0.15,
-      "spriteSrc": "assets/npc/sage-0.png",
-      "id": "npc_5084a18d-0240-41ea-b2dc-d943c5a9688c",
-      "collisionExpandTopPercent": -0.75,
-      "collisionExpandBottomPercent": 0.05,
-      "collisionExpandLeftPercent": -0.05,
-      "collisionExpandRightPercent": 0.05,
+      "spriteSrc": "/assets/npc/sage-0.png",
+      "id": "npc_7bad6d02-5b20-44ff-a353-683ed4a16910",
       "name": "Sage",
       "npcType": "sage"
     }
