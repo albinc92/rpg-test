@@ -82,6 +82,7 @@ async function loadGameScripts() {
         // Load editor components
         await loadScript('/src/editor/EditorStyles.js'); // NEW: Standardized editor styling
         await loadScript('/src/editor/DropdownMenu.js'); // NEW: Dropdown menu component
+        await loadScript('/src/editor/VisualScriptEditor.js'); // NEW: Visual block-based script editor
         await loadScript('/src/editor/EditorUI.js');
         await loadScript('/src/editor/ObjectPalette.js');
         await loadScript('/src/editor/PropertyPanel.js');

@@ -353,10 +353,13 @@ class NPCEditor {
     }
 
     /**
-     * Open script editor modal (reuses same pattern as PropertyPanel)
+     * Open script editor modal with tabs for Visual and Code modes
      */
     openScriptEditorModal(obj, onSave) {
         const theme = EditorStyles.THEMES.npc;
+        let currentMode = 'visual'; // 'visual' or 'code'
+        let visualEditor = null;
+        let currentScript = obj.script || '';
         
         // Create modal overlay
         const overlay = document.createElement('div');
@@ -381,8 +384,10 @@ class NPCEditor {
         modal.style.top = 'auto';
         modal.style.right = 'auto';
         modal.style.width = '90%';
-        modal.style.maxWidth = '800px';
-        modal.style.maxHeight = '85vh';
+        modal.style.maxWidth = '900px';
+        modal.style.maxHeight = '90vh';
+        modal.style.display = 'flex';
+        modal.style.flexDirection = 'column';
 
         // Header
         const header = document.createElement('div');
@@ -396,15 +401,76 @@ class NPCEditor {
         EditorStyles.applyCloseButtonHover(closeBtn);
 
         header.appendChild(closeBtn);
+        modal.appendChild(header);
+
+        // Tab bar
+        const tabBar = document.createElement('div');
+        tabBar.style.cssText = `
+            display: flex;
+            background: #16213e;
+            border-bottom: 1px solid #0f3460;
+        `;
+
+        const visualTab = document.createElement('button');
+        visualTab.innerHTML = '🧩 Visual Editor';
+        visualTab.className = 'script-tab active';
+        visualTab.style.cssText = `
+            padding: 10px 20px;
+            background: #2ecc71;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            transition: background 0.2s;
+        `;
+
+        const codeTab = document.createElement('button');
+        codeTab.innerHTML = '📝 Code Editor';
+        codeTab.className = 'script-tab';
+        codeTab.style.cssText = `
+            padding: 10px 20px;
+            background: #333;
+            color: #888;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        `;
+
+        tabBar.appendChild(visualTab);
+        tabBar.appendChild(codeTab);
+        modal.appendChild(tabBar);
 
         // Content container
         const contentContainer = document.createElement('div');
         contentContainer.style.cssText = EditorStyles.getContentStyle();
         contentContainer.style.display = 'flex';
         contentContainer.style.flexDirection = 'column';
-        contentContainer.style.gap = '15px';
+        contentContainer.style.flex = '1';
+        contentContainer.style.overflow = 'hidden';
 
-        // Help text
+        // Visual editor container
+        const visualContainer = document.createElement('div');
+        visualContainer.style.cssText = `
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 400px;
+        `;
+
+        // Code editor container
+        const codeContainer = document.createElement('div');
+        codeContainer.style.cssText = `
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+            min-height: 400px;
+        `;
+
+        // Help text for code mode
         const helpSection = document.createElement('div');
         helpSection.style.cssText = `
             padding: 12px;
@@ -421,11 +487,11 @@ class NPCEditor {
             <b>Choices:</b> choice "Option 1", "Option 2"; | if (choice == 0) { }<br>
             <b>HTML:</b> &lt;b&gt;bold&lt;/b&gt; | &lt;i&gt;italic&lt;/i&gt; | &lt;color=#hex&gt;text&lt;/color&gt;
         `;
-        contentContainer.appendChild(helpSection);
+        codeContainer.appendChild(helpSection);
 
         // Script textarea
         const textarea = document.createElement('textarea');
-        textarea.value = obj.script || '';
+        textarea.value = currentScript;
         textarea.placeholder = `// Example NPC script
 if (getvar("talked_before")) {
     message "Good to see you again!";
@@ -435,8 +501,9 @@ if (getvar("talked_before")) {
 }
 end;`;
         textarea.style.cssText = `
+            flex: 1;
             width: 100%;
-            height: 350px;
+            min-height: 300px;
             padding: 12px;
             border: 1px solid #555;
             border-radius: 6px;
@@ -445,23 +512,114 @@ end;`;
             font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
             font-size: 13px;
             line-height: 1.5;
-            resize: vertical;
+            resize: none;
             box-sizing: border-box;
         `;
         textarea.spellcheck = false;
-        contentContainer.appendChild(textarea);
+        textarea.oninput = () => {
+            currentScript = textarea.value;
+        };
+        codeContainer.appendChild(textarea);
+
+        contentContainer.appendChild(visualContainer);
+        contentContainer.appendChild(codeContainer);
+        modal.appendChild(contentContainer);
+
+        // Initialize visual editor
+        if (window.VisualScriptEditor) {
+            visualEditor = new window.VisualScriptEditor();
+            visualEditor.createEditor(visualContainer);
+            visualEditor.onChange((newScript) => {
+                // Only update if in visual mode to avoid overwriting code
+                if (currentMode === 'visual') {
+                    currentScript = newScript;
+                }
+            });
+        } else {
+            visualContainer.innerHTML = `
+                <div style="padding: 40px; text-align: center; color: #888;">
+                    <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
+                    <div>Visual Script Editor not loaded.</div>
+                    <div style="margin-top: 10px; font-size: 12px;">Use the Code Editor tab instead.</div>
+                </div>
+            `;
+        }
+
+        // Tab switching functions (defined before use)
+        const switchToVisual = () => {
+            currentMode = 'visual';
+            visualTab.style.background = '#2ecc71';
+            visualTab.style.color = 'white';
+            visualTab.style.fontWeight = 'bold';
+            codeTab.style.background = '#333';
+            codeTab.style.color = '#888';
+            codeTab.style.fontWeight = 'normal';
+            visualContainer.style.display = 'flex';
+            codeContainer.style.display = 'none';
+        };
+
+        const switchToCode = () => {
+            currentMode = 'code';
+            codeTab.style.background = '#2ecc71';
+            codeTab.style.color = 'white';
+            codeTab.style.fontWeight = 'bold';
+            visualTab.style.background = '#333';
+            visualTab.style.color = '#888';
+            visualTab.style.fontWeight = 'normal';
+            visualContainer.style.display = 'none';
+            codeContainer.style.display = 'flex';
+            
+            // Sync visual to code only if visual has blocks
+            if (visualEditor && visualEditor.getBlocks().length > 0) {
+                const generatedScript = visualEditor.generateScript();
+                if (generatedScript) {
+                    textarea.value = generatedScript;
+                    currentScript = generatedScript;
+                }
+            }
+            
+            setTimeout(() => textarea.focus(), 100);
+        };
+        
+        // If there's existing script, start in code mode to preserve it
+        if (currentScript) {
+            switchToCode();
+        }
+
+        visualTab.onclick = () => {
+            // When switching to visual, offer to parse existing code
+            if (currentMode === 'code' && textarea.value.trim() && visualEditor) {
+                if (visualEditor.getBlocks().length === 0) {
+                    // Try to parse existing script into visual blocks
+                    visualEditor.loadFromScript(textarea.value);
+                }
+            }
+            switchToVisual();
+        };
+        codeTab.onclick = switchToCode;
 
         // Button row
         const buttonRow = document.createElement('div');
-        buttonRow.style.cssText = 'display: flex; gap: 10px; justify-content: flex-end;';
+        buttonRow.style.cssText = `
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            padding: 15px 20px;
+            background: #16213e;
+            border-top: 1px solid #0f3460;
+        `;
 
         // Clear button
         const clearBtn = document.createElement('button');
-        clearBtn.textContent = '🗑️ Clear';
+        clearBtn.textContent = '🗑️ Clear All';
         clearBtn.style.cssText = EditorStyles.getCancelButtonStyle(this.game);
         clearBtn.onclick = () => {
             if (confirm('Clear the entire script?')) {
+                currentScript = '';
                 textarea.value = '';
+                if (visualEditor) {
+                    visualEditor.clear();
+                }
             }
         };
         EditorStyles.applyCancelButtonHover(clearBtn);
@@ -480,23 +638,25 @@ end;`;
         saveBtn.textContent = '💾 Save Script';
         saveBtn.style.cssText = EditorStyles.getSaveButtonStyle(theme, this.game);
         saveBtn.onclick = () => {
-            const scriptText = textarea.value.trim();
+            // Get script from current mode
+            let finalScript = '';
+            if (currentMode === 'visual' && visualEditor) {
+                finalScript = visualEditor.generateScript();
+            } else {
+                finalScript = textarea.value;
+            }
+            
             overlay.remove();
-            if (onSave) onSave(scriptText || null);
+            if (onSave) onSave(finalScript.trim() || null);
         };
         EditorStyles.applySaveButtonHover(saveBtn, theme);
         buttonRow.appendChild(saveBtn);
 
-        contentContainer.appendChild(buttonRow);
+        modal.appendChild(buttonRow);
 
-        // Assemble modal
-        modal.appendChild(header);
-        modal.appendChild(contentContainer);
+        // Assemble
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
-
-        // Focus textarea
-        setTimeout(() => textarea.focus(), 100);
     }
 }
 
