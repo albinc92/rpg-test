@@ -1544,11 +1544,13 @@ class EditorUI {
         // Create a deep copy of maps data
         const mapsData = JSON.parse(JSON.stringify(this.editor.game.mapManager.maps));
         
-        // Add paint layer data to each map
+        // Add paint layer data to each map (compressed)
         for (const mapId of Object.keys(mapsData)) {
             const paintData = this.editor.exportPaintLayerData(mapId);
             if (paintData) {
-                mapsData[mapId].paintLayerData = paintData;
+                // Compress paint layer data for storage
+                const compressed = CompressionUtils.compressPaintData(paintData);
+                mapsData[mapId].paintLayerData = compressed || paintData;
             }
         }
         
@@ -1560,7 +1562,7 @@ class EditorUI {
         a.download = 'maps.json';
         a.click();
         URL.revokeObjectURL(url);
-        this.showNotification('💾 maps.json exported (with paint layers)!');
+        this.showNotification('💾 maps.json exported (with compressed paint layers)!');
     }
 
     /**
@@ -3872,7 +3874,9 @@ class EditorUI {
         // Get textures from the texture folder
         const textureFiles = [
             'grass.png',
+            'grass2.png',
             'dirt.png',
+            'bedrock.png',
             'water.png',
             'water2.png',
             // Add more textures here as they're added to the folder

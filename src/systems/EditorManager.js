@@ -2691,7 +2691,15 @@ class EditorManager {
             for (const mapId of Object.keys(mapsData)) {
                 const paintData = this.exportPaintLayerData(mapId);
                 if (paintData) {
-                    mapsData[mapId].paintLayerData = paintData;
+                    // Compress paint layer data for storage
+                    const compressed = CompressionUtils.compressPaintData(paintData);
+                    if (compressed) {
+                        const stats = CompressionUtils.getCompressionStats(paintData, compressed);
+                        console.log(`[EditorManager] Paint layer ${mapId} compressed: ${stats.compressionRatio} saved (${stats.savedBytes} bytes)`);
+                        mapsData[mapId].paintLayerData = compressed;
+                    } else {
+                        mapsData[mapId].paintLayerData = paintData;
+                    }
                 }
             }
             
@@ -4174,11 +4182,18 @@ class EditorManager {
     /**
      * Import paint layer data for a specific map
      * @param {string} mapId - The map ID
-     * @param {string} dataURL - Base64 dataURL of the paint layer
+     * @param {string} data - Base64 dataURL of the paint layer (may be compressed)
      * @returns {Promise} Resolves when loaded
      */
-    async importPaintLayerData(mapId, dataURL) {
-        if (!dataURL) return;
+    async importPaintLayerData(mapId, data) {
+        if (!data) return;
+        
+        // Decompress if needed (handles both compressed 'lz:' prefix and raw data)
+        const dataURL = CompressionUtils.decompressPaintData(data);
+        if (!dataURL) {
+            console.warn(`[EditorManager] Failed to decompress paint layer for map ${mapId}`);
+            return;
+        }
         
         return new Promise((resolve) => {
             const img = new Image();
