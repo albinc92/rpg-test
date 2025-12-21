@@ -325,8 +325,8 @@ class RenderSystem {
                     
                     // Add post-process effects from settings
                     if (game.settings) {
-                        params.sharpenIntensity = (game.settings.sharpenIntensity || 0) / 100; // Convert 0-100 to 0-1
-                        params.bloomIntensity = (game.settings.bloomIntensity || 0) / 100; // Convert 0-100 to 0-1
+                        params.sharpenIntensity = (game.settings.sharpenIntensity || 0) / 1000; // 100% slider = 0.1 actual
+                        params.bloomIntensity = (game.settings.bloomIntensity || 0) / 1000; // 100% slider = 0.1 actual
                     }
                     
                     this.webglRenderer.setDayNightParams(params);
@@ -365,8 +365,8 @@ class RenderSystem {
                         saturation: weatherSaturation,
                         temperature: 0.0,
                         darknessColor: weatherDarknessColor,
-                        sharpenIntensity: game.settings ? (game.settings.sharpenIntensity || 0) / 100 : 0,
-                        bloomIntensity: game.settings ? (game.settings.bloomIntensity || 0) / 100 : 0
+                        sharpenIntensity: game.settings ? (game.settings.sharpenIntensity || 0) / 1000 : 0,
+                        bloomIntensity: game.settings ? (game.settings.bloomIntensity || 0) / 1000 : 0
                     });
                 }
             } else {
@@ -411,8 +411,8 @@ class RenderSystem {
                     saturation: weatherSaturation,
                     temperature: 0.0,
                     darknessColor: weatherDarknessColor,
-                    sharpenIntensity: game.settings ? (game.settings.sharpenIntensity || 0) / 100 : 0,
-                    bloomIntensity: game.settings ? (game.settings.bloomIntensity || 0) / 100 : 0
+                    sharpenIntensity: game.settings ? (game.settings.sharpenIntensity || 0) / 1000 : 0,
+                    bloomIntensity: game.settings ? (game.settings.bloomIntensity || 0) / 1000 : 0
                 });
             }
             
