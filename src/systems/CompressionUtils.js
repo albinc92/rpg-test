@@ -519,8 +519,15 @@ class CompressionUtils {
             let totalCompressedSize = 0;
             let mapsConverted = 0;
             
-            // Process each map
-            for (const [mapKey, mapData] of Object.entries(mapsData)) {
+            const entries = Object.entries(mapsData);
+            const mapsWithPaintData = entries.filter(([k, v]) => v.paintLayerData && !v.paintLayerData.startsWith('lz:'));
+            
+            console.log(`   Found ${mapsWithPaintData.length} maps with uncompressed paint data`);
+            
+            // Process each map with async breaks to prevent freezing
+            for (let i = 0; i < entries.length; i++) {
+                const [mapKey, mapData] = entries[i];
+                
                 if (mapData.paintLayerData) {
                     // Skip if already compressed
                     if (mapData.paintLayerData.startsWith('lz:')) {
@@ -529,7 +536,15 @@ class CompressionUtils {
                     }
                     
                     const original = mapData.paintLayerData;
+                    const sizeKB = (original.length / 1024).toFixed(1);
+                    console.log(`  ⏳ ${mapKey}: Compressing ${sizeKB}KB... (this may take a moment)`);
+                    
+                    // Yield to UI to show the log message
+                    await new Promise(r => setTimeout(r, 10));
+                    
+                    const startTime = performance.now();
                     const compressed = CompressionUtils.compressPaintData(original);
+                    const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
                     
                     totalOriginalSize += original.length;
                     totalCompressedSize += compressed.length;
@@ -538,7 +553,10 @@ class CompressionUtils {
                     mapsConverted++;
                     
                     const stats = CompressionUtils.getCompressionStats(original, compressed);
-                    console.log(`  ✅ ${mapKey}: ${stats.compressionRatio} reduction (${(stats.originalSize/1024).toFixed(1)}KB → ${(stats.compressedSize/1024).toFixed(1)}KB)`);
+                    console.log(`  ✅ ${mapKey}: ${stats.compressionRatio} reduction (${(stats.originalSize/1024).toFixed(1)}KB → ${(stats.compressedSize/1024).toFixed(1)}KB) in ${elapsed}s`);
+                    
+                    // Yield after each map
+                    await new Promise(r => setTimeout(r, 10));
                 }
             }
             
