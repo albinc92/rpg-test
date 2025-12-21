@@ -178,8 +178,9 @@ class DayNightCycle {
         
         if ((timeOfDay >= 20 && timeOfDay < 24) || (timeOfDay >= 0 && timeOfDay < 5)) {
             // Lighter night - you can actually see now
-            params.brightness = 0.55;
-            params.saturation = 0.6;
+            // Weather can still darken night further
+            params.brightness = 0.55 * (1 - weatherDarkening * 0.5); // Reduced effect at night
+            params.saturation = 0.6 * (1 - weatherDesaturation);
             params.temperature = -0.5;
         }
         else if (timeOfDay >= 5 && timeOfDay < 8) {

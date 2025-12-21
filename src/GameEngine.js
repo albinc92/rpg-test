@@ -1684,11 +1684,11 @@ class GameEngine {
             
             // Rain/snow blocks sunlight proportionally to intensity
             if (precipitation === 'rain-light' || precipitation === 'snow-light') {
-                shadowOpacity *= 0.4; // 60% reduction - light clouds block most sun
+                shadowOpacity *= 0.75; // 25% reduction - light clouds slightly soften shadows
             } else if (precipitation === 'rain-medium' || precipitation === 'snow-medium') {
-                shadowOpacity *= 0.2; // 80% reduction - medium rain/snow heavily blocks sun
+                shadowOpacity *= 0.5; // 50% reduction - medium rain/snow noticeably reduces shadows
             } else if (precipitation === 'rain-heavy' || precipitation === 'snow-heavy') {
-                shadowOpacity *= 0.05; // 95% reduction - heavy precipitation almost no shadows
+                shadowOpacity *= 0.25; // 75% reduction - heavy precipitation greatly reduces shadows
             }
         }
         

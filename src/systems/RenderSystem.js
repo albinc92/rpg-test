@@ -281,8 +281,14 @@ class RenderSystem {
                 // Check if current map has day/night cycle enabled
                 const isDayNightEnabled = game.currentMap && game.currentMap.dayNightCycle;
                 
+                // Get current weather state for darkening effect
+                // Use weatherSystem's current precipitation (handles dynamic weather properly)
+                const weatherState = game.weatherSystem ? {
+                    precipitation: game.weatherSystem.precipitation
+                } : (game.currentMap?.weather || null);
+                
                 if (isDayNightEnabled) {
-                    const params = game.dayNightCycle.getShaderParams();
+                    const params = game.dayNightCycle.getShaderParams(weatherState);
                     
                     // Validate params to prevent black screen (NaN protection)
                     if (!params.darknessColor || !Array.isArray(params.darknessColor) || params.darknessColor.some(c => isNaN(c))) {
@@ -312,24 +318,71 @@ class RenderSystem {
                     
                     this.webglRenderer.setDayNightParams(params);
                 } else {
-                    // Reset to neutral (Day) if disabled for this map
+                    // Day/night cycle disabled for this map, but weather can still darken
+                    // Calculate weather-only darkening
+                    let weatherBrightness = 1.0;
+                    let weatherSaturation = 1.0;
+                    let weatherDarknessColor = [1.0, 1.0, 1.0];
+                    
+                    if (weatherState && weatherState.precipitation) {
+                        const precip = weatherState.precipitation;
+                        if (precip === 'rain-light' || precip === 'snow-light') {
+                            weatherBrightness = 0.85;
+                            weatherSaturation = 0.8;
+                            weatherDarknessColor = [0.93, 0.93, 0.94];
+                        } else if (precip === 'rain-medium' || precip === 'snow-medium') {
+                            weatherBrightness = 0.7;
+                            weatherSaturation = 0.65;
+                            weatherDarknessColor = [0.86, 0.86, 0.88];
+                        } else if (precip === 'rain-heavy' || precip === 'snow-heavy') {
+                            weatherBrightness = 0.5;
+                            weatherSaturation = 0.5;
+                            weatherDarknessColor = [0.76, 0.76, 0.80];
+                        }
+                    }
+                    
                     this.webglRenderer.setDayNightParams({
-                        brightness: 1.0,
+                        brightness: weatherBrightness,
                         contrast: 1.0,
-                        saturation: 1.0,
+                        saturation: weatherSaturation,
                         temperature: 0.0,
-                        darknessColor: [1.0, 1.0, 1.0],
+                        darknessColor: weatherDarknessColor,
                         sharpenIntensity: game.settings ? (game.settings.sharpenIntensity || 0) / 100 : 0,
                         bloomIntensity: game.settings ? (game.settings.bloomIntensity || 0) / 100 : 0
                     });
                 }
             } else {
-                // No day/night cycle, but still apply post-process effects from settings
+                // No day/night cycle system, but still check for weather darkening
+                const weatherState = game.weatherSystem ? {
+                    precipitation: game.weatherSystem.precipitation
+                } : (game.currentMap?.weather || null);
+                
+                let weatherBrightness = 1.0;
+                let weatherSaturation = 1.0;
+                let weatherDarknessColor = [1.0, 1.0, 1.0];
+                
+                if (weatherState && weatherState.precipitation) {
+                    const precip = weatherState.precipitation;
+                    if (precip === 'rain-light' || precip === 'snow-light') {
+                        weatherBrightness = 0.85;
+                        weatherSaturation = 0.8;
+                        weatherDarknessColor = [0.93, 0.93, 0.94];
+                    } else if (precip === 'rain-medium' || precip === 'snow-medium') {
+                        weatherBrightness = 0.7;
+                        weatherSaturation = 0.65;
+                        weatherDarknessColor = [0.86, 0.86, 0.88];
+                    } else if (precip === 'rain-heavy' || precip === 'snow-heavy') {
+                        weatherBrightness = 0.5;
+                        weatherSaturation = 0.5;
+                        weatherDarknessColor = [0.76, 0.76, 0.80];
+                    }
+                }
+                
                 this.webglRenderer.setDayNightParams({
-                    brightness: 1.0,
-                    saturation: 1.0,
+                    brightness: weatherBrightness,
+                    saturation: weatherSaturation,
                     temperature: 0.0,
-                    darknessColor: [1.0, 1.0, 1.0],
+                    darknessColor: weatherDarknessColor,
                     sharpenIntensity: game.settings ? (game.settings.sharpenIntensity || 0) / 100 : 0,
                     bloomIntensity: game.settings ? (game.settings.bloomIntensity || 0) / 100 : 0
                 });
