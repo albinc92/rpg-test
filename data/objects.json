@@ -309,14 +309,20 @@
       "name": "Static Object"
     },
     {
-      "category": "StaticObject",
-      "x": 2286.78073924888,
-      "y": 751.7466149950648,
+      "category": "Actor",
+      "x": 2212.470184779822,
+      "y": 774.9496665783474,
       "scale": 0.15,
       "spriteSrc": "/assets/npc/sage-0.png",
-      "id": "npc_7bad6d02-5b20-44ff-a353-683ed4a16910",
+      "id": "npc_6222de57-2944-4c59-8753-e7b6d698c642",
+      "actorType": "npc",
       "name": "Sage",
-      "npcType": "sage"
+      "npcType": "sage",
+      "script": "// Sage - Wise elder who guides the player\nif (getvar(\"sage_quest_complete\")) {\n    message \"You have proven yourself, <b>hero</b>.\";\n    message \"The <color=#9900ff>ancient magic</color> flows strong in you now.\";\n    message \"Go forth and bring <color=#ffcc00>light</color> to the darkness.\";\n} else if (getvar(\"sage_quest_started\")) {\n    if (hasitem(\"ancient_crystal\", 3)) {\n        message \"Remarkable! You found all three <color=#00ffff>Ancient Crystals</color>!\";\n        delitem \"ancient_crystal\", 3;\n        message \"<i>*The sage's eyes glow with power*</i>\";\n        message \"As promised, I bestow upon you the gift of <color=#9900ff>Arcane Sight</color>.\";\n        additem \"gold\", 500;\n        setvar \"sage_quest_complete\", true;\n        playsound \"quest-complete.mp3\";\n        message \"You've earned <color=#ffcc00>500 gold</color> and my eternal gratitude.\";\n    } else {\n        message \"Have you found the <color=#00ffff>Ancient Crystals</color> yet?\";\n        message \"They are hidden in the <b>forest caves</b> to the east.\";\n        message \"Bring me <b>3 crystals</b> and I shall reward you greatly.\";\n    }\n} else {\n    message \"Greetings, <b>traveler</b>. I sense great potential in you.\";\n    message \"I am the <color=#9900ff>Sage</color> of this village.\";\n    message \"Would you help an old man with a task?\";\n    choice \"What do you need?\", \"Maybe later\";\n    \n    if (choice == 0) {\n        message \"Deep in the eastern caves lie <color=#00ffff>Ancient Crystals</color>.\";\n        message \"They hold immense power, but I am too old to retrieve them.\";\n        message \"Bring me <b>3 crystals</b> and I shall teach you <color=#9900ff>ancient magic</color>.\";\n        setvar \"sage_quest_started\", true;\n        message \"<i>*Quest Started: The Sage's Request*</i>\";\n    } else {\n        message \"I understand. Return when you are ready.\";\n        message \"The crystals have waited centuries... they can wait a bit longer.\";\n    }\n}\nend;",
+      "canInteract": true,
+      "interactionRadius": 80,
+      "collisionExpandTopPercent": -0.64,
+      "collisionExpandBottomPercent": 0.08
     }
   ],
   "0-1": [

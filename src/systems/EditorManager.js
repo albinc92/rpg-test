@@ -94,6 +94,83 @@ class EditorManager {
         this.setupKeyboardShortcuts();
         
         console.log('[EditorManager] Initialized');
+        
+        // Saving state
+        this.isSaving = false;
+        this.saveOverlay = null;
+    }
+    
+    /**
+     * Show saving spinner overlay
+     */
+    showSavingSpinner() {
+        if (this.saveOverlay) return;
+        
+        this.isSaving = true;
+        this.saveOverlay = document.createElement('div');
+        this.saveOverlay.id = 'editor-save-overlay';
+        this.saveOverlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100000;
+            backdrop-filter: blur(3px);
+        `;
+        
+        // Spinner
+        const spinner = document.createElement('div');
+        spinner.style.cssText = `
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #4CAF50;
+            border-radius: 50%;
+            animation: editor-spin 1s linear infinite;
+        `;
+        
+        // Text
+        const text = document.createElement('div');
+        text.textContent = 'Saving...';
+        text.style.cssText = `
+            color: white;
+            font-size: 18px;
+            margin-top: 15px;
+            font-family: Arial, sans-serif;
+        `;
+        
+        // Add keyframes for spinner animation
+        if (!document.getElementById('editor-spinner-style')) {
+            const style = document.createElement('style');
+            style.id = 'editor-spinner-style';
+            style.textContent = `
+                @keyframes editor-spin {
+                    to { transform: rotate(360deg); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        this.saveOverlay.appendChild(spinner);
+        this.saveOverlay.appendChild(text);
+        document.body.appendChild(this.saveOverlay);
+    }
+    
+    /**
+     * Hide saving spinner overlay
+     */
+    hideSavingSpinner() {
+        this.isSaving = false;
+        if (this.saveOverlay) {
+            this.saveOverlay.remove();
+            this.saveOverlay = null;
+        }
     }
 
     /**
@@ -2485,9 +2562,21 @@ class EditorManager {
      * Serialize a single game object to JSON-ready format
      */
     serializeObject(obj) {
+        // Determine category based on object type
+        let category = 'StaticObject';
+        if (obj instanceof NPC) {
+            category = 'Actor';
+        } else if (obj instanceof Spirit) {
+            category = 'Actor';
+        } else if (obj instanceof Chest || obj instanceof Portal || obj instanceof InteractiveObject) {
+            category = 'InteractiveObject';
+        } else if (obj.category) {
+            category = obj.category;
+        }
+        
         // Extract only the data we need (remove methods, game references, etc.)
         const data = {
-            category: obj.category || 'StaticObject',
+            category: category,
             x: obj.x,
             y: obj.y,
             scale: obj.scale
@@ -2496,10 +2585,40 @@ class EditorManager {
         // Add type-specific fields
         if (obj.spriteSrc) data.spriteSrc = obj.spriteSrc;
         if (obj.id) data.id = obj.id;
-        if (obj.actorType) data.actorType = obj.actorType;
-        if (obj.objectType) data.objectType = obj.objectType;
         if (obj.castsShadow === false) data.castsShadow = false;
         if (obj.reverseFacing) data.reverseFacing = obj.reverseFacing;
+        
+        // Actor subtypes
+        if (obj instanceof NPC) {
+            data.actorType = 'npc';
+            if (obj.name) data.name = obj.name;
+            if (obj.npcType) data.npcType = obj.npcType;
+            if (obj.script) data.script = obj.script;
+            if (obj.messages && obj.messages.length > 0) data.messages = obj.messages;
+            if (obj.dialogue) data.dialogue = obj.dialogue;
+            if (obj.canInteract !== undefined) data.canInteract = obj.canInteract;
+            if (obj.interactionRadius) data.interactionRadius = obj.interactionRadius;
+            if (obj.showTalkBubble === false) data.showTalkBubble = false;
+        } else if (obj instanceof Spirit) {
+            data.actorType = 'spirit';
+        } else if (obj.actorType) {
+            data.actorType = obj.actorType;
+        }
+        
+        // Interactive object subtypes
+        if (obj instanceof Chest) {
+            data.objectType = 'chest';
+            if (obj.gold !== undefined) data.gold = obj.gold;
+            if (obj.loot) data.loot = obj.loot;
+            if (obj.chestType) data.chestType = obj.chestType;
+        } else if (obj instanceof Portal) {
+            data.objectType = 'portal';
+            if (obj.targetMap) data.targetMap = obj.targetMap;
+            if (obj.spawnPoint) data.spawnPoint = obj.spawnPoint;
+            if (obj.portalType) data.portalType = obj.portalType;
+        } else if (obj.objectType) {
+            data.objectType = obj.objectType;
+        }
         
         // Add collision customization if present
         if (obj.collisionExpandTopPercent) data.collisionExpandTopPercent = obj.collisionExpandTopPercent;
@@ -2507,16 +2626,8 @@ class EditorManager {
         if (obj.collisionExpandLeftPercent) data.collisionExpandLeftPercent = obj.collisionExpandLeftPercent;
         if (obj.collisionExpandRightPercent) data.collisionExpandRightPercent = obj.collisionExpandRightPercent;
         
-        // Add type-specific properties
-        if (obj.name) data.name = obj.name;
-        if (obj.dialogue) data.dialogue = obj.dialogue;
-        if (obj.npcType) data.npcType = obj.npcType;
-        if (obj.gold !== undefined) data.gold = obj.gold;
-        if (obj.loot) data.loot = obj.loot;
-        if (obj.chestType) data.chestType = obj.chestType;
-        if (obj.targetMap) data.targetMap = obj.targetMap;
-        if (obj.spawnPoint) data.spawnPoint = obj.spawnPoint;
-        if (obj.portalType) data.portalType = obj.portalType;
+        // Generic name fallback (for StaticObjects)
+        if (!data.name && obj.name) data.name = obj.name;
         
         return data;
     }
@@ -2559,28 +2670,34 @@ class EditorManager {
     async save() {
         console.log('[EditorManager] Starting save process...');
         
-        // Sync live data first
-        this.syncGameData();
+        // Show saving spinner
+        this.showSavingSpinner();
         
-        // Create a deep copy of maps data and add paint layer data
-        const mapsData = JSON.parse(JSON.stringify(this.game.mapManager.maps));
-        for (const mapId of Object.keys(mapsData)) {
-            const paintData = this.exportPaintLayerData(mapId);
-            if (paintData) {
-                mapsData[mapId].paintLayerData = paintData;
-            }
-        }
-        
-        // Prepare data strings
-        const mapsJson = JSON.stringify(mapsData, null, 2);
-        const objectsJson = JSON.stringify(this.game.objectManager.objectDefinitions, null, 2);
-        const itemsJson = JSON.stringify(this.game.itemManager.itemTypes || {}, null, 2);
-        
-        // Prepare template data strings
-        const lightsJson = JSON.stringify(this.game.lightManager.lightRegistry.exportToJSON(), null, 2);
-        const spiritsJson = this.game.spiritRegistry.exportTemplates(); // Already returns string
+        // Small delay to let the spinner render
+        await new Promise(resolve => setTimeout(resolve, 50));
         
         try {
+            // Sync live data first
+            this.syncGameData();
+            
+            // Create a deep copy of maps data and add paint layer data
+            const mapsData = JSON.parse(JSON.stringify(this.game.mapManager.maps));
+            for (const mapId of Object.keys(mapsData)) {
+                const paintData = this.exportPaintLayerData(mapId);
+                if (paintData) {
+                    mapsData[mapId].paintLayerData = paintData;
+                }
+            }
+            
+            // Prepare data strings
+            const mapsJson = JSON.stringify(mapsData, null, 2);
+            const objectsJson = JSON.stringify(this.game.objectManager.objectDefinitions, null, 2);
+            const itemsJson = JSON.stringify(this.game.itemManager.itemTypes || {}, null, 2);
+            
+            // Prepare template data strings
+            const lightsJson = JSON.stringify(this.game.lightManager.lightRegistry.exportToJSON(), null, 2);
+            const spiritsJson = this.game.spiritRegistry.exportTemplates(); // Already returns string
+            
             // Check if running in Electron with file saving API
             if (window.electronAPI && window.electronAPI.saveAllDataFiles) {
                 console.log('[EditorManager] Using Electron API for saving...');
@@ -2602,15 +2719,23 @@ class EditorManager {
                     throw new Error(`Some files failed to save:\n${errors}`);
                 }
                 
+                this.hideSavingSpinner();
                 alert('✅ All game data (maps, objects, items, lights, spirits) saved successfully!');
                 console.log('[EditorManager] Save complete via Electron API.');
             }
             // Check for File System Access API support (browser)
             else if ('showDirectoryPicker' in window) {
+                // Hide spinner before showing directory picker (user interaction needed)
+                this.hideSavingSpinner();
+                
                 const handle = await window.showDirectoryPicker({
                     mode: 'readwrite',
                     startIn: 'documents'
                 });
+                
+                // Show spinner again after directory is selected
+                this.showSavingSpinner();
+                await new Promise(resolve => setTimeout(resolve, 50));
                 
                 // Write maps.json
                 const mapsFile = await handle.getFileHandle('maps.json', { create: true });
@@ -2642,6 +2767,7 @@ class EditorManager {
                 await spiritsWritable.write(spiritsJson);
                 await spiritsWritable.close();
                 
+                this.hideSavingSpinner();
                 alert('✅ All game data (maps, objects, items, lights, spirits) saved successfully!');
                 console.log('[EditorManager] Save complete.');
             } else {
@@ -2652,9 +2778,11 @@ class EditorManager {
                 this.downloadFile('items.json', itemsJson);
                 this.downloadFile('lights.json', lightsJson);
                 this.downloadFile('spirits.json', spiritsJson);
+                this.hideSavingSpinner();
                 alert('Saved via download. Please move the 5 JSON files to your data folder.');
             }
         } catch (error) {
+            this.hideSavingSpinner();
             console.error('[EditorManager] Save failed:', error);
             if (error.name !== 'AbortError') {
                 alert('❌ Save failed: ' + error.message);

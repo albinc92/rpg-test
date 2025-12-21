@@ -186,6 +186,11 @@ class PropertyPanel {
             });
         }
 
+        // NPC Script editor (for NPCs with scripting support)
+        if (obj instanceof NPC || obj.actorType === 'npc') {
+            this.addNPCScriptEditor(obj);
+        }
+
         if (obj.gold !== undefined) {
             this.addNumberInput('Gold', obj.gold, (value) => {
                 obj.gold = value;
@@ -752,6 +757,183 @@ class PropertyPanel {
         container.appendChild(previewContainer);
         container.appendChild(pathInput);
         this.propertiesContainer.appendChild(container);
+    }
+
+    /**
+     * Add NPC Script editor with modal
+     */
+    addNPCScriptEditor(obj) {
+        const container = document.createElement('div');
+        container.style.marginBottom = '15px';
+
+        const button = document.createElement('button');
+        button.textContent = '📜 Edit Script';
+        button.style.cssText = EditorStyles.getNewButtonStyle(this.theme);
+        button.onclick = () => this.openScriptEditorModal(obj);
+        EditorStyles.applyNewButtonHover(button, this.theme);
+
+        // Show script status
+        const status = document.createElement('div');
+        status.style.cssText = 'font-size: 11px; color: #888; margin-top: 4px;';
+        status.textContent = obj.script ? `Script: ${obj.script.length} chars` : 'No script assigned';
+
+        container.appendChild(button);
+        container.appendChild(status);
+        this.propertiesContainer.appendChild(container);
+    }
+
+    /**
+     * Open script editor modal for NPC
+     */
+    openScriptEditorModal(obj) {
+        // Create modal overlay
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 10001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        `;
+
+        // Create modal container
+        const modal = document.createElement('div');
+        modal.style.cssText = EditorStyles.getPanelStyle(this.theme);
+        modal.style.position = 'relative';
+        modal.style.top = 'auto';
+        modal.style.right = 'auto';
+        modal.style.width = '90%';
+        modal.style.maxWidth = '800px';
+        modal.style.maxHeight = '85vh';
+
+        // Header
+        const header = document.createElement('div');
+        header.style.cssText = EditorStyles.getHeaderStyle(this.theme);
+        header.innerHTML = EditorStyles.createHeader(this.theme, 'NPC Script Editor', `Editing: ${obj.name || 'Unnamed NPC'}`);
+
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '×';
+        closeBtn.style.cssText = EditorStyles.getCloseButtonStyle();
+        closeBtn.onclick = () => overlay.remove();
+        EditorStyles.applyCloseButtonHover(closeBtn);
+
+        header.appendChild(closeBtn);
+
+        // Content container
+        const contentContainer = document.createElement('div');
+        contentContainer.style.cssText = EditorStyles.getContentStyle();
+        contentContainer.style.display = 'flex';
+        contentContainer.style.flexDirection = 'column';
+        contentContainer.style.gap = '15px';
+
+        // Help text
+        const helpSection = document.createElement('div');
+        helpSection.style.cssText = `
+            padding: 12px;
+            background: rgba(74, 158, 255, 0.1);
+            border: 1px solid rgba(74, 158, 255, 0.3);
+            border-radius: 6px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #a0c8ff;
+        `;
+        helpSection.innerHTML = `
+            <b>Commands:</b> message "text"; | additem "id", qty; | delitem "id", qty; | setvar "name", value; | end;<br>
+            <b>Conditions:</b> if (hasitem("id", qty)) { } else { } | getvar("name")<br>
+            <b>Choices:</b> choice "Option 1", "Option 2"; | if (choice == 0) { }<br>
+            <b>HTML:</b> &lt;b&gt;bold&lt;/b&gt; | &lt;i&gt;italic&lt;/i&gt; | &lt;color=#hex&gt;text&lt;/color&gt;
+        `;
+        contentContainer.appendChild(helpSection);
+
+        // Script textarea
+        const textarea = document.createElement('textarea');
+        textarea.value = obj.script || '';
+        textarea.placeholder = `// Example NPC script
+if (getvar("talked_before")) {
+    message "Good to see you again!";
+} else {
+    message "Hello <b>traveler</b>! Welcome.";
+    setvar "talked_before", true;
+}
+end;`;
+        textarea.style.cssText = `
+            width: 100%;
+            height: 350px;
+            padding: 12px;
+            border: 1px solid #555;
+            border-radius: 6px;
+            background: #1a1a2e;
+            color: #ecf0f1;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            resize: vertical;
+            box-sizing: border-box;
+        `;
+        textarea.spellcheck = false;
+        contentContainer.appendChild(textarea);
+
+        // Button row
+        const buttonRow = document.createElement('div');
+        buttonRow.style.cssText = 'display: flex; gap: 10px; justify-content: flex-end;';
+
+        // Clear button
+        const clearBtn = document.createElement('button');
+        clearBtn.textContent = '🗑️ Clear';
+        clearBtn.style.cssText = EditorStyles.getCancelButtonStyle(this.editor.game);
+        clearBtn.onclick = () => {
+            if (confirm('Clear the entire script?')) {
+                textarea.value = '';
+            }
+        };
+        EditorStyles.applyCancelButtonHover(clearBtn);
+        buttonRow.appendChild(clearBtn);
+
+        // Cancel button
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.cssText = EditorStyles.getCancelButtonStyle(this.editor.game);
+        cancelBtn.onclick = () => overlay.remove();
+        EditorStyles.applyCancelButtonHover(cancelBtn);
+        buttonRow.appendChild(cancelBtn);
+
+        // Save button
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = '💾 Save Script';
+        saveBtn.style.cssText = EditorStyles.getSaveButtonStyle(this.theme, this.editor.game);
+        saveBtn.onclick = () => {
+            const scriptText = textarea.value.trim();
+            obj.script = scriptText || null;
+            
+            // Update talk bubble visibility based on whether there's a script
+            if (obj.showTalkBubble !== false) {
+                obj.showTalkBubble = !!(scriptText || (obj.messages && obj.messages.length > 0));
+            }
+            
+            overlay.remove();
+            
+            // Refresh the property panel to update status
+            this.show(obj);
+        };
+        EditorStyles.applySaveButtonHover(saveBtn, this.theme);
+        buttonRow.appendChild(saveBtn);
+
+        contentContainer.appendChild(buttonRow);
+
+        // Assemble modal
+        modal.appendChild(header);
+        modal.appendChild(contentContainer);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Focus textarea
+        setTimeout(() => textarea.focus(), 100);
     }
 
     /**
