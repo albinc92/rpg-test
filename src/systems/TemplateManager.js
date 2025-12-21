@@ -178,7 +178,8 @@ class TemplateManager {
                     (obj.spriteSrc === template.spriteSrc && !obj.templateId)) {
                     
                     // Apply template properties (but keep position, id, etc.)
-                    const preserveKeys = ['x', 'y', 'id', 'templateId'];
+                    // Note: showTalkBubble is auto-managed by NPC based on dialogue existence
+                    const preserveKeys = ['x', 'y', 'id', 'templateId', 'showTalkBubble'];
                     Object.entries(template).forEach(([key, value]) => {
                         if (!preserveKeys.includes(key) && key !== 'id' && key !== 'name' && key !== 'icon') {
                             obj[key] = value;

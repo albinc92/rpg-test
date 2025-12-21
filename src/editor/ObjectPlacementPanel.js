@@ -443,6 +443,7 @@ class ObjectPlacementPanel {
                     category: 'Actor',
                     actorType: 'npc',
                     ...template,  // Include ALL template properties (spriteSrc, scale, script, collision, etc.)
+                    spriteSrc: template.spriteSrc || template.spritePath, // Ensure spriteSrc is set (fallback to spritePath for compatibility)
                     id: undefined,  // Force UUID generation - don't use template name as ID
                     templateId: template.name,
                     castsShadow: template.castsShadow !== false // Enable shadows by default

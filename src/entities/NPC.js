@@ -33,7 +33,15 @@ class NPC extends Actor {
         this.faction = options.faction || null;
         
         // Talk bubble indicator
-        this.showTalkBubble = options.showTalkBubble !== false && (this.script || this.messages.length > 0);
+        // If explicitly set to false, respect that; otherwise leave undefined to auto-detect
+        if (options.showTalkBubble === false) {
+            this.showTalkBubble = false;
+        } else if (options.showTalkBubble === true) {
+            this.showTalkBubble = true;
+        } else {
+            // Auto-detect based on initial dialogue - will be updated dynamically if script is added later
+            this.showTalkBubble = this.script || this.messages.length > 0;
+        }
         this.talkBubbleAnimation = 0;
         
         // Store last rendered screen position for UI overlays
@@ -55,6 +63,12 @@ class NPC extends Actor {
     update(deltaTime, game) {
         // Update behavior
         this.updateBehavior(deltaTime, game);
+        
+        // Auto-enable talk bubble if NPC has dialogue but bubble was disabled
+        // (handles case where script is added after NPC creation)
+        if (this.showTalkBubble === false && this.hasDialogue()) {
+            this.showTalkBubble = true;
+        }
         
         // Update talk bubble animation
         if (this.showTalkBubble && this.hasDialogue()) {

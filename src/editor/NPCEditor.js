@@ -103,7 +103,7 @@ class NPCEditor {
                     <div>
                         <div style="font-weight: bold; color: #2ecc71;">${template.name}</div>
                         <div style="font-size: 11px; color: #95a5a6; margin-top: 2px;">
-                            Sprite: ${template.spritePath} | Dialog: ${template.dialogId || 'None'}
+                            Sprite: ${template.spriteSrc || template.spritePath} | Dialog: ${template.dialogId || 'None'}
                         </div>
                     </div>
                     <div style="display: flex; gap: 8px;">
@@ -157,7 +157,7 @@ class NPCEditor {
         form.appendChild(this.createField('Name', 'text', 'name', template?.name || '', 'npc-merchant-0'));
 
         // Sprite Path field
-        form.appendChild(this.createField('Sprite Path', 'text', 'spritePath', template?.spritePath || '', '/assets/npc/main-0.png'));
+        form.appendChild(this.createField('Sprite Path', 'text', 'spriteSrc', template?.spriteSrc || template?.spritePath || '', '/assets/npc/main-0.png'));
 
         // Dialog ID field
         form.appendChild(this.createField('Dialog ID', 'text', 'dialogId', template?.dialogId || '', 'merchant_greeting'));
@@ -295,7 +295,7 @@ class NPCEditor {
         
         const templateData = {
             name: formData.get('name'),
-            spritePath: formData.get('spritePath'),
+            spriteSrc: formData.get('spriteSrc'),
             dialogId: formData.get('dialogId') || null,
             isInteractive: form.querySelector('#isInteractive').checked,
             script: script,
@@ -311,7 +311,7 @@ class NPCEditor {
             return;
         }
 
-        if (!templateData.spritePath) {
+        if (!templateData.spriteSrc) {
             alert('Sprite Path is required!');
             return;
         }
