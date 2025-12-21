@@ -281,14 +281,27 @@ class RenderSystem {
                 // Check if current map has day/night cycle enabled
                 const isDayNightEnabled = game.currentMap && game.currentMap.dayNightCycle;
                 
-                // Get current weather state for darkening effect
-                // Use weatherSystem's current precipitation (handles dynamic weather properly)
-                const weatherState = game.weatherSystem ? {
-                    precipitation: game.weatherSystem.precipitation
-                } : (game.currentMap?.weather || null);
+                // Get interpolated lighting params from weather system (for smooth transitions)
+                // WeatherSystem handles ALL weather darkening with smooth interpolation
+                const weatherLighting = game.weatherSystem?.getInterpolatedLightingParams?.() || null;
                 
                 if (isDayNightEnabled) {
-                    const params = game.dayNightCycle.getShaderParams(weatherState);
+                    // Pass null for weatherState - let WeatherSystem handle weather darkening
+                    // DayNightCycle only calculates time-of-day effects (no weather)
+                    const params = game.dayNightCycle.getShaderParams(null);
+                    
+                    // Apply weather lighting params from WeatherSystem
+                    // This provides smooth interpolation during weather transitions
+                    if (weatherLighting && game.weatherSystem) {
+                        params.brightness = Math.min(params.brightness, weatherLighting.brightness);
+                        params.saturation = Math.min(params.saturation, weatherLighting.saturation);
+                        // Blend darkness color
+                        params.darknessColor = [
+                            Math.min(params.darknessColor[0], weatherLighting.darknessColor[0]),
+                            Math.min(params.darknessColor[1], weatherLighting.darknessColor[1]),
+                            Math.min(params.darknessColor[2], weatherLighting.darknessColor[2])
+                        ];
+                    }
                     
                     // Validate params to prevent black screen (NaN protection)
                     if (!params.darknessColor || !Array.isArray(params.darknessColor) || params.darknessColor.some(c => isNaN(c))) {
@@ -319,12 +332,17 @@ class RenderSystem {
                     this.webglRenderer.setDayNightParams(params);
                 } else {
                     // Day/night cycle disabled for this map, but weather can still darken
-                    // Calculate weather-only darkening
+                    // Use interpolated values from weather system for smooth transitions
                     let weatherBrightness = 1.0;
                     let weatherSaturation = 1.0;
                     let weatherDarknessColor = [1.0, 1.0, 1.0];
                     
-                    if (weatherState && weatherState.precipitation) {
+                    // Prefer interpolated values for smooth transitions
+                    if (weatherLighting && game.weatherSystem) {
+                        weatherBrightness = weatherLighting.brightness;
+                        weatherSaturation = weatherLighting.saturation;
+                        weatherDarknessColor = weatherLighting.darknessColor;
+                    } else if (weatherState && weatherState.precipitation) {
                         const precip = weatherState.precipitation;
                         if (precip === 'rain-light' || precip === 'snow-light') {
                             weatherBrightness = 0.85;
@@ -353,28 +371,38 @@ class RenderSystem {
                 }
             } else {
                 // No day/night cycle system, but still check for weather darkening
-                const weatherState = game.weatherSystem ? {
-                    precipitation: game.weatherSystem.precipitation
-                } : (game.currentMap?.weather || null);
+                // Use interpolated values from weather system for smooth transitions
+                const weatherLighting = game.weatherSystem?.getInterpolatedLightingParams?.() || null;
                 
                 let weatherBrightness = 1.0;
                 let weatherSaturation = 1.0;
                 let weatherDarknessColor = [1.0, 1.0, 1.0];
                 
-                if (weatherState && weatherState.precipitation) {
-                    const precip = weatherState.precipitation;
-                    if (precip === 'rain-light' || precip === 'snow-light') {
-                        weatherBrightness = 0.85;
-                        weatherSaturation = 0.8;
-                        weatherDarknessColor = [0.93, 0.93, 0.94];
-                    } else if (precip === 'rain-medium' || precip === 'snow-medium') {
-                        weatherBrightness = 0.7;
-                        weatherSaturation = 0.65;
-                        weatherDarknessColor = [0.86, 0.86, 0.88];
-                    } else if (precip === 'rain-heavy' || precip === 'snow-heavy') {
-                        weatherBrightness = 0.5;
-                        weatherSaturation = 0.5;
-                        weatherDarknessColor = [0.76, 0.76, 0.80];
+                // Prefer interpolated values for smooth transitions
+                if (weatherLighting && game.weatherSystem) {
+                    weatherBrightness = weatherLighting.brightness;
+                    weatherSaturation = weatherLighting.saturation;
+                    weatherDarknessColor = weatherLighting.darknessColor;
+                } else {
+                    const weatherState = game.weatherSystem ? {
+                        precipitation: game.weatherSystem.precipitation
+                    } : (game.currentMap?.weather || null);
+                    
+                    if (weatherState && weatherState.precipitation) {
+                        const precip = weatherState.precipitation;
+                        if (precip === 'rain-light' || precip === 'snow-light') {
+                            weatherBrightness = 0.85;
+                            weatherSaturation = 0.8;
+                            weatherDarknessColor = [0.93, 0.93, 0.94];
+                        } else if (precip === 'rain-medium' || precip === 'snow-medium') {
+                            weatherBrightness = 0.7;
+                            weatherSaturation = 0.65;
+                            weatherDarknessColor = [0.86, 0.86, 0.88];
+                        } else if (precip === 'rain-heavy' || precip === 'snow-heavy') {
+                            weatherBrightness = 0.5;
+                            weatherSaturation = 0.5;
+                            weatherDarknessColor = [0.76, 0.76, 0.80];
+                        }
                     }
                 }
                 

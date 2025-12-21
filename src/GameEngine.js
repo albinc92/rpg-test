@@ -1585,8 +1585,12 @@ class GameEngine {
     getShadowProperties() {
         const now = Date.now();
         
+        // Check if weather system is transitioning (need to recalculate every frame)
+        const isWeatherTransitioning = this.weatherSystem?.isTransitioning ?? false;
+        
         // Cache shadow properties for 100ms (updates 10x per second)
-        if (this._shadowPropsCache && (now - this._shadowPropsCacheTime) < 100) {
+        // Unless we're in a weather transition, then always recalculate
+        if (!isWeatherTransitioning && this._shadowPropsCache && (now - this._shadowPropsCacheTime) < 100) {
             return this._shadowPropsCache;
         }
         
@@ -1679,17 +1683,10 @@ class GameEngine {
         }
         
         // WEATHER EFFECTS on shadow intensity (only affects sun shadows, not moon)
-        if (!isMoonShadow && this.currentMap && this.currentMap.weather && this.currentMap.weather.precipitation) {
-            const precipitation = this.currentMap.weather.precipitation;
-            
-            // Rain/snow blocks sunlight proportionally to intensity
-            if (precipitation === 'rain-light' || precipitation === 'snow-light') {
-                shadowOpacity *= 0.75; // 25% reduction - light clouds slightly soften shadows
-            } else if (precipitation === 'rain-medium' || precipitation === 'snow-medium') {
-                shadowOpacity *= 0.5; // 50% reduction - medium rain/snow noticeably reduces shadows
-            } else if (precipitation === 'rain-heavy' || precipitation === 'snow-heavy') {
-                shadowOpacity *= 0.25; // 75% reduction - heavy precipitation greatly reduces shadows
-            }
+        // Use weather system's interpolated shadow multiplier for smooth transitions
+        if (!isMoonShadow && this.weatherSystem) {
+            const shadowMultiplier = this.weatherSystem.getShadowMultiplier?.() ?? 1.0;
+            shadowOpacity *= shadowMultiplier;
         }
         
         // Shadow skew amount (how much the TOP shifts horizontally)
