@@ -86,11 +86,17 @@
     },
     "gameplay": {
       "language": "Language",
+      "messageSpeed": "Message Speed",
       "alwaysRun": "Always Run",
       "showDebugInfo": "Show Debug Info",
       "perspectiveEffect": "Perspective Effect",
       "perspectiveStrength": "Perspective Strength",
-      "timeScale": "Day/Night Speed"
+      "timeScale": "Day/Night Speed",
+      "speedOptions": {
+        "slow": "Slow",
+        "medium": "Medium",
+        "fast": "Fast"
+      }
     },
     "controls": {
       "inputDevice": "Input Device",

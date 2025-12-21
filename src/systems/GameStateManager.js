@@ -1743,6 +1743,7 @@ class SettingsState extends GameState {
             ],
             'Gameplay': [
                 { nameKey: 'settings.gameplay.language', type: 'select', key: 'language', values: [], dynamicValues: 'languages' },
+                { nameKey: 'settings.gameplay.messageSpeed', type: 'select', key: 'messageSpeed', values: ['Slow', 'Medium', 'Fast'], valueMap: { 'Slow': 'slow', 'Medium': 'medium', 'Fast': 'fast' }, valueKeys: { 'Slow': 'settings.gameplay.speedOptions.slow', 'Medium': 'settings.gameplay.speedOptions.medium', 'Fast': 'settings.gameplay.speedOptions.fast' } },
                 { nameKey: 'settings.gameplay.alwaysRun', type: 'toggle', key: 'alwaysRun', disabledWhen: 'controller' },
                 { nameKey: 'settings.gameplay.showDebugInfo', type: 'toggle', key: 'showDebugInfo' }
             ],
@@ -3248,7 +3249,12 @@ class DialogueState extends GameState {
         // Current message being displayed
         this.currentMessage = '';
         this.displayedChars = 0;
-        this.charRevealSpeed = 30; // chars per second
+        
+        // Message speed based on settings (chars per second)
+        const speedSettings = { slow: 20, medium: 35, fast: 60 };
+        const speedKey = this.game.settings?.messageSpeed || 'medium';
+        this.charRevealSpeed = speedSettings[speedKey] || 35;
+        
         this.lastCharTime = 0;
         this.isTyping = true;
         
@@ -3423,6 +3429,7 @@ class DialogueState extends GameState {
         }
         
         // Confirm/advance (Enter, Space, E, or gamepad A)
+        // If typing: complete text. If complete: advance to next message.
         if (inputManager.isJustPressed('confirm') || inputManager.isJustPressed('interact')) {
             
             if (this.isShowingChoices) {
@@ -3434,7 +3441,7 @@ class DialogueState extends GameState {
                     this.isShowingChoices = false;
                 }
             } else if (this.isTyping) {
-                // Skip to end of message
+                // Skip to end of message (don't advance yet)
                 this.displayedChars = this.getPlainTextLength(this.currentMessage);
                 this.isTyping = false;
             } else if (this.messageResolver) {
@@ -3457,13 +3464,34 @@ class DialogueState extends GameState {
             return;
         }
         
-        // Cancel/Close (Escape, B button)
+        // Cancel (Escape, B button) - instantly advance to next message
         if (inputManager.isJustPressed('cancel')) {
-            if (!this.isRunningScript || !this.isShowingChoices) {
-                if (this.scriptEngine) {
-                    this.scriptEngine.stop();
+            if (this.isShowingChoices) {
+                // Do nothing - player must select a choice
+                return;
+            }
+            
+            // Complete text if typing
+            if (this.isTyping) {
+                this.displayedChars = this.getPlainTextLength(this.currentMessage);
+                this.isTyping = false;
+            }
+            
+            // Immediately advance to next message/action
+            if (this.messageResolver) {
+                this.messageResolver();
+                this.messageResolver = null;
+            } else if (!this.isRunningScript) {
+                if (this.npc && this.npc.nextMessage) {
+                    const nextMsg = this.npc.nextMessage();
+                    if (nextMsg) {
+                        this.showMessage(nextMsg);
+                    } else {
+                        this.stateManager.popState();
+                    }
+                } else {
+                    this.stateManager.popState();
                 }
-                this.stateManager.popState();
             }
             return;
         }

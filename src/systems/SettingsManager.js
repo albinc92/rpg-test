@@ -28,6 +28,7 @@ class SettingsManager {
             perspectiveStrength: 0.35, // Subtle effect (0 = none, 1 = full)
             // Gameplay settings
             alwaysRun: false, // When true, player always runs (hold shift to walk)
+            messageSpeed: 'medium', // 'slow', 'medium', 'fast' - dialogue text reveal speed
             // Graphics quality settings
             antiAliasing: 'fxaa', // 'none', 'msaa', 'fxaa', or 'msaa+fxaa'
             textureFiltering: 'smooth', // 'smooth' (bilinear) or 'sharp' (nearest)
