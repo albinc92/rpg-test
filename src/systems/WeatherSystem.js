@@ -352,8 +352,8 @@ class WeatherSystem {
         }
         if (type === 'snow') {
             if (this.precipitation === 'snow-light') return 50;
-            if (this.precipitation === 'snow-medium') return 100;
-            if (this.precipitation === 'snow-heavy') return 150;
+            if (this.precipitation === 'snow-medium') return 150;
+            if (this.precipitation === 'snow-heavy') return 300;
         }
         return 0;
     }
@@ -377,7 +377,7 @@ class WeatherSystem {
         return {
             x: viewport.left + Math.random() * viewport.width,
             y: viewport.top + Math.random() * viewport.height,
-            speed: 1 + Math.random() * 2,
+            speed: 3 + Math.random() * 3,
             size: 2 + Math.random() * 3,
             sway: Math.random() * Math.PI * 2,
             swaySpeed: 0.02 + Math.random() * 0.03
