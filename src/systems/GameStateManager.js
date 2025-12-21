@@ -3532,30 +3532,65 @@ class DialogueState extends GameState {
             
             // Calculate sprite dimensions
             const finalScale = (this.npc.scale || 1) * worldScale;
-            const spriteWidth = (this.npc.spriteWidth || 64) * finalScale;
             const spriteHeight = (this.npc.spriteHeight || 64) * finalScale;
             
-            // Calculate draw position (top-left of sprite)
-            const drawX = worldX - spriteWidth / 2;
-            const drawY = worldY - spriteHeight / 2;
-            
-            // Apply billboard delta if perspective is enabled
-            let adjustedWorldX = worldX;
-            let adjustedWorldY = worldY - spriteHeight / 2; // Top of sprite
+            // Calculate where the TOP of the sprite is
+            let topWorldX = worldX;
+            let topWorldY = worldY - spriteHeight / 2;
             
             const webglRenderer = this.game.renderSystem?.webglRenderer;
-            if (webglRenderer && webglRenderer.perspectiveStrength > 0 && webglRenderer.calculateBillboardDelta) {
-                const delta = webglRenderer.calculateBillboardDelta(drawX, drawY, spriteWidth, spriteHeight);
-                adjustedWorldX += delta.x;
-                adjustedWorldY += delta.y;
+            
+            // In billboard mode with perspective, the sprite is scaled and shifted
+            if (webglRenderer && webglRenderer.perspectiveStrength > 0 && webglRenderer.viewMatrix) {
+                const vm = webglRenderer.viewMatrix;
+                const pm = webglRenderer.projectionMatrix;
+                const zoomFactor = vm[0];
+                
+                // Sprite base position (bottom center)
+                const baseX = worldX;
+                const baseY = worldY + spriteHeight / 2;
+                
+                // Transform base to clip space
+                const viewX = baseX * vm[0] + baseY * vm[4] + vm[12];
+                const viewY = baseX * vm[1] + baseY * vm[5] + vm[13];
+                const clipX = viewX * pm[0] + viewY * pm[4] + pm[12];
+                const clipY = viewX * pm[1] + viewY * pm[5] + pm[13];
+                
+                // Calculate perspective factor
+                const depth = (clipY + 1.0) * 0.5;
+                const perspectiveW = 1.0 + (depth * webglRenderer.perspectiveStrength);
+                const scale = 1.0 / perspectiveW;
+                
+                // Scaled sprite height
+                const scaledSpriteHeight = spriteHeight * scale;
+                
+                // Calculate base position delta
+                const screenX_noPerspective = (clipX + 1.0) * 0.5 * canvasWidth;
+                const screenY_noPerspective = (1.0 - clipY) * 0.5 * canvasHeight;
+                const clipX_persp = clipX / perspectiveW;
+                const clipY_persp = clipY / perspectiveW;
+                const screenX_withPerspective = (clipX_persp + 1.0) * 0.5 * canvasWidth;
+                const screenY_withPerspective = (1.0 - clipY_persp) * 0.5 * canvasHeight;
+                
+                const deltaScreenX = screenX_withPerspective - screenX_noPerspective;
+                const deltaScreenY = screenY_withPerspective - screenY_noPerspective;
+                const deltaWorldX = deltaScreenX / zoomFactor;
+                const deltaWorldY = deltaScreenY / zoomFactor;
+                
+                // Corrected base position
+                const correctedBaseX = baseX + deltaWorldX;
+                const correctedBaseY = baseY + deltaWorldY;
+                
+                // Top of the scaled sprite
+                topWorldX = correctedBaseX;
+                topWorldY = correctedBaseY - scaledSpriteHeight;
             }
             
-            // Convert world position to screen position
-            // Canvas2D transform: translate(center) → scale(zoom) → translate(-center) → translate(-camera)
-            bubbleX = (adjustedWorldX - camera.x) * zoom + canvasWidth / 2 * (1 - zoom);
-            bubbleY = (adjustedWorldY - camera.y) * zoom + canvasHeight / 2 * (1 - zoom);
+            // Convert to screen coordinates
+            bubbleX = (topWorldX - camera.x) * zoom + canvasWidth / 2 * (1 - zoom);
+            bubbleY = (topWorldY - camera.y) * zoom + canvasHeight / 2 * (1 - zoom);
             
-            // Position bubble above NPC sprite
+            // Position bubble above sprite top
             bubbleY -= 20;
         }
         
