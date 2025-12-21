@@ -347,8 +347,8 @@ class WeatherSystem {
     getParticleCount(type) {
         if (type === 'rain') {
             if (this.precipitation === 'rain-light') return 200;
-            if (this.precipitation === 'rain-medium') return 350;
-            if (this.precipitation === 'rain-heavy') return 500;
+            if (this.precipitation === 'rain-medium') return 600;
+            if (this.precipitation === 'rain-heavy') return 1000;
         }
         if (type === 'snow') {
             if (this.precipitation === 'snow-light') return 50;
@@ -365,7 +365,7 @@ class WeatherSystem {
         return {
             x: viewport.left + Math.random() * viewport.width,
             y: viewport.top + Math.random() * viewport.height,
-            speed: 10 + Math.random() * 5,
+            speed: 18 + Math.random() * 8,
             length: 10 + Math.random() * 10
         };
     }
