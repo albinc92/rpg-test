@@ -6,12 +6,18 @@ class AudioManager {
         this.currentAmbience = null;
         this.effectsAudio = new Map();
         
-        // Weather sound effects
+        // Weather sound effects (rain/precipitation channel)
         this.weatherAudio = null;
         this.currentWeatherSound = null;
         
-        // Crossfade settings
-        this.DEFAULT_CROSSFADE_DURATION = 5000; // 5 seconds to match weather transitions
+        // Wind sound effects (separate channel for layering)
+        this.windAudio = null;
+        this.currentWindSound = null;
+        
+        // Crossfade settings - use global config if available, otherwise fallback
+        this.DEFAULT_CROSSFADE_DURATION = (typeof MAP_TRANSITION_CONFIG !== 'undefined') 
+            ? MAP_TRANSITION_CONFIG.DURATION_MS 
+            : 5000;
         this.activeCrossfades = new Set();
         
         // Cache busting - only set on initial launch
@@ -759,6 +765,198 @@ class AudioManager {
     }
 
     /**
+     * Play wind sound effects (separate channel from rain)
+     * @param {string} windType - Type of wind sound (e.g., 'wind-light', 'wind-medium')
+     * @param {number} crossfadeDuration - Duration of crossfade in milliseconds
+     */
+    playWindSound(windType, crossfadeDuration = this.DEFAULT_CROSSFADE_DURATION) {
+        // Handle null/empty (no wind sound should play)
+        if (!windType || windType === 'none') {
+            console.log('[AudioManager] No wind sound, stopping current wind audio');
+            this.crossfadeWindOut(crossfadeDuration);
+            return;
+        }
+
+        // Map wind types to audio files
+        const windSoundMap = {
+            'wind-light': 'wind-light.mp3',
+            'wind-medium': 'wind-medium.mp3',
+            'wind-heavy': 'wind-heavy.mp3'
+        };
+
+        const filename = windSoundMap[windType];
+        if (!filename) {
+            console.log(`[AudioManager] No sound mapped for wind type: ${windType}`);
+            return;
+        }
+
+        // Check if already playing
+        if (this.currentWindSound === filename && this.windAudio && !this.windAudio.paused) {
+            console.log(`[AudioManager] Wind sound '${filename}' is already playing, ignoring request`);
+            return;
+        }
+
+        const playAction = () => {
+            console.log(`[AudioManager] 💨 Playing Wind Sound with crossfade: ${filename} (${crossfadeDuration}ms)`);
+            
+            // Create new audio element
+            const newWind = this.createAudioElement(`assets/audio/effect/${filename}`, 'Wind');
+            if (!newWind) {
+                console.error(`[AudioManager] ❌ Failed to create wind audio element for: ${filename}`);
+                return;
+            }
+
+            newWind.loop = true;
+            newWind.volume = 0; // Start at 0 for crossfade in
+            
+            // Start playing the new track
+            const playPromise = newWind.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    console.log(`[AudioManager] ✅ Wind sound '${filename}' loaded successfully, starting crossfade`);
+                    this.crossfadeWind(this.windAudio, newWind, crossfadeDuration, filename);
+                }).catch(error => {
+                    console.error(`[AudioManager] ❌ Failed to play wind sound '${filename}':`, error);
+                    this.audioElements.delete(newWind);
+                });
+            }
+        };
+
+        if (this.audioEnabled) {
+            playAction();
+        } else {
+            console.log(`[AudioManager] Audio not enabled yet, queueing wind sound: ${filename}`);
+            this.pendingActions.push(playAction);
+        }
+    }
+
+    /**
+     * Crossfade between wind tracks
+     */
+    crossfadeWind(oldAudio, newAudio, duration, newFilename) {
+        const steps = 50;
+        const stepTime = duration / steps;
+        
+        let currentStep = 0;
+        const crossfadeId = `wind_${Date.now()}`;
+        this.activeCrossfades.add(crossfadeId);
+
+        const fadeInterval = setInterval(() => {
+            if (!this.activeCrossfades.has(crossfadeId)) {
+                clearInterval(fadeInterval);
+                return;
+            }
+
+            currentStep++;
+            const progress = currentStep / steps;
+            
+            // Fade out old audio
+            if (oldAudio && !oldAudio.paused) {
+                oldAudio.volume = Math.max(0, this.calculateWeatherVolume() * (1 - progress));
+            }
+            
+            // Fade in new audio
+            if (newAudio && !newAudio.paused) {
+                newAudio.volume = Math.min(this.calculateWeatherVolume(), this.calculateWeatherVolume() * progress);
+            }
+            
+            if (currentStep >= steps) {
+                clearInterval(fadeInterval);
+                this.activeCrossfades.delete(crossfadeId);
+                
+                // Stop and clean up old audio
+                if (oldAudio && oldAudio !== newAudio) {
+                    oldAudio.pause();
+                    oldAudio.currentTime = 0;
+                    this.audioElements.delete(oldAudio);
+                }
+                
+                // Update current wind reference
+                this.windAudio = newAudio;
+                this.currentWindSound = newFilename;
+                
+                console.log(`[AudioManager] Wind crossfade complete: ${newFilename}`);
+            }
+        }, stepTime);
+    }
+
+    /**
+     * Crossfade wind sound out
+     */
+    crossfadeWindOut(duration) {
+        if (!this.windAudio || this.windAudio.paused) {
+            this.currentWindSound = null;
+            return;
+        }
+
+        const steps = 50;
+        const stepTime = duration / steps;
+        const volumeStep = this.calculateWeatherVolume() / steps;
+        
+        let currentStep = 0;
+        const crossfadeId = `wind_out_${Date.now()}`;
+        this.activeCrossfades.add(crossfadeId);
+
+        const fadeInterval = setInterval(() => {
+            if (!this.activeCrossfades.has(crossfadeId)) {
+                clearInterval(fadeInterval);
+                return;
+            }
+
+            currentStep++;
+            
+            if (this.windAudio && !this.windAudio.paused) {
+                this.windAudio.volume = Math.max(0, this.windAudio.volume - volumeStep);
+            }
+            
+            if (currentStep >= steps) {
+                clearInterval(fadeInterval);
+                this.activeCrossfades.delete(crossfadeId);
+                
+                if (this.windAudio) {
+                    this.windAudio.pause();
+                    this.windAudio.currentTime = 0;
+                    this.audioElements.delete(this.windAudio);
+                }
+                this.currentWindSound = null;
+                this.windAudio = null;
+                
+                console.log('[AudioManager] Wind sound crossfade out complete');
+            }
+        }, stepTime);
+    }
+
+    stopWindSound() {
+        if (this.windAudio && !this.windAudio.paused) {
+            console.log(`[AudioManager] Stopping Wind Sound: ${this.currentWindSound}`);
+            this.windAudio.pause();
+            this.windAudio.currentTime = 0;
+            this.audioElements.delete(this.windAudio);
+        }
+        this.currentWindSound = null;
+        this.windAudio = null;
+    }
+
+    pauseWindSound() {
+        if (this.windAudio && !this.windAudio.paused) {
+            console.log(`[AudioManager] Pausing Wind Sound: ${this.currentWindSound}`);
+            this.windAudio.pause();
+        }
+    }
+
+    resumeWindSound() {
+        if (this.windAudio && this.windAudio.paused && this.currentWindSound) {
+            console.log(`[AudioManager] Resuming Wind Sound: ${this.currentWindSound}`);
+            const playPromise = this.windAudio.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.error(`[AudioManager] Failed to resume wind sound '${this.currentWindSound}':`, error);
+                });
+            }
+        }
+    }
+
+    /**
      * Pause all audio (BGM and Ambience)
      */
     pauseAll() {
@@ -766,6 +964,7 @@ class AudioManager {
         this.pauseBGM();
         this.pauseAmbience();
         this.pauseWeatherSound();
+        this.pauseWindSound();
     }
 
     /**
@@ -776,6 +975,7 @@ class AudioManager {
         this.resumeBGM();
         this.resumeAmbience();
         this.resumeWeatherSound();
+        this.resumeWindSound();
     }
 
     playEffect(filename, volume = 1.0) {

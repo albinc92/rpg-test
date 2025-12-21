@@ -1,4 +1,13 @@
 /**
+ * Global configuration for map transitions
+ * Used by WeatherSystem, AudioManager, and other systems for consistent crossfade timing
+ */
+const MAP_TRANSITION_CONFIG = {
+    DURATION_SECONDS: 5.0,      // Duration in seconds (for WeatherSystem)
+    DURATION_MS: 5000,          // Duration in milliseconds (for AudioManager)
+};
+
+/**
  * WeatherSystem - Manages weather effects (precipitation, wind, particles)
  */
 class WeatherSystem {
@@ -20,7 +29,7 @@ class WeatherSystem {
         
         // Transition state
         this.transitionProgress = 1.0; // 0 = start of transition, 1 = complete
-        this.transitionDuration = 5.0; // seconds for weather crossfade
+        this.transitionDuration = MAP_TRANSITION_CONFIG.DURATION_SECONDS;
         this.isTransitioning = false;
         
         // Intensity multiplier for smooth particle fade (0-1)
@@ -242,24 +251,25 @@ class WeatherSystem {
         const effectivePrecip = this.isTransitioning ? this.targetPrecipitation : this.precipitation;
         const effectiveWind = this.isTransitioning ? this.targetWind : this.wind;
         
-        // Determine which sound to play
-        // Priority: Rain/Snow > Wind
-        let weatherSound = 'none';
-        
+        // Determine precipitation sound (rain channel)
+        let precipSound = 'none';
         if (effectivePrecip.startsWith('rain')) {
-            weatherSound = effectivePrecip; // rain-light, rain-medium, rain-heavy
+            precipSound = effectivePrecip; // rain-light, rain-medium, rain-heavy
+        }
+        // Snow doesn't have its own sound - it uses wind
+        
+        // Determine wind sound (wind channel - separate from rain)
+        let windSound = 'none';
+        if (effectiveWind !== 'none' && effectiveWind !== 'dynamic') {
+            windSound = `wind-${effectiveWind}`; // wind-light, wind-medium, wind-heavy
         } else if (effectivePrecip.startsWith('snow')) {
-            // Snow uses wind sounds (wind with snow visual)
-            if (effectiveWind !== 'none' && effectiveWind !== 'dynamic') {
-                weatherSound = `wind-${effectiveWind}`; // wind-light, wind-medium, wind-heavy
-            } else {
-                weatherSound = 'wind-light'; // Default gentle wind for snow
-            }
-        } else if (effectiveWind !== 'none' && effectiveWind !== 'dynamic') {
-            weatherSound = `wind-${effectiveWind}`; // wind-light, wind-medium, wind-heavy
+            // Snow gets default gentle wind if no explicit wind
+            windSound = 'wind-light';
         }
         
-        this.game.audioManager.playWeatherSound(weatherSound);
+        // Play both sounds on separate channels (they can layer)
+        this.game.audioManager.playWeatherSound(precipSound);
+        this.game.audioManager.playWindSound(windSound);
     }
     
     /**
@@ -268,6 +278,7 @@ class WeatherSystem {
     stopWeatherSounds() {
         if (this.game.audioManager) {
             this.game.audioManager.stopWeatherSound();
+            this.game.audioManager.stopWindSound();
         }
     }
     
