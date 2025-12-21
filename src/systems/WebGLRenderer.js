@@ -581,26 +581,36 @@ class WebGLRenderer {
                     color = clamp(sharp, 0.0, 1.0);
                 }
                 
-                // Bloom (simple glow on bright areas)
+                // Bloom (radial - weaker at center, stronger at edges)
+                // This prevents the player's light radius from making them fuzzy
                 if (u_bloomIntensity > 0.0) {
-                    vec2 texelSize = 1.0 / u_resolution;
-                    vec3 bloomColor = vec3(0.0);
-                    float bloomSamples = 0.0;
-                    // Sample in a larger radius for bloom
-                    for (float x = -2.0; x <= 2.0; x += 1.0) {
-                        for (float y = -2.0; y <= 2.0; y += 1.0) {
-                            vec3 sampleColor = texture2D(u_texture, uv + vec2(x, y) * texelSize * 3.0).rgb;
-                            float brightness = dot(sampleColor, vec3(0.299, 0.587, 0.114));
-                            // Only bloom bright areas
-                            if (brightness > 0.6) {
-                                bloomColor += sampleColor * (brightness - 0.6);
-                                bloomSamples += 1.0;
+                    // Radial falloff: bloom is 0 at center, full at edges
+                    // Using smoothstep for a nice curve
+                    float radialFactor = smoothstep(0.15, 0.6, dist);
+                    
+                    // Early exit if we're in the center zone - saves performance
+                    if (radialFactor > 0.01) {
+                        vec2 texelSize = 1.0 / u_resolution;
+                        vec3 bloomColor = vec3(0.0);
+                        float bloomSamples = 0.0;
+                        
+                        // Sample in a larger radius for bloom
+                        for (float x = -2.0; x <= 2.0; x += 1.0) {
+                            for (float y = -2.0; y <= 2.0; y += 1.0) {
+                                vec3 sampleColor = texture2D(u_texture, uv + vec2(x, y) * texelSize * 3.0).rgb;
+                                float brightness = dot(sampleColor, vec3(0.299, 0.587, 0.114));
+                                // Only bloom bright areas
+                                if (brightness > 0.5) {
+                                    bloomColor += sampleColor * (brightness - 0.5);
+                                    bloomSamples += 1.0;
+                                }
                             }
                         }
-                    }
-                    if (bloomSamples > 0.0) {
-                        bloomColor /= bloomSamples;
-                        color += bloomColor * u_bloomIntensity;
+                        if (bloomSamples > 0.0) {
+                            bloomColor /= bloomSamples;
+                            // Apply radial factor so bloom is minimal at center, full at edges
+                            color += bloomColor * u_bloomIntensity * radialFactor;
+                        }
                     }
                 }
                 
