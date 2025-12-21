@@ -3242,6 +3242,9 @@ class DialogueState extends GameState {
         this.npc = data.npc || null;
         this.message = data.message || null;
         
+        // Ignore input on first frame (so the key that initiated dialogue doesn't skip the message)
+        this.ignoreFirstInput = true;
+        
         // Current message being displayed
         this.currentMessage = '';
         this.displayedChars = 0;
@@ -3352,7 +3355,9 @@ class DialogueState extends GameState {
         if (this.isTyping && this.displayedChars < this.getPlainTextLength(this.currentMessage)) {
             const now = Date.now();
             const elapsed = now - this.lastCharTime;
-            const charsToAdd = Math.floor(elapsed / (1000 / this.charRevealSpeed));
+            // Cap elapsed time to prevent instant reveal on first frame
+            const cappedElapsed = Math.min(elapsed, 100); // Max 100ms worth of chars
+            const charsToAdd = Math.floor(cappedElapsed / (1000 / this.charRevealSpeed));
             
             if (charsToAdd > 0) {
                 this.displayedChars = Math.min(
@@ -3411,6 +3416,12 @@ class DialogueState extends GameState {
     }
     
     handleInput(inputManager) {
+        // Ignore input on first frame (the key that initiated dialogue shouldn't skip message)
+        if (this.ignoreFirstInput) {
+            this.ignoreFirstInput = false;
+            return;
+        }
+        
         // Confirm/advance (Enter, Space, E, or gamepad A)
         if (inputManager.isJustPressed('confirm') || inputManager.isJustPressed('interact')) {
             
@@ -3520,18 +3531,18 @@ class DialogueState extends GameState {
             bubbleY -= 20;
         }
         
-        // Calculate bubble size based on content
+        // Calculate bubble size based on FULL content (not partial display)
         const padding = 20;
         const maxBubbleWidth = Math.min(400, canvasWidth * 0.7);
         const minBubbleWidth = 150;
         
-        // Measure text to determine bubble size
+        // Measure FULL text to determine bubble size (so it doesn't grow as text appears)
         ctx.font = '15px Arial';
-        const displayText = this.getDisplayedText();
-        const plainText = displayText.replace(/<[^>]*>/g, '');
+        const fullText = this.currentMessage || '';
+        const fullPlainText = fullText.replace(/<[^>]*>/g, '');
         
-        // Word wrap to calculate height
-        const words = plainText.split(' ');
+        // Word wrap to calculate height using full text
+        const words = fullPlainText.split(' ');
         let lines = [];
         let currentLine = '';
         const lineHeight = 22;
@@ -3615,6 +3626,8 @@ class DialogueState extends GameState {
         const textX = boxX + padding;
         const maxWidth = bubbleWidth - padding * 2;
         
+        // Get the partially revealed text for display (typewriter effect)
+        const displayText = this.getDisplayedText();
         this.renderHtmlText(ctx, displayText, textX, textStartY, maxWidth, '#333333');
         
         // Choices (if showing)
