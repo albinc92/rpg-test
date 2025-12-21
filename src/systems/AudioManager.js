@@ -11,7 +11,7 @@ class AudioManager {
         this.currentWeatherSound = null;
         
         // Crossfade settings
-        this.DEFAULT_CROSSFADE_DURATION = 1500; // 1.5 seconds default
+        this.DEFAULT_CROSSFADE_DURATION = 5000; // 5 seconds to match weather transitions
         this.activeCrossfades = new Set();
         
         // Cache busting - only set on initial launch

@@ -667,15 +667,17 @@ class EditorUI {
             mapData.name = value;
         }));
 
-        // Background Music
+        // Background Music - normalize path (remove leading slash if present)
         const musicOptions = ['none', 'assets/audio/bgm/00.mp3', 'assets/audio/bgm/01.mp3', 'assets/audio/bgm/02.mp3'];
-        form.appendChild(this.createConfigSelect('Background Music', mapData.music || 'none', musicOptions, (value) => {
+        const normalizedMusic = mapData.music ? mapData.music.replace(/^\//, '') : 'none';
+        form.appendChild(this.createConfigSelect('Background Music', normalizedMusic, musicOptions, (value) => {
             mapData.music = value === 'none' ? null : value;
         }));
 
-        // Ambience
+        // Ambience - normalize path (remove leading slash if present)
         const ambienceOptions = ['none', 'assets/audio/ambience/forest-0.mp3'];
-        form.appendChild(this.createConfigSelect('Ambience', mapData.ambience || 'none', ambienceOptions, (value) => {
+        const normalizedAmbience = mapData.ambience ? mapData.ambience.replace(/^\//, '') : 'none';
+        form.appendChild(this.createConfigSelect('Ambience', normalizedAmbience, ambienceOptions, (value) => {
             mapData.ambience = value === 'none' ? null : value;
         }));
 
