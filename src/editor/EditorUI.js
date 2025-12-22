@@ -3873,6 +3873,7 @@ class EditorUI {
         const textureFiles = [
             'grass.png',
             'grass2.png',
+            'foliage.png',
             'dirt.png',
             'bedrock.png',
             'water.png',
