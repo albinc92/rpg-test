@@ -271,8 +271,8 @@
     },
     {
       "category": "StaticObject",
-      "x": 2340,
-      "y": 1592.7272727272725,
+      "x": 2352.0320855614973,
+      "y": 1635.2406417112297,
       "scale": 0.71,
       "spriteSrc": "/assets/objects/trees/tree-01.png",
       "id": "static_6e985b83-a138-400d-bfcc-52ae8a962342",
@@ -284,8 +284,8 @@
     },
     {
       "category": "StaticObject",
-      "x": 959.9999999999999,
-      "y": 1041.818181818182,
+      "x": 1028.181818181818,
+      "y": 1012.1390374331552,
       "scale": 0.71,
       "spriteSrc": "/assets/objects/trees/tree-01.png",
       "id": "static_df97bacd-c363-450d-a1f3-c5d7cec7ae5b",
@@ -297,8 +297,8 @@
     },
     {
       "category": "StaticObject",
-      "x": 2986.363636363636,
-      "y": 1041.818181818182,
+      "x": 2975.133689839572,
+      "y": 985.668449197861,
       "scale": 0.71,
       "spriteSrc": "/assets/objects/trees/tree-01.png",
       "id": "static_cef47547-a14b-4521-8112-7810df679c58",
@@ -327,7 +327,7 @@
     {
       "category": "StaticObject",
       "x": 396.4471945217426,
-      "y": 859.6938638433581,
+      "y": 860.4960028807914,
       "scale": 0.3,
       "spriteSrc": "assets/objects/rocks/rock-01.png",
       "id": "static_0ecfabb1-753e-4cc9-85a4-b25fb21335c1",
@@ -360,8 +360,8 @@
     },
     {
       "category": "StaticObject",
-      "x": 1479.0736791247825,
-      "y": 714.4943193722577,
+      "x": 1503.9399892852105,
+      "y": 793.9060840781398,
       "scale": 0.21,
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "id": "static_3585c6fa-5ce0-4356-9fb1-bb65ed5d725d",
@@ -386,8 +386,8 @@
     },
     {
       "category": "StaticObject",
-      "x": 2162.24469526859,
-      "y": 1939.5014916079708,
+      "x": 1753.1537861776808,
+      "y": 1960.3571065812328,
       "scale": 0.21,
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "id": "static_4b0d63d1-190a-41b7-be79-e1b24a4259ee",
@@ -411,8 +411,8 @@
     },
     {
       "category": "StaticObject",
-      "x": 1103.4211658568254,
-      "y": 1233.6191386667945,
+      "x": 2182.2981712044193,
+      "y": 1346.7207429448692,
       "scale": 0.31,
       "spriteSrc": "assets/objects/bushes/bush-01.png",
       "id": "static_28c235e3-5ca6-42ea-ac0d-6fbe2f10a3b2",
@@ -432,6 +432,17 @@
       "collisionExpandBottomPercent": 0.07,
       "collisionExpandLeftPercent": 0.01,
       "name": "Green Bush"
+    },
+    {
+      "category": "StaticObject",
+      "x": 484.07461850782437,
+      "y": 949.7912360072816,
+      "scale": 0.11,
+      "spriteSrc": "assets/objects/rocks/rock-01.png",
+      "id": "static_ef70d08f-ef0b-4e66-a6a5-c7a8ca3439fe",
+      "collisionExpandTopPercent": -0.33,
+      "collisionExpandBottomPercent": 0.06,
+      "name": "Boulder"
     }
   ],
   "0-1": [
