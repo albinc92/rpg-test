@@ -3278,6 +3278,9 @@ class DialogueState extends GameState {
         // Message resolver (for script engine)
         this.messageResolver = null;
         
+        // Flag to completely hide the dialogue box (used when opening shop)
+        this.isHidden = false;
+        
         // Script execution - only initialize if not resuming from a pushed state (like shop)
         if (!data.isResumingFromPause) {
             this.scriptEngine = null;
@@ -3540,6 +3543,10 @@ class DialogueState extends GameState {
     }
     
     render(ctx) {
+        // Don't render anything if dialogue is hidden or no message to show
+        if (this.isHidden) return;
+        if (!this.currentMessage && !this.isShowingChoices) return;
+        
         const canvasWidth = ctx.canvas.width;
         const canvasHeight = ctx.canvas.height;
         

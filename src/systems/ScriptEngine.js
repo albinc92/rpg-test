@@ -912,6 +912,15 @@ class ScriptEngine {
             // Pause script execution while shop is open
             this.isPaused = true;
             
+            // Hide the dialogue box before opening shop
+            const dialogueState = this.game.stateManager.states['DIALOGUE'];
+            if (dialogueState) {
+                dialogueState.isHidden = true;
+            }
+            
+            // Wait a frame for the dialogue to disappear before opening shop
+            await new Promise(r => setTimeout(r, 50));
+            
             // Push shop state
             this.game.stateManager.pushState('SHOP', {
                 shopName,
