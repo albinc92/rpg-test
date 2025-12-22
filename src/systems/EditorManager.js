@@ -2236,6 +2236,7 @@ class EditorManager {
         this.multiSelectEnd = { x: this.mouseCanvasX, y: this.mouseCanvasY }; // Initialize to same position
         this.isMultiSelecting = true;
         this.selectObject(null);
+        this.selectZone(null); // Also deselect any selected zone
         return true;
     }
 
@@ -4517,12 +4518,20 @@ class EditorManager {
             ctx.fillStyle = '#ffff00';
             for (const point of this.selectedZone.points) {
                 const world = this.unscaledToWorld(point.x, point.y);
-                const screen = renderSystem.worldToScreen(world.x, world.y, screenWidth, screenHeight, perspectiveStrength);
-                if (!screen.invalid) {
-                    ctx.beginPath();
-                    ctx.arc(screen.x, screen.y, 4, 0, Math.PI * 2);
-                    ctx.fill();
+                // Use WebGL's transformWorldToScreen for accurate perspective-aware positioning
+                let screenX, screenY;
+                if (webglRenderer && webglRenderer.transformWorldToScreen) {
+                    const screen = webglRenderer.transformWorldToScreen(world.x, world.y, camera.x, camera.y);
+                    screenX = screen.screenX;
+                    screenY = screen.screenY;
+                } else {
+                    const screen = renderSystem.worldToScreen(world.x, world.y, screenWidth, screenHeight, perspectiveStrength);
+                    screenX = screen.x;
+                    screenY = screen.y;
                 }
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, 4, 0, Math.PI * 2);
+                ctx.fill();
             }
             ctx.restore();
         }
