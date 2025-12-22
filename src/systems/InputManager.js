@@ -290,6 +290,40 @@ class InputManager {
     }
     
     /**
+     * Consume a key press so it won't be detected as "just pressed" again this frame
+     * Use this when transitioning states to prevent the same key press from triggering multiple actions
+     */
+    consumePress(action) {
+        console.log(`[InputManager] consumePress('${action}')`);
+        const keys = this.keyBindings[action];
+        if (keys) {
+            keys.forEach(key => {
+                // Make it look like the key was already pressed last frame
+                this.prevKeys[key] = this.keys[key];
+                console.log(`[InputManager]   -> consumed key '${key}', keys=${this.keys[key]}, prevKeys=${this.prevKeys[key]}`);
+            });
+        }
+        
+        // Also consume gamepad buttons
+        if (this.gamepadState.connected) {
+            for (const [btnIndex, actions] of Object.entries(this.gamepadMapping)) {
+                if (actions.includes(action)) {
+                    this.gamepadState.prevButtons[btnIndex] = this.gamepadState.buttons[btnIndex];
+                }
+            }
+        }
+        
+        // Also consume touch buttons
+        if (this.isMobile) {
+            for (const [button, mappedAction] of Object.entries(this.buttonMapping)) {
+                if (mappedAction === action) {
+                    this.touchControls.prevButtons[button] = this.touchControls.buttons[button];
+                }
+            }
+        }
+    }
+    
+    /**
      * Check if an action was just released
      */
     isJustReleased(action) {

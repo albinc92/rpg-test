@@ -172,6 +172,9 @@ class GameEngine {
         this.player = null;
         this.initializePlayer();
         
+        // Interaction cooldown (prevents immediate re-interaction after dialogue/shop)
+        this.interactionCooldown = 0;
+        
         // Camera system (delegated to RenderSystem, but keep reference for compatibility)
         this.camera = this.renderSystem.camera;
         
@@ -941,6 +944,11 @@ class GameEngine {
             this.spawnManager.update(deltaTime);
         }
         
+        // Update interaction cooldown
+        if (this.interactionCooldown > 0) {
+            this.interactionCooldown -= deltaTime;
+        }
+        
         // Handle input for gameplay
         this.handleGameplayInput(this.inputManager);
         
@@ -1275,9 +1283,16 @@ class GameEngine {
             console.log(`[GameEngine] Always Run: ${this.settings.alwaysRun ? 'ON' : 'OFF'}`);
         }
         
-        // Handle interactions
-        if (inputManager.isJustPressed('interact')) {
+        // Handle interactions (only if not on cooldown)
+        const interactJustPressed = inputManager.isJustPressed('interact');
+        if (interactJustPressed) {
+            console.log(`[GameEngine] interact justPressed! cooldown=${this.interactionCooldown.toFixed(3)}`);
+        }
+        if (interactJustPressed && this.interactionCooldown <= 0) {
+            console.log('[GameEngine] Calling handleInteraction()');
             this.handleInteraction();
+        } else if (interactJustPressed && this.interactionCooldown > 0) {
+            console.log('[GameEngine] Interaction BLOCKED by cooldown');
         }
         
         // Handle inventory

@@ -2,7 +2,7 @@
  * ScriptEngine - NPC Script Parser and Executor
  * 
  * Provides a simple scripting language for NPC dialogues and interactions.
- * Supports conditions, variables, inventory operations, and rich text.
+ * Supports conditions, variables, inventory operations, shops, and rich text.
  * 
  * SCRIPT SYNTAX:
  * ==============
@@ -11,9 +11,15 @@
  * message "Hello <b>traveler</b>!";                    // Show message (supports HTML)
  * additem "gold", 100;                                 // Give item to player
  * delitem "quest_item", 1;                             // Take item from player
+ * addgold 100;                                         // Give gold (shorthand)
+ * delgold 50;                                          // Take gold (shorthand)
  * setvar "quest_started", true;                        // Set global variable
  * playsound "coin.mp3";                                // Play sound effect
  * wait 1000;                                           // Wait milliseconds
+ * 
+ * // Shop System
+ * shop "Shop Name", "item_id", price, "item_id2", price2;
+ * shop "Limited Shop", "rare_item", 500, 3;            // 3 = stock limit
  * 
  * // Conditions
  * if (hasitem("key", 1)) {
@@ -23,6 +29,11 @@
  * } else {
  *     message "Hello stranger!";
  *     setvar "talked_before", true;
+ * }
+ * 
+ * // Gold check
+ * if (getgold() >= 100) {
+ *     message "You have enough gold!";
  * }
  * 
  * // Player choices
@@ -70,7 +81,8 @@ class ScriptEngine {
             'getvar': (name, defaultVal = null) => this.game.gameVariables?.get(name, defaultVal),
             'getitemqty': (itemId) => this.game.inventoryManager?.getItemQuantity(itemId) || 0,
             'random': (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
-            'choice': () => this.lastChoice
+            'choice': () => this.lastChoice,
+            'getgold': () => this.game.inventoryManager?.getItemQuantity('gold_coin') || 0
         };
         
         // Built-in commands
@@ -91,7 +103,10 @@ class ScriptEngine {
             'heal': this.cmdHeal.bind(this),
             'damage': this.cmdDamage.bind(this),
             'setflag': this.cmdSetFlag.bind(this),  // Alias for setvar with true
-            'clearflag': this.cmdClearFlag.bind(this)  // Alias for setvar with false
+            'clearflag': this.cmdClearFlag.bind(this),  // Alias for setvar with false
+            'shop': this.cmdShop.bind(this),  // Open shop interface
+            'addgold': this.cmdAddGold.bind(this),  // Shorthand for adding gold
+            'delgold': this.cmdDelGold.bind(this)   // Shorthand for removing gold
         };
     }
     
@@ -835,6 +850,107 @@ class ScriptEngine {
         const name = this.consume()?.value;
         if (this.game.gameVariables && name) {
             this.game.gameVariables.set(name, false);
+        }
+    }
+    
+    /**
+     * shop "Shop Name", { items: [{itemId, price, stock}, ...] };
+     * Opens a shop interface with the specified items
+     * 
+     * Example:
+     * shop "Potion Shop", "health_potion", 50, "mana_potion", 75;
+     * 
+     * Or with stock limits:
+     * shop "Rare Items", "magic_sword", 500, 1, "ancient_gem", 1000, 3;
+     * 
+     * Format: itemId, price, [stock=-1 for unlimited]
+     */
+    async cmdShop() {
+        // Parse shop name
+        const shopName = this.consume()?.value || 'Shop';
+        this.consumeIf('PUNCTUATION', ',');
+        
+        // Parse item list: itemId, price, [stock], itemId, price, [stock], ...
+        const items = [];
+        
+        while (this.position < this.tokens.length) {
+            const token = this.peek();
+            if (!token || token.type === 'PUNCTUATION' && token.value === ';') {
+                break;
+            }
+            
+            // Get item ID
+            const itemId = this.consume()?.value;
+            if (!itemId) break;
+            
+            this.consumeIf('PUNCTUATION', ',');
+            
+            // Get price
+            const priceToken = this.consume();
+            const price = priceToken?.value || 100;
+            
+            // Check if next is stock (number) or comma/semicolon (no stock specified)
+            let stock = -1; // -1 = unlimited
+            const nextToken = this.peek();
+            if (nextToken && nextToken.type === 'PUNCTUATION' && nextToken.value === ',') {
+                this.consume(); // consume comma
+                const stockToken = this.peek();
+                // Check if it's a number (stock) or string (next item)
+                if (stockToken && stockToken.type === 'NUMBER') {
+                    stock = this.consume()?.value || -1;
+                    this.consumeIf('PUNCTUATION', ',');
+                }
+            }
+            
+            items.push({ itemId, price, stock });
+        }
+        
+        console.log(`[ScriptEngine] Opening shop: ${shopName} with ${items.length} items`);
+        
+        // Open shop state
+        if (this.game.stateManager) {
+            // Pause script execution while shop is open
+            this.isPaused = true;
+            
+            // Push shop state
+            this.game.stateManager.pushState('SHOP', {
+                shopName,
+                items,
+                npc: this.currentNPC
+            });
+            
+            // Wait for shop to close
+            await new Promise(resolve => {
+                const checkShop = setInterval(() => {
+                    if (!this.game.stateManager.isStateInStack('SHOP')) {
+                        clearInterval(checkShop);
+                        this.isPaused = false;
+                        resolve();
+                    }
+                }, 100);
+            });
+        }
+    }
+    
+    /**
+     * addgold amount;  (shorthand for additem "gold_coin", amount)
+     */
+    async cmdAddGold() {
+        const amount = this.consume()?.value || 0;
+        if (this.game.inventoryManager && amount > 0) {
+            this.game.inventoryManager.addItem('gold_coin', amount);
+            console.log(`[ScriptEngine] Added ${amount} gold`);
+        }
+    }
+    
+    /**
+     * delgold amount;  (shorthand for delitem "gold_coin", amount)
+     */
+    async cmdDelGold() {
+        const amount = this.consume()?.value || 0;
+        if (this.game.inventoryManager && amount > 0) {
+            this.game.inventoryManager.removeItem('gold_coin', amount);
+            console.log(`[ScriptEngine] Removed ${amount} gold`);
         }
     }
     

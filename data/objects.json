@@ -443,6 +443,22 @@
       "collisionExpandTopPercent": -0.33,
       "collisionExpandBottomPercent": 0.06,
       "name": "Boulder"
+    },
+    {
+      "category": "Actor",
+      "x": 1989.8687969875104,
+      "y": 1253.059803305992,
+      "scale": 0.12,
+      "spriteSrc": "/assets/npc/merchant-0.png",
+      "id": "npc_af7727c9-d3c7-4e2c-9677-25f38888e15b",
+      "actorType": "npc",
+      "name": "Merchant",
+      "npcType": "merchant",
+      "script": "message \"Hello!\";\nshop \"Shop\", \"health_potion\", 25, 1;\nend;",
+      "canInteract": true,
+      "interactionRadius": 80,
+      "collisionExpandTopPercent": -0.63,
+      "collisionExpandBottomPercent": 0.04
     }
   ],
   "0-1": [

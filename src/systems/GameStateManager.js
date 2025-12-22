@@ -176,10 +176,11 @@ class GameStateManager {
     }
     
     /**
-     * Check if state is on the stack
+     * Check if state is on the stack or is the current state
      */
     isStateInStack(stateName) {
-        return this.stateStack.some(s => s.state === stateName);
+        // Check if it's the current state OR in the stack
+        return this.currentState === stateName || this.stateStack.some(s => s.state === stateName);
     }
 }
 
@@ -932,7 +933,7 @@ class PlayingState extends GameState {
     
     resume() {
         // Called when returning from a pushed state (like pause menu)
-        console.log('🔄 Gameplay resumed - player position preserved');
+        console.log('🔄 [PlayingState] RESUME called - setting interactionCooldown = 0.3');
         
         // Snap camera instantly to prevent visual glitch if resolution changed while paused
         // Without this, the camera would smoothly interpolate to the new position causing a "glide"
@@ -946,6 +947,10 @@ class PlayingState extends GameState {
             this.game.touchControlsUI.show();
             this.game.touchControlsUI.updateButtonLabels('gameplay');
         }
+        
+        // Set interaction cooldown to prevent immediate re-interaction after dialogue/shop closes
+        this.game.interactionCooldown = 0.3;
+        console.log(`[PlayingState] interactionCooldown is now: ${this.game.interactionCooldown}`);
     }
     
     update(deltaTime) {
@@ -3273,22 +3278,27 @@ class DialogueState extends GameState {
         // Message resolver (for script engine)
         this.messageResolver = null;
         
-        // Script execution
-        this.scriptEngine = null;
-        this.isRunningScript = false;
-        
-        // Start script if NPC has one
-        if (this.npc?.script) {
-            this.startScript(this.npc.script);
-        } else if (this.npc?.messages?.length > 0) {
-            // Fall back to simple messages if no script
-            this.showMessage(this.npc.messages[this.npc.currentMessageIndex] || this.npc.messages[0]);
-        } else if (this.message) {
-            this.showMessage(this.message);
+        // Script execution - only initialize if not resuming from a pushed state (like shop)
+        if (!data.isResumingFromPause) {
+            this.scriptEngine = null;
+            this.isRunningScript = false;
+            
+            // Start script if NPC has one
+            if (this.npc?.script) {
+                this.startScript(this.npc.script);
+            } else if (this.npc?.messages?.length > 0) {
+                // Fall back to simple messages if no script
+                this.showMessage(this.npc.messages[this.npc.currentMessageIndex] || this.npc.messages[0]);
+            } else if (this.message) {
+                this.showMessage(this.message);
+            }
+        } else {
+            console.log('[DialogueState] Resuming from pause - NOT restarting script');
         }
     }
     
     exit() {
+        console.log('[DialogueState] EXIT called');
         // Stop any running script
         if (this.scriptEngine) {
             this.scriptEngine.stop();
@@ -3297,6 +3307,15 @@ class DialogueState extends GameState {
         // Reset NPC dialogue state
         if (this.npc) {
             this.npc.resetDialogue?.();
+        }
+        
+        // Consume all interaction keys to prevent immediate re-triggering of NPC dialogue
+        const inputManager = this.game.inputManager;
+        if (inputManager) {
+            console.log('[DialogueState] Consuming keys...');
+            inputManager.consumePress('interact');
+            inputManager.consumePress('confirm');
+            inputManager.consumePress('cancel');
         }
     }
     
@@ -3442,6 +3461,9 @@ class DialogueState extends GameState {
                 // Select choice
                 if (this.choiceResolver) {
                     this.game.audioManager?.playEffect('speech-bubble.mp3');
+                    // Consume the key press so it doesn't trigger the next state
+                    inputManager.consumePress('confirm');
+                    inputManager.consumePress('interact');
                     this.choiceResolver(this.selectedChoice);
                     this.choiceResolver = null;
                     this.isShowingChoices = false;
@@ -3451,7 +3473,9 @@ class DialogueState extends GameState {
                 this.displayedChars = this.getPlainTextLength(this.currentMessage);
                 this.isTyping = false;
             } else if (this.messageResolver) {
-                // Continue to next script command
+                // Continue to next script command - consume key press to prevent it triggering next state
+                inputManager.consumePress('confirm');
+                inputManager.consumePress('interact');
                 this.messageResolver();
                 this.messageResolver = null;
             } else if (!this.isRunningScript) {
@@ -3822,7 +3846,569 @@ class DialogueState extends GameState {
     }
 }
 
-class ShopState extends GameState {}
+/**
+ * ShopState - Handles buying and selling items from NPCs
+ */
+class ShopState extends GameState {
+    enter(data = {}) {
+        this.shopName = data.shopName || 'Shop';
+        this.shopItems = data.items || []; // Array of {itemId, price, stock}
+        this.npc = data.npc || null;
+        
+        // UI State
+        this.selectedTab = 0; // 0 = Buy, 1 = Sell
+        this.selectedOption = 0;
+        this.scrollOffset = 0;
+        this.maxVisibleItems = 6;
+        this.inputCooldown = 0.3; // Initial cooldown to prevent accidental close from previous input
+        this.waitingForKeyRelease = true; // Wait for all keys to be released before accepting input
+        
+        // Quantity selector
+        this.isSelectingQuantity = false;
+        this.selectedQuantity = 1;
+        this.maxQuantity = 1;
+        
+        // Build shop inventory with item details
+        this.buildShopInventory();
+        
+        // Build player sellable items
+        this.buildSellableItems();
+        
+        // Play shop open sound
+        this.game.audioManager?.playEffect('menu-open.mp3');
+        
+        console.log(`[ShopState] ENTER - Opened shop: ${this.shopName} with ${this.buyItems.length} items`);
+        console.log(`[ShopState] inputCooldown=${this.inputCooldown}, waitingForKeyRelease=${this.waitingForKeyRelease}`);
+    }
+    
+    buildShopInventory() {
+        this.buyItems = [];
+        for (const shopItem of this.shopItems) {
+            const itemType = this.game.itemManager?.getItemType(shopItem.itemId);
+            if (itemType) {
+                this.buyItems.push({
+                    ...itemType,
+                    price: shopItem.price ?? itemType.value,
+                    stock: shopItem.stock ?? -1 // -1 = unlimited
+                });
+            }
+        }
+    }
+    
+    buildSellableItems() {
+        this.sellItems = [];
+        const playerItems = this.game.inventoryManager?.getAllSlots() || [];
+        for (const item of playerItems) {
+            // Calculate sell price (usually half buy price)
+            const sellPrice = Math.floor((item.value || 0) * 0.5);
+            if (sellPrice > 0) {
+                this.sellItems.push({
+                    ...item,
+                    sellPrice
+                });
+            }
+        }
+    }
+    
+    getCurrentList() {
+        return this.selectedTab === 0 ? this.buyItems : this.sellItems;
+    }
+    
+    getPlayerGold() {
+        return this.game.inventoryManager?.getItemQuantity('gold_coin') || 0;
+    }
+    
+    exit() {
+        // Play close sound
+        this.game.audioManager?.playEffect('menu-close.mp3');
+    }
+    
+    update(deltaTime) {
+        if (this.inputCooldown > 0) {
+            this.inputCooldown -= deltaTime;
+        }
+    }
+    
+    handleInput(inputManager) {
+        const confirmPressed = inputManager.isPressed('confirm');
+        const interactPressed = inputManager.isPressed('interact');
+        const cancelPressed = inputManager.isPressed('cancel');
+        
+        if (this.inputCooldown > 0) {
+            console.log(`[ShopState] handleInput - blocked by cooldown: ${this.inputCooldown.toFixed(3)}`);
+            return;
+        }
+        
+        // Wait for all keys to be released before accepting any input
+        // This prevents the confirm key from dialogue from immediately closing the shop
+        if (this.waitingForKeyRelease) {
+            console.log(`[ShopState] waitingForKeyRelease - confirm=${confirmPressed}, interact=${interactPressed}, cancel=${cancelPressed}`);
+            if (!confirmPressed && !interactPressed && !cancelPressed && !inputManager.isPressed('menu')) {
+                console.log('[ShopState] All keys released, accepting input now');
+                this.waitingForKeyRelease = false;
+            }
+            return;
+        }
+        
+        // Quantity selection mode
+        if (this.isSelectingQuantity) {
+            this.handleQuantityInput(inputManager);
+            return;
+        }
+        
+        // Close shop
+        if (inputManager.isJustPressed('cancel') || inputManager.isJustPressed('menu')) {
+            console.log('[ShopState] CLOSING shop via cancel/menu');
+            this.stateManager.popState();
+            return;
+        }
+        
+        // Tab switching (left/right)
+        if (inputManager.isJustPressed('left') || inputManager.isJustPressed('right')) {
+            this.selectedTab = this.selectedTab === 0 ? 1 : 0;
+            this.selectedOption = 0;
+            this.scrollOffset = 0;
+            if (this.selectedTab === 1) {
+                this.buildSellableItems(); // Refresh sell list
+            }
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.inputCooldown = 0.1;
+            return;
+        }
+        
+        const items = this.getCurrentList();
+        if (items.length === 0) return;
+        
+        // Navigation
+        if (inputManager.isJustPressed('up')) {
+            this.selectedOption = Math.max(0, this.selectedOption - 1);
+            this.updateScrollOffset();
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.inputCooldown = 0.08;
+        }
+        
+        if (inputManager.isJustPressed('down')) {
+            this.selectedOption = Math.min(items.length - 1, this.selectedOption + 1);
+            this.updateScrollOffset();
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.inputCooldown = 0.08;
+        }
+        
+        // Confirm (buy/sell)
+        if (inputManager.isJustPressed('confirm')) {
+            this.startTransaction();
+        }
+    }
+    
+    handleQuantityInput(inputManager) {
+        if (inputManager.isJustPressed('cancel')) {
+            this.isSelectingQuantity = false;
+            this.game.audioManager?.playEffect('menu-cancel.mp3');
+            return;
+        }
+        
+        if (inputManager.isJustPressed('up')) {
+            this.selectedQuantity = Math.min(this.maxQuantity, this.selectedQuantity + 1);
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        }
+        
+        if (inputManager.isJustPressed('down')) {
+            this.selectedQuantity = Math.max(1, this.selectedQuantity - 1);
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        }
+        
+        if (inputManager.isJustPressed('left')) {
+            this.selectedQuantity = Math.max(1, this.selectedQuantity - 10);
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        }
+        
+        if (inputManager.isJustPressed('right')) {
+            this.selectedQuantity = Math.min(this.maxQuantity, this.selectedQuantity + 10);
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        }
+        
+        if (inputManager.isJustPressed('confirm')) {
+            this.confirmTransaction();
+        }
+    }
+    
+    startTransaction() {
+        const items = this.getCurrentList();
+        const item = items[this.selectedOption];
+        if (!item) return;
+        
+        if (this.selectedTab === 0) {
+            // Buying
+            const price = item.price;
+            const playerGold = this.getPlayerGold();
+            const maxAffordable = Math.floor(playerGold / price);
+            const maxStock = item.stock === -1 ? 99 : item.stock;
+            this.maxQuantity = Math.min(maxAffordable, maxStock, 99);
+            
+            if (this.maxQuantity <= 0) {
+                this.game.audioManager?.playEffect('error.mp3');
+                return;
+            }
+        } else {
+            // Selling
+            this.maxQuantity = item.quantity;
+        }
+        
+        this.selectedQuantity = 1;
+        this.isSelectingQuantity = true;
+        this.game.audioManager?.playEffect('menu-select.mp3');
+    }
+    
+    confirmTransaction() {
+        const items = this.getCurrentList();
+        const item = items[this.selectedOption];
+        if (!item) return;
+        
+        const quantity = this.selectedQuantity;
+        
+        if (this.selectedTab === 0) {
+            // Buy
+            const totalCost = item.price * quantity;
+            const playerGold = this.getPlayerGold();
+            
+            if (playerGold >= totalCost) {
+                // Remove gold
+                this.game.inventoryManager.removeItem('gold_coin', totalCost);
+                // Add item
+                this.game.inventoryManager.addItem(item.id, quantity);
+                // Reduce stock if not unlimited
+                if (item.stock !== -1) {
+                    item.stock -= quantity;
+                    if (item.stock <= 0) {
+                        this.buyItems.splice(this.selectedOption, 1);
+                        this.selectedOption = Math.min(this.selectedOption, this.buyItems.length - 1);
+                    }
+                }
+                this.game.audioManager?.playEffect('coin.mp3');
+                console.log(`[Shop] Bought ${quantity}x ${item.name} for ${totalCost} gold`);
+            } else {
+                this.game.audioManager?.playEffect('error.mp3');
+            }
+        } else {
+            // Sell
+            const totalValue = item.sellPrice * quantity;
+            // Remove item from player
+            this.game.inventoryManager.removeItem(item.id, quantity);
+            // Add gold
+            this.game.inventoryManager.addItem('gold_coin', totalValue);
+            // Refresh sell list
+            this.buildSellableItems();
+            this.selectedOption = Math.min(this.selectedOption, Math.max(0, this.sellItems.length - 1));
+            this.game.audioManager?.playEffect('coin.mp3');
+            console.log(`[Shop] Sold ${quantity}x ${item.name} for ${totalValue} gold`);
+        }
+        
+        this.isSelectingQuantity = false;
+        this.inputCooldown = 0.15;
+    }
+    
+    updateScrollOffset() {
+        const items = this.getCurrentList();
+        if (items.length > this.maxVisibleItems) {
+            if (this.selectedOption < this.scrollOffset) {
+                this.scrollOffset = this.selectedOption;
+            } else if (this.selectedOption >= this.scrollOffset + this.maxVisibleItems) {
+                this.scrollOffset = this.selectedOption - this.maxVisibleItems + 1;
+            }
+        }
+    }
+    
+    render(ctx) {
+        const canvasWidth = this.game.CANVAS_WIDTH;
+        const canvasHeight = this.game.CANVAS_HEIGHT;
+        const menuRenderer = this.stateManager.menuRenderer;
+        
+        // Render game world behind shop
+        if (this.stateManager.isStateInStack('PLAYING')) {
+            this.game.renderGameplay(ctx);
+        }
+        
+        // Draw overlay
+        menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.9);
+        
+        // Draw shop title
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 32px "Cinzel", serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.shopName, canvasWidth / 2, canvasHeight * 0.08);
+        
+        // Draw gold display
+        const playerGold = this.getPlayerGold();
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 22px "Lato", sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(`💰 ${playerGold}`, canvasWidth - 30, canvasHeight * 0.08);
+        
+        // Draw tabs
+        this.renderTabs(ctx, canvasWidth, canvasHeight);
+        
+        // Draw item list
+        this.renderItemList(ctx, canvasWidth, canvasHeight);
+        
+        // Draw item details
+        this.renderItemDetails(ctx, canvasWidth, canvasHeight);
+        
+        // Draw quantity selector if active
+        if (this.isSelectingQuantity) {
+            this.renderQuantitySelector(ctx, canvasWidth, canvasHeight);
+        }
+        
+        // Draw hints
+        ctx.fillStyle = '#888';
+        ctx.font = '16px "Lato", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('← → Switch Tab  |  ↑ ↓ Navigate  |  ENTER Select  |  ESC Close', canvasWidth / 2, canvasHeight - 20);
+    }
+    
+    renderTabs(ctx, canvasWidth, canvasHeight) {
+        const tabY = canvasHeight * 0.12;
+        const tabWidth = 120;
+        const tabHeight = 35;
+        const tabs = ['Buy', 'Sell'];
+        
+        tabs.forEach((tab, index) => {
+            const tabX = canvasWidth / 2 - tabWidth + (index * tabWidth);
+            const isSelected = this.selectedTab === index;
+            
+            // Tab background
+            ctx.fillStyle = isSelected ? 'rgba(255, 215, 0, 0.3)' : 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(tabX, tabY, tabWidth - 5, tabHeight);
+            
+            // Tab border
+            ctx.strokeStyle = isSelected ? '#ffd700' : '#555';
+            ctx.lineWidth = isSelected ? 2 : 1;
+            ctx.strokeRect(tabX, tabY, tabWidth - 5, tabHeight);
+            
+            // Tab text
+            ctx.fillStyle = isSelected ? '#ffd700' : '#aaa';
+            ctx.font = isSelected ? 'bold 18px "Lato", sans-serif' : '18px "Lato", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(tab, tabX + (tabWidth - 5) / 2, tabY + tabHeight / 2 + 6);
+        });
+    }
+    
+    renderItemList(ctx, canvasWidth, canvasHeight) {
+        const items = this.getCurrentList();
+        const listX = canvasWidth * 0.05;
+        const listY = canvasHeight * 0.2;
+        const listWidth = canvasWidth * 0.5;
+        const listHeight = canvasHeight * 0.65;
+        
+        // List background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.fillRect(listX, listY, listWidth, listHeight);
+        ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(listX, listY, listWidth, listHeight);
+        
+        if (items.length === 0) {
+            ctx.fillStyle = '#888';
+            ctx.font = '20px "Lato", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(this.selectedTab === 0 ? 'No items for sale' : 'Nothing to sell', listX + listWidth / 2, listY + listHeight / 2);
+            return;
+        }
+        
+        // Draw items
+        const itemHeight = listHeight / this.maxVisibleItems;
+        const visibleItems = items.slice(this.scrollOffset, this.scrollOffset + this.maxVisibleItems);
+        
+        visibleItems.forEach((item, index) => {
+            const actualIndex = this.scrollOffset + index;
+            const isSelected = actualIndex === this.selectedOption;
+            const y = listY + index * itemHeight;
+            
+            // Selection highlight
+            if (isSelected) {
+                ctx.fillStyle = 'rgba(255, 215, 0, 0.2)';
+                ctx.fillRect(listX + 2, y + 2, listWidth - 4, itemHeight - 4);
+            }
+            
+            // Item name
+            ctx.fillStyle = isSelected ? '#ffd700' : '#fff';
+            ctx.font = '20px "Lato", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(item.name, listX + 15, y + itemHeight / 2 + 6);
+            
+            // Price
+            const price = this.selectedTab === 0 ? item.price : item.sellPrice;
+            ctx.fillStyle = isSelected ? '#ffd700' : '#aaa';
+            ctx.textAlign = 'right';
+            ctx.fillText(`${price} 💰`, listX + listWidth - 15, y + itemHeight / 2 + 6);
+            
+            // Stock/Quantity
+            if (this.selectedTab === 0 && item.stock !== -1) {
+                ctx.fillStyle = item.stock <= 3 ? '#f44' : '#888';
+                ctx.font = '14px "Lato", sans-serif';
+                ctx.fillText(`Stock: ${item.stock}`, listX + listWidth - 15, y + itemHeight / 2 + 22);
+            } else if (this.selectedTab === 1) {
+                ctx.fillStyle = '#888';
+                ctx.font = '14px "Lato", sans-serif';
+                ctx.fillText(`x${item.quantity}`, listX + listWidth - 15, y + itemHeight / 2 + 22);
+            }
+        });
+        
+        // Scroll indicators
+        if (this.scrollOffset > 0) {
+            ctx.fillStyle = '#ffd700';
+            ctx.font = '20px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('▲', listX + listWidth / 2, listY + 15);
+        }
+        if (this.scrollOffset + this.maxVisibleItems < items.length) {
+            ctx.fillStyle = '#ffd700';
+            ctx.font = '20px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('▼', listX + listWidth / 2, listY + listHeight - 5);
+        }
+    }
+    
+    renderItemDetails(ctx, canvasWidth, canvasHeight) {
+        const items = this.getCurrentList();
+        if (items.length === 0) return;
+        
+        const item = items[this.selectedOption];
+        if (!item) return;
+        
+        const detailsX = canvasWidth * 0.57;
+        const detailsY = canvasHeight * 0.2;
+        const detailsWidth = canvasWidth * 0.38;
+        const detailsHeight = canvasHeight * 0.65;
+        
+        // Details background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.fillRect(detailsX, detailsY, detailsWidth, detailsHeight);
+        ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(detailsX, detailsY, detailsWidth, detailsHeight);
+        
+        // Item name
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 24px "Cinzel", serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(item.name, detailsX + detailsWidth / 2, detailsY + 40);
+        
+        // Type and rarity
+        ctx.fillStyle = this.getRarityColor(item.rarity);
+        ctx.font = 'italic 16px "Lato", sans-serif';
+        ctx.fillText(`${item.rarity || 'common'} ${item.type || 'item'}`, detailsX + detailsWidth / 2, detailsY + 70);
+        
+        // Description
+        ctx.fillStyle = '#ccc';
+        ctx.font = '18px "Lato", sans-serif';
+        this.wrapText(ctx, item.description || 'No description', detailsX + detailsWidth / 2, detailsY + 120, detailsWidth - 30, 24);
+        
+        // Stats if any
+        if (item.stats) {
+            let statsY = detailsY + 200;
+            ctx.font = '16px "Lato", sans-serif';
+            for (const [stat, value] of Object.entries(item.stats)) {
+                ctx.fillStyle = '#8f8';
+                ctx.fillText(`+${value} ${stat}`, detailsX + detailsWidth / 2, statsY);
+                statsY += 22;
+            }
+        }
+        
+        // Price info
+        const price = this.selectedTab === 0 ? item.price : item.sellPrice;
+        const playerGold = this.getPlayerGold();
+        ctx.fillStyle = playerGold >= price ? '#ffd700' : '#f44';
+        ctx.font = 'bold 22px "Lato", sans-serif';
+        ctx.fillText(`${this.selectedTab === 0 ? 'Price' : 'Sell for'}: ${price} 💰`, detailsX + detailsWidth / 2, detailsY + detailsHeight - 40);
+    }
+    
+    renderQuantitySelector(ctx, canvasWidth, canvasHeight) {
+        const items = this.getCurrentList();
+        const item = items[this.selectedOption];
+        if (!item) return;
+        
+        const boxWidth = 300;
+        const boxHeight = 180;
+        const boxX = (canvasWidth - boxWidth) / 2;
+        const boxY = (canvasHeight - boxHeight) / 2;
+        
+        // Dark overlay
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        // Box background
+        ctx.fillStyle = 'rgba(30, 30, 30, 0.95)';
+        ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+        
+        // Title
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 20px "Lato", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.selectedTab === 0 ? 'Buy Quantity' : 'Sell Quantity', boxX + boxWidth / 2, boxY + 35);
+        
+        // Item name
+        ctx.fillStyle = '#fff';
+        ctx.font = '18px "Lato", sans-serif';
+        ctx.fillText(item.name, boxX + boxWidth / 2, boxY + 65);
+        
+        // Quantity display
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 32px "Lato", sans-serif';
+        ctx.fillText(`${this.selectedQuantity}`, boxX + boxWidth / 2, boxY + 105);
+        
+        // Arrows
+        ctx.fillStyle = '#888';
+        ctx.font = '24px sans-serif';
+        ctx.fillText('◀ -10', boxX + 50, boxY + 105);
+        ctx.fillText('+10 ▶', boxX + boxWidth - 50, boxY + 105);
+        
+        // Total cost
+        const price = this.selectedTab === 0 ? item.price : item.sellPrice;
+        const total = price * this.selectedQuantity;
+        ctx.fillStyle = '#ffd700';
+        ctx.font = '18px "Lato", sans-serif';
+        ctx.fillText(`Total: ${total} 💰`, boxX + boxWidth / 2, boxY + 140);
+        
+        // Instructions
+        ctx.fillStyle = '#888';
+        ctx.font = '14px "Lato", sans-serif';
+        ctx.fillText('ENTER to confirm  |  ESC to cancel', boxX + boxWidth / 2, boxY + boxHeight - 15);
+    }
+    
+    getRarityColor(rarity) {
+        const colors = {
+            'common': '#aaa',
+            'uncommon': '#1eff00',
+            'rare': '#0070dd',
+            'epic': '#a335ee',
+            'legendary': '#ff8000'
+        };
+        return colors[rarity] || colors.common;
+    }
+    
+    wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+        const words = text.split(' ');
+        let line = '';
+        let currentY = y;
+        
+        for (const word of words) {
+            const testLine = line + word + ' ';
+            const metrics = ctx.measureText(testLine);
+            if (metrics.width > maxWidth && line !== '') {
+                ctx.fillText(line.trim(), x, currentY);
+                line = word + ' ';
+                currentY += lineHeight;
+            } else {
+                line = testLine;
+            }
+        }
+        ctx.fillText(line.trim(), x, currentY);
+    }
+}
+
 class LootWindowState extends GameState {}
 class BattleState extends GameState {}
 

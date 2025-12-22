@@ -37,7 +37,7 @@ class VisualScriptEditor {
                 icon: '❓',
                 color: '#e67e22',
                 fields: [
-                    { name: 'conditionType', type: 'select', label: 'Check', options: ['hasitem', 'getvar', 'choice'], default: 'getvar' },
+                    { name: 'conditionType', type: 'select', label: 'Check', options: ['hasitem', 'getvar', 'choice', 'getgold', 'getitemqty'], default: 'getvar' },
                     { name: 'param1', type: 'text', label: 'Name/Item', default: 'variable_name' },
                     { name: 'param2', type: 'text', label: 'Value/Qty', default: '', placeholder: '(optional)' },
                     { name: 'operator', type: 'select', label: 'Operator', options: ['==', '!=', '>', '<', '>=', '<='], default: '==' },
@@ -49,6 +49,8 @@ class VisualScriptEditor {
                     let condition;
                     if (data.conditionType === 'choice') {
                         condition = `choice ${data.operator} ${data.compareValue}`;
+                    } else if (data.conditionType === 'getgold') {
+                        condition = `getgold() ${data.operator} ${data.compareValue}`;
                     } else if (data.param2) {
                         condition = `${data.conditionType}("${data.param1}", ${data.param2}) ${data.operator} ${data.compareValue}`;
                     } else {
@@ -153,6 +155,56 @@ class VisualScriptEditor {
                     { name: 'label', type: 'text', label: 'Jump to Label', default: 'my_label' }
                 ],
                 toScript: (data) => `goto ${data.label};`
+            },
+            shop: {
+                name: 'Open Shop',
+                icon: '🛒',
+                color: '#f39c12',
+                fields: [
+                    { name: 'shopName', type: 'text', label: 'Shop Name', default: 'Shop' },
+                    { name: 'items', type: 'shopItemList', label: 'Items for Sale', default: [] }
+                ],
+                toScript: (data) => {
+                    if (!data.items || data.items.length === 0) {
+                        return `shop "${this.escapeString(data.shopName)}";`;
+                    }
+                    const itemsStr = data.items.map(item => {
+                        if (item.stock && item.stock > 0) {
+                            return `"${item.itemId}", ${item.price}, ${item.stock}`;
+                        }
+                        return `"${item.itemId}", ${item.price}`;
+                    }).join(', ');
+                    return `shop "${this.escapeString(data.shopName)}", ${itemsStr};`;
+                }
+            },
+            addGold: {
+                name: 'Give Gold',
+                icon: '💰',
+                color: '#f1c40f',
+                fields: [
+                    { name: 'amount', type: 'number', label: 'Amount', default: 100 }
+                ],
+                toScript: (data) => `addgold ${data.amount};`
+            },
+            removeGold: {
+                name: 'Take Gold',
+                icon: '💸',
+                color: '#e74c3c',
+                fields: [
+                    { name: 'amount', type: 'number', label: 'Amount', default: 100 }
+                ],
+                toScript: (data) => `delgold ${data.amount};`
+            },
+            teleport: {
+                name: 'Teleport',
+                icon: '🌀',
+                color: '#1abc9c',
+                fields: [
+                    { name: 'mapId', type: 'text', label: 'Map ID', default: 'map0-0' },
+                    { name: 'x', type: 'number', label: 'X Position', default: 100 },
+                    { name: 'y', type: 'number', label: 'Y Position', default: 100 }
+                ],
+                toScript: (data) => `teleport "${data.mapId}", ${data.x}, ${data.y};`
             }
         };
     }
@@ -962,6 +1014,87 @@ class VisualScriptEditor {
             addBtn.textContent = '+ Add Option';
             addBtn.onclick = () => {
                 block.data[field.name].push('Option ' + (choices.length + 1));
+                this.render();
+                this.triggerChange();
+            };
+            list.appendChild(addBtn);
+            
+            container.appendChild(list);
+        } else if (field.type === 'shopItemList') {
+            // Shop item list editor
+            const list = document.createElement('div');
+            list.className = 'vse-shop-list';
+            
+            const items = block.data[field.name] || [];
+            items.forEach((item, i) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'vse-shop-item';
+                itemDiv.style.cssText = 'display: flex; gap: 4px; margin-bottom: 4px; align-items: center;';
+                
+                const idInput = document.createElement('input');
+                idInput.type = 'text';
+                idInput.className = 'vse-field-input';
+                idInput.style.cssText = 'flex: 2; min-width: 80px;';
+                idInput.placeholder = 'Item ID';
+                idInput.value = item.itemId || '';
+                idInput.onchange = () => {
+                    block.data[field.name][i].itemId = idInput.value;
+                    this.triggerChange();
+                };
+                
+                const priceInput = document.createElement('input');
+                priceInput.type = 'number';
+                priceInput.className = 'vse-field-input';
+                priceInput.style.cssText = 'flex: 1; min-width: 50px;';
+                priceInput.placeholder = 'Price';
+                priceInput.value = item.price || 100;
+                priceInput.onchange = () => {
+                    block.data[field.name][i].price = Number(priceInput.value);
+                    this.triggerChange();
+                };
+                
+                const stockInput = document.createElement('input');
+                stockInput.type = 'number';
+                stockInput.className = 'vse-field-input';
+                stockInput.style.cssText = 'flex: 1; min-width: 40px;';
+                stockInput.placeholder = 'Stock';
+                stockInput.title = 'Stock (0 = unlimited)';
+                stockInput.value = item.stock || 0;
+                stockInput.onchange = () => {
+                    block.data[field.name][i].stock = Number(stockInput.value);
+                    this.triggerChange();
+                };
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'vse-choice-remove';
+                removeBtn.textContent = '✕';
+                removeBtn.onclick = () => {
+                    block.data[field.name].splice(i, 1);
+                    this.render();
+                    this.triggerChange();
+                };
+                
+                itemDiv.appendChild(idInput);
+                itemDiv.appendChild(priceInput);
+                itemDiv.appendChild(stockInput);
+                itemDiv.appendChild(removeBtn);
+                list.appendChild(itemDiv);
+            });
+            
+            // Header labels
+            if (items.length === 0) {
+                const hint = document.createElement('div');
+                hint.style.cssText = 'color: #888; font-size: 11px; margin-bottom: 4px;';
+                hint.textContent = 'Item ID | Price | Stock (0=∞)';
+                list.insertBefore(hint, list.firstChild);
+            }
+            
+            const addBtn = document.createElement('button');
+            addBtn.className = 'vse-choice-add';
+            addBtn.textContent = '+ Add Shop Item';
+            addBtn.onclick = () => {
+                if (!block.data[field.name]) block.data[field.name] = [];
+                block.data[field.name].push({ itemId: 'health_potion', price: 25, stock: 0 });
                 this.render();
                 this.triggerChange();
             };
