@@ -4354,28 +4354,53 @@ class ShopState extends GameState {
             }
         }
         
-        // Item name (below icon or at top if no icon) - auto-scale to fit
-        // Use middle baseline so text stays vertically centered when font shrinks
+        // Item name (below icon or at top if no icon) - word wrap if needed
         const nameAreaTop = hasIcon ? iconY + iconSize + 35 : detailsY + padding;
-        const nameAreaHeight = 50; // Fixed height for name area
-        const nameCenterY = nameAreaTop + nameAreaHeight / 2;
+        const maxNameWidth = detailsWidth - padding * 2;
+        const fontSize = ds ? 43 : 28; // xl size
         
         ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        ctx.font = ds ? ds.font('xl', 'bold', 'display') : `bold ${fontSize}px "Cinzel", serif`;
         if (ds) ds.applyShadow(ctx, 'glow');
         
-        // Auto-scale font to fit within panel
-        const maxNameWidth = detailsWidth - padding * 2;
-        let fontSize = ds ? 43 : 28; // Start with xl size
-        ctx.font = ds ? ds.font('xl', 'bold', 'display') : `bold ${fontSize}px "Cinzel", serif`;
+        // Check if name needs wrapping
+        const nameWidth = ctx.measureText(item.name).width;
+        let nameAreaHeight;
         
-        while (ctx.measureText(item.name).width > maxNameWidth && fontSize > 16) {
-            fontSize -= 2;
-            ctx.font = `bold ${fontSize}px "Cinzel", serif`;
+        if (nameWidth > maxNameWidth) {
+            // Word wrap the name
+            const words = item.name.split(' ');
+            let lines = [];
+            let currentLine = '';
+            
+            for (const word of words) {
+                const testLine = currentLine ? currentLine + ' ' + word : word;
+                if (ctx.measureText(testLine).width > maxNameWidth && currentLine) {
+                    lines.push(currentLine);
+                    currentLine = word;
+                } else {
+                    currentLine = testLine;
+                }
+            }
+            if (currentLine) lines.push(currentLine);
+            
+            // Draw wrapped name centered vertically
+            const lineHeight = fontSize * 1.6;
+            nameAreaHeight = lines.length * lineHeight;
+            const nameStartY = nameAreaTop + lineHeight / 2;
+            
+            ctx.textBaseline = 'middle';
+            lines.forEach((line, i) => {
+                ctx.fillText(line, centerX, nameStartY + i * lineHeight);
+            });
+        } else {
+            // Single line name
+            nameAreaHeight = fontSize * 1.2;
+            ctx.textBaseline = 'middle';
+            ctx.fillText(item.name, centerX, nameAreaTop + nameAreaHeight / 2);
         }
         
-        ctx.fillText(item.name, centerX, nameCenterY);
         if (ds) ds.clearShadow(ctx);
         
         // Separator line position (fixed distance from name area)
