@@ -5032,54 +5032,28 @@ class BattleState extends GameState {
     }
     
     renderPlayerCommander(ctx, width, height) {
-        const ds = window.ds;
-        const panelX = 10;
-        const panelY = 10;
-        const panelSize = 80;
+        const spriteX = 15;
+        const spriteY = 15;
+        const spriteSize = 64;
         
-        // Panel background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.beginPath();
-        ctx.roundRect(panelX, panelY, panelSize + 20, panelSize + 35, 8);
-        ctx.fill();
-        
-        ctx.strokeStyle = '#4a9eff';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.roundRect(panelX, panelY, panelSize + 20, panelSize + 35, 8);
-        ctx.stroke();
-        
-        // Draw player sprite
+        // Draw player sprite directly (no box)
         if (this.playerSprite && this.playerSprite._loaded) {
             const img = this.playerSprite;
             // Get first frame if spritesheet
             const frameWidth = img.width / 4; // Assuming 4 columns
             const frameHeight = img.height / 4; // Assuming 4 rows
-            const scale = Math.min(panelSize / frameWidth, panelSize / frameHeight);
+            const scale = Math.min(spriteSize / frameWidth, spriteSize / frameHeight);
             const drawW = frameWidth * scale;
             const drawH = frameHeight * scale;
             
             ctx.drawImage(
                 img,
                 0, 0, frameWidth, frameHeight, // Source (first frame)
-                panelX + 10 + (panelSize - drawW) / 2,
-                panelY + 5 + (panelSize - drawH) / 2,
+                spriteX,
+                spriteY,
                 drawW, drawH
             );
-        } else {
-            // Fallback silhouette
-            ctx.fillStyle = '#4a9eff';
-            ctx.beginPath();
-            ctx.arc(panelX + 10 + panelSize/2, panelY + 5 + panelSize/2, panelSize/3, 0, Math.PI * 2);
-            ctx.fill();
         }
-        
-        // Label
-        ctx.fillStyle = '#fff';
-        ctx.font = ds ? ds.font('xs', 'bold') : 'bold 11px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillText('COMMANDER', panelX + 10 + panelSize/2, panelY + panelSize + 8);
     }
     
     renderActiveSpiritIndicator(ctx, width, height) {
@@ -5151,55 +5125,53 @@ class BattleState extends GameState {
     
     renderActionLog(ctx, width, height) {
         const ds = window.ds;
-        const logX = width - 280;
-        const logY = 10;
-        const logWidth = 270;
-        const logHeight = 140;
+        const logWidth = Math.min(600, width * 0.6);
+        const logHeight = 100;
+        const logX = (width - logWidth) / 2;
+        const logY = height - logHeight - 10;
         
         // Panel background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
         ctx.beginPath();
         ctx.roundRect(logX, logY, logWidth, logHeight, 8);
         ctx.fill();
         
-        ctx.strokeStyle = '#666';
+        ctx.strokeStyle = '#555';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.roundRect(logX, logY, logWidth, logHeight, 8);
         ctx.stroke();
         
-        // Title
-        ctx.fillStyle = '#888';
-        ctx.font = ds ? ds.font('xs', 'bold') : 'bold 10px Arial';
+        // Log entries (newest at bottom)
+        ctx.font = ds ? ds.font('sm') : '13px Arial';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
-        ctx.fillText('BATTLE LOG', logX + 8, logY + 5);
+        const lineHeight = 18;
+        const maxLines = Math.floor((logHeight - 16) / lineHeight);
+        const visibleEntries = this.actionLog.slice(0, maxLines).reverse();
         
-        // Log entries
-        ctx.font = ds ? ds.font('xs') : '11px Arial';
-        const lineHeight = 15;
-        const startY = logY + 22;
-        
-        this.actionLog.forEach((entry, index) => {
+        visibleEntries.forEach((entry, index) => {
             // Fade older entries
             const age = (Date.now() - entry.time) / 1000;
-            const alpha = Math.max(0.3, 1 - age * 0.05);
+            const alpha = Math.max(0.4, 1 - age * 0.03);
             
             ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
             
-            // Truncate long text
+            // Truncate long text based on width
             let text = entry.text;
-            if (text.length > 38) {
-                text = text.substring(0, 35) + '...';
+            const maxChars = Math.floor(logWidth / 8);
+            if (text.length > maxChars) {
+                text = text.substring(0, maxChars - 3) + '...';
             }
             
-            ctx.fillText(text, logX + 8, startY + index * lineHeight);
+            ctx.fillText(text, logX + 12, logY + 8 + index * lineHeight);
         });
         
         // If no entries, show placeholder
         if (this.actionLog.length === 0) {
             ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.fillText('Waiting for actions...', logX + 8, startY);
+            ctx.textAlign = 'center';
+            ctx.fillText('Waiting for actions...', logX + logWidth / 2, logY + logHeight / 2 - 8);
         }
     }
     
