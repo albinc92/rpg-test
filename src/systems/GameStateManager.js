@@ -4404,7 +4404,7 @@ class ShopState extends GameState {
         const descY = lineY + 60;
         ctx.fillStyle = ds ? ds.colors.text.secondary : '#ccc';
         ctx.font = ds ? ds.font('md', 'normal', 'body') : '18px "Lato", sans-serif';
-        this.wrapText(ctx, item.description || this.game.t('shop.noDescription'), centerX, descY, detailsWidth - padding * 2, 36);
+        this.wrapText(ctx, item.description || this.game.t('shop.noDescription'), centerX, descY, detailsWidth - padding * 2, 44);
         
         // Stats if any
         if (item.stats && Object.keys(item.stats).length > 0) {

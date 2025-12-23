@@ -30,7 +30,7 @@
   "iron_sword": {
     "id": "iron_sword",
     "name": "Iron Sword",
-    "description": "A sturdy iron sword",
+    "description": "A sturdy iron sword that is reliable in battle",
     "icon": "assets/icon/Items/Iron_Sword.png",
     "stackable": false,
     "maxStack": 1,
