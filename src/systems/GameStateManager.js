@@ -4580,6 +4580,10 @@ class BattleState extends GameState {
         this.backgroundImage = null;
         this.loadBackground();
         
+        // Player commander sprite
+        this.playerSprite = null;
+        this.loadPlayerSprite();
+        
         // Transition animation
         this.transitionTimer = 0;
         this.transitionDuration = 1.0;
@@ -4592,7 +4596,39 @@ class BattleState extends GameState {
         this.actionAnimation = null;
         this.damageNumbers = [];
         
+        // Action log
+        this.actionLog = [];
+        this.maxLogEntries = 8;
+        
+        // Register log callback with battle system
+        if (this.battleSystem) {
+            this.battleSystem.onLogEntry = (entry) => this.addLogEntry(entry);
+        }
+        
         console.log('[BattleState] Entered battle state');
+    }
+    
+    loadPlayerSprite() {
+        if (this.game.player && this.game.player.spriteSrc) {
+            this.playerSprite = new Image();
+            this.playerSprite._loaded = false;
+            this.playerSprite.onload = () => {
+                this.playerSprite._loaded = true;
+            };
+            this.playerSprite.src = this.game.player.spriteSrc;
+        }
+    }
+    
+    addLogEntry(text) {
+        this.actionLog.unshift({
+            text: text,
+            time: Date.now(),
+            alpha: 1.0
+        });
+        // Trim old entries
+        if (this.actionLog.length > this.maxLogEntries) {
+            this.actionLog.pop();
+        }
     }
     
     loadBackground() {
@@ -4605,8 +4641,9 @@ class BattleState extends GameState {
     }
     
     exit() {
-        // Cleanup battle system
+        // Clear log callback
         if (this.battleSystem) {
+            this.battleSystem.onLogEntry = null;
             this.battleSystem.cleanup();
         }
         
@@ -4911,14 +4948,23 @@ class BattleState extends GameState {
         // Draw battle background
         this.renderBackground(ctx, width, height);
         
+        // Draw player commander in top-left
+        this.renderPlayerCommander(ctx, width, height);
+        
         // Draw combatants
         this.renderCombatants(ctx, width, height);
+        
+        // Draw active spirit indicator
+        this.renderActiveSpiritIndicator(ctx, width, height);
         
         // Draw ATB bars
         this.renderATBBars(ctx, width, height);
         
         // Draw HP/MP bars
         this.renderStatusBars(ctx, width, height);
+        
+        // Draw action log
+        this.renderActionLog(ctx, width, height);
         
         // Draw damage numbers
         this.renderDamageNumbers(ctx);
@@ -4982,6 +5028,178 @@ class BattleState extends GameState {
             gradient.addColorStop(1, '#0f3460');
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, width, height);
+        }
+    }
+    
+    renderPlayerCommander(ctx, width, height) {
+        const ds = window.ds;
+        const panelX = 10;
+        const panelY = 10;
+        const panelSize = 80;
+        
+        // Panel background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.beginPath();
+        ctx.roundRect(panelX, panelY, panelSize + 20, panelSize + 35, 8);
+        ctx.fill();
+        
+        ctx.strokeStyle = '#4a9eff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(panelX, panelY, panelSize + 20, panelSize + 35, 8);
+        ctx.stroke();
+        
+        // Draw player sprite
+        if (this.playerSprite && this.playerSprite._loaded) {
+            const img = this.playerSprite;
+            // Get first frame if spritesheet
+            const frameWidth = img.width / 4; // Assuming 4 columns
+            const frameHeight = img.height / 4; // Assuming 4 rows
+            const scale = Math.min(panelSize / frameWidth, panelSize / frameHeight);
+            const drawW = frameWidth * scale;
+            const drawH = frameHeight * scale;
+            
+            ctx.drawImage(
+                img,
+                0, 0, frameWidth, frameHeight, // Source (first frame)
+                panelX + 10 + (panelSize - drawW) / 2,
+                panelY + 5 + (panelSize - drawH) / 2,
+                drawW, drawH
+            );
+        } else {
+            // Fallback silhouette
+            ctx.fillStyle = '#4a9eff';
+            ctx.beginPath();
+            ctx.arc(panelX + 10 + panelSize/2, panelY + 5 + panelSize/2, panelSize/3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // Label
+        ctx.fillStyle = '#fff';
+        ctx.font = ds ? ds.font('xs', 'bold') : 'bold 11px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText('COMMANDER', panelX + 10 + panelSize/2, panelY + panelSize + 8);
+    }
+    
+    renderActiveSpiritIndicator(ctx, width, height) {
+        if (!this.battleSystem || !this.battleSystem.currentAction) return;
+        
+        const activeSpirit = this.battleSystem.currentAction.user;
+        if (!activeSpirit) return;
+        
+        // Find the spirit's position
+        const playerSpirits = this.battleSystem.playerParty;
+        const enemySpirits = this.battleSystem.enemyParty;
+        
+        let spiritX, spiritY;
+        let isPlayer = false;
+        
+        // Check player party
+        const playerIndex = playerSpirits.indexOf(activeSpirit);
+        if (playerIndex !== -1) {
+            spiritX = width * 0.2;
+            spiritY = height * 0.25 + playerIndex * (height * 0.15);
+            isPlayer = true;
+        } else {
+            // Check enemy party
+            const enemyIndex = enemySpirits.indexOf(activeSpirit);
+            if (enemyIndex !== -1) {
+                spiritX = width * 0.75;
+                spiritY = height * 0.25 + enemyIndex * (height * 0.18);
+            } else {
+                return;
+            }
+        }
+        
+        // Draw animated arrow indicator
+        const time = Date.now() / 200;
+        const bounce = Math.sin(time) * 8;
+        
+        ctx.save();
+        ctx.fillStyle = isPlayer ? '#4ade80' : '#ff6b6b';
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        
+        // Arrow pointing down at the spirit
+        const arrowX = spiritX;
+        const arrowY = spiritY - 60 + bounce;
+        const arrowSize = 15;
+        
+        ctx.beginPath();
+        ctx.moveTo(arrowX, arrowY + arrowSize);
+        ctx.lineTo(arrowX - arrowSize, arrowY - arrowSize/2);
+        ctx.lineTo(arrowX - arrowSize/3, arrowY - arrowSize/2);
+        ctx.lineTo(arrowX - arrowSize/3, arrowY - arrowSize * 1.5);
+        ctx.lineTo(arrowX + arrowSize/3, arrowY - arrowSize * 1.5);
+        ctx.lineTo(arrowX + arrowSize/3, arrowY - arrowSize/2);
+        ctx.lineTo(arrowX + arrowSize, arrowY - arrowSize/2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // "ACTIVE" label
+        ctx.fillStyle = '#fff';
+        const ds = window.ds;
+        ctx.font = ds ? ds.font('xs', 'bold') : 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText('ACTIVE', arrowX, arrowY - arrowSize * 1.6);
+        
+        ctx.restore();
+    }
+    
+    renderActionLog(ctx, width, height) {
+        const ds = window.ds;
+        const logX = width - 280;
+        const logY = 10;
+        const logWidth = 270;
+        const logHeight = 140;
+        
+        // Panel background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.beginPath();
+        ctx.roundRect(logX, logY, logWidth, logHeight, 8);
+        ctx.fill();
+        
+        ctx.strokeStyle = '#666';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(logX, logY, logWidth, logHeight, 8);
+        ctx.stroke();
+        
+        // Title
+        ctx.fillStyle = '#888';
+        ctx.font = ds ? ds.font('xs', 'bold') : 'bold 10px Arial';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText('BATTLE LOG', logX + 8, logY + 5);
+        
+        // Log entries
+        ctx.font = ds ? ds.font('xs') : '11px Arial';
+        const lineHeight = 15;
+        const startY = logY + 22;
+        
+        this.actionLog.forEach((entry, index) => {
+            // Fade older entries
+            const age = (Date.now() - entry.time) / 1000;
+            const alpha = Math.max(0.3, 1 - age * 0.05);
+            
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+            
+            // Truncate long text
+            let text = entry.text;
+            if (text.length > 38) {
+                text = text.substring(0, 35) + '...';
+            }
+            
+            ctx.fillText(text, logX + 8, startY + index * lineHeight);
+        });
+        
+        // If no entries, show placeholder
+        if (this.actionLog.length === 0) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.fillText('Waiting for actions...', logX + 8, startY);
         }
     }
     

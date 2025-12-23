@@ -39,6 +39,9 @@ class BattleSystem {
             items: []
         };
         
+        // Log callback (set by BattleState)
+        this.onLogEntry = null;
+        
         // Type effectiveness chart
         // Multipliers: 2.0 = super effective, 0.5 = not very effective, 1.0 = normal
         this.typeChart = {
@@ -445,6 +448,16 @@ class BattleSystem {
     }
     
     /**
+     * Add entry to battle log
+     */
+    log(message) {
+        console.log(`[BattleSystem] ${message}`);
+        if (this.onLogEntry) {
+            this.onLogEntry(message);
+        }
+    }
+    
+    /**
      * Execute a basic attack
      */
     executeAttack(user, target) {
@@ -464,7 +477,12 @@ class BattleSystem {
         // Apply damage
         this.applyDamage(target, damage);
         
-        console.log(`[BattleSystem] ${user.name} attacks ${target.name} for ${damage} damage (${effectiveness}x effective)`);
+        // Build effectiveness text
+        let effText = '';
+        if (effectiveness > 1) effText = ' (Super effective!)';
+        else if (effectiveness < 1) effText = ' (Not very effective)';
+        
+        this.log(`${user.name} attacks ${target.name} for ${damage} dmg${effText}`);
     }
     
     /**
@@ -473,7 +491,7 @@ class BattleSystem {
     executeAbility(user, target, ability) {
         // Check MP cost
         if (user.currentMp < ability.mpCost) {
-            console.log(`[BattleSystem] ${user.name} doesn't have enough MP!`);
+            this.log(`${user.name} doesn't have enough MP!`);
             return;
         }
         
@@ -515,7 +533,11 @@ class BattleSystem {
             damage = Math.max(1, damage);
             
             this.applyDamage(t, damage);
-            console.log(`[BattleSystem] ${ability.name} hits ${t.name} for ${damage} damage`);
+            
+            let effText = '';
+            if (effectiveness > 1) effText = ' (Super effective!)';
+            else if (effectiveness < 1) effText = ' (Resisted)';
+            this.log(`${user.name}'s ${ability.name} hits ${t.name} for ${damage} dmg${effText}`);
         });
     }
     
@@ -538,7 +560,11 @@ class BattleSystem {
             damage = Math.max(1, damage);
             
             this.applyDamage(t, damage);
-            console.log(`[BattleSystem] ${ability.name} hits ${t.name} for ${damage} damage`);
+            
+            let effText = '';
+            if (effectiveness > 1) effText = ' (Super effective!)';
+            else if (effectiveness < 1) effText = ' (Resisted)';
+            this.log(`${user.name}'s ${ability.name} hits ${t.name} for ${damage} dmg${effText}`);
         });
     }
     
@@ -554,7 +580,7 @@ class BattleSystem {
             if (ability.id === 'heal' || ability.effect === 'heal') {
                 const healAmount = Math.floor(user.magicAttack * ability.power / 20);
                 this.applyHealing(t, healAmount);
-                console.log(`[BattleSystem] ${ability.name} heals ${t.name} for ${healAmount} HP`);
+                this.log(`${user.name}'s ${ability.name} heals ${t.name} for ${healAmount} HP`);
             }
             
             // Handle buffs
@@ -622,7 +648,7 @@ class BattleSystem {
         if (target.currentHp <= 0) {
             target.isAlive = false;
             target.currentHp = 0;
-            console.log(`[BattleSystem] ${target.name} has been defeated!`);
+            this.log(`${target.name} has been defeated!`);
             
             // Add rewards if enemy
             if (!target.isPlayerOwned) {
@@ -645,7 +671,7 @@ class BattleSystem {
      */
     attemptFlee() {
         if (!this.canFlee) {
-            console.log('[BattleSystem] Cannot flee from this battle!');
+            this.log('Cannot flee from this battle!');
             return false;
         }
         
@@ -653,11 +679,11 @@ class BattleSystem {
         const fleeChance = 0.75;
         if (Math.random() < fleeChance) {
             this.result = 'fled';
-            console.log('[BattleSystem] Successfully fled!');
+            this.log('Successfully fled from battle!');
             return true;
         }
         
-        console.log('[BattleSystem] Failed to flee!');
+        this.log('Failed to flee!');
         return false;
     }
     
@@ -666,7 +692,7 @@ class BattleSystem {
      */
     attemptSeal(target) {
         if (!this.canSeal || !target || !target.isAlive) {
-            console.log('[BattleSystem] Cannot seal this spirit!');
+            this.log('Cannot seal this spirit!');
             return false;
         }
         
@@ -676,7 +702,7 @@ class BattleSystem {
         const sealChance = baseChance + (1 - hpPercent) * 0.5; // Up to 80% at 1 HP
         
         if (Math.random() < sealChance) {
-            console.log(`[BattleSystem] Successfully sealed ${target.name}!`);
+            this.log(`Successfully sealed ${target.name}!`);
             
             // Add to player's spirit box
             this.game.partyManager?.addToBox(target.originalData);
@@ -687,7 +713,7 @@ class BattleSystem {
             return true;
         }
         
-        console.log(`[BattleSystem] Failed to seal ${target.name}!`);
+        this.log(`Failed to seal ${target.name}!`);
         return false;
     }
     
