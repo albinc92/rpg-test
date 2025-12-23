@@ -98,9 +98,9 @@ class BattleSystem {
         this.isTransitioning = true;
         this.transitionTimer = 0;
         
-        // Play battle music (use existing bgm files)
-        // 01.mp3 = battle, 02.mp3 = boss (or use custom if provided)
-        const bgmTrack = this.isBoss ? '02.mp3' : (this.customBgm || '01.mp3');
+        // Play battle music
+        // battle01.mp3 = normal battle, battle02.mp3 = boss (or use custom if provided)
+        const bgmTrack = this.isBoss ? 'battle02.mp3' : (this.customBgm || 'battle01.mp3');
         this.game.audioManager?.playBGM(bgmTrack);
         
         // Push battle state
@@ -462,6 +462,9 @@ class BattleSystem {
      */
     executeAttack(user, target) {
         if (!target || !target.isAlive) return;
+        
+        // Play attack sound effect
+        this.game.audioManager?.playEffect('strike01.mp3');
         
         // Calculate damage
         const baseDamage = user.attack * 2;

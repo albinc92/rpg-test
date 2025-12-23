@@ -64,11 +64,11 @@ class PartyManager {
     }
     
     /**
-     * Add a default starter spirit
+     * Add default starter spirits (4 Sylphies)
      */
     addDefaultSpirit() {
-        const starterSpirit = {
-            id: 'starter_spirit_' + Date.now(),
+        const createSylphie = (index) => ({
+            id: 'starter_spirit_' + Date.now() + '_' + index,
             name: 'Sylphie',
             level: 5,
             exp: 0,
@@ -89,9 +89,12 @@ class PartyManager {
                 { id: 'heal', name: 'Heal', type: 'supportive', element: null, power: 30, mpCost: 10, target: 'single_ally' }
             ],
             sprite: '/assets/npc/Spirits/sylphie.png'
-        };
+        });
         
-        this.party.push(starterSpirit);
+        // Add 4 Sylphies to the party
+        for (let i = 0; i < 4; i++) {
+            this.party.push(createSylphie(i));
+        }
         this.savePartyData();
     }
     

@@ -652,6 +652,7 @@ class MainMenuState extends GameState {
         const option = this.options[this.selectedOption];
         if (option.disabled) return;
         
+        this.game.audioManager?.playEffect('click.mp3');
         const optionKey = option.key;
         
         switch (optionKey) {
@@ -1090,6 +1091,7 @@ class PausedState extends GameState {
             }
             
             if (inputManager.isJustPressed('confirm')) {
+                this.game.audioManager?.playEffect('click.mp3');
                 if (this.exitConfirmOption === 0) { // Yes
                     this.stateManager.clearStack();
                     // Reset game state when exiting to main menu
@@ -1124,6 +1126,7 @@ class PausedState extends GameState {
     
     selectOption() {
         const optionKey = this.options[this.selectedOption].key;
+        this.game.audioManager?.playEffect('click.mp3');
         switch (optionKey) {
             case 'menu.pause.resume':
                 this.stateManager.popState();
@@ -1245,6 +1248,7 @@ class SaveLoadState extends GameState {
             }
             
             if (inputManager.isJustPressed('confirm')) {
+                this.game.audioManager?.playEffect('click.mp3');
                 this.selectOption();
                 return;
             }
@@ -1283,6 +1287,7 @@ class SaveLoadState extends GameState {
         }
         
         if (inputManager.isJustPressed('confirm')) {
+            this.game.audioManager?.playEffect('click.mp3');
             this.selectOption();
         }
         
@@ -2064,6 +2069,7 @@ class SettingsState extends GameState {
                 this.game.audioManager?.playEffect('menu-navigation.mp3');
             }
             if (inputManager.isJustPressed('confirm')) {
+                this.game.audioManager?.playEffect('click.mp3');
                 if (this.resetModalOption === 0) { // All
                     this.resetAllSettings();
                     this.showResetModal = false;
@@ -2092,6 +2098,7 @@ class SettingsState extends GameState {
                 this.game.audioManager?.playEffect('menu-navigation.mp3');
             }
             if (inputManager.isJustPressed('confirm')) {
+                this.game.audioManager?.playEffect('click.mp3');
                 if (this.exitModalOption === 0) { // Save
                     this.applyChanges();
                     this.stateManager.popState();
@@ -2200,11 +2207,13 @@ class SettingsState extends GameState {
             }
             
             if (inputManager.isJustPressed('confirm')) {
+                this.game.audioManager?.playEffect('click.mp3');
                 this.selectOption();
             }
         } else if (this.selectedOption === this.options.length) {
             // Back button selected
             if (inputManager.isJustPressed('confirm')) {
+                this.game.audioManager?.playEffect('click.mp3');
                 this.checkChangesAndExit();
             }
             // Navigate right to Reset button
@@ -2215,6 +2224,7 @@ class SettingsState extends GameState {
         } else if (this.selectedOption === this.options.length + 1) {
             // Reset button selected
             if (inputManager.isJustPressed('confirm')) {
+                this.game.audioManager?.playEffect('click.mp3');
                 this.showResetModal = true;
                 this.resetModalOption = 2; // Default to Cancel
                 this.game.audioManager?.playEffect('menu-navigation.mp3');
@@ -4707,6 +4717,14 @@ class BattleState extends GameState {
     handleInput(inputManager) {
         if (this.inputCooldown > 0) return;
         
+        // Start button opens main menu (pauses battle)
+        if (inputManager.isJustPressed('start')) {
+            this.game.audioManager?.playEffect('menu-open.mp3');
+            this.game.stateManager.pushState('menu');
+            this.inputCooldown = 0.2;
+            return;
+        }
+        
         // Results screen - press confirm to exit
         if (this.phase === 'results') {
             if (inputManager.isJustPressed('confirm') && this.resultsTimer > 1.0) {
@@ -4960,11 +4978,12 @@ class BattleState extends GameState {
         // Draw active spirit indicator
         this.renderActiveSpiritIndicator(ctx, width, height);
         
-        // Draw action log first (bottom layer)
-        this.renderActionLog(ctx, width, height);
+        // Apply day/night lighting effect to battle scene (background + sprites)
+        // This happens BEFORE UI elements so menus aren't affected
+        this.renderDayNightOverlay(ctx, width, height);
         
-        // Draw HP/MP/ATB status panel
-        this.renderStatusBars(ctx, width, height);
+        // Draw action log at bottom center
+        this.renderActionLog(ctx, width, height);
         
         // Draw damage numbers
         this.renderDamageNumbers(ctx);
@@ -5031,46 +5050,88 @@ class BattleState extends GameState {
         }
     }
     
-    renderPlayerCommander(ctx, width, height) {
-        const ds = window.ds;
-        const menuRenderer = this.game.menuRenderer;
+    /**
+     * Apply day/night lighting overlay to battle scene
+     * This creates a color overlay based on the current time of day
+     */
+    renderDayNightOverlay(ctx, width, height) {
+        const dayNightCycle = this.game.dayNightCycle;
+        if (!dayNightCycle) return;
         
-        // Panel dimensions - positioned at top-left with proper sizing
-        const panelX = ds ? ds.spacing(4) : 16;
-        const panelY = ds ? ds.spacing(4) : 16;
-        const panelWidth = ds ? ds.spacing(24) : 96;
-        const panelHeight = ds ? ds.spacing(28) : 112;
+        // Get shader params which contain brightness, saturation, temperature
+        const params = dayNightCycle.getShaderParams();
         
-        // Draw panel background using design system
-        if (menuRenderer && menuRenderer.drawPanel) {
-            menuRenderer.drawPanel(ctx, panelX, panelY, panelWidth, panelHeight, 0.8);
-        } else {
-            ctx.fillStyle = 'rgba(10, 10, 20, 0.85)';
-            ctx.strokeStyle = ds ? ds.colors.primary : '#4a9eff';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 4);
-            ctx.fill();
-            ctx.stroke();
+        // Skip if it's basically full daylight (no noticeable effect)
+        if (params.brightness >= 0.95 && params.saturation >= 0.95) return;
+        
+        ctx.save();
+        
+        // Apply brightness reduction as a dark overlay
+        if (params.brightness < 0.95) {
+            const darknessAlpha = (1 - params.brightness) * 0.7; // Scale down for subtle effect
+            
+            // Get the darkness color based on time of day
+            const timeOfDay = dayNightCycle.timeOfDay;
+            let overlayColor;
+            
+            if ((timeOfDay >= 20 && timeOfDay < 24) || (timeOfDay >= 0 && timeOfDay < 5)) {
+                // Night - blue tint
+                overlayColor = `rgba(20, 30, 80, ${darknessAlpha})`;
+            } else if (timeOfDay >= 5 && timeOfDay < 8) {
+                // Dawn - warm orange/pink tint
+                const t = (timeOfDay - 5) / 3;
+                const r = Math.round(255 * (1 - t) + 20 * t);
+                const g = Math.round(150 * (1 - t) + 30 * t);
+                const b = Math.round(100 * (1 - t) + 80 * t);
+                overlayColor = `rgba(${r}, ${g}, ${b}, ${darknessAlpha * 0.6})`;
+            } else if (timeOfDay >= 17 && timeOfDay < 20) {
+                // Dusk - orange/red tint
+                const t = (timeOfDay - 17) / 3;
+                const r = Math.round(255 * (1 - t) + 20 * t);
+                const g = Math.round(100 * (1 - t) + 30 * t);
+                const b = Math.round(50 * (1 - t) + 80 * t);
+                overlayColor = `rgba(${r}, ${g}, ${b}, ${darknessAlpha * 0.6})`;
+            } else {
+                // Day - minimal overlay
+                overlayColor = `rgba(0, 0, 0, ${darknessAlpha * 0.3})`;
+            }
+            
+            ctx.fillStyle = overlayColor;
+            ctx.fillRect(0, 0, width, height);
         }
         
-        // Draw player sprite - full sprite, not cropped
+        // Apply desaturation effect using a gray overlay with soft-light blending
+        if (params.saturation < 0.9) {
+            const desatAmount = (1 - params.saturation) * 0.3;
+            ctx.globalCompositeOperation = 'saturation';
+            ctx.fillStyle = `rgba(128, 128, 128, ${desatAmount})`;
+            ctx.fillRect(0, 0, width, height);
+            ctx.globalCompositeOperation = 'source-over';
+        }
+        
+        ctx.restore();
+    }
+    
+    renderPlayerCommander(ctx, width, height) {
+        const ds = window.ds;
+        
+        // Just draw the player sprite standalone in top-left, no box
         if (this.playerSprite && this.playerSprite._loaded) {
             const img = this.playerSprite;
             // Get first frame if spritesheet (facing down)
             const frameWidth = img.width / 4; // Assuming 4 columns
             const frameHeight = img.height / 4; // Assuming 4 rows
             
-            // Calculate scale to fit within panel with padding
-            const maxSpriteWidth = panelWidth - (ds ? ds.spacing(4) : 16);
-            const maxSpriteHeight = panelHeight - (ds ? ds.spacing(4) : 16);
-            const scale = Math.min(maxSpriteWidth / frameWidth, maxSpriteHeight / frameHeight);
+            // Scale sprite to reasonable size (smaller)
+            const targetSize = ds ? ds.spacing(12) : 48;
+            const scale = Math.min(targetSize / frameWidth, targetSize / frameHeight);
             const drawW = frameWidth * scale;
             const drawH = frameHeight * scale;
             
-            // Center sprite within panel
-            const spriteX = panelX + (panelWidth - drawW) / 2;
-            const spriteY = panelY + (panelHeight - drawH) / 2;
+            // Position fully visible in top-left corner with padding
+            const padding = ds ? ds.spacing(3) : 12;
+            const spriteX = padding;
+            const spriteY = padding;
             
             ctx.drawImage(
                 img,
@@ -5083,18 +5144,24 @@ class BattleState extends GameState {
     }
     
     renderActiveSpiritIndicator(ctx, width, height) {
-        if (!this.battleSystem || !this.battleSystem.currentAction) return;
+        if (!this.battleSystem) return;
         
-        const activeSpirit = this.battleSystem.currentAction.user;
+        // Show indicator on the currently selected player spirit (when selecting action)
+        // OR on the spirit whose action is being executed
+        let activeSpirit = this.selectedPlayerSpirit;
+        if (!activeSpirit && this.battleSystem.currentAction) {
+            activeSpirit = this.battleSystem.currentAction.user;
+        }
         if (!activeSpirit) return;
         
         const ds = window.ds;
-        const spiritSize = ds ? ds.spacing(18) : 72;
-        const boxSize = spiritSize + (ds ? ds.spacing(4) : 16);
+        const spiritSize = ds ? ds.spacing(16) : 64;
         
         // Find the spirit's position - using same calculations as renderCombatants
         const playerSpirits = this.battleSystem.playerParty;
         const enemySpirits = this.battleSystem.enemyParty;
+        const statBlockHeight = ds ? ds.spacing(14) : 56;
+        const spacing = spiritSize + statBlockHeight + (ds ? ds.spacing(6) : 24);
         
         let spiritX, spiritY;
         let isPlayer = false;
@@ -5102,35 +5169,32 @@ class BattleState extends GameState {
         // Check player party
         const playerIndex = playerSpirits.indexOf(activeSpirit);
         if (playerIndex !== -1) {
-            const playerSpacing = boxSize + (ds ? ds.spacing(4) : 16);
             spiritX = width * 0.18;
-            spiritY = height * 0.2 + playerIndex * playerSpacing;
+            spiritY = height * 0.15 + playerIndex * spacing + spiritSize / 2;
             isPlayer = true;
         } else {
             // Check enemy party
             const enemyIndex = enemySpirits.indexOf(activeSpirit);
             if (enemyIndex !== -1) {
-                const enemySpacing = boxSize + (ds ? ds.spacing(4) : 16);
-                spiritX = width * 0.78;
-                spiritY = height * 0.2 + enemyIndex * enemySpacing;
+                spiritX = width * 0.82;
+                spiritY = height * 0.15 + enemyIndex * spacing + spiritSize / 2;
             } else {
                 return;
             }
         }
         
-        // Draw animated arrow indicator
+        // Draw animated arrow indicator pointing down at the spirit
         const time = Date.now() / 200;
-        const bounce = Math.sin(time) * 6;
+        const bounce = Math.sin(time) * 5;
         
         ctx.save();
-        ctx.fillStyle = isPlayer ? '#4ade80' : '#ff6b6b';
+        ctx.fillStyle = '#ffd700';
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 1.5;
         
-        // Arrow pointing down at the spirit
         const arrowX = spiritX;
-        const arrowY = spiritY - boxSize / 2 - 25 + bounce;
-        const arrowSize = ds ? ds.spacing(3) : 12;
+        const arrowY = spiritY - spiritSize / 2 - 20 + bounce;
+        const arrowSize = ds ? ds.spacing(2.5) : 10;
         
         ctx.beginPath();
         ctx.moveTo(arrowX, arrowY + arrowSize);
@@ -5158,18 +5222,20 @@ class BattleState extends GameState {
         const ds = window.ds;
         const menuRenderer = this.game.menuRenderer;
         
-        // Action log - positioned at bottom center, larger size
-        const logWidth = Math.min(700, width * 0.55);
-        const logHeight = ds ? ds.spacing(20) : 80;
+        // Action log - positioned at bottom center
+        const logWidth = Math.min(600, width * 0.45);
+        const logHeight = ds ? ds.spacing(16) : 64;
         const logX = (width - logWidth) / 2;
         const logY = height - logHeight - (ds ? ds.spacing(4) : 16);
         
-        // Draw panel background using design system
+        // Draw panel background using design system with corner accents
         if (menuRenderer && menuRenderer.drawPanel) {
-            menuRenderer.drawPanel(ctx, logX, logY, logWidth, logHeight, 0.75);
+            menuRenderer.drawPanel(ctx, logX, logY, logWidth, logHeight, 0.85);
+        } else if (ds) {
+            ds.drawPanel(ctx, logX, logY, logWidth, logHeight, { alpha: 0.85, showCorners: true });
         } else {
-            ctx.fillStyle = 'rgba(10, 10, 20, 0.8)';
-            ctx.strokeStyle = ds ? ds.colors.alpha(ds.colors.text.primary, 0.15) : 'rgba(255,255,255,0.1)';
+            ctx.fillStyle = 'rgba(10, 10, 20, 0.85)';
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.roundRect(logX, logY, logWidth, logHeight, 4);
@@ -5218,35 +5284,38 @@ class BattleState extends GameState {
         if (!this.battleSystem) return;
         
         const ds = window.ds;
-        const spiritSize = ds ? ds.spacing(18) : 72;
-        const boxSize = spiritSize + (ds ? ds.spacing(4) : 16);
+        const spiritSize = ds ? ds.spacing(16) : 64;
+        const statBlockHeight = ds ? ds.spacing(14) : 56; // Space for name + HP/MP + ATB bar
+        const spacing = spiritSize + statBlockHeight + (ds ? ds.spacing(6) : 24);
         
-        // Player party (left side) - positioned in the upper-left area of the battlefield
+        // Player party (left side)
         const playerSpirits = this.battleSystem.playerParty;
         const playerStartX = width * 0.18;
-        const playerStartY = height * 0.2;
-        const playerSpacing = boxSize + (ds ? ds.spacing(4) : 16);
+        const playerStartY = height * 0.15;
         
         playerSpirits.forEach((spirit, index) => {
             const x = playerStartX;
-            const y = playerStartY + index * playerSpacing;
+            const y = playerStartY + index * spacing;
             
-            // Check if this spirit is selected (highlight handled in renderSpirit via isReady)
             const isSelected = spirit === this.selectedPlayerSpirit;
-            this.renderSpirit(ctx, spirit, x, y, true, isSelected);
+            let isTargeted = false;
+            if (this.phase === 'target_select') {
+                const targets = this.getSelectableTargets();
+                isTargeted = targets[this.selectedTargetIndex] === spirit;
+            }
+            
+            this.renderSpirit(ctx, spirit, x, y, true, isSelected, isTargeted);
         });
         
-        // Enemy party (right side) - positioned in the upper-right area
+        // Enemy party (right side)
         const enemySpirits = this.battleSystem.enemyParty;
-        const enemyStartX = width * 0.78;
-        const enemyStartY = height * 0.2;
-        const enemySpacing = boxSize + (ds ? ds.spacing(4) : 16);
+        const enemyStartX = width * 0.82;
+        const enemyStartY = height * 0.15;
         
         enemySpirits.forEach((spirit, index) => {
             const x = enemyStartX;
-            const y = enemyStartY + index * enemySpacing;
+            const y = enemyStartY + index * spacing;
             
-            // Target indicator
             let isTargeted = false;
             if (this.phase === 'target_select') {
                 const targets = this.getSelectableTargets();
@@ -5259,10 +5328,7 @@ class BattleState extends GameState {
     
     renderSpirit(ctx, spirit, x, y, facingRight, isSelected = false, isTargeted = false) {
         const ds = window.ds;
-        const menuRenderer = this.game.menuRenderer;
-        const size = ds ? ds.spacing(18) : 72;
-        const boxPadding = ds ? ds.spacing(2) : 8;
-        const boxSize = size + boxPadding * 2;
+        const size = ds ? ds.spacing(16) : 64;
         
         // Type colors as fallback
         const typeColors = {
@@ -5279,190 +5345,168 @@ class BattleState extends GameState {
             ctx.globalAlpha = 0.3;
         }
         
-        // Draw spirit box background
-        const boxX = x - boxSize / 2;
-        const boxY = y - boxSize / 2;
-        ctx.fillStyle = 'rgba(10, 10, 20, 0.6)';
+        // Sprite center position
+        const spriteY = y + size / 2;
         
-        // Determine border style based on state
-        let borderColor, borderWidth;
-        if (isSelected) {
-            borderColor = '#ffd700';
-            borderWidth = 3;
-        } else if (isTargeted) {
-            borderColor = '#ff4444';
-            borderWidth = 3;
-        } else if (spirit.isReady) {
-            borderColor = '#ffd700';
-            borderWidth = 2;
-        } else {
-            borderColor = ds ? ds.colors.alpha(ds.colors.text.primary, 0.2) : 'rgba(255,255,255,0.2)';
-            borderWidth = 1;
-        }
-        
-        ctx.strokeStyle = borderColor;
-        ctx.lineWidth = borderWidth;
-        ctx.beginPath();
-        ctx.roundRect(boxX, boxY, boxSize, boxSize, 4);
-        ctx.fill();
-        ctx.stroke();
-        
-        // Target cursor animation
+        // Target cursor animation (red arrow pointing at targeted enemy)
         if (isTargeted) {
             const cursorBob = Math.sin(Date.now() / 200) * 5;
             ctx.fillStyle = '#ff4444';
             ctx.beginPath();
-            ctx.moveTo(boxX - 15 + cursorBob, y);
-            ctx.lineTo(boxX - 5 + cursorBob, y - 8);
-            ctx.lineTo(boxX - 5 + cursorBob, y + 8);
+            if (facingRight) {
+                // Arrow on right side pointing left
+                ctx.moveTo(x + size / 2 + 20 - cursorBob, spriteY);
+                ctx.lineTo(x + size / 2 + 10 - cursorBob, spriteY - 10);
+                ctx.lineTo(x + size / 2 + 10 - cursorBob, spriteY + 10);
+            } else {
+                // Arrow on left side pointing right
+                ctx.moveTo(x - size / 2 - 20 + cursorBob, spriteY);
+                ctx.lineTo(x - size / 2 - 10 + cursorBob, spriteY - 10);
+                ctx.lineTo(x - size / 2 - 10 + cursorBob, spriteY + 10);
+            }
             ctx.closePath();
             ctx.fill();
         }
         
-        // Try to draw sprite image
+        // Try to draw sprite image - NO BOX, just the sprite
         let spriteDrawn = false;
         if (spirit.sprite) {
-            // Check if we have a cached image
             if (!spirit._spriteImage) {
                 spirit._spriteImage = new Image();
                 spirit._spriteImage._loaded = false;
                 spirit._spriteImage.onload = () => {
                     spirit._spriteImage._loaded = true;
                 };
-                // Handle both absolute and relative paths
                 const spritePath = spirit.sprite.startsWith('/') ? spirit.sprite : '/' + spirit.sprite;
                 spirit._spriteImage.src = spritePath;
             }
             
             if (spirit._spriteImage._loaded) {
-                // Calculate sprite dimensions to fit within size while maintaining aspect ratio
                 const img = spirit._spriteImage;
-                const scale = Math.min(size / img.width, size / img.height);
+                const scale = Math.min(size / img.width, size / img.height) * 1.2; // Slightly larger
                 const drawWidth = img.width * scale;
                 const drawHeight = img.height * scale;
                 
                 ctx.save();
-                // Sprites are drawn facing right by default
-                // Player spirits (left side, facingRight=true) should face right (no flip)
-                // Enemy spirits (right side, facingRight=false) should face left (flip)
                 if (facingRight) {
-                    // Face right - flip horizontally (sprites face left by default)
-                    ctx.translate(x, y);
+                    ctx.translate(x, spriteY);
                     ctx.scale(-1, 1);
                     ctx.drawImage(img, -drawWidth/2, -drawHeight/2, drawWidth, drawHeight);
                 } else {
-                    // Face left - no flip needed (sprites face left by default)
-                    ctx.drawImage(img, x - drawWidth/2, y - drawHeight/2, drawWidth, drawHeight);
+                    ctx.drawImage(img, x - drawWidth/2, spriteY - drawHeight/2, drawWidth, drawHeight);
                 }
                 ctx.restore();
                 spriteDrawn = true;
             }
         }
         
-        // Fallback to colored rectangle if no sprite
+        // Fallback to colored circle if no sprite
         if (!spriteDrawn) {
             ctx.fillStyle = color;
-            ctx.fillRect(x - size/2 + boxPadding, y - size/2 + boxPadding, size - boxPadding*2, size - boxPadding*2);
+            ctx.beginPath();
+            ctx.arc(x, spriteY, size / 2 - 4, 0, Math.PI * 2);
+            ctx.fill();
             
-            // Draw type indicator on placeholder
             ctx.fillStyle = '#fff';
-            ctx.font = ds ? ds.font('xs', 'bold') : 'bold 12px Arial';
+            ctx.font = ds ? ds.font('xs', 'bold') : 'bold 11px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(spirit.type1?.toUpperCase() || '???', x, y);
+            ctx.fillText(spirit.type1?.toUpperCase() || '???', x, spriteY);
         }
         
-        // Draw name below box
-        ctx.fillStyle = spirit.isAlive ? (ds ? ds.colors.text.primary : '#fff') : (ds ? ds.colors.text.disabled : '#666');
-        ctx.font = ds ? ds.font('xs', 'bold') : 'bold 12px \'Lato\', sans-serif';
+        // === STATS BELOW SPRITE ===
+        const statsY = y + size + (ds ? ds.spacing(1) : 4);
+        const statsWidth = ds ? ds.spacing(22) : 88;
+        const lineHeight = ds ? ds.spacing(3.5) : 14;
+        
+        // Name
+        ctx.fillStyle = spirit.isAlive ? '#fff' : '#666';
+        ctx.font = ds ? ds.font('xs', 'bold') : 'bold 11px \'Lato\', sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillText(spirit.name, x, boxY + boxSize + 4);
+        ctx.fillText(spirit.name, x, statsY);
+        
+        // HP Bar (visual bar + text)
+        const hpBarY = statsY + lineHeight;
+        const barWidth = statsWidth;
+        const barHeight = ds ? ds.spacing(1.2) : 5;
+        const barX = x - barWidth / 2;
+        
+        const hpPercent = spirit.maxHp > 0 ? spirit.currentHp / spirit.maxHp : 0;
+        const hpColor = hpPercent > 0.5 ? '#4ade80' : hpPercent > 0.25 ? '#fbbf24' : '#ef4444';
+        
+        // HP bar background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(barX, hpBarY, barWidth, barHeight);
+        // HP bar fill
+        ctx.fillStyle = hpColor;
+        ctx.fillRect(barX, hpBarY, barWidth * hpPercent, barHeight);
+        
+        // HP text on right of bar
+        ctx.font = ds ? ds.font('xs') : '9px \'Lato\', sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        ctx.fillText(`${spirit.currentHp}`, barX + barWidth, hpBarY + barHeight + 1);
+        
+        // MP Bar
+        const mpBarY = hpBarY + barHeight + lineHeight;
+        const mpPercent = spirit.maxMp > 0 ? spirit.currentMp / spirit.maxMp : 0;
+        
+        // MP bar background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(barX, mpBarY, barWidth, barHeight);
+        // MP bar fill
+        ctx.fillStyle = ds ? ds.colors.primary : '#4da6ff';
+        ctx.fillRect(barX, mpBarY, barWidth * mpPercent, barHeight);
+        
+        // MP text on right of bar
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'right';
+        ctx.fillText(`${spirit.currentMp}`, barX + barWidth, mpBarY + barHeight + 1);
+        
+        // ATB Bar
+        const atbY = mpBarY + barHeight + lineHeight;
+        const atbWidth = barWidth;
+        const atbHeight = ds ? ds.spacing(1.2) : 5;
+        const atbX = barX;
+        
+        // ATB background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(atbX, atbY, atbWidth, atbHeight);
+        
+        // ATB fill
+        const atbPercent = this.battleSystem ? spirit.atb / this.battleSystem.ATB_MAX : 0;
+        const atbFillColor = spirit.isReady ? '#ffd700' : '#888';
+        ctx.fillStyle = atbFillColor;
+        ctx.fillRect(atbX, atbY, atbWidth * atbPercent, atbHeight);
+        
+        // ATB label
+        ctx.fillStyle = spirit.isReady ? '#ffd700' : '#aaa';
+        ctx.font = ds ? ds.font('xs') : '9px \'Lato\', sans-serif';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        ctx.fillText(spirit.isReady ? 'READY' : 'ATB', atbX + atbWidth, atbY + atbHeight + 1);
         
         ctx.globalAlpha = 1;
     }
     
-    // ATB bars are now integrated into renderStatusBars
-    
+    // Stats are now rendered under each spirit in renderSpirit
     renderStatusBars(ctx, width, height) {
-        if (!this.battleSystem) return;
-        
-        const ds = window.ds;
-        const menuRenderer = this.game.menuRenderer;
-        
-        // Panel dimensions - bottom-left, above action log
-        const padding = ds ? ds.spacing(4) : 16;
-        const panelWidth = ds ? ds.spacing(50) : 200;
-        const rowHeight = ds ? ds.spacing(8) : 32;
-        const playerSpirits = this.battleSystem.playerParty;
-        const panelHeight = padding * 2 + playerSpirits.slice(0, 4).length * rowHeight;
-        const panelX = padding;
-        const panelY = height - panelHeight - (ds ? ds.spacing(28) : 112); // Above action log
-        
-        // Draw panel background using design system
-        if (menuRenderer && menuRenderer.drawPanel) {
-            menuRenderer.drawPanel(ctx, panelX, panelY, panelWidth, panelHeight, 0.85);
-        } else {
-            ctx.fillStyle = 'rgba(10, 10, 20, 0.9)';
-            ctx.strokeStyle = ds ? ds.colors.alpha(ds.colors.text.primary, 0.15) : 'rgba(255,255,255,0.1)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 4);
-            ctx.fill();
-            ctx.stroke();
-        }
-        
-        // Player spirit stats
-        const fontSize = ds ? ds.fontSize('xs') : 11;
-        const nameFontSize = ds ? ds.fontSize('sm') : 13;
-        
-        playerSpirits.slice(0, 4).forEach((spirit, index) => {
-            const rowY = panelY + padding + index * rowHeight;
-            const contentX = panelX + padding;
-            
-            // Name with ATB indicator
-            const nameColor = !spirit.isAlive ? (ds ? ds.colors.text.disabled : '#666') :
-                              spirit.isReady ? '#ffd700' : (ds ? ds.colors.text.primary : '#fff');
-            ctx.fillStyle = nameColor;
-            ctx.font = ds ? ds.font('sm', 'bold') : `bold ${nameFontSize}px 'Lato', sans-serif`;
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'top';
-            ctx.fillText(spirit.name.substring(0, 10), contentX, rowY);
-            
-            // Ready indicator
-            if (spirit.isReady && spirit.isAlive) {
-                ctx.fillStyle = '#ffd700';
-                ctx.fillText(' ▸', contentX + ctx.measureText(spirit.name.substring(0, 10)).width, rowY);
-            }
-            
-            // HP/MP on second line
-            const statsY = rowY + nameFontSize + 2;
-            ctx.font = ds ? ds.font('xs') : `${fontSize}px 'Lato', sans-serif`;
-            
-            // HP
-            const hpPercent = spirit.maxHp > 0 ? spirit.currentHp / spirit.maxHp : 0;
-            const hpColor = hpPercent > 0.5 ? '#4ade80' : hpPercent > 0.25 ? '#fbbf24' : '#ef4444';
-            ctx.fillStyle = hpColor;
-            ctx.fillText(`${spirit.currentHp}/${spirit.maxHp}`, contentX, statsY);
-            
-            // MP
-            ctx.fillStyle = ds ? ds.colors.primary : '#4da6ff';
-            const mpX = contentX + (ds ? ds.spacing(18) : 72);
-            ctx.fillText(`${spirit.currentMp}/${spirit.maxMp}`, mpX, statsY);
-        });
+        // No longer needed - stats shown under each spirit
     }
     
     renderActionMenu(ctx, width, height) {
         const ds = window.ds;
         const menuRenderer = this.game.menuRenderer;
         
-        // Menu dimensions - positioned at left side, middle-bottom
-        const padding = ds ? ds.spacing(4) : 16;
-        const itemHeight = ds ? ds.spacing(7) : 28;
-        const menuWidth = ds ? ds.spacing(32) : 128;
+        // Menu dimensions - positioned at bottom-left corner
+        const padding = ds ? ds.spacing(3) : 12;
+        const itemHeight = ds ? ds.spacing(6) : 24;
+        const menuWidth = ds ? ds.spacing(28) : 112;
         const menuHeight = this.menuOptions.length * itemHeight + padding * 2;
-        const menuX = ds ? ds.spacing(30) : 120; // To the right of status panel
-        const menuY = height - menuHeight - (ds ? ds.spacing(28) : 112); // Above action log
+        const menuX = ds ? ds.spacing(4) : 16;
+        const menuY = height - menuHeight - (ds ? ds.spacing(4) : 16);
         
         // Draw panel background using design system
         if (menuRenderer && menuRenderer.drawPanel) {
