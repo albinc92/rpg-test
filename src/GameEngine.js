@@ -160,6 +160,10 @@ class GameEngine {
         // Template system for objects
         this.templateManager = new TemplateManager(this);
         
+        // Developer mode - enables map editor and dev-only settings
+        // Set to false for production builds
+        this.devMode = true;
+        
         // Game state
         this.currentMapId = '0-0';
         this.currentMap = null;

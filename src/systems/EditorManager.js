@@ -409,6 +409,12 @@ class EditorManager {
      * Toggle editor on/off
      */
     toggle() {
+        // Check if dev mode is enabled
+        if (!this.game.devMode) {
+            console.log('[EditorManager] Editor disabled - devMode is off');
+            return;
+        }
+        
         this.isActive = !this.isActive;
         
         if (this.isActive) {

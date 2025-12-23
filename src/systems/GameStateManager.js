@@ -1742,7 +1742,7 @@ class SettingsState extends GameState {
                 { nameKey: 'settings.graphics.sharpen', type: 'slider', key: 'sharpenIntensity', min: 0, max: 100, step: 10, suffix: '%' },
                 { nameKey: 'settings.graphics.bloom', type: 'slider', key: 'bloomIntensity', min: 0, max: 100, step: 10, suffix: '%' },
                 { nameKey: 'settings.graphics.gameZoom', type: 'slider', key: 'gameZoom', min: 85, max: 115, step: 5, suffix: '%' },
-                { nameKey: 'settings.graphics.uiScale', type: 'slider', key: 'uiScale', min: 50, max: 200, step: 10, suffix: '%' },
+                { nameKey: 'settings.graphics.uiScale', type: 'slider', key: 'uiScale', min: 50, max: 200, step: 10, suffix: '%', devOnly: true },
                 { nameKey: 'settings.graphics.perspective', type: 'toggle', key: 'perspectiveEnabled' },
                 { nameKey: 'settings.graphics.showFPS', type: 'toggle', key: 'showFPS' }
             ],
@@ -1875,9 +1875,13 @@ class SettingsState extends GameState {
         this.populateDynamicValues();
 
         // Get options for current category (Back button is now separate)
-        this.options = [
-            ...this.allOptions[this.currentCategory]
-        ];
+        // Filter out devOnly options if devMode is off
+        const devMode = this.game.devMode;
+        this.options = this.allOptions[this.currentCategory].filter(opt => {
+            if (opt.devOnly && !devMode) return false;
+            return true;
+        });
+        
         // Reset selection when changing categories to avoid out of bounds
         // If keepFocus is true, we stay on the tabs (-1)
         if (!keepFocus) {
