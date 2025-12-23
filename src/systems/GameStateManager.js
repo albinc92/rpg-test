@@ -4428,8 +4428,8 @@ class ShopState extends GameState {
         // Description
         const descY = lineY + 60;
         ctx.fillStyle = ds ? ds.colors.text.secondary : '#ccc';
-        ctx.font = ds ? ds.font('md', 'normal', 'body') : '18px "Lato", sans-serif';
-        this.wrapText(ctx, item.description || this.game.t('shop.noDescription'), centerX, descY, detailsWidth - padding * 2, 44);
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px "Lato", sans-serif';
+        this.wrapText(ctx, item.description || this.game.t('shop.noDescription'), centerX, descY, detailsWidth - padding * 2, 36);
         
         // Stats if any
         if (item.stats && Object.keys(item.stats).length > 0) {
@@ -4437,8 +4437,13 @@ class ShopState extends GameState {
             ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px "Lato", sans-serif';
             
             for (const [stat, value] of Object.entries(item.stats)) {
-                ctx.fillStyle = ds ? ds.colors.success : '#4ade80';
-                ctx.fillText(`+${value} ${stat}`, centerX, statsY);
+                const isNegative = value < 0;
+                ctx.fillStyle = isNegative 
+                    ? (ds ? ds.colors.danger : '#ef4444')
+                    : (ds ? ds.colors.success : '#4ade80');
+                const prefix = isNegative ? '' : '+';
+                const statName = stat.charAt(0).toUpperCase() + stat.slice(1);
+                ctx.fillText(`${prefix}${value} ${statName}`, centerX, statsY);
                 statsY += 40;
             }
         }

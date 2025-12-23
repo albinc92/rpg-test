@@ -103,7 +103,7 @@
     "rarity": "rare",
     "stats": {
       "attack": 25,
-      "magic": 10
+      "magic": -10
     }
   },
   "ancient_gem": {
