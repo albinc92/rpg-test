@@ -4284,7 +4284,8 @@ class ShopState extends GameState {
             ctx.textBaseline = 'middle';
             ctx.fillText(item.name, listX + itemPadding + 15, y + rowHeight / 2);
             
-            // Stock/Quantity (right side, inside the row)
+            // Stock/Quantity (right side, inside the row - with extra margin for scrollbar)
+            const scrollbarMargin = items.length > this.maxVisibleItems ? 30 : 0;
             ctx.textAlign = 'right';
             if (this.selectedTab === 0 && item.stock !== -1) {
                 // Show stock for buy tab
@@ -4292,30 +4293,26 @@ class ShopState extends GameState {
                     ? (ds ? ds.colors.danger : '#f44')
                     : (ds ? ds.colors.text.muted : '#888');
                 ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
-                ctx.fillText(`${this.game.t('shop.stock')}: ${item.stock}`, listX + listWidth - itemPadding - 15, y + rowHeight / 2);
+                ctx.fillText(`${this.game.t('shop.stock')}: ${item.stock}`, listX + listWidth - itemPadding - 15 - scrollbarMargin, y + rowHeight / 2);
             } else if (this.selectedTab === 1) {
                 // Show quantity for sell tab
                 ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
                 ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
-                ctx.fillText(`x${item.quantity}`, listX + listWidth - itemPadding - 15, y + rowHeight / 2);
+                ctx.fillText(`x${item.quantity}`, listX + listWidth - itemPadding - 15 - scrollbarMargin, y + rowHeight / 2);
             }
         });
         
-        // Scroll indicators
-        const indicatorColor = ds ? ds.colors.primary : '#4a9eff';
-        if (this.scrollOffset > 0) {
-            ctx.fillStyle = indicatorColor;
-            ctx.font = ds ? ds.font('md', 'normal', 'body') : '20px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'top';
-            ctx.fillText('▲', listX + listWidth / 2, listY + 5);
-        }
-        if (this.scrollOffset + this.maxVisibleItems < items.length) {
-            ctx.fillStyle = indicatorColor;
-            ctx.font = ds ? ds.font('md', 'normal', 'body') : '20px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText('▼', listX + listWidth / 2, listY + listHeight - 5);
+        // Scrollbar (using MenuRenderer's shared scrollbar style)
+        if (items.length > this.maxVisibleItems) {
+            const scrollbarX = listX + listWidth - itemPadding - 10;
+            const scrollbarY = listY + itemPadding;
+            const scrollbarHeight = listHeight - itemPadding * 2;
+            
+            menuRenderer.drawScrollbar(ctx, scrollbarX, scrollbarY, scrollbarHeight, {
+                offset: this.scrollOffset,
+                maxVisible: this.maxVisibleItems,
+                total: items.length
+            });
         }
     }
     
@@ -4381,16 +4378,19 @@ class ShopState extends GameState {
         ctx.fillText(item.name, centerX, nameCenterY);
         if (ds) ds.clearShadow(ctx);
         
-        // Type and rarity (with more spacing)
-        const rarityY = nameAreaTop + nameAreaHeight + 30;
+        // Separator line position (fixed distance from name area)
+        const lineY = nameAreaTop + nameAreaHeight + 90;
+        
+        // Type and rarity - centered between name and line
+        const rarityY = nameAreaTop + nameAreaHeight + 45; // Halfway between name bottom and line
         ctx.fillStyle = ds ? ds.colors.getRarityColor(item.rarity) : '#9d9d9d';
         ctx.font = ds ? ds.font('md', 'normal', 'body') : 'italic 18px "Lato", sans-serif';
+        ctx.textBaseline = 'middle';
         const rarityText = (item.rarity || 'common').charAt(0).toUpperCase() + (item.rarity || 'common').slice(1);
         const typeText = (item.type || 'item').toLowerCase();
         ctx.fillText(`${rarityText} ${typeText}`, centerX, rarityY);
         
         // Separator line
-        const lineY = rarityY + 70;
         const lineWidth = detailsWidth * 0.6;
         const gradient = ctx.createLinearGradient(centerX - lineWidth / 2, lineY, centerX + lineWidth / 2, lineY);
         gradient.addColorStop(0, 'transparent');
@@ -4414,7 +4414,7 @@ class ShopState extends GameState {
             for (const [stat, value] of Object.entries(item.stats)) {
                 ctx.fillStyle = ds ? ds.colors.success : '#4ade80';
                 ctx.fillText(`+${value} ${stat}`, centerX, statsY);
-                statsY += 32;
+                statsY += 40;
             }
         }
         

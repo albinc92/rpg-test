@@ -106,6 +106,44 @@ class MenuRenderer {
     }
     
     /**
+     * Draw a scrollbar
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {number} x - X position of scrollbar
+     * @param {number} y - Y position of scrollbar track
+     * @param {number} height - Height of scrollbar track
+     * @param {object} scrollInfo - { offset, maxVisible, total }
+     */
+    drawScrollbar(ctx, x, y, height, scrollInfo) {
+        if (!scrollInfo || scrollInfo.total <= scrollInfo.maxVisible) return;
+        
+        const colors = this.ds ? this.ds.colors : {
+            background: { elevated: 'rgba(136, 136, 136, 0.2)' },
+            primary: '#4a9eff'
+        };
+        
+        const scrollbarWidth = this.ds ? this.ds.spacing(1.5) : 6;
+        
+        // Track background
+        ctx.fillStyle = colors.background.elevated;
+        ctx.beginPath();
+        ctx.roundRect(x, y, scrollbarWidth, height, scrollbarWidth / 2);
+        ctx.fill();
+        
+        // Thumb size and position
+        const minThumbHeight = this.ds ? this.ds.spacing(8) : 30;
+        const thumbHeight = Math.max(minThumbHeight, (scrollInfo.maxVisible / scrollInfo.total) * height);
+        const maxScroll = scrollInfo.total - scrollInfo.maxVisible;
+        const scrollRatio = maxScroll > 0 ? scrollInfo.offset / maxScroll : 0;
+        const thumbY = y + (scrollRatio * (height - thumbHeight));
+        
+        // Thumb
+        ctx.fillStyle = colors.primary;
+        ctx.beginPath();
+        ctx.roundRect(x, thumbY, scrollbarWidth, thumbHeight, scrollbarWidth / 2);
+        ctx.fill();
+    }
+    
+    /**
      * Draw menu title with underline decoration
      */
     drawTitle(ctx, title, canvasWidth, canvasHeight, yPosition = 0.12) {
@@ -341,25 +379,12 @@ class MenuRenderer {
         
         // Draw Scrollbar if needed
         if (scrollInfo && scrollInfo.total > scrollInfo.maxVisible) {
-            const scrollbarWidth = this.ds ? this.ds.spacing(2) : 6;
             const scrollPadding = this.ds ? this.ds.spacing(5) : 20;
             const scrollbarX = panelX + panelWidth - scrollPadding;
             const scrollbarY = panelY + scrollPadding;
             const scrollbarHeight = panelHeight - (scrollPadding * 2);
             
-            // Track
-            ctx.fillStyle = colors.background.elevated;
-            ctx.fillRect(scrollbarX, scrollbarY, scrollbarWidth, scrollbarHeight);
-            
-            // Thumb
-            const minThumbHeight = this.ds ? this.ds.spacing(8) : 30;
-            const thumbHeight = Math.max(minThumbHeight, (scrollInfo.maxVisible / scrollInfo.total) * scrollbarHeight);
-            const maxScroll = scrollInfo.total - scrollInfo.maxVisible;
-            const scrollRatio = scrollInfo.offset / maxScroll;
-            const thumbY = scrollbarY + (scrollRatio * (scrollbarHeight - thumbHeight));
-            
-            ctx.fillStyle = colors.primary;
-            ctx.fillRect(scrollbarX, thumbY, scrollbarWidth, thumbHeight);
+            this.drawScrollbar(ctx, scrollbarX, scrollbarY, scrollbarHeight, scrollInfo);
         }
         
         const itemPadding = this.ds ? this.ds.spacing(5) : 20;
