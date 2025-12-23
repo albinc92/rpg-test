@@ -4022,22 +4022,22 @@ class ShopState extends GameState {
         }
         
         if (inputManager.isJustPressed('up')) {
-            this.selectedQuantity = Math.min(this.maxQuantity, this.selectedQuantity + 1);
+            this.selectedQuantity = Math.min(this.maxQuantity, this.selectedQuantity + 10);
             this.game.audioManager?.playEffect('menu-navigation.mp3');
         }
         
         if (inputManager.isJustPressed('down')) {
-            this.selectedQuantity = Math.max(1, this.selectedQuantity - 1);
-            this.game.audioManager?.playEffect('menu-navigation.mp3');
-        }
-        
-        if (inputManager.isJustPressed('left')) {
             this.selectedQuantity = Math.max(1, this.selectedQuantity - 10);
             this.game.audioManager?.playEffect('menu-navigation.mp3');
         }
         
+        if (inputManager.isJustPressed('left')) {
+            this.selectedQuantity = Math.max(1, this.selectedQuantity - 1);
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        }
+        
         if (inputManager.isJustPressed('right')) {
-            this.selectedQuantity = Math.min(this.maxQuantity, this.selectedQuantity + 10);
+            this.selectedQuantity = Math.min(this.maxQuantity, this.selectedQuantity + 1);
             this.game.audioManager?.playEffect('menu-navigation.mp3');
         }
         
@@ -4474,8 +4474,8 @@ class ShopState extends GameState {
         const item = items[this.selectedOption];
         if (!item) return;
         
-        const boxWidth = ds ? ds.width(30) : 300;
-        const boxHeight = ds ? ds.height(25) : 180;
+        const boxWidth = ds ? ds.width(40) : 400;
+        const boxHeight = ds ? ds.height(45) : 340;
         const boxX = (canvasWidth - boxWidth) / 2;
         const boxY = (canvasHeight - boxHeight) / 2;
         
@@ -4486,57 +4486,47 @@ class ShopState extends GameState {
         // Modal panel
         menuRenderer.drawPanel(ctx, boxX, boxY, boxWidth, boxHeight, 0.95);
         
-        const padding = ds ? ds.spacing(6) : 25;
+        const padding = ds ? ds.spacing(8) : 35;
         const centerX = boxX + boxWidth / 2;
         
         // Title
         ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
-        ctx.font = ds ? ds.font('md', 'bold', 'display') : 'bold 20px "Cinzel", serif';
+        ctx.font = ds ? ds.font('lg', 'bold', 'display') : 'bold 24px "Cinzel", serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText(this.selectedTab === 0 ? this.game.t('shop.quantity.buy') : this.game.t('shop.quantity.sell'), centerX, boxY + padding);
         
-        // Item name
+        // Item name - much more spacing from title
         ctx.fillStyle = ds ? ds.colors.text.secondary : '#ccc';
-        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '18px "Lato", sans-serif';
-        ctx.fillText(item.name, centerX, boxY + padding + 35);
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px "Lato", sans-serif';
+        ctx.fillText(item.name, centerX, boxY + padding + 70);
         
-        // Quantity display with arrows
+        // Quantity display - centered in box
         const qtyY = boxY + boxHeight / 2;
-        
-        // Left arrow
-        ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
-        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '18px sans-serif';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('◀ -10', centerX - 60, qtyY);
         
         // Quantity number
         ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
-        ctx.font = ds ? ds.font('xl', 'bold', 'body') : 'bold 32px "Lato", sans-serif';
+        ctx.font = ds ? ds.font('xxl', 'bold', 'body') : 'bold 48px "Lato", sans-serif';
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
         if (ds) ds.applyShadow(ctx, 'glow');
         ctx.fillText(`${this.selectedQuantity}`, centerX, qtyY);
         if (ds) ds.clearShadow(ctx);
         
-        // Right arrow
-        ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
-        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '18px sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText('+10 ▶', centerX + 60, qtyY);
-        
-        // Total cost
+        // Total cost - position from bottom with proper spacing
         const price = this.selectedTab === 0 ? item.price : item.sellPrice;
         const total = price * this.selectedQuantity;
         ctx.fillStyle = ds ? ds.colors.warning : '#ffd700';
         ctx.font = ds ? ds.font('md', 'normal', 'body') : '18px "Lato", sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(`${this.game.t('shop.total')}: ${total} 💰`, centerX, boxY + boxHeight - padding - 30);
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(`${this.game.t('shop.total')}: ${total} 💰`, centerX, boxY + boxHeight - padding - 35);
         
-        // Instructions
+        // Instructions - at very bottom
         ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
         ctx.font = ds ? ds.font('xs', 'normal', 'body') : '14px "Lato", sans-serif';
-        ctx.fillText(this.game.t('shop.quantityHints'), centerX, boxY + boxHeight - padding - 5);
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(this.game.t('shop.quantityHints'), centerX, boxY + boxHeight - padding);
     }
     
     wrapText(ctx, text, x, y, maxWidth, lineHeight) {
