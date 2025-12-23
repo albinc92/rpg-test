@@ -206,6 +206,27 @@ class VisualScriptEditor {
                     { name: 'y', type: 'number', label: 'Y Position', default: 100 }
                 ],
                 toScript: (data) => `teleport "${data.mapId}", ${data.x}, ${data.y};`
+            },
+            battle: {
+                name: 'Start Battle',
+                icon: '⚔️',
+                color: '#e74c3c',
+                fields: [
+                    { name: 'enemies', type: 'battleEnemyList', label: 'Enemies', default: [{ spiritId: 'wild_spirit', level: 5 }] },
+                    { name: 'isBoss', type: 'boolean', label: 'Boss Battle', default: false },
+                    { name: 'bgm', type: 'text', label: 'Custom BGM', default: '' },
+                    { name: 'background', type: 'text', label: 'Background', default: 'field' }
+                ],
+                toScript: (data) => {
+                    let script = 'battle ';
+                    const enemies = data.enemies || [{ spiritId: 'wild_spirit', level: 5 }];
+                    script += enemies.map(e => `"${e.spiritId}", ${e.level || 5}`).join(', ');
+                    if (data.isBoss) script += ', isBoss=true';
+                    if (data.bgm) script += `, bgm="${data.bgm}"`;
+                    if (data.background && data.background !== 'field') script += `, background="${data.background}"`;
+                    script += ';';
+                    return script;
+                }
             }
         };
     }
@@ -1208,6 +1229,115 @@ class VisualScriptEditor {
             list.appendChild(addBtn);
             
             container.appendChild(list);
+        } else if (field.type === 'battleEnemyList') {
+            // Battle enemy list editor
+            const list = document.createElement('div');
+            list.className = 'vse-battle-list';
+            
+            // Get spirit templates from game
+            const spiritTemplates = this.game?.spiritRegistry?.templates || new Map();
+            const spiritIds = Array.from(spiritTemplates.keys()).sort();
+            const hasSpirits = spiritIds.length > 0;
+            
+            const enemies = block.data[field.name] || [{ spiritId: 'wild_spirit', level: 5 }];
+            
+            // Column headers
+            const headerDiv = document.createElement('div');
+            headerDiv.style.cssText = 'display: flex; gap: 4px; margin-bottom: 6px; padding: 0 2px;';
+            headerDiv.innerHTML = `
+                <span style="flex: 2; min-width: 120px; font-size: 11px; color: #888;">Spirit</span>
+                <span style="flex: 1; min-width: 50px; font-size: 11px; color: #888;">Level</span>
+                <span style="width: 24px;"></span>
+            `;
+            list.appendChild(headerDiv);
+            
+            enemies.forEach((enemy, i) => {
+                const enemyDiv = document.createElement('div');
+                enemyDiv.className = 'vse-battle-enemy';
+                enemyDiv.style.cssText = 'display: flex; gap: 4px; margin-bottom: 4px; align-items: center;';
+                
+                // Spirit select dropdown or text input
+                let idElement;
+                if (hasSpirits) {
+                    idElement = document.createElement('select');
+                    idElement.className = 'vse-field-input vse-field-select';
+                    idElement.style.cssText = 'flex: 2; min-width: 120px;';
+                    
+                    spiritIds.forEach(id => {
+                        const template = spiritTemplates.get(id);
+                        const option = document.createElement('option');
+                        option.value = id;
+                        option.textContent = template?.name || id;
+                        option.selected = enemy.spiritId === id;
+                        idElement.appendChild(option);
+                    });
+                    
+                    // Add custom value if not in list
+                    if (enemy.spiritId && !spiritTemplates.has(enemy.spiritId)) {
+                        const option = document.createElement('option');
+                        option.value = enemy.spiritId;
+                        option.textContent = `${enemy.spiritId} (custom)`;
+                        option.selected = true;
+                        idElement.insertBefore(option, idElement.firstChild);
+                    }
+                    
+                    idElement.onchange = () => {
+                        block.data[field.name][i].spiritId = idElement.value;
+                        this.triggerChange();
+                    };
+                } else {
+                    idElement = document.createElement('input');
+                    idElement.type = 'text';
+                    idElement.className = 'vse-field-input';
+                    idElement.style.cssText = 'flex: 2; min-width: 80px;';
+                    idElement.placeholder = 'Spirit ID';
+                    idElement.value = enemy.spiritId || '';
+                    idElement.onchange = () => {
+                        block.data[field.name][i].spiritId = idElement.value;
+                        this.triggerChange();
+                    };
+                }
+                
+                const levelInput = document.createElement('input');
+                levelInput.type = 'number';
+                levelInput.className = 'vse-field-input';
+                levelInput.style.cssText = 'flex: 1; min-width: 50px;';
+                levelInput.placeholder = 'Level';
+                levelInput.min = 1;
+                levelInput.max = 99;
+                levelInput.value = enemy.level || 5;
+                levelInput.onchange = () => {
+                    block.data[field.name][i].level = Number(levelInput.value);
+                    this.triggerChange();
+                };
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'vse-choice-remove';
+                removeBtn.textContent = '✕';
+                removeBtn.onclick = () => {
+                    block.data[field.name].splice(i, 1);
+                    this.render();
+                    this.triggerChange();
+                };
+                
+                enemyDiv.appendChild(idElement);
+                enemyDiv.appendChild(levelInput);
+                enemyDiv.appendChild(removeBtn);
+                list.appendChild(enemyDiv);
+            });
+            
+            const addBtn = document.createElement('button');
+            addBtn.className = 'vse-choice-add';
+            addBtn.textContent = '+ Add Enemy';
+            addBtn.onclick = () => {
+                if (!block.data[field.name]) block.data[field.name] = [];
+                block.data[field.name].push({ spiritId: 'wild_spirit', level: 5 });
+                this.render();
+                this.triggerChange();
+            };
+            list.appendChild(addBtn);
+            
+            container.appendChild(list);
         } else {
             const input = document.createElement('input');
             input.type = field.type === 'number' ? 'number' : 'text';
@@ -1509,6 +1639,43 @@ class VisualScriptEditor {
                     mapId: teleportMatch[1], 
                     x: parseInt(teleportMatch[2]), 
                     y: parseInt(teleportMatch[3]) 
+                }));
+                i++;
+                continue;
+            }
+            
+            // Battle
+            const battleMatch = line.match(/^battle\s+(.+);?$/);
+            if (battleMatch) {
+                const battleStr = battleMatch[1];
+                const enemies = [];
+                let isBoss = false;
+                let bgm = '';
+                let background = 'field';
+                
+                // Parse enemies: "spirit_id", level, "spirit_id2", level2, ...
+                // Also parse options: isBoss=true, bgm="file", background="bg"
+                const enemyRegex = /"([^"]+)"\s*,\s*(\d+)/g;
+                let enemyMatch;
+                while ((enemyMatch = enemyRegex.exec(battleStr)) !== null) {
+                    enemies.push({
+                        spiritId: enemyMatch[1],
+                        level: parseInt(enemyMatch[2])
+                    });
+                }
+                
+                // Parse options
+                if (battleStr.includes('isBoss=true')) isBoss = true;
+                const bgmMatch = battleStr.match(/bgm\s*=\s*"([^"]+)"/);
+                if (bgmMatch) bgm = bgmMatch[1];
+                const bgMatch = battleStr.match(/background\s*=\s*"([^"]+)"/);
+                if (bgMatch) background = bgMatch[1];
+                
+                targetBlocks.push(this.createBlock('battle', { 
+                    enemies: enemies.length > 0 ? enemies : [{ spiritId: 'wild_spirit', level: 5 }],
+                    isBoss,
+                    bgm,
+                    background
                 }));
                 i++;
                 continue;

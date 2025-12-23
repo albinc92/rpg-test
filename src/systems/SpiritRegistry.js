@@ -98,6 +98,14 @@ class SpiritRegistry {
             floatingSpeed: template.floatingSpeed,
             floatingRange: template.floatingRange,
             stats: template.stats,
+            // Battle stats
+            level: template.level || 5,
+            type1: template.type1 || 'fire',
+            type2: template.type2 || null,
+            baseStats: template.baseStats || template.stats,
+            expYield: template.expYield || 25,
+            goldYield: template.goldYield || 10,
+            abilities: template.abilities,
             moveSpeed: template.moveSpeed,
             movePattern: template.movePattern || 'wander',
             spiritId: spiritId, // Store template ID for reference

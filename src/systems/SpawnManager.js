@@ -375,6 +375,32 @@ class SpawnManager {
         return inside;
     }
     
+    /**
+     * Remove a specific spirit from the active spawns
+     * Called by BattleSystem when a spirit is defeated
+     * @param {Spirit} spirit - The spirit to remove
+     */
+    removeSpirit(spirit) {
+        if (!spirit) return;
+        
+        // Find which map this spirit belongs to
+        for (const [mapId, config] of this.activeMaps) {
+            const index = config.spirits.findIndex(s => s.id === spirit.id);
+            if (index !== -1) {
+                // Remove from spawn manager's tracking
+                config.spirits.splice(index, 1);
+                
+                // Remove from object manager
+                this.game.objectManager.removeObject(mapId, spirit.id);
+                
+                console.log(`[SpawnManager] Removed spirit ${spirit.name} (${spirit.id}) from map ${mapId}`);
+                return;
+            }
+        }
+        
+        console.warn(`[SpawnManager] Could not find spirit ${spirit?.id} to remove`);
+    }
+    
     // Legacy support / Helper
     clearSpawns() {
         this.clearAllSpawns();
@@ -389,3 +415,6 @@ class SpawnManager {
         console.log('[SpawnManager] Full reset complete');
     }
 }
+
+// Export for global access
+window.SpawnManager = SpawnManager;

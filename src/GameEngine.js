@@ -160,6 +160,12 @@ class GameEngine {
         // Template system for objects
         this.templateManager = new TemplateManager(this);
         
+        // Party manager for player's spirit party
+        this.partyManager = new PartyManager(this);
+        
+        // Battle system for combat encounters
+        this.battleSystem = new BattleSystem(this);
+        
         // Developer mode - enables map editor and dev-only settings
         // Set to false for production builds
         this.devMode = true;
@@ -1007,8 +1013,98 @@ class GameEngine {
         // Check collisions
         this.checkPortalCollisions();
         
+        // Check for spirit encounters (triggers battle)
+        this.checkSpiritEncounters();
+        
         // Check map transitions
         this.checkMapTransitions();
+    }
+    
+    /**
+     * Check for spirit encounters - triggers battle when player touches a roaming spirit
+     */
+    checkSpiritEncounters() {
+        if (!this.player || !this.spawnManager || this.isTransitioning) return;
+        if (this.stateManager.getCurrentState() !== 'PLAYING') return; // Only in playing state
+        
+        // Check if we're already in a battle or transitioning to one
+        if (this.battleSystem?.isActive) return;
+        
+        // Get active spirits from spawn manager
+        const mapConfig = this.spawnManager.activeMaps.get(this.currentMapId);
+        if (!mapConfig || !mapConfig.spirits) return;
+        
+        // Player collision bounds
+        const playerBounds = this.player.getCollisionBounds(this);
+        if (!playerBounds) return;
+        
+        // Check collision with each spirit using simple distance check for reliability
+        for (const spirit of mapConfig.spirits) {
+            if (!spirit || spirit.isDead || spirit.markedForDeletion) continue;
+            
+            // Get spirit bounds
+            const spiritBounds = spirit.getCollisionBounds(this);
+            if (!spiritBounds) continue;
+            
+            // Simple AABB overlap check for reliable collision
+            const collides = !(
+                playerBounds.right < spiritBounds.left ||
+                playerBounds.left > spiritBounds.right ||
+                playerBounds.bottom < spiritBounds.top ||
+                playerBounds.top > spiritBounds.bottom
+            );
+            
+            if (collides) {
+                console.log(`[GameEngine] Spirit encounter triggered with ${spirit.name}!`);
+                this.startBattle(spirit);
+                return; // Only one encounter at a time
+            }
+        }
+    }
+    
+    /**
+     * Start a battle with a spirit
+     * @param {Spirit} triggeringSpirit - The spirit that triggered the encounter
+     * @param {Object} options - Additional battle options (isBoss, bgm, background, additionalEnemies)
+     */
+    startBattle(triggeringSpirit, options = {}) {
+        if (!this.battleSystem) {
+            console.error('[GameEngine] Battle system not initialized!');
+            return;
+        }
+        
+        // Build enemy list
+        const enemies = [];
+        
+        // Add the triggering spirit
+        if (triggeringSpirit) {
+            enemies.push({
+                templateId: triggeringSpirit.spiritId,
+                name: triggeringSpirit.name,
+                level: triggeringSpirit.level || 5,
+                type1: triggeringSpirit.type1 || triggeringSpirit.element,
+                type2: triggeringSpirit.type2,
+                stats: triggeringSpirit.stats,
+                sprite: triggeringSpirit.spriteSrc
+            });
+        }
+        
+        // Add any additional enemies from options
+        if (options.additionalEnemies) {
+            enemies.push(...options.additionalEnemies);
+        }
+        
+        // Start battle
+        this.battleSystem.startBattle({
+            enemies: enemies,
+            isBoss: options.isBoss || false,
+            bgm: options.bgm || null,
+            background: options.background || 'field',
+            triggeringSpirit: triggeringSpirit
+        });
+        
+        // Set cooldown to prevent immediate re-encounter
+        this.interactionCooldown = 2.0;
     }
     
     /**
@@ -2239,6 +2335,9 @@ class GameEngine {
         
         // Reset playtime
         this.playtime = 0;
+        
+        // Reset party manager for new game
+        if (this.partyManager) this.partyManager.resetForNewGame();
         
         // Reset camera
         if (this.camera) {

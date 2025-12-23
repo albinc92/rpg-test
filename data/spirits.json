@@ -13,12 +13,25 @@
       "collisionExpandLeftPercent": 0,
       "collisionExpandRightPercent": 0,
       "isFloating": true,
-      "stats": {
-        "hp": 50,
-        "attack": 12,
-        "defense": 8,
-        "speed": 15
+      "level": 5,
+      "type1": "wind",
+      "type2": null,
+      "baseStats": {
+        "hp": 80,
+        "mp": 40,
+        "attack": 18,
+        "defense": 12,
+        "magicAttack": 22,
+        "magicDefense": 15,
+        "speed": 25
       },
+      "expYield": 30,
+      "goldYield": 15,
+      "abilities": [
+        { "id": "attack", "name": "Attack", "type": "physical", "element": null, "power": 40, "mpCost": 0, "target": "single_enemy" },
+        { "id": "gust", "name": "Gust", "type": "magical", "element": "wind", "power": 50, "mpCost": 8, "target": "single_enemy" },
+        { "id": "heal", "name": "Heal", "type": "supportive", "element": null, "power": 30, "mpCost": 10, "target": "single_ally" }
+      ],
       "moveSpeed": 2.5,
       "movePattern": "wander",
       "description": "A gentle forest spirit that appears during the day"
@@ -36,12 +49,25 @@
       "collisionExpandLeftPercent": 0,
       "collisionExpandRightPercent": 0,
       "isFloating": true,
-      "stats": {
-        "hp": 45,
+      "level": 6,
+      "type1": "water",
+      "type2": null,
+      "baseStats": {
+        "hp": 70,
+        "mp": 50,
         "attack": 15,
-        "defense": 6,
-        "speed": 18
+        "defense": 10,
+        "magicAttack": 28,
+        "magicDefense": 18,
+        "speed": 30
       },
+      "expYield": 35,
+      "goldYield": 18,
+      "abilities": [
+        { "id": "attack", "name": "Attack", "type": "physical", "element": null, "power": 40, "mpCost": 0, "target": "single_enemy" },
+        { "id": "aqua_jet", "name": "Aqua Jet", "type": "magical", "element": "water", "power": 55, "mpCost": 10, "target": "single_enemy" },
+        { "id": "mist", "name": "Mist", "type": "curse", "element": "water", "power": 0, "mpCost": 8, "target": "single_enemy", "debuff": { "stat": "speed", "amount": -5, "duration": 3 } }
+      ],
       "moveSpeed": 2,
       "movePattern": "wander",
       "description": "A mysterious wisp that only appears at night"
@@ -59,12 +85,25 @@
       "collisionExpandLeftPercent": 0,
       "collisionExpandRightPercent": 0,
       "isFloating": false,
-      "stats": {
-        "hp": 65,
-        "attack": 18,
-        "defense": 12,
-        "speed": 12
+      "level": 8,
+      "type1": "fire",
+      "type2": "earth",
+      "baseStats": {
+        "hp": 120,
+        "mp": 35,
+        "attack": 28,
+        "defense": 22,
+        "magicAttack": 20,
+        "magicDefense": 18,
+        "speed": 18
       },
+      "expYield": 60,
+      "goldYield": 30,
+      "abilities": [
+        { "id": "attack", "name": "Attack", "type": "physical", "element": null, "power": 40, "mpCost": 0, "target": "single_enemy" },
+        { "id": "fireball", "name": "Fireball", "type": "magical", "element": "fire", "power": 60, "mpCost": 12, "target": "single_enemy" },
+        { "id": "rock_armor", "name": "Rock Armor", "type": "supportive", "element": "earth", "power": 0, "mpCost": 10, "target": "self", "buff": { "stat": "defense", "amount": 10, "duration": 3 } }
+      ],
       "moveSpeed": 1.2,
       "movePattern": "wander",
       "description": "A powerful guardian that appears only at dawn"
@@ -82,12 +121,25 @@
       "collisionExpandLeftPercent": 0,
       "collisionExpandRightPercent": 0,
       "isFloating": false,
-      "stats": {
-        "hp": 60,
-        "attack": 20,
-        "defense": 10,
-        "speed": 16
+      "level": 7,
+      "type1": "earth",
+      "type2": null,
+      "baseStats": {
+        "hp": 90,
+        "mp": 45,
+        "attack": 24,
+        "defense": 16,
+        "magicAttack": 24,
+        "magicDefense": 14,
+        "speed": 22
       },
+      "expYield": 45,
+      "goldYield": 22,
+      "abilities": [
+        { "id": "attack", "name": "Attack", "type": "physical", "element": null, "power": 40, "mpCost": 0, "target": "single_enemy" },
+        { "id": "rock_throw", "name": "Rock Throw", "type": "magical", "element": "earth", "power": 55, "mpCost": 10, "target": "single_enemy" },
+        { "id": "shadow_curse", "name": "Shadow Curse", "type": "curse", "element": null, "power": 0, "mpCost": 12, "target": "single_enemy", "debuff": { "stat": "defense", "amount": -8, "duration": 3 } }
+      ],
       "moveSpeed": 1.8,
       "movePattern": "wander",
       "description": "A shadowy being that emerges during dusk"

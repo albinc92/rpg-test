@@ -4554,7 +4554,894 @@ class ShopState extends GameState {
 }
 
 class LootWindowState extends GameState {}
-class BattleState extends GameState {}
+
+/**
+ * Battle State - Final Fantasy ATB-style battle system
+ * Handles battle UI, turn order, action selection, and results
+ */
+class BattleState extends GameState {
+    enter(data = {}) {
+        // Get reference to battle system
+        this.battleSystem = this.game.battleSystem;
+        
+        // UI State
+        this.phase = 'transition'; // 'transition', 'battle', 'action_select', 'ability_select', 'target_select', 'results'
+        this.selectedMenuOption = 0;
+        this.selectedAbilityIndex = 0;
+        this.selectedTargetIndex = 0;
+        this.selectedPlayerSpirit = null;
+        this.inputCooldown = 0;
+        
+        // Menu options for action selection
+        this.menuOptions = ['Attack', 'Ability', 'Item', 'Seal', 'Switch', 'Flee'];
+        
+        // Battle background
+        this.background = data.background || 'forest-0';
+        this.backgroundImage = null;
+        this.loadBackground();
+        
+        // Transition animation
+        this.transitionTimer = 0;
+        this.transitionDuration = 1.0;
+        
+        // Results screen
+        this.showingResults = false;
+        this.resultsTimer = 0;
+        
+        // Action animation
+        this.actionAnimation = null;
+        this.damageNumbers = [];
+        
+        console.log('[BattleState] Entered battle state');
+    }
+    
+    loadBackground() {
+        this.backgroundImage = new Image();
+        this.backgroundImage.src = `assets/battlescene/${this.background}.png`;
+        this.backgroundImage.onerror = () => {
+            console.warn(`[BattleState] Failed to load background: ${this.background}`);
+            this.backgroundImage = null;
+        };
+    }
+    
+    exit() {
+        // Cleanup battle system
+        if (this.battleSystem) {
+            this.battleSystem.cleanup();
+        }
+        
+        // Resume world BGM
+        this.game.audioManager?.resumeBGM();
+    }
+    
+    update(deltaTime) {
+        if (this.inputCooldown > 0) {
+            this.inputCooldown -= deltaTime;
+        }
+        
+        // Update transition
+        if (this.phase === 'transition') {
+            this.transitionTimer += deltaTime;
+            if (this.transitionTimer >= this.transitionDuration) {
+                this.phase = 'battle';
+            }
+            return;
+        }
+        
+        // Update battle system
+        if (this.battleSystem) {
+            this.battleSystem.update(deltaTime);
+            
+            // Check for battle end
+            if (this.battleSystem.result && !this.showingResults) {
+                this.showingResults = true;
+                this.phase = 'results';
+                this.resultsTimer = 0;
+            }
+        }
+        
+        // Update damage numbers
+        this.damageNumbers = this.damageNumbers.filter(dn => {
+            dn.timer += deltaTime;
+            dn.y -= 50 * deltaTime;
+            dn.alpha = Math.max(0, 1 - dn.timer / dn.duration);
+            return dn.timer < dn.duration;
+        });
+        
+        // Auto-select ready spirit
+        if (this.phase === 'battle') {
+            const readySpirits = this.battleSystem?.getReadyPlayerSpirits() || [];
+            if (readySpirits.length > 0 && !this.selectedPlayerSpirit) {
+                this.selectedPlayerSpirit = readySpirits[0];
+                this.phase = 'action_select';
+                this.selectedMenuOption = 0;
+            }
+        }
+        
+        // Results timer
+        if (this.phase === 'results') {
+            this.resultsTimer += deltaTime;
+        }
+    }
+    
+    handleInput(inputManager) {
+        if (this.inputCooldown > 0) return;
+        
+        // Results screen - press confirm to exit
+        if (this.phase === 'results') {
+            if (inputManager.isJustPressed('confirm') && this.resultsTimer > 1.0) {
+                this.exitBattle();
+            }
+            return;
+        }
+        
+        // Action selection
+        if (this.phase === 'action_select') {
+            this.handleActionSelectInput(inputManager);
+            return;
+        }
+        
+        // Ability selection
+        if (this.phase === 'ability_select') {
+            this.handleAbilitySelectInput(inputManager);
+            return;
+        }
+        
+        // Target selection
+        if (this.phase === 'target_select') {
+            this.handleTargetSelectInput(inputManager);
+            return;
+        }
+    }
+    
+    handleActionSelectInput(inputManager) {
+        // Navigate menu
+        if (inputManager.isJustPressed('up')) {
+            this.selectedMenuOption = (this.selectedMenuOption - 1 + this.menuOptions.length) % this.menuOptions.length;
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.inputCooldown = 0.1;
+        }
+        if (inputManager.isJustPressed('down')) {
+            this.selectedMenuOption = (this.selectedMenuOption + 1) % this.menuOptions.length;
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.inputCooldown = 0.1;
+        }
+        
+        // Select option
+        if (inputManager.isJustPressed('confirm')) {
+            this.selectAction(this.menuOptions[this.selectedMenuOption]);
+            this.inputCooldown = 0.15;
+        }
+        
+        // Cancel - deselect spirit
+        if (inputManager.isJustPressed('cancel')) {
+            this.selectedPlayerSpirit = null;
+            this.phase = 'battle';
+            this.inputCooldown = 0.15;
+        }
+    }
+    
+    handleAbilitySelectInput(inputManager) {
+        const abilities = this.selectedPlayerSpirit?.abilities || [];
+        
+        if (inputManager.isJustPressed('up')) {
+            this.selectedAbilityIndex = (this.selectedAbilityIndex - 1 + abilities.length) % abilities.length;
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.inputCooldown = 0.1;
+        }
+        if (inputManager.isJustPressed('down')) {
+            this.selectedAbilityIndex = (this.selectedAbilityIndex + 1) % abilities.length;
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.inputCooldown = 0.1;
+        }
+        
+        if (inputManager.isJustPressed('confirm')) {
+            const ability = abilities[this.selectedAbilityIndex];
+            if (ability && this.selectedPlayerSpirit.currentMp >= ability.mpCost) {
+                this.pendingAbility = ability;
+                this.phase = 'target_select';
+                this.selectedTargetIndex = 0;
+            } else {
+                // Not enough MP
+                this.game.audioManager?.playEffect('error.mp3');
+            }
+            this.inputCooldown = 0.15;
+        }
+        
+        if (inputManager.isJustPressed('cancel')) {
+            this.phase = 'action_select';
+            this.inputCooldown = 0.15;
+        }
+    }
+    
+    handleTargetSelectInput(inputManager) {
+        const targets = this.getSelectableTargets();
+        
+        if (inputManager.isJustPressed('left') || inputManager.isJustPressed('up')) {
+            this.selectedTargetIndex = (this.selectedTargetIndex - 1 + targets.length) % targets.length;
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.inputCooldown = 0.1;
+        }
+        if (inputManager.isJustPressed('right') || inputManager.isJustPressed('down')) {
+            this.selectedTargetIndex = (this.selectedTargetIndex + 1) % targets.length;
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.inputCooldown = 0.1;
+        }
+        
+        if (inputManager.isJustPressed('confirm')) {
+            const target = targets[this.selectedTargetIndex];
+            this.executeSelectedAction(target);
+            this.inputCooldown = 0.15;
+        }
+        
+        if (inputManager.isJustPressed('cancel')) {
+            this.phase = this.pendingAbility ? 'ability_select' : 'action_select';
+            this.pendingAbility = null;
+            this.inputCooldown = 0.15;
+        }
+    }
+    
+    selectAction(action) {
+        switch (action) {
+            case 'Attack':
+                this.pendingAction = 'attack';
+                this.phase = 'target_select';
+                this.selectedTargetIndex = 0;
+                break;
+            case 'Ability':
+                this.phase = 'ability_select';
+                this.selectedAbilityIndex = 0;
+                break;
+            case 'Item':
+                // TODO: Item menu
+                console.log('[BattleState] Item menu not implemented yet');
+                break;
+            case 'Seal':
+                if (this.battleSystem.canSeal) {
+                    this.pendingAction = 'seal';
+                    this.phase = 'target_select';
+                    this.selectedTargetIndex = 0;
+                } else {
+                    this.game.audioManager?.playEffect('error.mp3');
+                }
+                break;
+            case 'Switch':
+                // TODO: Switch menu
+                console.log('[BattleState] Switch menu not implemented yet');
+                break;
+            case 'Flee':
+                this.attemptFlee();
+                break;
+        }
+        this.game.audioManager?.playEffect('menu-select.mp3');
+    }
+    
+    getSelectableTargets() {
+        if (!this.battleSystem) return [];
+        
+        // Determine target type based on pending action
+        if (this.pendingAbility) {
+            const targetType = this.pendingAbility.target;
+            if (targetType === 'single_ally' || targetType === 'all_allies') {
+                return this.battleSystem.getAlivePlayerSpirits();
+            }
+        }
+        
+        // Default to enemies
+        return this.battleSystem.getAliveEnemies();
+    }
+    
+    executeSelectedAction(target) {
+        if (!this.selectedPlayerSpirit || !this.battleSystem) return;
+        
+        let action;
+        if (this.pendingAbility) {
+            action = {
+                type: 'ability',
+                user: this.selectedPlayerSpirit,
+                ability: this.pendingAbility,
+                target: target
+            };
+        } else if (this.pendingAction === 'attack') {
+            action = {
+                type: 'attack',
+                user: this.selectedPlayerSpirit,
+                target: target
+            };
+        } else if (this.pendingAction === 'seal') {
+            action = {
+                type: 'seal',
+                user: this.selectedPlayerSpirit,
+                target: target
+            };
+        }
+        
+        if (action) {
+            this.battleSystem.queuePlayerAction(action);
+        }
+        
+        // Reset state
+        this.selectedPlayerSpirit = null;
+        this.pendingAction = null;
+        this.pendingAbility = null;
+        this.phase = 'battle';
+    }
+    
+    attemptFlee() {
+        if (!this.battleSystem || !this.battleSystem.canFlee) {
+            this.game.audioManager?.playEffect('error.mp3');
+            return;
+        }
+        
+        const action = {
+            type: 'flee',
+            user: this.selectedPlayerSpirit
+        };
+        this.battleSystem.queuePlayerAction(action);
+        this.selectedPlayerSpirit = null;
+        this.phase = 'battle';
+    }
+    
+    exitBattle() {
+        // Award EXP if victory
+        if (this.battleSystem?.result === 'victory') {
+            const rewards = this.battleSystem.rewards;
+            this.game.partyManager?.awardExp(rewards.exp);
+            this.game.player.gold = (this.game.player.gold || 0) + rewards.gold;
+        }
+        
+        // Set interaction cooldown to prevent immediate re-encounter
+        this.game.interactionCooldown = 1.0;
+        
+        // Pop battle state
+        this.stateManager.popState();
+    }
+    
+    render(ctx) {
+        const width = this.game.CANVAS_WIDTH;
+        const height = this.game.CANVAS_HEIGHT;
+        const ds = window.ds;
+        
+        // Transition effect
+        if (this.phase === 'transition') {
+            this.renderTransition(ctx, width, height);
+            return;
+        }
+        
+        // Draw battle background
+        this.renderBackground(ctx, width, height);
+        
+        // Draw combatants
+        this.renderCombatants(ctx, width, height);
+        
+        // Draw ATB bars
+        this.renderATBBars(ctx, width, height);
+        
+        // Draw HP/MP bars
+        this.renderStatusBars(ctx, width, height);
+        
+        // Draw damage numbers
+        this.renderDamageNumbers(ctx);
+        
+        // Draw action menu if selecting
+        if (this.phase === 'action_select') {
+            this.renderActionMenu(ctx, width, height);
+        }
+        
+        // Draw ability menu if selecting
+        if (this.phase === 'ability_select') {
+            this.renderAbilityMenu(ctx, width, height);
+        }
+        
+        // Draw target cursor if selecting
+        if (this.phase === 'target_select') {
+            this.renderTargetCursor(ctx, width, height);
+        }
+        
+        // Draw results screen if battle ended
+        if (this.phase === 'results') {
+            this.renderResults(ctx, width, height);
+        }
+    }
+    
+    renderTransition(ctx, width, height) {
+        // Flash/fade transition effect
+        const progress = this.transitionTimer / this.transitionDuration;
+        
+        // Stripe effect (like FF battles)
+        const stripeCount = 8;
+        const stripeHeight = height / stripeCount;
+        
+        ctx.fillStyle = '#000';
+        for (let i = 0; i < stripeCount; i++) {
+            const stripeProgress = Math.min(1, progress * 2 - i * 0.1);
+            if (stripeProgress > 0) {
+                const stripeWidth = width * stripeProgress;
+                const x = i % 2 === 0 ? 0 : width - stripeWidth;
+                ctx.fillRect(x, i * stripeHeight, stripeWidth, stripeHeight);
+            }
+        }
+        
+        // Flash white
+        if (progress > 0.3 && progress < 0.5) {
+            const flashAlpha = 1 - Math.abs(progress - 0.4) * 10;
+            ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
+            ctx.fillRect(0, 0, width, height);
+        }
+    }
+    
+    renderBackground(ctx, width, height) {
+        // Draw gradient or background image
+        if (this.backgroundImage && this.backgroundImage.complete) {
+            ctx.drawImage(this.backgroundImage, 0, 0, width, height);
+        } else {
+            // Fallback gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop(0, '#1a1a2e');
+            gradient.addColorStop(0.5, '#16213e');
+            gradient.addColorStop(1, '#0f3460');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+        }
+    }
+    
+    renderCombatants(ctx, width, height) {
+        if (!this.battleSystem) return;
+        
+        const ds = window.ds;
+        
+        // Player party (left side)
+        const playerSpirits = this.battleSystem.playerParty;
+        const playerStartY = height * 0.25;
+        const playerSpacing = height * 0.15;
+        
+        playerSpirits.forEach((spirit, index) => {
+            const x = width * 0.2;
+            const y = playerStartY + index * playerSpacing;
+            this.renderSpirit(ctx, spirit, x, y, true);
+            
+            // Highlight if selected
+            if (spirit === this.selectedPlayerSpirit) {
+                ctx.strokeStyle = '#ffd700';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(x - 50, y - 50, 100, 100);
+            }
+        });
+        
+        // Enemy party (right side)
+        const enemySpirits = this.battleSystem.enemyParty;
+        const enemyStartY = height * 0.25;
+        const enemySpacing = height * 0.18;
+        
+        enemySpirits.forEach((spirit, index) => {
+            const x = width * 0.75;
+            const y = enemyStartY + index * enemySpacing;
+            this.renderSpirit(ctx, spirit, x, y, false);
+            
+            // Target indicator
+            if (this.phase === 'target_select') {
+                const targets = this.getSelectableTargets();
+                if (targets[this.selectedTargetIndex] === spirit) {
+                    ctx.strokeStyle = '#ff4444';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(x - 55, y - 55, 110, 110);
+                    
+                    // Animated cursor
+                    const cursorBob = Math.sin(Date.now() / 200) * 5;
+                    ctx.fillStyle = '#ff4444';
+                    ctx.beginPath();
+                    ctx.moveTo(x - 70 + cursorBob, y);
+                    ctx.lineTo(x - 55 + cursorBob, y - 10);
+                    ctx.lineTo(x - 55 + cursorBob, y + 10);
+                    ctx.fill();
+                }
+            }
+        });
+    }
+    
+    renderSpirit(ctx, spirit, x, y, facingRight) {
+        const ds = window.ds;
+        const size = 80;
+        
+        // Type colors as fallback
+        const typeColors = {
+            fire: '#ff6b35',
+            water: '#4da6ff',
+            earth: '#8b7355',
+            wind: '#98fb98'
+        };
+        
+        const color = typeColors[spirit.type1] || '#888';
+        
+        // Death effect
+        if (!spirit.isAlive) {
+            ctx.globalAlpha = 0.3;
+        }
+        
+        // Try to draw sprite image
+        let spriteDrawn = false;
+        if (spirit.sprite) {
+            // Check if we have a cached image
+            if (!spirit._spriteImage) {
+                spirit._spriteImage = new Image();
+                spirit._spriteImage._loaded = false;
+                spirit._spriteImage.onload = () => {
+                    spirit._spriteImage._loaded = true;
+                };
+                // Handle both absolute and relative paths
+                const spritePath = spirit.sprite.startsWith('/') ? spirit.sprite : '/' + spirit.sprite;
+                spirit._spriteImage.src = spritePath;
+            }
+            
+            if (spirit._spriteImage._loaded) {
+                // Calculate sprite dimensions to fit within size while maintaining aspect ratio
+                const img = spirit._spriteImage;
+                const scale = Math.min(size * 1.5 / img.width, size * 1.5 / img.height);
+                const drawWidth = img.width * scale;
+                const drawHeight = img.height * scale;
+                
+                ctx.save();
+                // Sprites are drawn facing right by default
+                // Player spirits (left side, facingRight=true) should face right (no flip)
+                // Enemy spirits (right side, facingRight=false) should face left (flip)
+                if (facingRight) {
+                    // Face right - flip horizontally (sprites face left by default)
+                    ctx.translate(x, y);
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(img, -drawWidth/2, -drawHeight/2, drawWidth, drawHeight);
+                } else {
+                    // Face left - no flip needed (sprites face left by default)
+                    ctx.drawImage(img, x - drawWidth/2, y - drawHeight/2, drawWidth, drawHeight);
+                }
+                ctx.restore();
+                spriteDrawn = true;
+            }
+        }
+        
+        // Fallback to colored rectangle if no sprite
+        if (!spriteDrawn) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x - size/2, y - size/2, size, size);
+            
+            // Draw type indicator on placeholder
+            ctx.fillStyle = '#fff';
+            ctx.font = ds ? ds.font('xs', 'bold') : 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(spirit.type1?.toUpperCase() || '???', x, y);
+        }
+        
+        // Draw name
+        ctx.fillStyle = spirit.isAlive ? '#fff' : '#888';
+        ctx.font = ds ? ds.font('sm', 'bold') : 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(spirit.name, x, y + size/2 + 5);
+        
+        // Draw level
+        ctx.font = ds ? ds.font('xs') : '12px Arial';
+        ctx.fillText(`Lv.${spirit.level}`, x, y + size/2 + 22);
+        
+        ctx.globalAlpha = 1;
+    }
+    
+    renderATBBars(ctx, width, height) {
+        if (!this.battleSystem) return;
+        
+        const ds = window.ds;
+        const barWidth = 100;
+        const barHeight = 8;
+        const startX = 20;
+        const startY = height - 200;
+        
+        const playerSpirits = this.battleSystem.playerParty;
+        playerSpirits.forEach((spirit, index) => {
+            if (!spirit.isAlive) return;
+            
+            const y = startY + index * 50;
+            
+            // ATB bar background
+            ctx.fillStyle = '#333';
+            ctx.fillRect(startX, y, barWidth, barHeight);
+            
+            // ATB bar fill
+            const atbPercent = spirit.atb / this.battleSystem.ATB_MAX;
+            const fillColor = spirit.isReady ? '#ffd700' : '#4a9eff';
+            ctx.fillStyle = fillColor;
+            ctx.fillRect(startX, y, barWidth * atbPercent, barHeight);
+            
+            // Border
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(startX, y, barWidth, barHeight);
+            
+            // Label
+            ctx.fillStyle = '#fff';
+            ctx.font = ds ? ds.font('xs') : '12px Arial';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(spirit.name, startX, y - 2);
+        });
+    }
+    
+    renderStatusBars(ctx, width, height) {
+        if (!this.battleSystem) return;
+        
+        const ds = window.ds;
+        const panelX = 20;
+        const panelY = height - 180;
+        const panelWidth = 280;
+        const panelHeight = 160;
+        
+        // Panel background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.beginPath();
+        ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 8);
+        ctx.fill();
+        
+        ctx.strokeStyle = ds ? ds.colors.border : '#444';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 8);
+        ctx.stroke();
+        
+        // Player spirit stats
+        const playerSpirits = this.battleSystem.playerParty;
+        playerSpirits.slice(0, 4).forEach((spirit, index) => {
+            const rowY = panelY + 15 + index * 35;
+            const nameX = panelX + 15;
+            const hpX = panelX + 100;
+            const mpX = panelX + 190;
+            
+            // Name
+            ctx.fillStyle = spirit.isAlive ? '#fff' : '#666';
+            ctx.font = ds ? ds.font('sm', 'bold') : 'bold 14px Arial';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(spirit.name.substring(0, 8), nameX, rowY);
+            
+            // HP
+            ctx.fillStyle = '#ff6b6b';
+            ctx.font = ds ? ds.font('xs') : '12px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(`HP`, hpX, rowY);
+            ctx.fillStyle = '#fff';
+            ctx.fillText(`${spirit.currentHp}/${spirit.maxHp}`, hpX + 25, rowY);
+            
+            // MP
+            ctx.fillStyle = '#4da6ff';
+            ctx.fillText(`MP`, mpX, rowY);
+            ctx.fillStyle = '#fff';
+            ctx.fillText(`${spirit.currentMp}/${spirit.maxMp}`, mpX + 25, rowY);
+        });
+    }
+    
+    renderActionMenu(ctx, width, height) {
+        const ds = window.ds;
+        const menuX = width * 0.35;
+        const menuY = height * 0.5;
+        const menuWidth = 150;
+        const menuHeight = this.menuOptions.length * 35 + 20;
+        
+        // Menu background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+        ctx.beginPath();
+        ctx.roundRect(menuX, menuY, menuWidth, menuHeight, 8);
+        ctx.fill();
+        
+        ctx.strokeStyle = ds ? ds.colors.primary : '#4a9eff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(menuX, menuY, menuWidth, menuHeight, 8);
+        ctx.stroke();
+        
+        // Menu options
+        this.menuOptions.forEach((option, index) => {
+            const optionY = menuY + 15 + index * 35;
+            const isSelected = index === this.selectedMenuOption;
+            const isDisabled = (option === 'Flee' && !this.battleSystem?.canFlee) ||
+                             (option === 'Seal' && !this.battleSystem?.canSeal);
+            
+            // Selection highlight
+            if (isSelected) {
+                ctx.fillStyle = ds ? ds.colors.primary + '40' : 'rgba(74, 158, 255, 0.25)';
+                ctx.fillRect(menuX + 5, optionY - 5, menuWidth - 10, 30);
+            }
+            
+            // Option text
+            ctx.fillStyle = isDisabled ? '#666' : (isSelected ? '#fff' : '#aaa');
+            ctx.font = ds ? ds.font('md', isSelected ? 'bold' : 'normal') : `${isSelected ? 'bold ' : ''}16px Arial`;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(option, menuX + 20, optionY);
+            
+            // Cursor
+            if (isSelected) {
+                ctx.fillStyle = '#ffd700';
+                ctx.fillText('▶', menuX + 8, optionY);
+            }
+        });
+    }
+    
+    renderAbilityMenu(ctx, width, height) {
+        if (!this.selectedPlayerSpirit) return;
+        
+        const ds = window.ds;
+        const abilities = this.selectedPlayerSpirit.abilities || [];
+        const menuX = width * 0.35;
+        const menuY = height * 0.4;
+        const menuWidth = 200;
+        const menuHeight = abilities.length * 40 + 30;
+        
+        // Menu background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+        ctx.beginPath();
+        ctx.roundRect(menuX, menuY, menuWidth, menuHeight, 8);
+        ctx.fill();
+        
+        ctx.strokeStyle = ds ? ds.colors.secondary : '#8b5cf6';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(menuX, menuY, menuWidth, menuHeight, 8);
+        ctx.stroke();
+        
+        // Title
+        ctx.fillStyle = '#fff';
+        ctx.font = ds ? ds.font('sm', 'bold') : 'bold 14px Arial';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText('Abilities', menuX + 15, menuY + 8);
+        
+        // Abilities
+        abilities.forEach((ability, index) => {
+            const abilityY = menuY + 35 + index * 40;
+            const isSelected = index === this.selectedAbilityIndex;
+            const canUse = this.selectedPlayerSpirit.currentMp >= ability.mpCost;
+            
+            // Selection highlight
+            if (isSelected) {
+                ctx.fillStyle = ds ? ds.colors.secondary + '40' : 'rgba(139, 92, 246, 0.25)';
+                ctx.fillRect(menuX + 5, abilityY - 5, menuWidth - 10, 35);
+            }
+            
+            // Ability name
+            ctx.fillStyle = canUse ? (isSelected ? '#fff' : '#aaa') : '#666';
+            ctx.font = ds ? ds.font('sm', isSelected ? 'bold' : 'normal') : `${isSelected ? 'bold ' : ''}14px Arial`;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(ability.name, menuX + 20, abilityY);
+            
+            // MP cost
+            ctx.fillStyle = canUse ? '#4da6ff' : '#666';
+            ctx.font = ds ? ds.font('xs') : '12px Arial';
+            ctx.textAlign = 'right';
+            ctx.fillText(`${ability.mpCost} MP`, menuX + menuWidth - 15, abilityY + 2);
+            
+            // Element indicator
+            if (ability.element) {
+                const elementColors = { fire: '#ff6b35', water: '#4da6ff', earth: '#8b7355', wind: '#98fb98' };
+                ctx.fillStyle = elementColors[ability.element] || '#888';
+                ctx.font = ds ? ds.font('xs') : '11px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText(ability.element.toUpperCase(), menuX + 20, abilityY + 16);
+            }
+            
+            // Cursor
+            if (isSelected) {
+                ctx.fillStyle = '#ffd700';
+                ctx.font = ds ? ds.font('sm') : '14px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText('▶', menuX + 8, abilityY);
+            }
+        });
+    }
+    
+    renderTargetCursor(ctx, width, height) {
+        // Target cursor is rendered in renderCombatants
+    }
+    
+    renderDamageNumbers(ctx) {
+        const ds = window.ds;
+        
+        this.damageNumbers.forEach(dn => {
+            ctx.globalAlpha = dn.alpha;
+            ctx.fillStyle = dn.isHeal ? '#4ade80' : (dn.isCrit ? '#ff4444' : '#fff');
+            ctx.font = ds ? ds.font(dn.isCrit ? 'xl' : 'lg', 'bold') : `bold ${dn.isCrit ? 28 : 22}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(dn.isHeal ? `+${dn.value}` : `-${dn.value}`, dn.x, dn.y);
+        });
+        ctx.globalAlpha = 1;
+    }
+    
+    renderResults(ctx, width, height) {
+        if (!this.battleSystem) return;
+        
+        const ds = window.ds;
+        const result = this.battleSystem.result;
+        const rewards = this.battleSystem.rewards;
+        
+        // Overlay
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, 0, width, height);
+        
+        // Results box
+        const boxWidth = 400;
+        const boxHeight = 300;
+        const boxX = (width - boxWidth) / 2;
+        const boxY = (height - boxHeight) / 2;
+        
+        ctx.fillStyle = 'rgba(20, 20, 40, 0.95)';
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 12);
+        ctx.fill();
+        
+        ctx.strokeStyle = result === 'victory' ? '#ffd700' : '#ff4444';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 12);
+        ctx.stroke();
+        
+        // Result title
+        ctx.fillStyle = result === 'victory' ? '#ffd700' : (result === 'fled' ? '#aaa' : '#ff4444');
+        ctx.font = ds ? ds.font('2xl', 'bold') : 'bold 32px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        
+        const titleText = result === 'victory' ? 'VICTORY!' : (result === 'fled' ? 'ESCAPED' : 'DEFEAT');
+        ctx.fillText(titleText, width / 2, boxY + 30);
+        
+        // Rewards (only for victory)
+        if (result === 'victory') {
+            ctx.fillStyle = '#fff';
+            ctx.font = ds ? ds.font('lg') : '20px Arial';
+            ctx.textAlign = 'center';
+            
+            ctx.fillText(`EXP Gained: ${rewards.exp}`, width / 2, boxY + 100);
+            ctx.fillText(`Gold Earned: ${rewards.gold} 💰`, width / 2, boxY + 140);
+            
+            // Items
+            if (rewards.items && rewards.items.length > 0) {
+                ctx.fillText('Items Found:', width / 2, boxY + 180);
+                rewards.items.forEach((item, i) => {
+                    ctx.font = ds ? ds.font('md') : '16px Arial';
+                    ctx.fillText(`• ${item.name}`, width / 2, boxY + 210 + i * 25);
+                });
+            }
+        } else if (result === 'fled') {
+            ctx.fillStyle = '#aaa';
+            ctx.font = ds ? ds.font('md') : '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('You escaped from battle.', width / 2, boxY + 120);
+        } else {
+            ctx.fillStyle = '#ff4444';
+            ctx.font = ds ? ds.font('md') : '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Your party was defeated...', width / 2, boxY + 120);
+        }
+        
+        // Continue prompt
+        if (this.resultsTimer > 1.0) {
+            ctx.fillStyle = '#888';
+            ctx.font = ds ? ds.font('sm') : '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Press CONFIRM to continue', width / 2, boxY + boxHeight - 30);
+        }
+    }
+    
+    // Helper to add damage number
+    addDamageNumber(x, y, value, isHeal = false, isCrit = false) {
+        this.damageNumbers.push({
+            x, y,
+            value,
+            isHeal,
+            isCrit,
+            timer: 0,
+            duration: 1.0,
+            alpha: 1
+        });
+    }
+}
 
 // Export for use in other files
 window.GameStateManager = GameStateManager;

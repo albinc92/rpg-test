@@ -12,9 +12,9 @@ class Spirit extends Actor {
             movementSpeed: moveSpeed * 0.8, // Use for AI input (slightly slower for ethereal feel)
             behaviorType: 'roaming',
             altitude: 0, // No altitude offset - floating is visual only
-            blocksMovement: options.hasCollision !== false, // Block movement if collision enabled
-            canBeBlocked: true, // Spirits should collide with objects
-            collisionPercent: 0.3, // Smaller collision area for spirits
+            blocksMovement: false, // Spirits don't block movement - player walks through to trigger battle
+            canBeBlocked: false, // Spirits should phase through objects
+            collisionPercent: 0.5, // Larger collision area for easier battle triggering
             spriteSrc: options.spriteSrc,
             // Don't pre-set spriteWidth/spriteHeight - let GameObject auto-detect from image
             // spriteWidth and spriteHeight will be set automatically when sprite loads
@@ -28,8 +28,9 @@ class Spirit extends Actor {
         this.name = options.name || 'Unknown Spirit';
         this.spiritId = options.spiritId; // Template ID from spirits.json
         this.mapId = mapId;
+        this.type = 'spirit'; // Entity type - used by interaction system to skip dialogue
         
-        // Stats
+        // Stats (legacy support)
         this.stats = options.stats || {
             hp: 50,
             attack: 10,
@@ -37,6 +38,18 @@ class Spirit extends Actor {
             speed: 15
         };
         this.currentHp = this.stats.hp;
+        
+        // Battle stats (new system)
+        this.level = options.level || 5;
+        this.type1 = options.type1 || options.element || 'fire';
+        this.type2 = options.type2 || null;
+        this.baseStats = options.baseStats || options.stats || {
+            hp: 80, mp: 40, attack: 18, defense: 15,
+            magicAttack: 18, magicDefense: 12, speed: 20
+        };
+        this.expYield = options.expYield || Math.floor(this.level * 10);
+        this.goldYield = options.goldYield || Math.floor(this.level * 5);
+        this.abilities = options.abilities || null; // Will use defaults if null
         
         // Description
         this.description = options.description || '';
@@ -431,10 +444,10 @@ class Spirit extends Actor {
         }
         
         // Update collision
-        this.hasCollision = template.hasCollision !== false; // Default true
-        this.blocksMovement = this.hasCollision; // Block movement if collision enabled
+        this.hasCollision = template.hasCollision !== false; // Default true for battle trigger detection
+        this.blocksMovement = false; // Spirits never block movement - player walks through to trigger battle
         this.collisionShape = template.collisionShape || 'circle';
-        this.collisionPercent = template.collisionPercent || 0.3;
+        this.collisionPercent = template.collisionPercent || 0.5; // Larger for easier battle triggering
         this.collisionExpandTopPercent = template.collisionExpandTopPercent || 0;
         this.collisionExpandBottomPercent = template.collisionExpandBottomPercent || 0;
         this.collisionExpandLeftPercent = template.collisionExpandLeftPercent || 0;

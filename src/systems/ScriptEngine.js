@@ -106,7 +106,8 @@ class ScriptEngine {
             'clearflag': this.cmdClearFlag.bind(this),  // Alias for setvar with false
             'shop': this.cmdShop.bind(this),  // Open shop interface
             'addgold': this.cmdAddGold.bind(this),  // Shorthand for adding gold
-            'delgold': this.cmdDelGold.bind(this)   // Shorthand for removing gold
+            'delgold': this.cmdDelGold.bind(this),   // Shorthand for removing gold
+            'battle': this.cmdBattle.bind(this)      // Start a battle
         };
     }
     
@@ -960,6 +961,115 @@ class ScriptEngine {
         if (this.game.player && amount > 0) {
             this.game.player.spendGold(amount);
             console.log(`[ScriptEngine] Removed ${amount} gold`);
+        }
+    }
+    
+    /**
+     * battle "spirit_id", [level], ["spirit_id2", level2], ...;  (starts a scripted battle)
+     * 
+     * Options after enemy list:
+     * battle "wolf_spirit", 5, isBoss=true, bgm="boss-battle.mp3", background="cave";
+     * 
+     * Examples:
+     * battle "wild_spirit", 5;                              // Single enemy level 5
+     * battle "wolf_spirit", 3, "wolf_spirit", 4;            // Two wolves
+     * battle "boss_spirit", 20, isBoss=true;                // Boss battle (can't flee/seal)
+     * battle "fire_spirit", 10, bgm="fire-battle.mp3";      // Custom music
+     */
+    async cmdBattle() {
+        const enemies = [];
+        let isBoss = false;
+        let bgm = null;
+        let background = 'field';
+        
+        // Parse enemy list and options
+        while (this.position < this.tokens.length) {
+            const token = this.peek();
+            if (!token || (token.type === 'PUNCTUATION' && token.value === ';')) {
+                break;
+            }
+            
+            // Check for options (isBoss=, bgm=, background=)
+            if (token.type === 'IDENTIFIER') {
+                const optionName = token.value.toLowerCase();
+                if (optionName === 'isboss') {
+                    this.consume(); // consume 'isBoss'
+                    this.consumeIf('PUNCTUATION', '=');
+                    const val = this.consume()?.value;
+                    isBoss = val === true || val === 'true' || val === 1;
+                    this.consumeIf('PUNCTUATION', ',');
+                    continue;
+                } else if (optionName === 'bgm') {
+                    this.consume(); // consume 'bgm'
+                    this.consumeIf('PUNCTUATION', '=');
+                    bgm = this.consume()?.value;
+                    this.consumeIf('PUNCTUATION', ',');
+                    continue;
+                } else if (optionName === 'background') {
+                    this.consume(); // consume 'background'
+                    this.consumeIf('PUNCTUATION', '=');
+                    background = this.consume()?.value || 'field';
+                    this.consumeIf('PUNCTUATION', ',');
+                    continue;
+                }
+            }
+            
+            // Parse spirit ID (string)
+            const spiritId = this.consume()?.value;
+            if (!spiritId) break;
+            
+            this.consumeIf('PUNCTUATION', ',');
+            
+            // Parse optional level (number)
+            let level = 5;
+            const nextToken = this.peek();
+            if (nextToken && nextToken.type === 'NUMBER') {
+                level = this.consume()?.value || 5;
+                this.consumeIf('PUNCTUATION', ',');
+            }
+            
+            enemies.push({ templateId: spiritId, level });
+        }
+        
+        console.log(`[ScriptEngine] Starting battle with ${enemies.length} enemies, isBoss=${isBoss}`);
+        
+        if (this.game.battleSystem && enemies.length > 0) {
+            // Pause script execution during battle
+            this.isPaused = true;
+            
+            // Hide the dialogue box before opening battle
+            const dialogueState = this.game.stateManager.states['DIALOGUE'];
+            if (dialogueState) {
+                dialogueState.isHidden = true;
+            }
+            
+            // Wait a frame for the dialogue to disappear
+            await new Promise(r => setTimeout(r, 50));
+            
+            // Start battle
+            this.game.battleSystem.startBattle({
+                enemies,
+                isBoss,
+                bgm,
+                background,
+                triggeringSpirit: null // Scripted battles don't have a triggering spirit
+            });
+            
+            // Wait for battle to end
+            await new Promise(resolve => {
+                const checkBattle = setInterval(() => {
+                    if (!this.game.stateManager.isStateInStack('BATTLE')) {
+                        clearInterval(checkBattle);
+                        this.isPaused = false;
+                        resolve();
+                    }
+                }, 100);
+            });
+            
+            // Script can check battle result with getvar("last_battle_result")
+            if (this.game.battleSystem.result) {
+                this.game.gameVariables?.set('last_battle_result', this.game.battleSystem.result);
+            }
         }
     }
     
