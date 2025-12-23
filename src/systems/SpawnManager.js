@@ -161,6 +161,33 @@ class SpawnManager {
 
         spirit.isDynamicSpawn = true;
         
+        // Add spawn visual effect
+        spirit.spawnEffectTimer = 1.0; // 1 second spawn effect
+        spirit.isSpawning = true;
+        
+        // Play spawn sound effect with distance-based falloff
+        if (this.game.player) {
+            const dx = unscaledX - this.game.player.x;
+            const dy = unscaledY - this.game.player.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Sound parameters
+            const maxHearingDistance = 600; // Max distance to hear spawn sound
+            const fullVolumeDistance = 150; // Distance at which volume is at max
+            
+            if (distance < maxHearingDistance) {
+                // Calculate volume falloff (1.0 at fullVolumeDistance, 0 at maxHearingDistance)
+                let volume = 0.3; // Base max volume
+                if (distance > fullVolumeDistance) {
+                    const falloff = 1 - (distance - fullVolumeDistance) / (maxHearingDistance - fullVolumeDistance);
+                    volume *= falloff;
+                }
+                if (volume > 0.02) { // Only play if audible
+                    this.game.audioManager?.playEffect('spawn.mp3', volume);
+                }
+            }
+        }
+        
         this.game.objectManager.addObject(mapId, spirit);
         config.spirits.push(spirit);
     }

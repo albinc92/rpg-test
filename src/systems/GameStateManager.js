@@ -5128,30 +5128,36 @@ class BattleState extends GameState {
     }
     
     renderPlayerCommander(ctx, width, height) {
-        const ds = window.ds;
-        
-        // Draw the player sprite in top-left corner with LOTS of room
+        // Draw the player sprite in top-left corner - single frame, same scale as in-game
         if (this.playerSprite && this.playerSprite._loaded) {
             const img = this.playerSprite;
-            // Get first frame if spritesheet (facing down)
-            const frameWidth = img.width / 4; // Assuming 4 columns
-            const frameHeight = img.height / 4; // Assuming 4 rows
             
-            // Draw at 2x scale for visibility
-            const scale = 2;
-            const drawW = frameWidth * scale;
-            const drawH = frameHeight * scale;
+            // Player spritesheet is 4 columns x 4 rows
+            // Row 0 = facing down (forward)
+            const cols = 4;
+            const rows = 4;
+            const frameWidth = img.width / cols;
+            const frameHeight = img.height / rows;
             
-            // Position with generous padding - place it well inside the screen
-            const spriteX = 40;
-            const spriteY = 40;
+            // Use same scale as in-game: player.scale (1.0) * resolutionScale
+            const resolutionScale = this.game.resolutionScale || 1.0;
+            const playerScale = this.game.player?.scale || 1.0;
+            const finalScale = playerScale * resolutionScale;
             
+            const drawW = frameWidth * finalScale;
+            const drawH = frameHeight * finalScale;
+            
+            // Position with padding
+            const padding = 20;
+            
+            // Draw first frame of row 0 (facing down/forward)
             ctx.drawImage(
                 img,
-                0, 0, frameWidth, frameHeight, // Source (first frame - facing down)
-                spriteX,
-                spriteY,
-                drawW, drawH
+                0, 0, frameWidth, frameHeight, // Source: first frame, facing down
+                padding,
+                padding,
+                drawW,
+                drawH
             );
         }
     }
