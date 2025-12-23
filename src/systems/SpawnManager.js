@@ -172,12 +172,12 @@ class SpawnManager {
             const distance = Math.sqrt(dx * dx + dy * dy);
             
             // Sound parameters
-            const maxHearingDistance = 600; // Max distance to hear spawn sound
-            const fullVolumeDistance = 150; // Distance at which volume is at max
+            const maxHearingDistance = 1200; // Max distance to hear spawn sound
+            const fullVolumeDistance = 300; // Distance at which volume is at max
             
             if (distance < maxHearingDistance) {
                 // Calculate volume falloff (1.0 at fullVolumeDistance, 0 at maxHearingDistance)
-                let volume = 0.3; // Base max volume
+                let volume = 1.0; // Full volume
                 if (distance > fullVolumeDistance) {
                     const falloff = 1 - (distance - fullVolumeDistance) / (maxHearingDistance - fullVolumeDistance);
                     volume *= falloff;

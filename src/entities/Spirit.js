@@ -395,6 +395,22 @@ class Spirit extends Actor {
             const scaledX = this.getScaledX(game);
             const scaledY = this.getScaledY(game);
             
+            // Account for floating offset in fake 3D mode
+            const resolutionScale = game?.resolutionScale || 1.0;
+            const finalScale = this.scale * resolutionScale;
+            const baseHeight = this.spriteHeight || this.fallbackHeight || 64;
+            const scaledHeight = baseHeight * finalScale;
+            
+            let floatingOffset = 0;
+            let baseAltitude = 0;
+            if (this.isFloating && this.floatingSpeed && this.floatingRange && game.gameTime !== undefined) {
+                baseAltitude = scaledHeight * 0.5;
+                floatingOffset = Math.sin(game.gameTime * this.floatingSpeed) * (this.floatingRange * resolutionScale);
+            }
+            
+            // Center effect on sprite position (accounting for floating)
+            const effectY = scaledY - baseAltitude - floatingOffset;
+            
             ctx.save();
             
             // Glittering stars effect
@@ -411,7 +427,7 @@ class Spirit extends Actor {
                 const radius = progress * maxRadius * (0.5 + (i % 3) * 0.25);
                 
                 const starX = scaledX + Math.cos(angle) * radius;
-                const starY = scaledY + Math.sin(angle) * radius - progress * 20; // Float upward
+                const starY = effectY + Math.sin(angle) * radius - progress * 20; // Float upward
                 
                 // Star size varies with twinkle
                 const starSize = 2 + twinkle * 3;
