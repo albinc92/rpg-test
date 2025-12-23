@@ -64,6 +64,18 @@ class StaticObjectRegistry {
             swaysInWind: false
         });
 
+        this.addTemplate('Rock', {
+            objectCategory: 'rock',
+            spriteSrc: 'assets/objects/rocks/rock-02.png',
+            scale: 0.4,
+            collisionExpandTopPercent: -0.3,
+            collisionExpandBottomPercent: 0,
+            collisionExpandRightPercent: -0.1,
+            collisionExpandLeftPercent: -0.1,
+            castsShadow: true,
+            swaysInWind: false
+        });
+
         console.log(`[StaticObjectRegistry] Loaded ${this.templates.size} built-in templates`);
     }
 

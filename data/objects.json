@@ -326,31 +326,8 @@
     },
     {
       "category": "StaticObject",
-      "x": 396.4471945217426,
-      "y": 860.4960028807914,
-      "scale": 0.3,
-      "spriteSrc": "assets/objects/rocks/rock-01.png",
-      "id": "static_0ecfabb1-753e-4cc9-85a4-b25fb21335c1",
-      "reverseFacing": true,
-      "collisionExpandTopPercent": -0.33,
-      "collisionExpandBottomPercent": 0.06,
-      "name": "Boulder"
-    },
-    {
-      "category": "StaticObject",
-      "x": 2784.415108960245,
-      "y": 1620.9238103674222,
-      "scale": 0.21,
-      "spriteSrc": "assets/objects/rocks/rock-01.png",
-      "id": "static_4f689282-fd6a-4b45-b91c-202010b0dd60",
-      "collisionExpandTopPercent": -0.37,
-      "collisionExpandBottomPercent": 0.03,
-      "name": "Boulder"
-    },
-    {
-      "category": "StaticObject",
-      "x": 1166.5006704575715,
-      "y": 136.16445207865243,
+      "x": 1051.3491553060564,
+      "y": 39.194755108955306,
       "scale": 0.21,
       "spriteSrc": "assets/objects/rocks/rock-01.png",
       "id": "static_c0cbd623-1f0f-4265-92b0-724bde4f5c3e",
@@ -459,6 +436,33 @@
       "interactionRadius": 80,
       "collisionExpandTopPercent": -0.63,
       "collisionExpandBottomPercent": 0.04
+    },
+    {
+      "category": "StaticObject",
+      "x": 367.0729125887592,
+      "y": 860.2181345701432,
+      "scale": 0.4,
+      "spriteSrc": "assets/objects/rocks/rock-02.png",
+      "id": "static_f2880985-9bef-4f2a-adbd-ac2ee571b9b2",
+      "collisionExpandTopPercent": -0.27,
+      "collisionExpandBottomPercent": 0.05,
+      "collisionExpandLeftPercent": 0.01,
+      "collisionExpandRightPercent": 0.01,
+      "name": "Rock"
+    },
+    {
+      "category": "StaticObject",
+      "x": 2820.446445678439,
+      "y": 1610.5592941589869,
+      "scale": 0.31,
+      "spriteSrc": "assets/objects/rocks/rock-02.png",
+      "id": "static_776324e9-2b62-4030-b407-ba8a47eea695",
+      "reverseFacing": true,
+      "collisionExpandTopPercent": -0.27,
+      "collisionExpandBottomPercent": 0.05,
+      "collisionExpandLeftPercent": 0.01,
+      "collisionExpandRightPercent": 0.01,
+      "name": "Rock"
     }
   ],
   "0-1": [
