@@ -4358,10 +4358,14 @@ class ShopState extends GameState {
         }
         
         // Item name (below icon or at top if no icon) - auto-scale to fit
-        const nameY = hasIcon ? iconY + iconSize + 60 : detailsY + padding;
+        // Use middle baseline so text stays vertically centered when font shrinks
+        const nameAreaTop = hasIcon ? iconY + iconSize + 35 : detailsY + padding;
+        const nameAreaHeight = 50; // Fixed height for name area
+        const nameCenterY = nameAreaTop + nameAreaHeight / 2;
+        
         ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
+        ctx.textBaseline = 'middle';
         if (ds) ds.applyShadow(ctx, 'glow');
         
         // Auto-scale font to fit within panel
@@ -4374,11 +4378,11 @@ class ShopState extends GameState {
             ctx.font = `bold ${fontSize}px "Cinzel", serif`;
         }
         
-        ctx.fillText(item.name, centerX, nameY);
+        ctx.fillText(item.name, centerX, nameCenterY);
         if (ds) ds.clearShadow(ctx);
         
         // Type and rarity (with more spacing)
-        const rarityY = nameY + 80;
+        const rarityY = nameAreaTop + nameAreaHeight + 30;
         ctx.fillStyle = ds ? ds.colors.getRarityColor(item.rarity) : '#9d9d9d';
         ctx.font = ds ? ds.font('md', 'normal', 'body') : 'italic 18px "Lato", sans-serif';
         const rarityText = (item.rarity || 'common').charAt(0).toUpperCase() + (item.rarity || 'common').slice(1);
@@ -4410,7 +4414,7 @@ class ShopState extends GameState {
             for (const [stat, value] of Object.entries(item.stats)) {
                 ctx.fillStyle = ds ? ds.colors.success : '#4ade80';
                 ctx.fillText(`+${value} ${stat}`, centerX, statsY);
-                statsY += 24;
+                statsY += 32;
             }
         }
         
