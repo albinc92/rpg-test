@@ -218,9 +218,16 @@ class BattleSystem {
             magicDefense: Math.floor(baseStats.magicDefense * statMultiplier),
             speed: Math.floor(baseStats.speed * statMultiplier),
             
-            // ATB
-            atb: 0,
+            // ATB - start with random value
+            atb: Math.random() * this.ATB_MAX * 0.7, // 0-70% random start
             isReady: false,
+            
+            // Casting state
+            isCasting: false,
+            castTimer: 0,
+            castDuration: 0,
+            pendingAbility: null,
+            pendingTarget: null,
             
             // Status
             isAlive: true,
@@ -312,6 +319,16 @@ class BattleSystem {
         allCombatants.forEach(spirit => {
             if (!spirit.isAlive || spirit.isReady) return;
             
+            // Handle casting
+            if (spirit.isCasting) {
+                spirit.castTimer += deltaTime;
+                if (spirit.castTimer >= spirit.castDuration) {
+                    // Casting complete - execute the ability
+                    this.completeCast(spirit);
+                }
+                return; // Don't fill ATB while casting
+            }
+            
             // ATB fills based on speed stat
             const atbGain = spirit.speed * this.ATB_SPEED_MULTIPLIER * deltaTime;
             spirit.atb = Math.min(this.ATB_MAX, spirit.atb + atbGain);
@@ -319,12 +336,80 @@ class BattleSystem {
             if (spirit.atb >= this.ATB_MAX) {
                 spirit.isReady = true;
                 
+                // Play ready sound for player-owned spirits
+                if (spirit.isPlayerOwned) {
+                    this.game.audioManager?.playEffect('ready.mp3');
+                }
+                
                 // If it's an enemy, queue their action automatically
                 if (!spirit.isPlayerOwned) {
                     this.queueEnemyAction(spirit);
                 }
             }
         });
+    }
+    
+    /**
+     * Start casting an ability
+     */
+    startCast(user, target, ability) {
+        // Calculate cast time based on ability power (0.5s to 2s)
+        const baseCastTime = ability.castTime || (ability.mpCost > 0 ? 0.8 + (ability.mpCost / 20) : 0);
+        
+        if (baseCastTime > 0) {
+            user.isCasting = true;
+            user.castTimer = 0;
+            user.castDuration = baseCastTime;
+            user.pendingAbility = ability;
+            user.pendingTarget = target;
+            user.isReady = false;
+            user.atb = 0;
+            
+            // Play spell sound when starting cast
+            this.game.audioManager?.playEffect('spell.mp3');
+            this.log(`${user.name} is casting ${ability.name}...`);
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Complete a cast and execute the ability
+     */
+    completeCast(spirit) {
+        spirit.isCasting = false;
+        const ability = spirit.pendingAbility;
+        const target = spirit.pendingTarget;
+        
+        if (ability && spirit.isAlive) {
+            // Deduct MP
+            if (spirit.currentMp >= ability.mpCost) {
+                spirit.currentMp -= ability.mpCost;
+                
+                // Execute the ability effect
+                switch (ability.type) {
+                    case 'physical':
+                        this.executePhysicalAbility(spirit, target, ability);
+                        break;
+                    case 'magical':
+                        this.executeMagicalAbility(spirit, target, ability);
+                        break;
+                    case 'supportive':
+                        this.executeSupportiveAbility(spirit, target, ability);
+                        break;
+                    case 'curse':
+                        this.executeCurseAbility(spirit, target, ability);
+                        break;
+                }
+            } else {
+                this.log(`${spirit.name}'s cast fizzled - not enough MP!`);
+            }
+        }
+        
+        spirit.pendingAbility = null;
+        spirit.pendingTarget = null;
+        spirit.castTimer = 0;
+        spirit.castDuration = 0;
     }
     
     /**
@@ -489,7 +574,7 @@ class BattleSystem {
     }
     
     /**
-     * Execute an ability
+     * Execute an ability (starts casting if has cast time)
      */
     executeAbility(user, target, ability) {
         // Check MP cost
@@ -498,8 +583,19 @@ class BattleSystem {
             return;
         }
         
+        // Start casting (if ability has cast time, don't deduct MP yet)
+        if (this.startCast(user, target, ability)) {
+            return; // Casting started, will complete later
+        }
+        
+        // No cast time - execute immediately
         // Deduct MP
         user.currentMp -= ability.mpCost;
+        
+        // Play spell sound for instant abilities too
+        if (ability.mpCost > 0) {
+            this.game.audioManager?.playEffect('spell.mp3');
+        }
         
         switch (ability.type) {
             case 'physical':

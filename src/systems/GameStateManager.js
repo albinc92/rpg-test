@@ -4729,9 +4729,9 @@ class BattleState extends GameState {
     handleInput(inputManager) {
         if (this.inputCooldown > 0) return;
         
-        // Start button opens main menu (pauses battle)
-        if (inputManager.isJustPressed('start')) {
-            this.game.audioManager?.playEffect('menu-open.mp3');
+        // Menu/Escape opens pause menu (pauses battle)
+        if (inputManager.isJustPressed('menu') || inputManager.isJustPressed('cancel')) {
+            this.game.audioManager?.playEffect('cancel.mp3');
             this.game.stateManager.pushState('menu');
             this.inputCooldown = 0.2;
             return;
@@ -4792,7 +4792,10 @@ class BattleState extends GameState {
     }
     
     handleAbilitySelectInput(inputManager) {
-        const abilities = this.selectedPlayerSpirit?.abilities || [];
+        // Filter out basic attack - we have a separate Attack option
+        const abilities = (this.selectedPlayerSpirit?.abilities || []).filter(a => a.id !== 'attack');
+        
+        if (abilities.length === 0) return;
         
         if (inputManager.isJustPressed('up')) {
             this.selectedAbilityIndex = (this.selectedAbilityIndex - 1 + abilities.length) % abilities.length;
@@ -4981,9 +4984,6 @@ class BattleState extends GameState {
         // Draw battle background
         this.renderBackground(ctx, width, height);
         
-        // Draw player commander in top-left
-        this.renderPlayerCommander(ctx, width, height);
-        
         // Draw combatants
         this.renderCombatants(ctx, width, height);
         
@@ -4993,6 +4993,9 @@ class BattleState extends GameState {
         // Apply day/night lighting effect to battle scene (background + sprites)
         // This happens BEFORE UI elements so menus aren't affected
         this.renderDayNightOverlay(ctx, width, height);
+        
+        // Draw player commander in top-left (after overlay so it's visible)
+        this.renderPlayerCommander(ctx, width, height);
         
         // Draw action log at bottom center
         this.renderActionLog(ctx, width, height);
@@ -5127,23 +5130,21 @@ class BattleState extends GameState {
     renderPlayerCommander(ctx, width, height) {
         const ds = window.ds;
         
-        // Just draw the player sprite standalone in top-left, no box
+        // Draw the player sprite in top-left corner with LOTS of room
         if (this.playerSprite && this.playerSprite._loaded) {
             const img = this.playerSprite;
             // Get first frame if spritesheet (facing down)
             const frameWidth = img.width / 4; // Assuming 4 columns
             const frameHeight = img.height / 4; // Assuming 4 rows
             
-            // Scale sprite to reasonable size (smaller)
-            const targetSize = ds ? ds.spacing(12) : 48;
-            const scale = Math.min(targetSize / frameWidth, targetSize / frameHeight);
+            // Draw at 2x scale for visibility
+            const scale = 2;
             const drawW = frameWidth * scale;
             const drawH = frameHeight * scale;
             
-            // Position fully visible in top-left corner with padding
-            const padding = ds ? ds.spacing(3) : 12;
-            const spriteX = padding;
-            const spriteY = padding;
+            // Position with generous padding - place it well inside the screen
+            const spriteX = 40;
+            const spriteY = 40;
             
             ctx.drawImage(
                 img,
@@ -5477,7 +5478,7 @@ class BattleState extends GameState {
         ctx.textAlign = 'right';
         ctx.fillText(`${spirit.currentMp}`, barX + barWidth, mpBarY + barHeight + 1);
         
-        // ATB Bar
+        // ATB Bar or Casting Bar
         const atbY = mpBarY + barHeight + lineHeight;
         const atbWidth = barWidth;
         const atbHeight = ds ? ds.spacing(1.2) : 5;
@@ -5487,18 +5488,33 @@ class BattleState extends GameState {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(atbX, atbY, atbWidth, atbHeight);
         
-        // ATB fill
-        const atbPercent = this.battleSystem ? spirit.atb / this.battleSystem.ATB_MAX : 0;
-        const atbFillColor = spirit.isReady ? '#ffd700' : '#888';
-        ctx.fillStyle = atbFillColor;
-        ctx.fillRect(atbX, atbY, atbWidth * atbPercent, atbHeight);
-        
-        // ATB label
-        ctx.fillStyle = spirit.isReady ? '#ffd700' : '#aaa';
-        ctx.font = ds ? ds.font('xs') : '9px \'Lato\', sans-serif';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'top';
-        ctx.fillText(spirit.isReady ? 'READY' : 'ATB', atbX + atbWidth, atbY + atbHeight + 1);
+        // Check if casting
+        if (spirit.isCasting && spirit.castDuration > 0) {
+            // Casting bar - purple/magenta color
+            const castPercent = spirit.castTimer / spirit.castDuration;
+            ctx.fillStyle = '#a855f7'; // Purple for casting
+            ctx.fillRect(atbX, atbY, atbWidth * castPercent, atbHeight);
+            
+            // Casting label
+            ctx.fillStyle = '#a855f7';
+            ctx.font = ds ? ds.font('xs') : '9px \'Lato\', sans-serif';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'top';
+            ctx.fillText('CAST', atbX + atbWidth, atbY + atbHeight + 1);
+        } else {
+            // Normal ATB fill
+            const atbPercent = this.battleSystem ? spirit.atb / this.battleSystem.ATB_MAX : 0;
+            const atbFillColor = spirit.isReady ? '#ffd700' : '#888';
+            ctx.fillStyle = atbFillColor;
+            ctx.fillRect(atbX, atbY, atbWidth * atbPercent, atbHeight);
+            
+            // ATB label
+            ctx.fillStyle = spirit.isReady ? '#ffd700' : '#aaa';
+            ctx.font = ds ? ds.font('xs') : '9px \'Lato\', sans-serif';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'top';
+            ctx.fillText(spirit.isReady ? 'READY' : 'ATB', atbX + atbWidth, atbY + atbHeight + 1);
+        }
         
         ctx.globalAlpha = 1;
     }
@@ -5581,7 +5597,13 @@ class BattleState extends GameState {
         
         const ds = window.ds;
         const menuRenderer = this.game.menuRenderer;
-        const abilities = this.selectedPlayerSpirit.abilities || [];
+        // Filter out basic attack - we have a separate Attack option
+        const abilities = (this.selectedPlayerSpirit.abilities || []).filter(a => a.id !== 'attack');
+        
+        if (abilities.length === 0) {
+            // No abilities to show
+            return;
+        }
         
         // Menu dimensions - positioned to the right of action menu
         const padding = ds ? ds.spacing(4) : 16;
