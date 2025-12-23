@@ -1379,6 +1379,34 @@ class VisualScriptEditor {
                 continue;
             }
             
+            // Addgold
+            const addgoldMatch = line.match(/^addgold\s+(\d+);?$/);
+            if (addgoldMatch) {
+                targetBlocks.push(this.createBlock('addGold', { amount: parseInt(addgoldMatch[1]) }));
+                i++;
+                continue;
+            }
+            
+            // Delgold
+            const delgoldMatch = line.match(/^delgold\s+(\d+);?$/);
+            if (delgoldMatch) {
+                targetBlocks.push(this.createBlock('removeGold', { amount: parseInt(delgoldMatch[1]) }));
+                i++;
+                continue;
+            }
+            
+            // Teleport
+            const teleportMatch = line.match(/^teleport\s+"([^"]+)",\s*(\d+),\s*(\d+);?$/);
+            if (teleportMatch) {
+                targetBlocks.push(this.createBlock('teleport', { 
+                    mapId: teleportMatch[1], 
+                    x: parseInt(teleportMatch[2]), 
+                    y: parseInt(teleportMatch[3]) 
+                }));
+                i++;
+                continue;
+            }
+            
             // End
             if (line === 'end;' || line === 'end') {
                 targetBlocks.push(this.createBlock('end'));
