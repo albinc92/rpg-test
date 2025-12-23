@@ -1161,8 +1161,9 @@ class VisualScriptEditor {
                 stockInput.className = 'vse-field-input';
                 stockInput.style.cssText = 'flex: 1; min-width: 40px;';
                 stockInput.placeholder = 'Stock';
-                stockInput.title = 'Stock (0 = unlimited)';
-                stockInput.value = item.stock || 0;
+                stockInput.title = 'Stock (-1 = infinite, 0+ = limited)';
+                stockInput.min = -1;
+                stockInput.value = item.stock ?? -1;
                 stockInput.onchange = () => {
                     block.data[field.name][i].stock = Number(stockInput.value);
                     this.triggerChange();
@@ -1184,20 +1185,23 @@ class VisualScriptEditor {
                 list.appendChild(itemDiv);
             });
             
-            // Header labels
-            if (items.length === 0) {
-                const hint = document.createElement('div');
-                hint.style.cssText = 'color: #888; font-size: 11px; margin-bottom: 4px;';
-                hint.textContent = 'Item | Price | Stock (0=∞)';
-                list.insertBefore(hint, list.firstChild);
-            }
+            // Column headers (always show)
+            const headerDiv = document.createElement('div');
+            headerDiv.style.cssText = 'display: flex; gap: 4px; margin-bottom: 6px; padding: 0 2px;';
+            headerDiv.innerHTML = `
+                <span style="flex: 2; min-width: 120px; font-size: 11px; color: #888;">Item</span>
+                <span style="flex: 1; min-width: 50px; font-size: 11px; color: #888;">Price</span>
+                <span style="flex: 1; min-width: 40px; font-size: 11px; color: #888;" title="Stock (-1 = infinite)">Stock</span>
+                <span style="width: 24px;"></span>
+            `;
+            list.insertBefore(headerDiv, list.firstChild);
             
             const addBtn = document.createElement('button');
             addBtn.className = 'vse-choice-add';
             addBtn.textContent = '+ Add Shop Item';
             addBtn.onclick = () => {
                 if (!block.data[field.name]) block.data[field.name] = [];
-                block.data[field.name].push({ itemId: 'health_potion', price: 25, stock: 0 });
+                block.data[field.name].push({ itemId: 'health_potion', price: 25, stock: -1 });
                 this.render();
                 this.triggerChange();
             };
@@ -1464,15 +1468,15 @@ class VisualScriptEditor {
                 const items = [];
                 
                 if (shopMatch[2]) {
-                    // Parse items: "item_id", price, stock (optional), "item_id2", price2, ...
+                    // Parse items: "item_id", price, stock (optional, can be negative), "item_id2", price2, ...
                     const itemsStr = shopMatch[2];
-                    const itemRegex = /"([^"]+)"\s*,\s*(\d+)(?:\s*,\s*(\d+))?/g;
+                    const itemRegex = /"([^"]+)"\s*,\s*(\d+)(?:\s*,\s*(-?\d+))?/g;
                     let itemMatch;
                     while ((itemMatch = itemRegex.exec(itemsStr)) !== null) {
                         items.push({
                             itemId: itemMatch[1],
                             price: parseInt(itemMatch[2]),
-                            stock: itemMatch[3] ? parseInt(itemMatch[3]) : 0
+                            stock: itemMatch[3] ? parseInt(itemMatch[3]) : -1
                         });
                     }
                 }
