@@ -4588,6 +4588,9 @@ class BattleState extends GameState {
         this.transitionTimer = 0;
         this.transitionDuration = 1.0;
         
+        // Play transition sound effect
+        this.game.audioManager?.playEffect('transition.mp3');
+        
         // Results screen
         this.showingResults = false;
         this.resultsTimer = 0;
@@ -4957,14 +4960,11 @@ class BattleState extends GameState {
         // Draw active spirit indicator
         this.renderActiveSpiritIndicator(ctx, width, height);
         
-        // Draw ATB bars
-        this.renderATBBars(ctx, width, height);
-        
-        // Draw HP/MP bars
-        this.renderStatusBars(ctx, width, height);
-        
-        // Draw action log
+        // Draw action log first (bottom layer)
         this.renderActionLog(ctx, width, height);
+        
+        // Draw HP/MP/ATB status panel
+        this.renderStatusBars(ctx, width, height);
         
         // Draw damage numbers
         this.renderDamageNumbers(ctx);
@@ -5032,23 +5032,49 @@ class BattleState extends GameState {
     }
     
     renderPlayerCommander(ctx, width, height) {
-        const spriteX = 15;
-        const spriteY = 15;
-        const spriteSize = 64;
+        const ds = window.ds;
+        const menuRenderer = this.game.menuRenderer;
         
-        // Draw player sprite directly (no box)
+        // Panel dimensions - positioned at top-left with proper sizing
+        const panelX = ds ? ds.spacing(4) : 16;
+        const panelY = ds ? ds.spacing(4) : 16;
+        const panelWidth = ds ? ds.spacing(24) : 96;
+        const panelHeight = ds ? ds.spacing(28) : 112;
+        
+        // Draw panel background using design system
+        if (menuRenderer && menuRenderer.drawPanel) {
+            menuRenderer.drawPanel(ctx, panelX, panelY, panelWidth, panelHeight, 0.8);
+        } else {
+            ctx.fillStyle = 'rgba(10, 10, 20, 0.85)';
+            ctx.strokeStyle = ds ? ds.colors.primary : '#4a9eff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 4);
+            ctx.fill();
+            ctx.stroke();
+        }
+        
+        // Draw player sprite - full sprite, not cropped
         if (this.playerSprite && this.playerSprite._loaded) {
             const img = this.playerSprite;
-            // Get first frame if spritesheet
+            // Get first frame if spritesheet (facing down)
             const frameWidth = img.width / 4; // Assuming 4 columns
             const frameHeight = img.height / 4; // Assuming 4 rows
-            const scale = Math.min(spriteSize / frameWidth, spriteSize / frameHeight);
+            
+            // Calculate scale to fit within panel with padding
+            const maxSpriteWidth = panelWidth - (ds ? ds.spacing(4) : 16);
+            const maxSpriteHeight = panelHeight - (ds ? ds.spacing(4) : 16);
+            const scale = Math.min(maxSpriteWidth / frameWidth, maxSpriteHeight / frameHeight);
             const drawW = frameWidth * scale;
             const drawH = frameHeight * scale;
             
+            // Center sprite within panel
+            const spriteX = panelX + (panelWidth - drawW) / 2;
+            const spriteY = panelY + (panelHeight - drawH) / 2;
+            
             ctx.drawImage(
                 img,
-                0, 0, frameWidth, frameHeight, // Source (first frame)
+                0, 0, frameWidth, frameHeight, // Source (first frame - facing down)
                 spriteX,
                 spriteY,
                 drawW, drawH
@@ -5062,7 +5088,11 @@ class BattleState extends GameState {
         const activeSpirit = this.battleSystem.currentAction.user;
         if (!activeSpirit) return;
         
-        // Find the spirit's position
+        const ds = window.ds;
+        const spiritSize = ds ? ds.spacing(18) : 72;
+        const boxSize = spiritSize + (ds ? ds.spacing(4) : 16);
+        
+        // Find the spirit's position - using same calculations as renderCombatants
         const playerSpirits = this.battleSystem.playerParty;
         const enemySpirits = this.battleSystem.enemyParty;
         
@@ -5072,15 +5102,17 @@ class BattleState extends GameState {
         // Check player party
         const playerIndex = playerSpirits.indexOf(activeSpirit);
         if (playerIndex !== -1) {
-            spiritX = width * 0.2;
-            spiritY = height * 0.25 + playerIndex * (height * 0.15);
+            const playerSpacing = boxSize + (ds ? ds.spacing(4) : 16);
+            spiritX = width * 0.18;
+            spiritY = height * 0.2 + playerIndex * playerSpacing;
             isPlayer = true;
         } else {
             // Check enemy party
             const enemyIndex = enemySpirits.indexOf(activeSpirit);
             if (enemyIndex !== -1) {
-                spiritX = width * 0.75;
-                spiritY = height * 0.25 + enemyIndex * (height * 0.18);
+                const enemySpacing = boxSize + (ds ? ds.spacing(4) : 16);
+                spiritX = width * 0.78;
+                spiritY = height * 0.2 + enemyIndex * enemySpacing;
             } else {
                 return;
             }
@@ -5088,17 +5120,17 @@ class BattleState extends GameState {
         
         // Draw animated arrow indicator
         const time = Date.now() / 200;
-        const bounce = Math.sin(time) * 8;
+        const bounce = Math.sin(time) * 6;
         
         ctx.save();
         ctx.fillStyle = isPlayer ? '#4ade80' : '#ff6b6b';
         ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 1.5;
         
         // Arrow pointing down at the spirit
         const arrowX = spiritX;
-        const arrowY = spiritY - 60 + bounce;
-        const arrowSize = 15;
+        const arrowY = spiritY - boxSize / 2 - 25 + bounce;
+        const arrowSize = ds ? ds.spacing(3) : 12;
         
         ctx.beginPath();
         ctx.moveTo(arrowX, arrowY + arrowSize);
@@ -5114,7 +5146,6 @@ class BattleState extends GameState {
         
         // "ACTIVE" label
         ctx.fillStyle = '#fff';
-        const ds = window.ds;
         ctx.font = ds ? ds.font('xs', 'bold') : 'bold 10px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
@@ -5125,53 +5156,61 @@ class BattleState extends GameState {
     
     renderActionLog(ctx, width, height) {
         const ds = window.ds;
-        const logWidth = Math.min(600, width * 0.6);
-        const logHeight = 100;
+        const menuRenderer = this.game.menuRenderer;
+        
+        // Action log - positioned at bottom center, larger size
+        const logWidth = Math.min(700, width * 0.55);
+        const logHeight = ds ? ds.spacing(20) : 80;
         const logX = (width - logWidth) / 2;
-        const logY = height - logHeight - 10;
+        const logY = height - logHeight - (ds ? ds.spacing(4) : 16);
         
-        // Panel background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-        ctx.beginPath();
-        ctx.roundRect(logX, logY, logWidth, logHeight, 8);
-        ctx.fill();
-        
-        ctx.strokeStyle = '#555';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.roundRect(logX, logY, logWidth, logHeight, 8);
-        ctx.stroke();
+        // Draw panel background using design system
+        if (menuRenderer && menuRenderer.drawPanel) {
+            menuRenderer.drawPanel(ctx, logX, logY, logWidth, logHeight, 0.75);
+        } else {
+            ctx.fillStyle = 'rgba(10, 10, 20, 0.8)';
+            ctx.strokeStyle = ds ? ds.colors.alpha(ds.colors.text.primary, 0.15) : 'rgba(255,255,255,0.1)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(logX, logY, logWidth, logHeight, 4);
+            ctx.fill();
+            ctx.stroke();
+        }
         
         // Log entries (newest at bottom)
-        ctx.font = ds ? ds.font('sm') : '13px Arial';
+        const fontSize = ds ? ds.fontSize('xs') : 12;
+        ctx.font = ds ? ds.font('xs') : `${fontSize}px 'Lato', sans-serif`;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
-        const lineHeight = 18;
-        const maxLines = Math.floor((logHeight - 16) / lineHeight);
+        const lineHeight = fontSize * 1.4;
+        const padding = ds ? ds.spacing(3) : 12;
+        const maxLines = Math.floor((logHeight - padding * 2) / lineHeight);
         const visibleEntries = this.actionLog.slice(0, maxLines).reverse();
         
         visibleEntries.forEach((entry, index) => {
             // Fade older entries
             const age = (Date.now() - entry.time) / 1000;
-            const alpha = Math.max(0.4, 1 - age * 0.03);
+            const alpha = Math.max(0.4, 1 - age * 0.05);
             
-            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.fillStyle = ds ? ds.colors.alpha(ds.colors.text.primary, alpha) : `rgba(255, 255, 255, ${alpha})`;
             
             // Truncate long text based on width
             let text = entry.text;
-            const maxChars = Math.floor(logWidth / 8);
-            if (text.length > maxChars) {
-                text = text.substring(0, maxChars - 3) + '...';
+            const maxWidth = logWidth - padding * 2;
+            // Measure and truncate if needed
+            while (ctx.measureText(text).width > maxWidth && text.length > 3) {
+                text = text.substring(0, text.length - 4) + '...';
             }
             
-            ctx.fillText(text, logX + 12, logY + 8 + index * lineHeight);
+            ctx.fillText(text, logX + padding, logY + padding + index * lineHeight);
         });
         
         // If no entries, show placeholder
         if (this.actionLog.length === 0) {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.fillStyle = ds ? ds.colors.alpha(ds.colors.text.muted, 0.5) : 'rgba(255, 255, 255, 0.3)';
             ctx.textAlign = 'center';
-            ctx.fillText('Waiting for actions...', logX + logWidth / 2, logY + logHeight / 2 - 8);
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Waiting for actions...', logX + logWidth / 2, logY + logHeight / 2);
         }
     }
     
@@ -5179,59 +5218,51 @@ class BattleState extends GameState {
         if (!this.battleSystem) return;
         
         const ds = window.ds;
+        const spiritSize = ds ? ds.spacing(18) : 72;
+        const boxSize = spiritSize + (ds ? ds.spacing(4) : 16);
         
-        // Player party (left side)
+        // Player party (left side) - positioned in the upper-left area of the battlefield
         const playerSpirits = this.battleSystem.playerParty;
-        const playerStartY = height * 0.25;
-        const playerSpacing = height * 0.15;
+        const playerStartX = width * 0.18;
+        const playerStartY = height * 0.2;
+        const playerSpacing = boxSize + (ds ? ds.spacing(4) : 16);
         
         playerSpirits.forEach((spirit, index) => {
-            const x = width * 0.2;
+            const x = playerStartX;
             const y = playerStartY + index * playerSpacing;
-            this.renderSpirit(ctx, spirit, x, y, true);
             
-            // Highlight if selected
-            if (spirit === this.selectedPlayerSpirit) {
-                ctx.strokeStyle = '#ffd700';
-                ctx.lineWidth = 3;
-                ctx.strokeRect(x - 50, y - 50, 100, 100);
-            }
+            // Check if this spirit is selected (highlight handled in renderSpirit via isReady)
+            const isSelected = spirit === this.selectedPlayerSpirit;
+            this.renderSpirit(ctx, spirit, x, y, true, isSelected);
         });
         
-        // Enemy party (right side)
+        // Enemy party (right side) - positioned in the upper-right area
         const enemySpirits = this.battleSystem.enemyParty;
-        const enemyStartY = height * 0.25;
-        const enemySpacing = height * 0.18;
+        const enemyStartX = width * 0.78;
+        const enemyStartY = height * 0.2;
+        const enemySpacing = boxSize + (ds ? ds.spacing(4) : 16);
         
         enemySpirits.forEach((spirit, index) => {
-            const x = width * 0.75;
+            const x = enemyStartX;
             const y = enemyStartY + index * enemySpacing;
-            this.renderSpirit(ctx, spirit, x, y, false);
             
             // Target indicator
+            let isTargeted = false;
             if (this.phase === 'target_select') {
                 const targets = this.getSelectableTargets();
-                if (targets[this.selectedTargetIndex] === spirit) {
-                    ctx.strokeStyle = '#ff4444';
-                    ctx.lineWidth = 3;
-                    ctx.strokeRect(x - 55, y - 55, 110, 110);
-                    
-                    // Animated cursor
-                    const cursorBob = Math.sin(Date.now() / 200) * 5;
-                    ctx.fillStyle = '#ff4444';
-                    ctx.beginPath();
-                    ctx.moveTo(x - 70 + cursorBob, y);
-                    ctx.lineTo(x - 55 + cursorBob, y - 10);
-                    ctx.lineTo(x - 55 + cursorBob, y + 10);
-                    ctx.fill();
-                }
+                isTargeted = targets[this.selectedTargetIndex] === spirit;
             }
+            
+            this.renderSpirit(ctx, spirit, x, y, false, false, isTargeted);
         });
     }
     
-    renderSpirit(ctx, spirit, x, y, facingRight) {
+    renderSpirit(ctx, spirit, x, y, facingRight, isSelected = false, isTargeted = false) {
         const ds = window.ds;
-        const size = 80;
+        const menuRenderer = this.game.menuRenderer;
+        const size = ds ? ds.spacing(18) : 72;
+        const boxPadding = ds ? ds.spacing(2) : 8;
+        const boxSize = size + boxPadding * 2;
         
         // Type colors as fallback
         const typeColors = {
@@ -5246,6 +5277,46 @@ class BattleState extends GameState {
         // Death effect
         if (!spirit.isAlive) {
             ctx.globalAlpha = 0.3;
+        }
+        
+        // Draw spirit box background
+        const boxX = x - boxSize / 2;
+        const boxY = y - boxSize / 2;
+        ctx.fillStyle = 'rgba(10, 10, 20, 0.6)';
+        
+        // Determine border style based on state
+        let borderColor, borderWidth;
+        if (isSelected) {
+            borderColor = '#ffd700';
+            borderWidth = 3;
+        } else if (isTargeted) {
+            borderColor = '#ff4444';
+            borderWidth = 3;
+        } else if (spirit.isReady) {
+            borderColor = '#ffd700';
+            borderWidth = 2;
+        } else {
+            borderColor = ds ? ds.colors.alpha(ds.colors.text.primary, 0.2) : 'rgba(255,255,255,0.2)';
+            borderWidth = 1;
+        }
+        
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = borderWidth;
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxSize, boxSize, 4);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Target cursor animation
+        if (isTargeted) {
+            const cursorBob = Math.sin(Date.now() / 200) * 5;
+            ctx.fillStyle = '#ff4444';
+            ctx.beginPath();
+            ctx.moveTo(boxX - 15 + cursorBob, y);
+            ctx.lineTo(boxX - 5 + cursorBob, y - 8);
+            ctx.lineTo(boxX - 5 + cursorBob, y + 8);
+            ctx.closePath();
+            ctx.fill();
         }
         
         // Try to draw sprite image
@@ -5266,7 +5337,7 @@ class BattleState extends GameState {
             if (spirit._spriteImage._loaded) {
                 // Calculate sprite dimensions to fit within size while maintaining aspect ratio
                 const img = spirit._spriteImage;
-                const scale = Math.min(size * 1.5 / img.width, size * 1.5 / img.height);
+                const scale = Math.min(size / img.width, size / img.height);
                 const drawWidth = img.width * scale;
                 const drawHeight = img.height * scale;
                 
@@ -5291,7 +5362,7 @@ class BattleState extends GameState {
         // Fallback to colored rectangle if no sprite
         if (!spriteDrawn) {
             ctx.fillStyle = color;
-            ctx.fillRect(x - size/2, y - size/2, size, size);
+            ctx.fillRect(x - size/2 + boxPadding, y - size/2 + boxPadding, size - boxPadding*2, size - boxPadding*2);
             
             // Draw type indicator on placeholder
             ctx.fillStyle = '#fff';
@@ -5301,154 +5372,150 @@ class BattleState extends GameState {
             ctx.fillText(spirit.type1?.toUpperCase() || '???', x, y);
         }
         
-        // Draw name
-        ctx.fillStyle = spirit.isAlive ? '#fff' : '#888';
-        ctx.font = ds ? ds.font('sm', 'bold') : 'bold 14px Arial';
+        // Draw name below box
+        ctx.fillStyle = spirit.isAlive ? (ds ? ds.colors.text.primary : '#fff') : (ds ? ds.colors.text.disabled : '#666');
+        ctx.font = ds ? ds.font('xs', 'bold') : 'bold 12px \'Lato\', sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillText(spirit.name, x, y + size/2 + 5);
-        
-        // Draw level
-        ctx.font = ds ? ds.font('xs') : '12px Arial';
-        ctx.fillText(`Lv.${spirit.level}`, x, y + size/2 + 22);
+        ctx.fillText(spirit.name, x, boxY + boxSize + 4);
         
         ctx.globalAlpha = 1;
     }
     
-    renderATBBars(ctx, width, height) {
-        if (!this.battleSystem) return;
-        
-        const ds = window.ds;
-        const barWidth = 100;
-        const barHeight = 8;
-        const startX = 20;
-        const startY = height - 200;
-        
-        const playerSpirits = this.battleSystem.playerParty;
-        playerSpirits.forEach((spirit, index) => {
-            if (!spirit.isAlive) return;
-            
-            const y = startY + index * 50;
-            
-            // ATB bar background
-            ctx.fillStyle = '#333';
-            ctx.fillRect(startX, y, barWidth, barHeight);
-            
-            // ATB bar fill
-            const atbPercent = spirit.atb / this.battleSystem.ATB_MAX;
-            const fillColor = spirit.isReady ? '#ffd700' : '#4a9eff';
-            ctx.fillStyle = fillColor;
-            ctx.fillRect(startX, y, barWidth * atbPercent, barHeight);
-            
-            // Border
-            ctx.strokeStyle = '#666';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(startX, y, barWidth, barHeight);
-            
-            // Label
-            ctx.fillStyle = '#fff';
-            ctx.font = ds ? ds.font('xs') : '12px Arial';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText(spirit.name, startX, y - 2);
-        });
-    }
+    // ATB bars are now integrated into renderStatusBars
     
     renderStatusBars(ctx, width, height) {
         if (!this.battleSystem) return;
         
         const ds = window.ds;
-        const panelX = 20;
-        const panelY = height - 180;
-        const panelWidth = 280;
-        const panelHeight = 160;
+        const menuRenderer = this.game.menuRenderer;
         
-        // Panel background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.beginPath();
-        ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 8);
-        ctx.fill();
+        // Panel dimensions - bottom-left, above action log
+        const padding = ds ? ds.spacing(4) : 16;
+        const panelWidth = ds ? ds.spacing(50) : 200;
+        const rowHeight = ds ? ds.spacing(8) : 32;
+        const playerSpirits = this.battleSystem.playerParty;
+        const panelHeight = padding * 2 + playerSpirits.slice(0, 4).length * rowHeight;
+        const panelX = padding;
+        const panelY = height - panelHeight - (ds ? ds.spacing(28) : 112); // Above action log
         
-        ctx.strokeStyle = ds ? ds.colors.border : '#444';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 8);
-        ctx.stroke();
+        // Draw panel background using design system
+        if (menuRenderer && menuRenderer.drawPanel) {
+            menuRenderer.drawPanel(ctx, panelX, panelY, panelWidth, panelHeight, 0.85);
+        } else {
+            ctx.fillStyle = 'rgba(10, 10, 20, 0.9)';
+            ctx.strokeStyle = ds ? ds.colors.alpha(ds.colors.text.primary, 0.15) : 'rgba(255,255,255,0.1)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 4);
+            ctx.fill();
+            ctx.stroke();
+        }
         
         // Player spirit stats
-        const playerSpirits = this.battleSystem.playerParty;
+        const fontSize = ds ? ds.fontSize('xs') : 11;
+        const nameFontSize = ds ? ds.fontSize('sm') : 13;
+        
         playerSpirits.slice(0, 4).forEach((spirit, index) => {
-            const rowY = panelY + 15 + index * 35;
-            const nameX = panelX + 15;
-            const hpX = panelX + 100;
-            const mpX = panelX + 190;
+            const rowY = panelY + padding + index * rowHeight;
+            const contentX = panelX + padding;
             
-            // Name
-            ctx.fillStyle = spirit.isAlive ? '#fff' : '#666';
-            ctx.font = ds ? ds.font('sm', 'bold') : 'bold 14px Arial';
+            // Name with ATB indicator
+            const nameColor = !spirit.isAlive ? (ds ? ds.colors.text.disabled : '#666') :
+                              spirit.isReady ? '#ffd700' : (ds ? ds.colors.text.primary : '#fff');
+            ctx.fillStyle = nameColor;
+            ctx.font = ds ? ds.font('sm', 'bold') : `bold ${nameFontSize}px 'Lato', sans-serif`;
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
-            ctx.fillText(spirit.name.substring(0, 8), nameX, rowY);
+            ctx.fillText(spirit.name.substring(0, 10), contentX, rowY);
+            
+            // Ready indicator
+            if (spirit.isReady && spirit.isAlive) {
+                ctx.fillStyle = '#ffd700';
+                ctx.fillText(' ▸', contentX + ctx.measureText(spirit.name.substring(0, 10)).width, rowY);
+            }
+            
+            // HP/MP on second line
+            const statsY = rowY + nameFontSize + 2;
+            ctx.font = ds ? ds.font('xs') : `${fontSize}px 'Lato', sans-serif`;
             
             // HP
-            ctx.fillStyle = '#ff6b6b';
-            ctx.font = ds ? ds.font('xs') : '12px Arial';
-            ctx.textAlign = 'left';
-            ctx.fillText(`HP`, hpX, rowY);
-            ctx.fillStyle = '#fff';
-            ctx.fillText(`${spirit.currentHp}/${spirit.maxHp}`, hpX + 25, rowY);
+            const hpPercent = spirit.maxHp > 0 ? spirit.currentHp / spirit.maxHp : 0;
+            const hpColor = hpPercent > 0.5 ? '#4ade80' : hpPercent > 0.25 ? '#fbbf24' : '#ef4444';
+            ctx.fillStyle = hpColor;
+            ctx.fillText(`${spirit.currentHp}/${spirit.maxHp}`, contentX, statsY);
             
             // MP
-            ctx.fillStyle = '#4da6ff';
-            ctx.fillText(`MP`, mpX, rowY);
-            ctx.fillStyle = '#fff';
-            ctx.fillText(`${spirit.currentMp}/${spirit.maxMp}`, mpX + 25, rowY);
+            ctx.fillStyle = ds ? ds.colors.primary : '#4da6ff';
+            const mpX = contentX + (ds ? ds.spacing(18) : 72);
+            ctx.fillText(`${spirit.currentMp}/${spirit.maxMp}`, mpX, statsY);
         });
     }
     
     renderActionMenu(ctx, width, height) {
         const ds = window.ds;
-        const menuX = width * 0.35;
-        const menuY = height * 0.5;
-        const menuWidth = 150;
-        const menuHeight = this.menuOptions.length * 35 + 20;
+        const menuRenderer = this.game.menuRenderer;
         
-        // Menu background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
-        ctx.beginPath();
-        ctx.roundRect(menuX, menuY, menuWidth, menuHeight, 8);
-        ctx.fill();
+        // Menu dimensions - positioned at left side, middle-bottom
+        const padding = ds ? ds.spacing(4) : 16;
+        const itemHeight = ds ? ds.spacing(7) : 28;
+        const menuWidth = ds ? ds.spacing(32) : 128;
+        const menuHeight = this.menuOptions.length * itemHeight + padding * 2;
+        const menuX = ds ? ds.spacing(30) : 120; // To the right of status panel
+        const menuY = height - menuHeight - (ds ? ds.spacing(28) : 112); // Above action log
         
-        ctx.strokeStyle = ds ? ds.colors.primary : '#4a9eff';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.roundRect(menuX, menuY, menuWidth, menuHeight, 8);
-        ctx.stroke();
+        // Draw panel background using design system
+        if (menuRenderer && menuRenderer.drawPanel) {
+            menuRenderer.drawPanel(ctx, menuX, menuY, menuWidth, menuHeight, 0.9);
+        } else {
+            ctx.fillStyle = 'rgba(10, 10, 20, 0.92)';
+            ctx.strokeStyle = ds ? ds.colors.primary : '#4a9eff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(menuX, menuY, menuWidth, menuHeight, 4);
+            ctx.fill();
+            ctx.stroke();
+        }
         
         // Menu options
+        const fontSize = ds ? ds.fontSize('sm') : 14;
         this.menuOptions.forEach((option, index) => {
-            const optionY = menuY + 15 + index * 35;
+            const optionY = menuY + padding + index * itemHeight;
             const isSelected = index === this.selectedMenuOption;
             const isDisabled = (option === 'Flee' && !this.battleSystem?.canFlee) ||
                              (option === 'Seal' && !this.battleSystem?.canSeal);
             
             // Selection highlight
-            if (isSelected) {
-                ctx.fillStyle = ds ? ds.colors.primary + '40' : 'rgba(74, 158, 255, 0.25)';
-                ctx.fillRect(menuX + 5, optionY - 5, menuWidth - 10, 30);
+            if (isSelected && ds) {
+                ds.drawSelectionHighlight(ctx, menuX + 2, optionY - 2, menuWidth - 4, itemHeight);
+            } else if (isSelected) {
+                ctx.fillStyle = 'rgba(74, 158, 255, 0.2)';
+                ctx.fillRect(menuX + 4, optionY - 2, menuWidth - 8, itemHeight);
             }
             
             // Option text
-            ctx.fillStyle = isDisabled ? '#666' : (isSelected ? '#fff' : '#aaa');
-            ctx.font = ds ? ds.font('md', isSelected ? 'bold' : 'normal') : `${isSelected ? 'bold ' : ''}16px Arial`;
+            ctx.fillStyle = isDisabled ? (ds ? ds.colors.text.disabled : '#555') : 
+                           (isSelected ? (ds ? ds.colors.text.primary : '#fff') : 
+                           (ds ? ds.colors.text.secondary : '#aaa'));
+            ctx.font = ds ? ds.font('sm', isSelected ? 'bold' : 'normal') : 
+                      `${isSelected ? 'bold ' : ''}${fontSize}px 'Lato', sans-serif`;
             ctx.textAlign = 'left';
-            ctx.textBaseline = 'top';
-            ctx.fillText(option, menuX + 20, optionY);
+            ctx.textBaseline = 'middle';
+            ctx.fillText(option, menuX + padding + (ds ? ds.spacing(4) : 16), optionY + itemHeight / 2);
             
-            // Cursor
+            // Selection diamond cursor
             if (isSelected) {
-                ctx.fillStyle = '#ffd700';
-                ctx.fillText('▶', menuX + 8, optionY);
+                ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
+                const diamondX = menuX + padding;
+                const diamondY = optionY + itemHeight / 2;
+                const diamondSize = ds ? ds.spacing(1.5) : 6;
+                ctx.beginPath();
+                ctx.moveTo(diamondX, diamondY - diamondSize);
+                ctx.lineTo(diamondX + diamondSize, diamondY);
+                ctx.lineTo(diamondX, diamondY + diamondSize);
+                ctx.lineTo(diamondX - diamondSize, diamondY);
+                ctx.closePath();
+                ctx.fill();
             }
         });
     }
@@ -5457,71 +5524,90 @@ class BattleState extends GameState {
         if (!this.selectedPlayerSpirit) return;
         
         const ds = window.ds;
+        const menuRenderer = this.game.menuRenderer;
         const abilities = this.selectedPlayerSpirit.abilities || [];
-        const menuX = width * 0.35;
-        const menuY = height * 0.4;
-        const menuWidth = 200;
-        const menuHeight = abilities.length * 40 + 30;
         
-        // Menu background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
-        ctx.beginPath();
-        ctx.roundRect(menuX, menuY, menuWidth, menuHeight, 8);
-        ctx.fill();
+        // Menu dimensions - positioned to the right of action menu
+        const padding = ds ? ds.spacing(4) : 16;
+        const titleHeight = ds ? ds.spacing(7) : 28;
+        const itemHeight = ds ? ds.spacing(9) : 36;
+        const menuWidth = ds ? ds.spacing(45) : 180;
+        const menuHeight = titleHeight + abilities.length * itemHeight + padding * 2;
+        const menuX = ds ? ds.spacing(64) : 256; // To the right of action menu
+        const menuY = height - menuHeight - (ds ? ds.spacing(28) : 112); // Above action log
         
-        ctx.strokeStyle = ds ? ds.colors.secondary : '#8b5cf6';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.roundRect(menuX, menuY, menuWidth, menuHeight, 8);
-        ctx.stroke();
+        // Draw panel background using design system
+        if (menuRenderer && menuRenderer.drawPanel) {
+            menuRenderer.drawPanel(ctx, menuX, menuY, menuWidth, menuHeight, 0.9);
+        } else {
+            ctx.fillStyle = 'rgba(10, 10, 20, 0.92)';
+            ctx.strokeStyle = '#8b5cf6';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(menuX, menuY, menuWidth, menuHeight, 4);
+            ctx.fill();
+            ctx.stroke();
+        }
         
         // Title
-        ctx.fillStyle = '#fff';
-        ctx.font = ds ? ds.font('sm', 'bold') : 'bold 14px Arial';
+        ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
+        ctx.font = ds ? ds.font('sm', 'bold') : 'bold 14px \'Lato\', sans-serif';
         ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        ctx.fillText('Abilities', menuX + 15, menuY + 8);
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Abilities', menuX + padding, menuY + padding + titleHeight / 2);
         
         // Abilities
         abilities.forEach((ability, index) => {
-            const abilityY = menuY + 35 + index * 40;
+            const abilityY = menuY + padding + titleHeight + index * itemHeight;
             const isSelected = index === this.selectedAbilityIndex;
             const canUse = this.selectedPlayerSpirit.currentMp >= ability.mpCost;
             
             // Selection highlight
-            if (isSelected) {
-                ctx.fillStyle = ds ? ds.colors.secondary + '40' : 'rgba(139, 92, 246, 0.25)';
-                ctx.fillRect(menuX + 5, abilityY - 5, menuWidth - 10, 35);
+            if (isSelected && ds) {
+                ds.drawSelectionHighlight(ctx, menuX + 2, abilityY, menuWidth - 4, itemHeight);
+            } else if (isSelected) {
+                ctx.fillStyle = 'rgba(139, 92, 246, 0.2)';
+                ctx.fillRect(menuX + 4, abilityY, menuWidth - 8, itemHeight);
             }
             
             // Ability name
-            ctx.fillStyle = canUse ? (isSelected ? '#fff' : '#aaa') : '#666';
-            ctx.font = ds ? ds.font('sm', isSelected ? 'bold' : 'normal') : `${isSelected ? 'bold ' : ''}14px Arial`;
+            ctx.fillStyle = canUse ? (isSelected ? (ds ? ds.colors.text.primary : '#fff') : 
+                           (ds ? ds.colors.text.secondary : '#aaa')) : (ds ? ds.colors.text.disabled : '#555');
+            ctx.font = ds ? ds.font('sm', isSelected ? 'bold' : 'normal') : `${isSelected ? 'bold ' : ''}14px 'Lato', sans-serif`;
             ctx.textAlign = 'left';
-            ctx.textBaseline = 'top';
-            ctx.fillText(ability.name, menuX + 20, abilityY);
+            ctx.textBaseline = 'middle';
+            ctx.fillText(ability.name, menuX + padding + (ds ? ds.spacing(4) : 16), abilityY + itemHeight / 2 - 6);
             
             // MP cost
-            ctx.fillStyle = canUse ? '#4da6ff' : '#666';
-            ctx.font = ds ? ds.font('xs') : '12px Arial';
+            ctx.fillStyle = canUse ? (ds ? ds.colors.primary : '#4da6ff') : (ds ? ds.colors.text.disabled : '#555');
+            ctx.font = ds ? ds.font('xs') : '11px \'Lato\', sans-serif';
             ctx.textAlign = 'right';
-            ctx.fillText(`${ability.mpCost} MP`, menuX + menuWidth - 15, abilityY + 2);
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${ability.mpCost} MP`, menuX + menuWidth - padding, abilityY + itemHeight / 2 - 6);
             
             // Element indicator
             if (ability.element) {
                 const elementColors = { fire: '#ff6b35', water: '#4da6ff', earth: '#8b7355', wind: '#98fb98' };
                 ctx.fillStyle = elementColors[ability.element] || '#888';
-                ctx.font = ds ? ds.font('xs') : '11px Arial';
+                ctx.font = ds ? ds.font('xs') : '10px \'Lato\', sans-serif';
                 ctx.textAlign = 'left';
-                ctx.fillText(ability.element.toUpperCase(), menuX + 20, abilityY + 16);
+                ctx.textBaseline = 'middle';
+                ctx.fillText(ability.element.toUpperCase(), menuX + padding + (ds ? ds.spacing(4) : 16), abilityY + itemHeight / 2 + 8);
             }
             
-            // Cursor
+            // Selection diamond cursor
             if (isSelected) {
-                ctx.fillStyle = '#ffd700';
-                ctx.font = ds ? ds.font('sm') : '14px Arial';
-                ctx.textAlign = 'left';
-                ctx.fillText('▶', menuX + 8, abilityY);
+                ctx.fillStyle = '#8b5cf6';
+                const diamondX = menuX + padding;
+                const diamondY = abilityY + itemHeight / 2;
+                const diamondSize = ds ? ds.spacing(1.5) : 6;
+                ctx.beginPath();
+                ctx.moveTo(diamondX, diamondY - diamondSize);
+                ctx.lineTo(diamondX + diamondSize, diamondY);
+                ctx.lineTo(diamondX, diamondY + diamondSize);
+                ctx.lineTo(diamondX - diamondSize, diamondY);
+                ctx.closePath();
+                ctx.fill();
             }
         });
     }
@@ -5548,6 +5634,7 @@ class BattleState extends GameState {
         if (!this.battleSystem) return;
         
         const ds = window.ds;
+        const menuRenderer = this.game.menuRenderer;
         const result = this.battleSystem.result;
         const rewards = this.battleSystem.rewards;
         
@@ -5555,67 +5642,85 @@ class BattleState extends GameState {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.fillRect(0, 0, width, height);
         
-        // Results box
-        const boxWidth = 400;
-        const boxHeight = 300;
+        // Results box - use design system sizing
+        const boxWidth = ds ? ds.spacing(80) : 320;
+        const boxHeight = ds ? ds.spacing(60) : 240;
         const boxX = (width - boxWidth) / 2;
         const boxY = (height - boxHeight) / 2;
+        const padding = ds ? ds.spacing(6) : 24;
         
-        ctx.fillStyle = 'rgba(20, 20, 40, 0.95)';
-        ctx.beginPath();
-        ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 12);
-        ctx.fill();
+        // Draw panel background using design system
+        if (menuRenderer && menuRenderer.drawPanel) {
+            menuRenderer.drawPanel(ctx, boxX, boxY, boxWidth, boxHeight, 0.95);
+        } else {
+            ctx.fillStyle = 'rgba(10, 10, 20, 0.95)';
+            ctx.beginPath();
+            ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 8);
+            ctx.fill();
+        }
         
-        ctx.strokeStyle = result === 'victory' ? '#ffd700' : '#ff4444';
+        // Border with result color
+        ctx.strokeStyle = result === 'victory' ? '#ffd700' : (result === 'fled' ? '#888' : '#ff4444');
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 12);
+        ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 8);
         ctx.stroke();
         
+        // Draw corner accents
+        if (ds) {
+            ds.drawCornerAccents(ctx, boxX, boxY, boxWidth, boxHeight, ctx.strokeStyle);
+        }
+        
         // Result title
-        ctx.fillStyle = result === 'victory' ? '#ffd700' : (result === 'fled' ? '#aaa' : '#ff4444');
-        ctx.font = ds ? ds.font('2xl', 'bold') : 'bold 32px Arial';
+        ctx.fillStyle = result === 'victory' ? '#ffd700' : (result === 'fled' ? '#888' : '#ff4444');
+        ctx.font = ds ? ds.font('xl', 'bold', 'display') : 'bold 28px Cinzel, serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         
         const titleText = result === 'victory' ? 'VICTORY!' : (result === 'fled' ? 'ESCAPED' : 'DEFEAT');
-        ctx.fillText(titleText, width / 2, boxY + 30);
+        ctx.fillText(titleText, width / 2, boxY + padding);
+        
+        // Content area
+        const contentY = boxY + padding + (ds ? ds.fontSize('xl') : 28) + padding;
         
         // Rewards (only for victory)
         if (result === 'victory') {
-            ctx.fillStyle = '#fff';
-            ctx.font = ds ? ds.font('lg') : '20px Arial';
+            ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
+            ctx.font = ds ? ds.font('md') : '16px Lato, sans-serif';
             ctx.textAlign = 'center';
             
-            ctx.fillText(`EXP Gained: ${rewards.exp}`, width / 2, boxY + 100);
-            ctx.fillText(`Gold Earned: ${rewards.gold} 💰`, width / 2, boxY + 140);
+            ctx.fillText(`EXP Gained: ${rewards.exp}`, width / 2, contentY);
+            ctx.fillText(`Gold Earned: ${rewards.gold}`, width / 2, contentY + (ds ? ds.spacing(8) : 32));
             
             // Items
             if (rewards.items && rewards.items.length > 0) {
-                ctx.fillText('Items Found:', width / 2, boxY + 180);
-                rewards.items.forEach((item, i) => {
-                    ctx.font = ds ? ds.font('md') : '16px Arial';
-                    ctx.fillText(`• ${item.name}`, width / 2, boxY + 210 + i * 25);
+                ctx.fillStyle = ds ? ds.colors.text.secondary : '#aaa';
+                ctx.fillText('Items Found:', width / 2, contentY + (ds ? ds.spacing(18) : 72));
+                
+                ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
+                ctx.font = ds ? ds.font('sm') : '14px Lato, sans-serif';
+                rewards.items.slice(0, 3).forEach((item, i) => {
+                    ctx.fillText(`• ${item.name}`, width / 2, contentY + (ds ? ds.spacing(24) : 96) + i * (ds ? ds.spacing(5) : 20));
                 });
             }
         } else if (result === 'fled') {
-            ctx.fillStyle = '#aaa';
-            ctx.font = ds ? ds.font('md') : '16px Arial';
+            ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
+            ctx.font = ds ? ds.font('md') : '16px Lato, sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('You escaped from battle.', width / 2, boxY + 120);
+            ctx.fillText('You escaped from battle.', width / 2, contentY + (ds ? ds.spacing(6) : 24));
         } else {
             ctx.fillStyle = '#ff4444';
-            ctx.font = ds ? ds.font('md') : '16px Arial';
+            ctx.font = ds ? ds.font('md') : '16px Lato, sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('Your party was defeated...', width / 2, boxY + 120);
+            ctx.fillText('Your party was defeated...', width / 2, contentY + (ds ? ds.spacing(6) : 24));
         }
         
         // Continue prompt
         if (this.resultsTimer > 1.0) {
-            ctx.fillStyle = '#888';
-            ctx.font = ds ? ds.font('sm') : '14px Arial';
+            ctx.fillStyle = ds ? ds.colors.text.muted : '#666';
+            ctx.font = ds ? ds.font('xs') : '12px Lato, sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('Press CONFIRM to continue', width / 2, boxY + boxHeight - 30);
+            ctx.fillText('Press CONFIRM to continue', width / 2, boxY + boxHeight - padding);
         }
     }
     
