@@ -1354,6 +1354,31 @@ class VisualScriptEditor {
                 continue;
             }
             
+            // Shop
+            const shopMatch = line.match(/^shop\s+"([^"]+)"(?:\s*,\s*(.+))?;?$/);
+            if (shopMatch) {
+                const shopName = shopMatch[1];
+                const items = [];
+                
+                if (shopMatch[2]) {
+                    // Parse items: "item_id", price, stock (optional), "item_id2", price2, ...
+                    const itemsStr = shopMatch[2];
+                    const itemRegex = /"([^"]+)"\s*,\s*(\d+)(?:\s*,\s*(\d+))?/g;
+                    let itemMatch;
+                    while ((itemMatch = itemRegex.exec(itemsStr)) !== null) {
+                        items.push({
+                            itemId: itemMatch[1],
+                            price: parseInt(itemMatch[2]),
+                            stock: itemMatch[3] ? parseInt(itemMatch[3]) : 0
+                        });
+                    }
+                }
+                
+                targetBlocks.push(this.createBlock('shop', { shopName: shopName, items: items }));
+                i++;
+                continue;
+            }
+            
             // End
             if (line === 'end;' || line === 'end') {
                 targetBlocks.push(this.createBlock('end'));
