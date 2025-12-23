@@ -1081,6 +1081,7 @@ class PausedState extends GameState {
 
         if (this.showExitConfirm) {
             if (inputManager.isJustPressed('cancel')) {
+                this.game.audioManager?.playEffect('cancel.mp3');
                 this.showExitConfirm = false;
                 return;
             }
@@ -1105,6 +1106,7 @@ class PausedState extends GameState {
         }
 
         if (inputManager.isJustPressed('menu') || inputManager.isJustPressed('cancel')) {
+            this.game.audioManager?.playEffect('cancel.mp3');
             this.stateManager.popState();
             return;
         }
@@ -1223,6 +1225,7 @@ class SaveLoadState extends GameState {
         // Handle confirmation dialogs first (block all other input)
         if (this.mode === 'delete_confirm' || this.mode === 'overwrite_confirm') {
             if (inputManager.isJustPressed('cancel')) {
+                this.game.audioManager?.playEffect('cancel.mp3');
                 // Cancel confirmation
                 this.mode = this.previousMode;
                 this.selectedOption = this.previousSelection;
@@ -1259,6 +1262,7 @@ class SaveLoadState extends GameState {
         
         // Normal menu input handling
         if (inputManager.isJustPressed('cancel')) {
+            this.game.audioManager?.playEffect('cancel.mp3');
             if (this.mode === 'main') {
                 this.stateManager.popState();
             } else if (this.fromMainMenu) {
@@ -2081,6 +2085,7 @@ class SettingsState extends GameState {
                 }
             }
             if (inputManager.isJustPressed('cancel')) {
+                this.game.audioManager?.playEffect('cancel.mp3');
                 this.showResetModal = false;
             }
             return;
@@ -2120,12 +2125,14 @@ class SettingsState extends GameState {
                 }
             }
             if (inputManager.isJustPressed('cancel')) {
+                this.game.audioManager?.playEffect('cancel.mp3');
                 this.showExitModal = false;
             }
             return;
         }
 
         if (inputManager.isJustPressed('cancel')) {
+            this.game.audioManager?.playEffect('cancel.mp3');
             this.checkChangesAndExit();
             return;
         }
@@ -3061,6 +3068,7 @@ class InventoryState extends GameState {
         if (this.inputCooldown > 0) return;
 
         if (inputManager.isJustPressed('cancel') || inputManager.isJustPressed('inventory') || inputManager.isJustPressed('menu')) {
+            this.game.audioManager?.playEffect('cancel.mp3');
             this.stateManager.popState();
             return;
         }
@@ -3080,6 +3088,7 @@ class InventoryState extends GameState {
         }
         
         if (inputManager.isJustPressed('confirm')) {
+            this.game.audioManager?.playEffect('click.mp3');
             this.useItem();
         }
     }
@@ -3481,7 +3490,7 @@ class DialogueState extends GameState {
             if (this.isShowingChoices) {
                 // Select choice
                 if (this.choiceResolver) {
-                    this.game.audioManager?.playEffect('speech-bubble.mp3');
+                    this.game.audioManager?.playEffect('speech-yes.mp3');
                     // Consume the key press so it doesn't trigger the next state
                     inputManager.consumePress('confirm');
                     inputManager.consumePress('interact');
@@ -3987,6 +3996,7 @@ class ShopState extends GameState {
         // Close shop
         if (inputManager.isJustPressed('cancel') || inputManager.isJustPressed('menu')) {
             console.log('[ShopState] CLOSING shop via cancel/menu');
+            this.game.audioManager?.playEffect('cancel.mp3');
             this.stateManager.popState();
             return;
         }
@@ -4024,6 +4034,7 @@ class ShopState extends GameState {
         
         // Confirm (buy/sell)
         if (inputManager.isJustPressed('confirm')) {
+            this.game.audioManager?.playEffect('click.mp3');
             this.startTransaction();
         }
     }
@@ -4031,7 +4042,7 @@ class ShopState extends GameState {
     handleQuantityInput(inputManager) {
         if (inputManager.isJustPressed('cancel')) {
             this.isSelectingQuantity = false;
-            this.game.audioManager?.playEffect('menu-cancel.mp3');
+            this.game.audioManager?.playEffect('cancel.mp3');
             return;
         }
         
@@ -4056,6 +4067,7 @@ class ShopState extends GameState {
         }
         
         if (inputManager.isJustPressed('confirm')) {
+            this.game.audioManager?.playEffect('click.mp3');
             this.confirmTransaction();
         }
     }
