@@ -245,6 +245,36 @@
     "loadFailed": "Failed to load"
   },
   
+  "shop": {
+    "tabs": {
+      "buy": "Buy",
+      "sell": "Sell"
+    },
+    "empty": {
+      "buy": "No items for sale",
+      "sell": "Nothing to sell"
+    },
+    "price": "Price",
+    "sellFor": "Sell for",
+    "stock": "Stock",
+    "notEnoughGold": "Not enough gold!",
+    "quantity": {
+      "buy": "Buy Quantity",
+      "sell": "Sell Quantity"
+    },
+    "total": "Total",
+    "hints": "← → Switch Tab  |  ↑ ↓ Navigate  |  ENTER Select  |  ESC Close",
+    "quantityHints": "ENTER to confirm  |  ESC to cancel",
+    "rarity": {
+      "common": "Common",
+      "uncommon": "Uncommon",
+      "rare": "Rare",
+      "epic": "Epic",
+      "legendary": "Legendary"
+    },
+    "noDescription": "No description available."
+  },
+  
   "loading": {
     "loading": "Loading...",
     "audio": "Loading audio...",

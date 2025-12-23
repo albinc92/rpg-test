@@ -3875,6 +3875,9 @@ class ShopState extends GameState {
         this.selectedQuantity = 1;
         this.maxQuantity = 1;
         
+        // Icon cache
+        this.iconCache = {};
+        
         // Build shop inventory with item details
         this.buildShopInventory();
         
@@ -3922,7 +3925,7 @@ class ShopState extends GameState {
     }
     
     getPlayerGold() {
-        return this.game.inventoryManager?.getItemQuantity('gold_coin') || 0;
+        return this.game.player?.gold || 0;
     }
     
     exit() {
@@ -4080,7 +4083,7 @@ class ShopState extends GameState {
             
             if (playerGold >= totalCost) {
                 // Remove gold
-                this.game.inventoryManager.removeItem('gold_coin', totalCost);
+                this.game.player.spendGold(totalCost);
                 // Add item
                 this.game.inventoryManager.addItem(item.id, quantity);
                 // Reduce stock if not unlimited
@@ -4102,7 +4105,7 @@ class ShopState extends GameState {
             // Remove item from player
             this.game.inventoryManager.removeItem(item.id, quantity);
             // Add gold
-            this.game.inventoryManager.addItem('gold_coin', totalValue);
+            this.game.player.addGold(totalValue);
             // Refresh sell list
             this.buildSellableItems();
             this.selectedOption = Math.min(this.selectedOption, Math.max(0, this.sellItems.length - 1));
@@ -4129,6 +4132,10 @@ class ShopState extends GameState {
         const canvasWidth = this.game.CANVAS_WIDTH;
         const canvasHeight = this.game.CANVAS_HEIGHT;
         const menuRenderer = this.stateManager.menuRenderer;
+        const ds = window.ds;
+        
+        // Ensure design system has current dimensions
+        if (ds) ds.setDimensions(canvasWidth, canvasHeight);
         
         // Render game world behind shop
         if (this.stateManager.isStateInStack('PLAYING')) {
@@ -4136,146 +4143,179 @@ class ShopState extends GameState {
         }
         
         // Draw overlay
-        menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.9);
+        menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.85);
         
-        // Draw shop title
-        ctx.fillStyle = '#ffd700';
-        ctx.font = 'bold 32px "Cinzel", serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(this.shopName, canvasWidth / 2, canvasHeight * 0.08);
+        // Draw shop title using design system
+        menuRenderer.drawTitle(ctx, this.shopName, canvasWidth, canvasHeight, 0.08);
         
         // Draw gold display
         const playerGold = this.getPlayerGold();
-        ctx.fillStyle = '#ffd700';
-        ctx.font = 'bold 22px "Lato", sans-serif';
+        ctx.fillStyle = ds ? ds.colors.warning : '#ffd700';
+        ctx.font = ds ? ds.font('md', 'bold', 'body') : 'bold 22px "Lato", sans-serif';
         ctx.textAlign = 'right';
-        ctx.fillText(`💰 ${playerGold}`, canvasWidth - 30, canvasHeight * 0.08);
+        ctx.fillText(`💰 ${playerGold}`, canvasWidth - (ds ? ds.spacing(8) : 30), canvasHeight * 0.08);
         
         // Draw tabs
-        this.renderTabs(ctx, canvasWidth, canvasHeight);
+        this.renderTabs(ctx, canvasWidth, canvasHeight, menuRenderer, ds);
         
         // Draw item list
-        this.renderItemList(ctx, canvasWidth, canvasHeight);
+        this.renderItemList(ctx, canvasWidth, canvasHeight, menuRenderer, ds);
         
         // Draw item details
-        this.renderItemDetails(ctx, canvasWidth, canvasHeight);
+        this.renderItemDetails(ctx, canvasWidth, canvasHeight, menuRenderer, ds);
         
         // Draw quantity selector if active
         if (this.isSelectingQuantity) {
-            this.renderQuantitySelector(ctx, canvasWidth, canvasHeight);
+            this.renderQuantitySelector(ctx, canvasWidth, canvasHeight, menuRenderer, ds);
         }
         
         // Draw hints
-        ctx.fillStyle = '#888';
-        ctx.font = '16px "Lato", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('← → Switch Tab  |  ↑ ↓ Navigate  |  ENTER Select  |  ESC Close', canvasWidth / 2, canvasHeight - 20);
+        menuRenderer.drawHint(ctx, this.game.t('shop.hints'), canvasWidth, canvasHeight);
     }
     
-    renderTabs(ctx, canvasWidth, canvasHeight) {
-        const tabY = canvasHeight * 0.12;
-        const tabWidth = 120;
-        const tabHeight = 35;
-        const tabs = ['Buy', 'Sell'];
+    renderTabs(ctx, canvasWidth, canvasHeight, menuRenderer, ds) {
+        const tabY = canvasHeight * 0.14;
+        const tabWidth = ds ? ds.width(12) : 120;
+        const tabHeight = ds ? ds.height(5) : 35;
+        const tabs = [this.game.t('shop.tabs.buy'), this.game.t('shop.tabs.sell')];
+        const gap = ds ? ds.spacing(2) : 8;
         
         tabs.forEach((tab, index) => {
-            const tabX = canvasWidth / 2 - tabWidth + (index * tabWidth);
+            const tabX = canvasWidth / 2 - tabWidth - gap / 2 + (index * (tabWidth + gap));
             const isSelected = this.selectedTab === index;
             
-            // Tab background
-            ctx.fillStyle = isSelected ? 'rgba(255, 215, 0, 0.3)' : 'rgba(0, 0, 0, 0.5)';
-            ctx.fillRect(tabX, tabY, tabWidth - 5, tabHeight);
-            
-            // Tab border
-            ctx.strokeStyle = isSelected ? '#ffd700' : '#555';
-            ctx.lineWidth = isSelected ? 2 : 1;
-            ctx.strokeRect(tabX, tabY, tabWidth - 5, tabHeight);
+            if (isSelected) {
+                // Selected tab - use design system highlight
+                if (ds) {
+                    ds.drawSelectionHighlight(ctx, tabX, tabY, tabWidth, tabHeight);
+                } else {
+                    ctx.fillStyle = 'rgba(74, 158, 255, 0.2)';
+                    ctx.fillRect(tabX, tabY, tabWidth, tabHeight);
+                }
+                
+                // Border
+                ctx.strokeStyle = ds ? ds.colors.primary : '#4a9eff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(tabX, tabY, tabWidth, tabHeight);
+            } else {
+                // Unselected tab
+                ctx.fillStyle = ds ? ds.colors.alpha(ds.colors.background.panel, 0.6) : 'rgba(30, 30, 40, 0.6)';
+                ctx.fillRect(tabX, tabY, tabWidth, tabHeight);
+                
+                ctx.strokeStyle = ds ? ds.colors.alpha(ds.colors.text.muted, 0.3) : 'rgba(136, 136, 136, 0.3)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(tabX, tabY, tabWidth, tabHeight);
+            }
             
             // Tab text
-            ctx.fillStyle = isSelected ? '#ffd700' : '#aaa';
-            ctx.font = isSelected ? 'bold 18px "Lato", sans-serif' : '18px "Lato", sans-serif';
+            ctx.fillStyle = isSelected 
+                ? (ds ? ds.colors.text.primary : '#fff')
+                : (ds ? ds.colors.text.muted : '#888');
+            ctx.font = isSelected 
+                ? (ds ? ds.font('md', 'bold', 'body') : 'bold 18px "Lato", sans-serif')
+                : (ds ? ds.font('sm', 'normal', 'body') : '18px "Lato", sans-serif');
             ctx.textAlign = 'center';
-            ctx.fillText(tab, tabX + (tabWidth - 5) / 2, tabY + tabHeight / 2 + 6);
+            ctx.textBaseline = 'middle';
+            ctx.fillText(tab, tabX + tabWidth / 2, tabY + tabHeight / 2);
         });
     }
     
-    renderItemList(ctx, canvasWidth, canvasHeight) {
+    renderItemList(ctx, canvasWidth, canvasHeight, menuRenderer, ds) {
         const items = this.getCurrentList();
         const listX = canvasWidth * 0.05;
-        const listY = canvasHeight * 0.2;
+        const listY = canvasHeight * 0.22;
         const listWidth = canvasWidth * 0.5;
-        const listHeight = canvasHeight * 0.65;
+        const listHeight = canvasHeight * 0.63;
         
-        // List background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-        ctx.fillRect(listX, listY, listWidth, listHeight);
-        ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(listX, listY, listWidth, listHeight);
+        // List panel using MenuRenderer
+        menuRenderer.drawPanel(ctx, listX, listY, listWidth, listHeight, 0.7);
         
         if (items.length === 0) {
-            ctx.fillStyle = '#888';
-            ctx.font = '20px "Lato", sans-serif';
+            ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
+            ctx.font = ds ? ds.font('md', 'normal', 'body') : '20px "Lato", sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText(this.selectedTab === 0 ? 'No items for sale' : 'Nothing to sell', listX + listWidth / 2, listY + listHeight / 2);
+            ctx.textBaseline = 'middle';
+            ctx.fillText(
+                this.selectedTab === 0 ? this.game.t('shop.empty.buy') : this.game.t('shop.empty.sell'), 
+                listX + listWidth / 2, 
+                listY + listHeight / 2
+            );
             return;
         }
         
         // Draw items
-        const itemHeight = listHeight / this.maxVisibleItems;
+        const itemPadding = ds ? ds.spacing(4) : 15;
+        const itemHeight = (listHeight - itemPadding * 2) / this.maxVisibleItems;
         const visibleItems = items.slice(this.scrollOffset, this.scrollOffset + this.maxVisibleItems);
         
         visibleItems.forEach((item, index) => {
             const actualIndex = this.scrollOffset + index;
             const isSelected = actualIndex === this.selectedOption;
-            const y = listY + index * itemHeight;
+            const y = listY + itemPadding + index * itemHeight;
+            const rowHeight = itemHeight - 8;
             
             // Selection highlight
             if (isSelected) {
-                ctx.fillStyle = 'rgba(255, 215, 0, 0.2)';
-                ctx.fillRect(listX + 2, y + 2, listWidth - 4, itemHeight - 4);
+                if (ds) {
+                    ds.drawSelectionHighlight(ctx, listX + itemPadding, y, listWidth - itemPadding * 2, rowHeight);
+                } else {
+                    const gradient = ctx.createLinearGradient(listX, y, listX + listWidth, y);
+                    gradient.addColorStop(0, 'rgba(74, 158, 255, 0)');
+                    gradient.addColorStop(0.1, 'rgba(74, 158, 255, 0.2)');
+                    gradient.addColorStop(0.9, 'rgba(74, 158, 255, 0.2)');
+                    gradient.addColorStop(1, 'rgba(74, 158, 255, 0)');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(listX + itemPadding, y, listWidth - itemPadding * 2, rowHeight);
+                }
             }
             
-            // Item name
-            ctx.fillStyle = isSelected ? '#ffd700' : '#fff';
-            ctx.font = '20px "Lato", sans-serif';
+            // Item name (left side)
+            ctx.fillStyle = isSelected 
+                ? (ds ? ds.colors.text.primary : '#fff')
+                : (ds ? ds.colors.text.secondary : '#ccc');
+            ctx.font = isSelected
+                ? (ds ? ds.font('md', 'bold', 'body') : 'bold 18px "Lato", sans-serif')
+                : (ds ? ds.font('sm', 'normal', 'body') : '16px "Lato", sans-serif');
             ctx.textAlign = 'left';
-            ctx.fillText(item.name, listX + 15, y + itemHeight / 2 + 6);
+            ctx.textBaseline = 'middle';
+            ctx.fillText(item.name, listX + itemPadding + 15, y + rowHeight / 2);
             
-            // Price
-            const price = this.selectedTab === 0 ? item.price : item.sellPrice;
-            ctx.fillStyle = isSelected ? '#ffd700' : '#aaa';
+            // Stock/Quantity (right side, inside the row)
             ctx.textAlign = 'right';
-            ctx.fillText(`${price} 💰`, listX + listWidth - 15, y + itemHeight / 2 + 6);
-            
-            // Stock/Quantity
             if (this.selectedTab === 0 && item.stock !== -1) {
-                ctx.fillStyle = item.stock <= 3 ? '#f44' : '#888';
-                ctx.font = '14px "Lato", sans-serif';
-                ctx.fillText(`Stock: ${item.stock}`, listX + listWidth - 15, y + itemHeight / 2 + 22);
+                // Show stock for buy tab
+                ctx.fillStyle = item.stock <= 3 
+                    ? (ds ? ds.colors.danger : '#f44')
+                    : (ds ? ds.colors.text.muted : '#888');
+                ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
+                ctx.fillText(`${this.game.t('shop.stock')}: ${item.stock}`, listX + listWidth - itemPadding - 15, y + rowHeight / 2);
             } else if (this.selectedTab === 1) {
-                ctx.fillStyle = '#888';
-                ctx.font = '14px "Lato", sans-serif';
-                ctx.fillText(`x${item.quantity}`, listX + listWidth - 15, y + itemHeight / 2 + 22);
+                // Show quantity for sell tab
+                ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
+                ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
+                ctx.fillText(`x${item.quantity}`, listX + listWidth - itemPadding - 15, y + rowHeight / 2);
             }
         });
         
         // Scroll indicators
+        const indicatorColor = ds ? ds.colors.primary : '#4a9eff';
         if (this.scrollOffset > 0) {
-            ctx.fillStyle = '#ffd700';
-            ctx.font = '20px sans-serif';
+            ctx.fillStyle = indicatorColor;
+            ctx.font = ds ? ds.font('md', 'normal', 'body') : '20px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('▲', listX + listWidth / 2, listY + 15);
+            ctx.textBaseline = 'top';
+            ctx.fillText('▲', listX + listWidth / 2, listY + 5);
         }
         if (this.scrollOffset + this.maxVisibleItems < items.length) {
-            ctx.fillStyle = '#ffd700';
-            ctx.font = '20px sans-serif';
+            ctx.fillStyle = indicatorColor;
+            ctx.font = ds ? ds.font('md', 'normal', 'body') : '20px sans-serif';
             ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
             ctx.fillText('▼', listX + listWidth / 2, listY + listHeight - 5);
         }
     }
     
-    renderItemDetails(ctx, canvasWidth, canvasHeight) {
+    renderItemDetails(ctx, canvasWidth, canvasHeight, menuRenderer, ds) {
         const items = this.getCurrentList();
         if (items.length === 0) return;
         
@@ -4283,117 +4323,184 @@ class ShopState extends GameState {
         if (!item) return;
         
         const detailsX = canvasWidth * 0.57;
-        const detailsY = canvasHeight * 0.2;
+        const detailsY = canvasHeight * 0.22;
         const detailsWidth = canvasWidth * 0.38;
-        const detailsHeight = canvasHeight * 0.65;
+        const detailsHeight = canvasHeight * 0.63;
         
-        // Details background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-        ctx.fillRect(detailsX, detailsY, detailsWidth, detailsHeight);
-        ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(detailsX, detailsY, detailsWidth, detailsHeight);
+        // Details panel
+        menuRenderer.drawPanel(ctx, detailsX, detailsY, detailsWidth, detailsHeight, 0.7);
         
-        // Item name
-        ctx.fillStyle = '#ffd700';
-        ctx.font = 'bold 24px "Cinzel", serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(item.name, detailsX + detailsWidth / 2, detailsY + 40);
+        const padding = ds ? ds.spacing(8) : 35;
+        const centerX = detailsX + detailsWidth / 2;
         
-        // Type and rarity
-        ctx.fillStyle = this.getRarityColor(item.rarity);
-        ctx.font = 'italic 16px "Lato", sans-serif';
-        ctx.fillText(`${item.rarity || 'common'} ${item.type || 'item'}`, detailsX + detailsWidth / 2, detailsY + 70);
+        // Item icon (if available)
+        const iconSize = ds ? ds.spacing(20) : 80;
+        const iconY = detailsY + padding;
+        let hasIcon = false;
         
-        // Description
-        ctx.fillStyle = '#ccc';
-        ctx.font = '18px "Lato", sans-serif';
-        this.wrapText(ctx, item.description || 'No description', detailsX + detailsWidth / 2, detailsY + 120, detailsWidth - 30, 24);
-        
-        // Stats if any
-        if (item.stats) {
-            let statsY = detailsY + 200;
-            ctx.font = '16px "Lato", sans-serif';
-            for (const [stat, value] of Object.entries(item.stats)) {
-                ctx.fillStyle = '#8f8';
-                ctx.fillText(`+${value} ${stat}`, detailsX + detailsWidth / 2, statsY);
-                statsY += 22;
+        if (item.icon) {
+            // Load icon if not cached
+            if (!this.iconCache[item.icon]) {
+                const img = new Image();
+                img.src = item.icon;
+                this.iconCache[item.icon] = img;
+            }
+            
+            const iconImg = this.iconCache[item.icon];
+            if (iconImg && iconImg.complete && iconImg.naturalWidth > 0) {
+                ctx.drawImage(iconImg, centerX - iconSize / 2, iconY, iconSize, iconSize);
+                hasIcon = true;
             }
         }
         
-        // Price info
+        // Item name (below icon or at top if no icon)
+        const nameY = hasIcon ? iconY + iconSize + 60 : detailsY + padding;
+        ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
+        ctx.font = ds ? ds.font('xl', 'bold', 'display') : 'bold 28px "Cinzel", serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        if (ds) ds.applyShadow(ctx, 'glow');
+        ctx.fillText(item.name, centerX, nameY);
+        if (ds) ds.clearShadow(ctx);
+        
+        // Type and rarity (with more spacing)
+        const rarityY = nameY + 80;
+        ctx.fillStyle = this.getRarityColor(item.rarity, ds);
+        ctx.font = ds ? ds.font('md', 'normal', 'body') : 'italic 18px "Lato", sans-serif';
+        const rarityText = (item.rarity || 'common').charAt(0).toUpperCase() + (item.rarity || 'common').slice(1);
+        const typeText = (item.type || 'item').toLowerCase();
+        ctx.fillText(`${rarityText} ${typeText}`, centerX, rarityY);
+        
+        // Separator line
+        const lineY = rarityY + 70;
+        const lineWidth = detailsWidth * 0.6;
+        const gradient = ctx.createLinearGradient(centerX - lineWidth / 2, lineY, centerX + lineWidth / 2, lineY);
+        gradient.addColorStop(0, 'transparent');
+        gradient.addColorStop(0.2, ds ? ds.colors.alpha(ds.colors.primary, 0.5) : 'rgba(74, 158, 255, 0.5)');
+        gradient.addColorStop(0.8, ds ? ds.colors.alpha(ds.colors.primary, 0.5) : 'rgba(74, 158, 255, 0.5)');
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(centerX - lineWidth / 2, lineY, lineWidth, 2);
+        
+        // Description
+        const descY = lineY + 60;
+        ctx.fillStyle = ds ? ds.colors.text.secondary : '#ccc';
+        ctx.font = ds ? ds.font('md', 'normal', 'body') : '18px "Lato", sans-serif';
+        this.wrapText(ctx, item.description || this.game.t('shop.noDescription'), centerX, descY, detailsWidth - padding * 2, 36);
+        
+        // Stats if any
+        if (item.stats && Object.keys(item.stats).length > 0) {
+            let statsY = descY + 80;
+            ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px "Lato", sans-serif';
+            
+            for (const [stat, value] of Object.entries(item.stats)) {
+                ctx.fillStyle = ds ? ds.colors.success : '#4ade80';
+                ctx.fillText(`+${value} ${stat}`, centerX, statsY);
+                statsY += 24;
+            }
+        }
+        
+        // Price info at bottom
         const price = this.selectedTab === 0 ? item.price : item.sellPrice;
         const playerGold = this.getPlayerGold();
-        ctx.fillStyle = playerGold >= price ? '#ffd700' : '#f44';
-        ctx.font = 'bold 22px "Lato", sans-serif';
-        ctx.fillText(`${this.selectedTab === 0 ? 'Price' : 'Sell for'}: ${price} 💰`, detailsX + detailsWidth / 2, detailsY + detailsHeight - 40);
+        const canAfford = playerGold >= price;
+        
+        // Price display
+        ctx.fillStyle = ds ? ds.colors.warning : '#ffd700';
+        ctx.font = ds ? ds.font('lg', 'bold', 'body') : 'bold 24px "Lato", sans-serif';
+        ctx.fillText(
+            `${price} 💰`, 
+            centerX, 
+            detailsY + detailsHeight - padding - 50
+        );
+        
+        // "Not enough gold" warning (below price, only if can't afford)
+        if (!canAfford && this.selectedTab === 0) {
+            ctx.fillStyle = ds ? ds.colors.danger : '#ef4444';
+            ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px "Lato", sans-serif';
+            ctx.fillText(this.game.t('shop.notEnoughGold'), centerX, detailsY + detailsHeight - padding - 20);
+        }
     }
     
-    renderQuantitySelector(ctx, canvasWidth, canvasHeight) {
+    renderQuantitySelector(ctx, canvasWidth, canvasHeight, menuRenderer, ds) {
         const items = this.getCurrentList();
         const item = items[this.selectedOption];
         if (!item) return;
         
-        const boxWidth = 300;
-        const boxHeight = 180;
+        const boxWidth = ds ? ds.width(30) : 300;
+        const boxHeight = ds ? ds.height(25) : 180;
         const boxX = (canvasWidth - boxWidth) / 2;
         const boxY = (canvasHeight - boxHeight) / 2;
         
         // Dark overlay
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillStyle = ds ? ds.colors.alpha(ds.colors.background.overlay, 0.7) : 'rgba(0, 0, 0, 0.7)';
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
-        // Box background
-        ctx.fillStyle = 'rgba(30, 30, 30, 0.95)';
-        ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
-        ctx.strokeStyle = '#ffd700';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+        // Modal panel
+        menuRenderer.drawPanel(ctx, boxX, boxY, boxWidth, boxHeight, 0.95);
+        
+        const padding = ds ? ds.spacing(6) : 25;
+        const centerX = boxX + boxWidth / 2;
         
         // Title
-        ctx.fillStyle = '#ffd700';
-        ctx.font = 'bold 20px "Lato", sans-serif';
+        ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
+        ctx.font = ds ? ds.font('md', 'bold', 'display') : 'bold 20px "Cinzel", serif';
         ctx.textAlign = 'center';
-        ctx.fillText(this.selectedTab === 0 ? 'Buy Quantity' : 'Sell Quantity', boxX + boxWidth / 2, boxY + 35);
+        ctx.textBaseline = 'top';
+        ctx.fillText(this.selectedTab === 0 ? this.game.t('shop.quantity.buy') : this.game.t('shop.quantity.sell'), centerX, boxY + padding);
         
         // Item name
-        ctx.fillStyle = '#fff';
-        ctx.font = '18px "Lato", sans-serif';
-        ctx.fillText(item.name, boxX + boxWidth / 2, boxY + 65);
+        ctx.fillStyle = ds ? ds.colors.text.secondary : '#ccc';
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '18px "Lato", sans-serif';
+        ctx.fillText(item.name, centerX, boxY + padding + 35);
         
-        // Quantity display
-        ctx.fillStyle = '#ffd700';
-        ctx.font = 'bold 32px "Lato", sans-serif';
-        ctx.fillText(`${this.selectedQuantity}`, boxX + boxWidth / 2, boxY + 105);
+        // Quantity display with arrows
+        const qtyY = boxY + boxHeight / 2;
         
-        // Arrows
-        ctx.fillStyle = '#888';
-        ctx.font = '24px sans-serif';
-        ctx.fillText('◀ -10', boxX + 50, boxY + 105);
-        ctx.fillText('+10 ▶', boxX + boxWidth - 50, boxY + 105);
+        // Left arrow
+        ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '18px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('◀ -10', centerX - 60, qtyY);
+        
+        // Quantity number
+        ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
+        ctx.font = ds ? ds.font('xl', 'bold', 'body') : 'bold 32px "Lato", sans-serif';
+        ctx.textAlign = 'center';
+        if (ds) ds.applyShadow(ctx, 'glow');
+        ctx.fillText(`${this.selectedQuantity}`, centerX, qtyY);
+        if (ds) ds.clearShadow(ctx);
+        
+        // Right arrow
+        ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '18px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('+10 ▶', centerX + 60, qtyY);
         
         // Total cost
         const price = this.selectedTab === 0 ? item.price : item.sellPrice;
         const total = price * this.selectedQuantity;
-        ctx.fillStyle = '#ffd700';
-        ctx.font = '18px "Lato", sans-serif';
-        ctx.fillText(`Total: ${total} 💰`, boxX + boxWidth / 2, boxY + 140);
+        ctx.fillStyle = ds ? ds.colors.warning : '#ffd700';
+        ctx.font = ds ? ds.font('md', 'normal', 'body') : '18px "Lato", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${this.game.t('shop.total')}: ${total} 💰`, centerX, boxY + boxHeight - padding - 30);
         
         // Instructions
-        ctx.fillStyle = '#888';
-        ctx.font = '14px "Lato", sans-serif';
-        ctx.fillText('ENTER to confirm  |  ESC to cancel', boxX + boxWidth / 2, boxY + boxHeight - 15);
+        ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
+        ctx.font = ds ? ds.font('xs', 'normal', 'body') : '14px "Lato", sans-serif';
+        ctx.fillText(this.game.t('shop.quantityHints'), centerX, boxY + boxHeight - padding - 5);
     }
     
-    getRarityColor(rarity) {
+    getRarityColor(rarity, ds) {
         const colors = {
-            'common': '#aaa',
-            'uncommon': '#1eff00',
+            'common': ds ? ds.colors.text.muted : '#aaa',
+            'uncommon': ds ? ds.colors.success : '#4ade80',
             'rare': '#0070dd',
             'epic': '#a335ee',
             'legendary': '#ff8000'
         };
-        return colors[rarity] || colors.common;
+        return colors[rarity?.toLowerCase()] || colors.common;
     }
     
     wrapText(ctx, text, x, y, maxWidth, lineHeight) {

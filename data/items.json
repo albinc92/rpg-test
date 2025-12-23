@@ -1,15 +1,4 @@
 {
-  "gold_coin": {
-    "id": "gold_coin",
-    "name": "Gold Coin",
-    "description": "A shiny gold coin",
-    "icon": "assets/icon/Currency/gold.png",
-    "stackable": true,
-    "maxStack": 999,
-    "value": 1,
-    "type": "currency",
-    "rarity": "common"
-  },
   "health_potion": {
     "id": "health_potion",
     "name": "Health Potion",

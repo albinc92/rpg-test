@@ -82,7 +82,7 @@ class ScriptEngine {
             'getitemqty': (itemId) => this.game.inventoryManager?.getItemQuantity(itemId) || 0,
             'random': (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
             'choice': () => this.lastChoice,
-            'getgold': () => this.game.inventoryManager?.getItemQuantity('gold_coin') || 0
+            'getgold': () => this.game.player?.gold || 0
         };
         
         // Built-in commands
@@ -942,23 +942,23 @@ class ScriptEngine {
     }
     
     /**
-     * addgold amount;  (shorthand for additem "gold_coin", amount)
+     * addgold amount;  (adds gold to player)
      */
     async cmdAddGold() {
         const amount = this.consume()?.value || 0;
-        if (this.game.inventoryManager && amount > 0) {
-            this.game.inventoryManager.addItem('gold_coin', amount);
+        if (this.game.player && amount > 0) {
+            this.game.player.addGold(amount);
             console.log(`[ScriptEngine] Added ${amount} gold`);
         }
     }
     
     /**
-     * delgold amount;  (shorthand for delitem "gold_coin", amount)
+     * delgold amount;  (removes gold from player)
      */
     async cmdDelGold() {
         const amount = this.consume()?.value || 0;
-        if (this.game.inventoryManager && amount > 0) {
-            this.game.inventoryManager.removeItem('gold_coin', amount);
+        if (this.game.player && amount > 0) {
+            this.game.player.spendGold(amount);
             console.log(`[ScriptEngine] Removed ${amount} gold`);
         }
     }
