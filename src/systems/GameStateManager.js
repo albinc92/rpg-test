@@ -4357,13 +4357,23 @@ class ShopState extends GameState {
             }
         }
         
-        // Item name (below icon or at top if no icon)
+        // Item name (below icon or at top if no icon) - auto-scale to fit
         const nameY = hasIcon ? iconY + iconSize + 60 : detailsY + padding;
         ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
-        ctx.font = ds ? ds.font('xl', 'bold', 'display') : 'bold 28px "Cinzel", serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         if (ds) ds.applyShadow(ctx, 'glow');
+        
+        // Auto-scale font to fit within panel
+        const maxNameWidth = detailsWidth - padding * 2;
+        let fontSize = ds ? 43 : 28; // Start with xl size
+        ctx.font = ds ? ds.font('xl', 'bold', 'display') : `bold ${fontSize}px "Cinzel", serif`;
+        
+        while (ctx.measureText(item.name).width > maxNameWidth && fontSize > 16) {
+            fontSize -= 2;
+            ctx.font = `bold ${fontSize}px "Cinzel", serif`;
+        }
+        
         ctx.fillText(item.name, centerX, nameY);
         if (ds) ds.clearShadow(ctx);
         
@@ -4409,19 +4419,18 @@ class ShopState extends GameState {
         const playerGold = this.getPlayerGold();
         const canAfford = playerGold >= price;
         
-        // Price display
+        // Price display - position from bottom
+        const priceY = detailsY + detailsHeight - padding - 60;
+        ctx.textBaseline = 'bottom';
         ctx.fillStyle = ds ? ds.colors.warning : '#ffd700';
         ctx.font = ds ? ds.font('lg', 'bold', 'body') : 'bold 24px "Lato", sans-serif';
-        ctx.fillText(
-            `${price} 💰`, 
-            centerX, 
-            detailsY + detailsHeight - padding - 50
-        );
+        ctx.fillText(`${price} 💰`, centerX, priceY);
         
         // "Not enough gold" warning (below price, only if can't afford)
         if (!canAfford && this.selectedTab === 0) {
             ctx.fillStyle = ds ? ds.colors.danger : '#ef4444';
             ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px "Lato", sans-serif';
+            ctx.textBaseline = 'bottom';
             ctx.fillText(this.game.t('shop.notEnoughGold'), centerX, detailsY + detailsHeight - padding - 20);
         }
     }

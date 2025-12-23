@@ -1,7 +1,7 @@
 {
   "health_potion": {
     "id": "health_potion",
-    "name": "Health Potion",
+    "name": "Greater Health Potion",
     "description": "Restores 50 health points",
     "icon": "assets/icon/Items/Health_Potion-0.png",
     "stackable": true,
