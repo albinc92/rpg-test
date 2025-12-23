@@ -1660,10 +1660,31 @@ class EditorUI {
     }
 
     /**
+     * Get rarity color for item display (WoW-style colors)
+     * Uses DesignSystem if available, otherwise falls back to inline colors
+     */
+    getRarityColor(rarity) {
+        // Try to use DesignSystem if available
+        const ds = this.editor?.game?.designSystem;
+        if (ds) {
+            return ds.colors.getRarityColor(rarity);
+        }
+        // Fallback colors matching DesignSystem.colors.rarity
+        const colors = {
+            common: '#9d9d9d',
+            uncommon: '#1eff00',
+            rare: '#0070dd',
+            epic: '#a335ee',
+            legendary: '#ff8000'
+        };
+        return colors[rarity?.toLowerCase()] || colors.common;
+    }
+
+    /**
      * Show Item Browser Modal
      */
     showItemBrowser() {
-        const items = this.editor.game.itemManager.items || {};
+        const items = this.editor.game.itemManager.itemTypes || {};
 
         // Create modal backdrop
         const backdrop = document.createElement('div');
@@ -1916,12 +1937,12 @@ class EditorUI {
             return;
         }
         
-        if (!this.editor.game.itemManager.items) {
-            console.log('[ItemEditor] Creating empty items object');
-            this.editor.game.itemManager.items = {};
+        if (!this.editor.game.itemManager.itemTypes) {
+            console.log('[ItemEditor] Creating empty itemTypes object');
+            this.editor.game.itemManager.itemTypes = {};
         }
         
-        const items = this.editor.game.itemManager.items;
+        const items = this.editor.game.itemManager.itemTypes;
         console.log('[ItemEditor] Items object:', items);
         
         let itemData = isNew ? {

@@ -3,7 +3,8 @@
  * Allows non-programmers to create scripts using drag-and-drop blocks
  */
 class VisualScriptEditor {
-    constructor() {
+    constructor(game = null) {
+        this.game = game;
         this.blocks = [];
         this.selectedBlock = null;
         this.draggedBlock = null;
@@ -89,7 +90,7 @@ class VisualScriptEditor {
                 icon: '📦',
                 color: '#2ecc71',
                 fields: [
-                    { name: 'itemId', type: 'text', label: 'Item ID', default: 'gold' },
+                    { name: 'itemId', type: 'itemSelect', label: 'Item', default: 'health_potion' },
                     { name: 'quantity', type: 'number', label: 'Quantity', default: 1 }
                 ],
                 toScript: (data) => `additem "${data.itemId}", ${data.quantity};`
@@ -99,7 +100,7 @@ class VisualScriptEditor {
                 icon: '🗑️',
                 color: '#e74c3c',
                 fields: [
-                    { name: 'itemId', type: 'text', label: 'Item ID', default: 'gold' },
+                    { name: 'itemId', type: 'itemSelect', label: 'Item', default: 'health_potion' },
                     { name: 'quantity', type: 'number', label: 'Quantity', default: 1 }
                 ],
                 toScript: (data) => `delitem "${data.itemId}", ${data.quantity};`
@@ -962,6 +963,62 @@ class VisualScriptEditor {
                 this.triggerChange();
             };
             container.appendChild(input);
+        } else if (field.type === 'itemSelect') {
+            // Item dropdown populated from game data
+            const select = document.createElement('select');
+            select.className = 'vse-field-input vse-field-select';
+            select.style.cssText = 'max-height: 200px; overflow-y: auto;';
+            
+            // Get items from game if available (itemTypes is where ItemManager stores items)
+            const items = this.game?.itemManager?.itemTypes || {};
+            const itemIds = Object.keys(items);
+            
+            console.log('[VSE] itemSelect - game:', !!this.game, 'itemManager:', !!this.game?.itemManager, 'itemTypes:', itemIds.length);
+            
+            if (itemIds.length === 0) {
+                // Fallback to text input if no items available
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'vse-field-input';
+                input.value = block.data[field.name] || '';
+                input.placeholder = 'Item ID';
+                input.onchange = () => {
+                    block.data[field.name] = input.value;
+                    this.triggerChange();
+                };
+                container.appendChild(input);
+            } else {
+                // Sort items by name
+                itemIds.sort((a, b) => {
+                    const nameA = items[a]?.name || a;
+                    const nameB = items[b]?.name || b;
+                    return nameA.localeCompare(nameB);
+                });
+                
+                itemIds.forEach(id => {
+                    const item = items[id];
+                    const option = document.createElement('option');
+                    option.value = id;
+                    option.textContent = `${item.name || id} (${id})`;
+                    option.selected = block.data[field.name] === id;
+                    select.appendChild(option);
+                });
+                
+                // If current value doesn't exist in list, add it
+                if (block.data[field.name] && !items[block.data[field.name]]) {
+                    const option = document.createElement('option');
+                    option.value = block.data[field.name];
+                    option.textContent = `${block.data[field.name]} (custom)`;
+                    option.selected = true;
+                    select.insertBefore(option, select.firstChild);
+                }
+                
+                select.onchange = () => {
+                    block.data[field.name] = select.value;
+                    this.triggerChange();
+                };
+                container.appendChild(select);
+            }
         } else if (field.type === 'select') {
             const select = document.createElement('select');
             select.className = 'vse-field-input vse-field-select';
@@ -1025,22 +1082,68 @@ class VisualScriptEditor {
             const list = document.createElement('div');
             list.className = 'vse-shop-list';
             
+            // Get items from game for dropdown (itemTypes is where ItemManager stores items)
+            const gameItems = this.game?.itemManager?.itemTypes || {};
+            const itemIds = Object.keys(gameItems).sort((a, b) => {
+                const nameA = gameItems[a]?.name || a;
+                const nameB = gameItems[b]?.name || b;
+                return nameA.localeCompare(nameB);
+            });
+            const hasGameItems = itemIds.length > 0;
+            
             const items = block.data[field.name] || [];
             items.forEach((item, i) => {
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'vse-shop-item';
                 itemDiv.style.cssText = 'display: flex; gap: 4px; margin-bottom: 4px; align-items: center;';
                 
-                const idInput = document.createElement('input');
-                idInput.type = 'text';
-                idInput.className = 'vse-field-input';
-                idInput.style.cssText = 'flex: 2; min-width: 80px;';
-                idInput.placeholder = 'Item ID';
-                idInput.value = item.itemId || '';
-                idInput.onchange = () => {
-                    block.data[field.name][i].itemId = idInput.value;
-                    this.triggerChange();
-                };
+                // Item select dropdown or text input
+                let idElement;
+                if (hasGameItems) {
+                    idElement = document.createElement('select');
+                    idElement.className = 'vse-field-input vse-field-select';
+                    idElement.style.cssText = 'flex: 2; min-width: 120px;';
+                    
+                    itemIds.forEach(id => {
+                        const gameItem = gameItems[id];
+                        const option = document.createElement('option');
+                        option.value = id;
+                        option.textContent = gameItem.name || id;
+                        option.selected = item.itemId === id;
+                        idElement.appendChild(option);
+                    });
+                    
+                    // Add custom value if not in list
+                    if (item.itemId && !gameItems[item.itemId]) {
+                        const option = document.createElement('option');
+                        option.value = item.itemId;
+                        option.textContent = `${item.itemId} (custom)`;
+                        option.selected = true;
+                        idElement.insertBefore(option, idElement.firstChild);
+                    }
+                    
+                    idElement.onchange = () => {
+                        block.data[field.name][i].itemId = idElement.value;
+                        // Auto-fill price from item data
+                        const selectedItem = gameItems[idElement.value];
+                        if (selectedItem && selectedItem.value) {
+                            priceInput.value = selectedItem.value;
+                            block.data[field.name][i].price = selectedItem.value;
+                        }
+                        this.triggerChange();
+                    };
+                } else {
+                    idElement = document.createElement('input');
+                    idElement.type = 'text';
+                    idElement.className = 'vse-field-input';
+                    idElement.style.cssText = 'flex: 2; min-width: 80px;';
+                    idElement.placeholder = 'Item ID';
+                    idElement.value = item.itemId || '';
+                    idElement.onchange = () => {
+                        block.data[field.name][i].itemId = idElement.value;
+                        this.triggerChange();
+                    };
+                }
                 
                 const priceInput = document.createElement('input');
                 priceInput.type = 'number';
@@ -1074,7 +1177,7 @@ class VisualScriptEditor {
                     this.triggerChange();
                 };
                 
-                itemDiv.appendChild(idInput);
+                itemDiv.appendChild(idElement);
                 itemDiv.appendChild(priceInput);
                 itemDiv.appendChild(stockInput);
                 itemDiv.appendChild(removeBtn);
@@ -1085,7 +1188,7 @@ class VisualScriptEditor {
             if (items.length === 0) {
                 const hint = document.createElement('div');
                 hint.style.cssText = 'color: #888; font-size: 11px; margin-bottom: 4px;';
-                hint.textContent = 'Item ID | Price | Stock (0=∞)';
+                hint.textContent = 'Item | Price | Stock (0=∞)';
                 list.insertBefore(hint, list.firstChild);
             }
             

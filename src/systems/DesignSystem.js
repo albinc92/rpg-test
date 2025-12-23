@@ -67,6 +67,15 @@ class DesignSystem {
                 overlay: '#000000'
             },
             
+            // Item rarity colors (WoW-style)
+            rarity: {
+                common: '#9d9d9d',
+                uncommon: '#1eff00',
+                rare: '#0070dd',
+                epic: '#a335ee',
+                legendary: '#ff8000'
+            },
+            
             // Utility function for alpha variants
             alpha: (color, alpha) => {
                 // Convert hex to rgba
@@ -82,6 +91,11 @@ class DesignSystem {
         
         // Convenience method for primary alpha
         this.colors.primaryAlpha = (alpha) => this.colors.alpha(this.colors.primary, alpha);
+        
+        // Convenience method for rarity color
+        this.colors.getRarityColor = (rarity) => {
+            return this.colors.rarity[rarity?.toLowerCase()] || this.colors.rarity.common;
+        };
         
         // ═══════════════════════════════════════════════════════════════
         // SPACING SCALE (based on 4-unit system)

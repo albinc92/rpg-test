@@ -3151,10 +3151,11 @@ class InventoryState extends GameState {
             if (isSelected) {
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
                 ctx.fillRect(listX, y, listWidth, itemHeight);
-                ctx.fillStyle = '#ffff00'; // Selected color
-            } else {
-                ctx.fillStyle = '#ffffff';
             }
+            
+            // Use rarity color for item name
+            const ds = this.stateManager.designSystem;
+            ctx.fillStyle = ds ? ds.colors.getRarityColor(item.rarity) : '#ffffff';
             
             ctx.font = '20px "Lato", sans-serif';
             ctx.textAlign = 'left';
@@ -3184,9 +3185,12 @@ class InventoryState extends GameState {
             ctx.fillText(selectedItem.name, detailsX + detailsWidth / 2, detailsY + 50);
             
             // Item Type/Rarity
-            ctx.fillStyle = '#aaa';
+            const ds = this.stateManager.designSystem;
+            ctx.fillStyle = ds ? ds.colors.getRarityColor(selectedItem.rarity) : '#aaa';
             ctx.font = 'italic 18px "Lato", sans-serif';
-            ctx.fillText(`${selectedItem.rarity} ${selectedItem.type}`, detailsX + detailsWidth / 2, detailsY + 80);
+            const rarityText = (selectedItem.rarity || 'common').charAt(0).toUpperCase() + (selectedItem.rarity || 'common').slice(1);
+            const typeText = (selectedItem.type || 'item').toLowerCase();
+            ctx.fillText(`${rarityText} ${typeText}`, detailsX + detailsWidth / 2, detailsY + 80);
             
             // Description (wrapped)
             ctx.fillStyle = '#fff';
@@ -4365,7 +4369,7 @@ class ShopState extends GameState {
         
         // Type and rarity (with more spacing)
         const rarityY = nameY + 80;
-        ctx.fillStyle = this.getRarityColor(item.rarity, ds);
+        ctx.fillStyle = ds ? ds.colors.getRarityColor(item.rarity) : '#9d9d9d';
         ctx.font = ds ? ds.font('md', 'normal', 'body') : 'italic 18px "Lato", sans-serif';
         const rarityText = (item.rarity || 'common').charAt(0).toUpperCase() + (item.rarity || 'common').slice(1);
         const typeText = (item.type || 'item').toLowerCase();
@@ -4490,17 +4494,6 @@ class ShopState extends GameState {
         ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
         ctx.font = ds ? ds.font('xs', 'normal', 'body') : '14px "Lato", sans-serif';
         ctx.fillText(this.game.t('shop.quantityHints'), centerX, boxY + boxHeight - padding - 5);
-    }
-    
-    getRarityColor(rarity, ds) {
-        const colors = {
-            'common': ds ? ds.colors.text.muted : '#aaa',
-            'uncommon': ds ? ds.colors.success : '#4ade80',
-            'rare': '#0070dd',
-            'epic': '#a335ee',
-            'legendary': '#ff8000'
-        };
-        return colors[rarity?.toLowerCase()] || colors.common;
     }
     
     wrapText(ctx, text, x, y, maxWidth, lineHeight) {

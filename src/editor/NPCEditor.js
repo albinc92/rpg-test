@@ -527,7 +527,7 @@ end;`;
 
         // Initialize visual editor
         if (window.VisualScriptEditor) {
-            visualEditor = new window.VisualScriptEditor();
+            visualEditor = new window.VisualScriptEditor(this.game);
             visualEditor.createEditor(visualContainer);
             visualEditor.onChange((newScript) => {
                 // Only update if in visual mode to avoid overwriting code
