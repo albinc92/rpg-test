@@ -4984,15 +4984,24 @@ class BattleState extends GameState {
         // Draw battle background
         this.renderBackground(ctx, width, height);
         
+        // Render shadows for combatants (before sprites)
+        this.renderCombatantShadows(ctx, width, height);
+        
         // Draw combatants
         this.renderCombatants(ctx, width, height);
         
         // Draw active spirit indicator
         this.renderActiveSpiritIndicator(ctx, width, height);
         
+        // Render weather effects (rain/snow particles over battle scene)
+        this.renderBattleWeather(ctx, width, height);
+        
         // Apply day/night lighting effect to battle scene (background + sprites)
         // This happens BEFORE UI elements so menus aren't affected
         this.renderDayNightOverlay(ctx, width, height);
+        
+        // Render lens flare effect (if sun is visible)
+        this.renderBattleLensFlare(ctx, width, height);
         
         // Draw player commander in top-left (after overlay so it's visible)
         this.renderPlayerCommander(ctx, width, height);
@@ -5127,6 +5136,313 @@ class BattleState extends GameState {
         ctx.restore();
     }
     
+    /**
+     * Render shadows for all combatants based on sun/time position
+     */
+    renderCombatantShadows(ctx, width, height) {
+        if (!this.battleSystem) return;
+        
+        const dayNightCycle = this.game.dayNightCycle;
+        if (!dayNightCycle) return;
+        
+        // Get shadow properties from the game engine
+        const shadowProps = this.game.getShadowProperties ? this.game.getShadowProperties() : null;
+        if (!shadowProps || shadowProps.opacity < 0.05) return;
+        
+        const ds = window.ds;
+        const baseSpiritSize = ds ? ds.spacing(16) : 64;
+        const statBlockHeight = ds ? ds.spacing(14) : 56;
+        const baseSpacing = baseSpiritSize + statBlockHeight + (ds ? ds.spacing(6) : 24);
+        
+        // Check if fake 3D / perspective is enabled
+        const perspectiveSystem = this.game.perspectiveSystem;
+        const usePerspective = perspectiveSystem && perspectiveSystem.enabled;
+        
+        ctx.save();
+        
+        // All combatants with their positions
+        const allSpirits = [
+            ...this.battleSystem.playerParty.map((s, i) => ({ 
+                spirit: s, 
+                x: width * 0.18, 
+                y: height * 0.15 + i * baseSpacing, 
+                facingRight: true 
+            })),
+            ...this.battleSystem.enemyParty.map((s, i) => ({ 
+                spirit: s, 
+                x: width * 0.82, 
+                y: height * 0.15 + i * baseSpacing, 
+                facingRight: false 
+            }))
+        ];
+        
+        for (const { spirit, x, y, facingRight } of allSpirits) {
+            if (!spirit.isAlive) continue;
+            
+            // Apply perspective scaling
+            let perspectiveScale = 1.0;
+            if (usePerspective) {
+                perspectiveScale = perspectiveSystem.getDepthScale(y, height);
+            }
+            
+            const spiritSize = baseSpiritSize * perspectiveScale;
+            
+            // Get sprite dimensions
+            let spriteWidth = spiritSize;
+            let spriteHeight = spiritSize;
+            
+            if (spirit._spriteImage && spirit._spriteImage._loaded) {
+                const img = spirit._spriteImage;
+                const scale = Math.min(spiritSize / img.width, spiritSize / img.height) * 1.2;
+                spriteWidth = img.width * scale;
+                spriteHeight = img.height * scale;
+            }
+            
+            const spriteY = y + spiritSize / 2;
+            
+            // Shadow position - offset based on sun direction
+            const shadowSkewX = shadowProps.skewX || 0;
+            const shadowScaleY = shadowProps.scaleY || 0.3;
+            const shadowOpacity = shadowProps.opacity * 0.6; // Reduce opacity a bit for battle
+            
+            // Draw elliptical shadow
+            ctx.save();
+            ctx.translate(x, spriteY + spriteHeight / 2);
+            ctx.scale(1, shadowScaleY);
+            ctx.transform(1, 0, shadowSkewX, 1, 0, 0); // Apply skew
+            
+            // Create gradient for softer shadow
+            const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, spriteWidth * 0.6);
+            gradient.addColorStop(0, `rgba(0, 0, 0, ${shadowOpacity})`);
+            gradient.addColorStop(0.7, `rgba(0, 0, 0, ${shadowOpacity * 0.5})`);
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, spriteWidth * 0.6, spriteHeight * 0.4, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+        
+        ctx.restore();
+    }
+    
+    /**
+     * Render weather effects in battle (rain, snow, leaves)
+     */
+    renderBattleWeather(ctx, width, height) {
+        const weatherSystem = this.game.weatherSystem;
+        if (!weatherSystem) return;
+        
+        const precipitation = weatherSystem.precipitation;
+        const particles = weatherSystem.particles;
+        
+        // Skip if no weather
+        if (precipitation === 'none' && particles === 'none') return;
+        
+        ctx.save();
+        
+        // Rain particles
+        if (precipitation.startsWith('rain')) {
+            const intensity = precipitation === 'rain-heavy' ? 1.0 : 
+                             precipitation === 'rain-medium' ? 0.6 : 0.3;
+            const particleCount = Math.floor(100 * intensity);
+            
+            ctx.strokeStyle = 'rgba(180, 200, 255, 0.6)';
+            ctx.lineWidth = 1;
+            
+            for (let i = 0; i < particleCount; i++) {
+                // Use time-based animation for consistent rain
+                const time = Date.now() / 1000;
+                const seed = i * 12345.6789;
+                const px = ((seed + time * 100) % width);
+                const py = ((seed * 2 + time * 800) % (height + 50)) - 25;
+                const length = 15 + (seed % 10);
+                const windOffset = weatherSystem.windStrength * 5;
+                
+                ctx.beginPath();
+                ctx.moveTo(px, py);
+                ctx.lineTo(px + windOffset, py + length);
+                ctx.stroke();
+            }
+        }
+        
+        // Snow particles
+        if (precipitation.startsWith('snow')) {
+            const intensity = precipitation === 'snow-heavy' ? 1.0 : 
+                             precipitation === 'snow-medium' ? 0.6 : 0.3;
+            const particleCount = Math.floor(60 * intensity);
+            
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            
+            for (let i = 0; i < particleCount; i++) {
+                const time = Date.now() / 1000;
+                const seed = i * 98765.4321;
+                const sway = Math.sin(time * 2 + seed) * 20;
+                const px = ((seed + time * 30 + sway) % (width + 100)) - 50;
+                const py = ((seed * 2 + time * 100) % (height + 50)) - 25;
+                const size = 2 + (seed % 3);
+                
+                ctx.beginPath();
+                ctx.arc(px, py, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        // Leaf particles
+        if (particles !== 'none' && particles.startsWith('leaf')) {
+            const leafCount = 15;
+            const colors = {
+                'leaf-green': '#4a7c3f',
+                'leaf-orange': '#d97706',
+                'leaf-red': '#dc2626',
+                'leaf-brown': '#78350f'
+            };
+            const leafColor = colors[particles] || '#4a7c3f';
+            
+            for (let i = 0; i < leafCount; i++) {
+                const time = Date.now() / 1000;
+                const seed = i * 54321.9876;
+                const sway = Math.sin(time * 1.5 + seed) * 40;
+                const px = ((seed + time * 50 + sway) % (width + 200)) - 100;
+                const py = ((seed * 2 + time * 80) % (height + 100)) - 50;
+                const rotation = (time * 2 + seed) % (Math.PI * 2);
+                const size = 6 + (seed % 4);
+                
+                ctx.save();
+                ctx.translate(px, py);
+                ctx.rotate(rotation);
+                ctx.fillStyle = leafColor;
+                ctx.beginPath();
+                // Simple leaf shape
+                ctx.ellipse(0, 0, size, size / 2, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+        
+        // Sakura petals
+        if (particles === 'sakura') {
+            ctx.fillStyle = 'rgba(255, 182, 193, 0.8)';
+            
+            for (let i = 0; i < 20; i++) {
+                const time = Date.now() / 1000;
+                const seed = i * 13579.2468;
+                const sway = Math.sin(time * 1.2 + seed) * 50;
+                const px = ((seed + time * 40 + sway) % (width + 200)) - 100;
+                const py = ((seed * 2 + time * 60) % (height + 100)) - 50;
+                const rotation = (time * 1.5 + seed) % (Math.PI * 2);
+                const size = 5 + (seed % 3);
+                
+                ctx.save();
+                ctx.translate(px, py);
+                ctx.rotate(rotation);
+                ctx.beginPath();
+                // Petal shape
+                ctx.ellipse(0, 0, size, size / 2.5, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+        
+        ctx.restore();
+    }
+    
+    /**
+     * Render lens flare effect for battle scene
+     */
+    renderBattleLensFlare(ctx, width, height) {
+        const dayNightCycle = this.game.dayNightCycle;
+        if (!dayNightCycle) return;
+        
+        // Check weather - no lens flare in bad weather
+        const weather = this.game.currentMap?.weather;
+        let isClearWeather = !weather || weather === 'none' || weather === 'sunny';
+        if (typeof weather === 'object' && weather !== null) {
+            const precip = weather.precipitation;
+            isClearWeather = !precip || precip === 'none';
+        }
+        if (!isClearWeather) return;
+        
+        // Get sun position
+        const sunPos = dayNightCycle.getSunPosition();
+        if (!sunPos || sunPos.y > 0.6) return; // Sun must be above horizon
+        
+        // Check time windows (8-10am and 2-4pm for best effect)
+        const time = dayNightCycle.timeOfDay;
+        let intensity = 0;
+        
+        if (time >= 8 && time < 10) {
+            intensity = time < 9 ? (time - 8) : (10 - time);
+        } else if (time >= 14 && time < 16) {
+            intensity = time < 15 ? (time - 14) : (16 - time);
+        } else if (time >= 6 && time < 8) {
+            intensity = (time - 6) / 4; // Fade in from sunrise
+        } else if (time >= 16 && time < 18) {
+            intensity = (18 - time) / 4; // Fade out to sunset
+        }
+        
+        if (intensity <= 0.05) return;
+        
+        intensity *= 0.7; // Reduce intensity a bit for battle
+        
+        ctx.save();
+        
+        // Sun position in screen space
+        const sx = sunPos.x * width;
+        const sy = sunPos.y * height;
+        
+        // Center of screen
+        const cx = width / 2;
+        const cy = height / 2;
+        
+        // Vector from sun to center
+        const dx = cx - sx;
+        const dy = cy - sy;
+        
+        // Draw sun glow
+        const sunGradient = ctx.createRadialGradient(sx, sy, 0, sx, sy, 100);
+        sunGradient.addColorStop(0, `rgba(255, 255, 230, ${0.6 * intensity})`);
+        sunGradient.addColorStop(0.3, `rgba(255, 200, 100, ${0.3 * intensity})`);
+        sunGradient.addColorStop(1, 'rgba(255, 150, 50, 0)');
+        ctx.fillStyle = sunGradient;
+        ctx.fillRect(sx - 100, sy - 100, 200, 200);
+        
+        // Lens flare artifacts
+        ctx.globalCompositeOperation = 'screen';
+        
+        // Artifact 1 - Orange near sun
+        const g1 = ctx.createRadialGradient(sx + dx * 0.2, sy + dy * 0.2, 0, sx + dx * 0.2, sy + dy * 0.2, 30);
+        g1.addColorStop(0, `rgba(255, 128, 0, ${0.4 * intensity})`);
+        g1.addColorStop(1, 'rgba(255, 128, 0, 0)');
+        ctx.fillStyle = g1;
+        ctx.fillRect(sx + dx * 0.2 - 30, sy + dy * 0.2 - 30, 60, 60);
+        
+        // Artifact 2 - Green mid-range
+        const g2 = ctx.createRadialGradient(sx + dx * 0.4, sy + dy * 0.4, 0, sx + dx * 0.4, sy + dy * 0.4, 40);
+        g2.addColorStop(0, `rgba(0, 255, 50, ${0.25 * intensity})`);
+        g2.addColorStop(1, 'rgba(0, 255, 50, 0)');
+        ctx.fillStyle = g2;
+        ctx.fillRect(sx + dx * 0.4 - 40, sy + dy * 0.4 - 40, 80, 80);
+        
+        // Artifact 3 - Blue past center
+        const g3 = ctx.createRadialGradient(sx + dx * 1.5, sy + dy * 1.5, 0, sx + dx * 1.5, sy + dy * 1.5, 25);
+        g3.addColorStop(0, `rgba(50, 100, 255, ${0.5 * intensity})`);
+        g3.addColorStop(1, 'rgba(50, 100, 255, 0)');
+        ctx.fillStyle = g3;
+        ctx.fillRect(sx + dx * 1.5 - 25, sy + dy * 1.5 - 25, 50, 50);
+        
+        // Artifact 4 - Magenta far
+        const g4 = ctx.createRadialGradient(sx + dx * 2.5, sy + dy * 2.5, 0, sx + dx * 2.5, sy + dy * 2.5, 35);
+        g4.addColorStop(0, `rgba(255, 0, 200, ${0.3 * intensity})`);
+        g4.addColorStop(1, 'rgba(255, 0, 200, 0)');
+        ctx.fillStyle = g4;
+        ctx.fillRect(sx + dx * 2.5 - 35, sy + dy * 2.5 - 35, 70, 70);
+        
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+    }
+    
     renderPlayerCommander(ctx, width, height) {
         // Draw the player sprite in top-left corner - single frame, same scale as in-game
         if (this.playerSprite && this.playerSprite._loaded) {
@@ -5174,33 +5490,45 @@ class BattleState extends GameState {
         if (!activeSpirit) return;
         
         const ds = window.ds;
-        const spiritSize = ds ? ds.spacing(16) : 64;
+        const baseSpiritSize = ds ? ds.spacing(16) : 64;
         
         // Find the spirit's position - using same calculations as renderCombatants
         const playerSpirits = this.battleSystem.playerParty;
         const enemySpirits = this.battleSystem.enemyParty;
         const statBlockHeight = ds ? ds.spacing(14) : 56;
-        const spacing = spiritSize + statBlockHeight + (ds ? ds.spacing(6) : 24);
+        const baseSpacing = baseSpiritSize + statBlockHeight + (ds ? ds.spacing(6) : 24);
         
-        let spiritX, spiritY;
+        // Check if fake 3D / perspective is enabled
+        const perspectiveSystem = this.game.perspectiveSystem;
+        const usePerspective = perspectiveSystem && perspectiveSystem.enabled;
+        
+        let spiritX, spiritY, baseY;
         let isPlayer = false;
         
         // Check player party
         const playerIndex = playerSpirits.indexOf(activeSpirit);
         if (playerIndex !== -1) {
             spiritX = width * 0.18;
-            spiritY = height * 0.15 + playerIndex * spacing + spiritSize / 2;
+            baseY = height * 0.15 + playerIndex * baseSpacing;
             isPlayer = true;
         } else {
             // Check enemy party
             const enemyIndex = enemySpirits.indexOf(activeSpirit);
             if (enemyIndex !== -1) {
                 spiritX = width * 0.82;
-                spiritY = height * 0.15 + enemyIndex * spacing + spiritSize / 2;
+                baseY = height * 0.15 + enemyIndex * baseSpacing;
             } else {
                 return;
             }
         }
+        
+        // Apply perspective scaling
+        let perspectiveScale = 1.0;
+        if (usePerspective) {
+            perspectiveScale = perspectiveSystem.getDepthScale(baseY, height);
+        }
+        const spiritSize = baseSpiritSize * perspectiveScale;
+        spiritY = baseY + spiritSize / 2;
         
         // Draw animated arrow indicator pointing down at the spirit
         const time = Date.now() / 200;
@@ -5213,7 +5541,7 @@ class BattleState extends GameState {
         
         const arrowX = spiritX;
         const arrowY = spiritY - spiritSize / 2 - 20 + bounce;
-        const arrowSize = ds ? ds.spacing(2.5) : 10;
+        const arrowSize = (ds ? ds.spacing(2.5) : 10) * perspectiveScale;
         
         ctx.beginPath();
         ctx.moveTo(arrowX, arrowY + arrowSize);
@@ -5303,9 +5631,13 @@ class BattleState extends GameState {
         if (!this.battleSystem) return;
         
         const ds = window.ds;
-        const spiritSize = ds ? ds.spacing(16) : 64;
+        const baseSpiritSize = ds ? ds.spacing(16) : 64;
         const statBlockHeight = ds ? ds.spacing(14) : 56; // Space for name + HP/MP + ATB bar
-        const spacing = spiritSize + statBlockHeight + (ds ? ds.spacing(6) : 24);
+        const baseSpacing = baseSpiritSize + statBlockHeight + (ds ? ds.spacing(6) : 24);
+        
+        // Check if fake 3D / perspective is enabled
+        const perspectiveSystem = this.game.perspectiveSystem;
+        const usePerspective = perspectiveSystem && perspectiveSystem.enabled;
         
         // Player party (left side)
         const playerSpirits = this.battleSystem.playerParty;
@@ -5314,7 +5646,13 @@ class BattleState extends GameState {
         
         playerSpirits.forEach((spirit, index) => {
             const x = playerStartX;
-            const y = playerStartY + index * spacing;
+            const baseY = playerStartY + index * baseSpacing;
+            
+            // Apply perspective scaling based on Y position
+            let perspectiveScale = 1.0;
+            if (usePerspective) {
+                perspectiveScale = perspectiveSystem.getDepthScale(baseY, height);
+            }
             
             const isSelected = spirit === this.selectedPlayerSpirit;
             let isTargeted = false;
@@ -5323,7 +5661,7 @@ class BattleState extends GameState {
                 isTargeted = targets[this.selectedTargetIndex] === spirit;
             }
             
-            this.renderSpirit(ctx, spirit, x, y, true, isSelected, isTargeted);
+            this.renderSpirit(ctx, spirit, x, baseY, true, isSelected, isTargeted, perspectiveScale);
         });
         
         // Enemy party (right side)
@@ -5333,7 +5671,13 @@ class BattleState extends GameState {
         
         enemySpirits.forEach((spirit, index) => {
             const x = enemyStartX;
-            const y = enemyStartY + index * spacing;
+            const baseY = enemyStartY + index * baseSpacing;
+            
+            // Apply perspective scaling based on Y position
+            let perspectiveScale = 1.0;
+            if (usePerspective) {
+                perspectiveScale = perspectiveSystem.getDepthScale(baseY, height);
+            }
             
             let isTargeted = false;
             if (this.phase === 'target_select') {
@@ -5341,13 +5685,14 @@ class BattleState extends GameState {
                 isTargeted = targets[this.selectedTargetIndex] === spirit;
             }
             
-            this.renderSpirit(ctx, spirit, x, y, false, false, isTargeted);
+            this.renderSpirit(ctx, spirit, x, baseY, false, false, isTargeted, perspectiveScale);
         });
     }
     
-    renderSpirit(ctx, spirit, x, y, facingRight, isSelected = false, isTargeted = false) {
+    renderSpirit(ctx, spirit, x, y, facingRight, isSelected = false, isTargeted = false, perspectiveScale = 1.0) {
         const ds = window.ds;
-        const size = ds ? ds.spacing(16) : 64;
+        const baseSize = ds ? ds.spacing(16) : 64;
+        const size = baseSize * perspectiveScale;
         
         // Type colors as fallback
         const typeColors = {
@@ -5434,9 +5779,9 @@ class BattleState extends GameState {
         }
         
         // === STATS BELOW SPRITE ===
-        const statsY = y + size + (ds ? ds.spacing(1) : 4);
-        const statsWidth = ds ? ds.spacing(22) : 88;
-        const lineHeight = ds ? ds.spacing(3.5) : 14;
+        const statsY = y + size + (ds ? ds.spacing(1) * perspectiveScale : 4);
+        const statsWidth = (ds ? ds.spacing(22) : 88) * perspectiveScale;
+        const lineHeight = (ds ? ds.spacing(3.5) : 14) * perspectiveScale;
         
         // Name
         ctx.fillStyle = spirit.isAlive ? '#fff' : '#666';
@@ -5448,7 +5793,7 @@ class BattleState extends GameState {
         // HP Bar (visual bar + text)
         const hpBarY = statsY + lineHeight;
         const barWidth = statsWidth;
-        const barHeight = ds ? ds.spacing(1.2) : 5;
+        const barHeight = (ds ? ds.spacing(1.2) : 5) * perspectiveScale;
         const barX = x - barWidth / 2;
         
         const hpPercent = spirit.maxHp > 0 ? spirit.currentHp / spirit.maxHp : 0;
@@ -5487,7 +5832,7 @@ class BattleState extends GameState {
         // ATB Bar or Casting Bar
         const atbY = mpBarY + barHeight + lineHeight;
         const atbWidth = barWidth;
-        const atbHeight = ds ? ds.spacing(1.2) : 5;
+        const atbHeight = (ds ? ds.spacing(1.2) : 5) * perspectiveScale;
         const atbX = barX;
         
         // ATB background
