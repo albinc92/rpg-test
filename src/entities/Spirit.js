@@ -302,9 +302,9 @@ class Spirit extends Actor {
                 false       // flipY
             );
             
-            // Draw spawn effect on top (using Canvas2D overlay)
+            // Draw spawn effect on top using WebGL
             if (this.spawnEffect.active) {
-                this.renderSpawnEffect(ctx, game);
+                this.renderSpawnEffect(webglRenderer, game, screenX, screenY, scaledWidth, scaledHeight);
             }
             return;
         }
@@ -332,9 +332,9 @@ class Spirit extends Actor {
         
         ctx.restore();
         
-        // Draw spawn effect if active
+        // Draw spawn effect if active (Canvas2D fallback path)
         if (this.spawnEffect.active) {
-            this.renderSpawnEffect(ctx, game);
+            this.renderSpawnEffectCanvas2D(ctx, screenX, screenY, scaledWidth, scaledHeight);
         }
     }
     
@@ -377,83 +377,97 @@ class Spirit extends Actor {
         
         ctx.restore();
         
-        // Draw spawn effect if active
+        // Draw spawn effect if active (placeholder uses simple position)
         if (this.spawnEffect.active) {
-            this.renderSpawnEffect(ctx, game);
+            this.renderSpawnEffectCanvas2D(ctx, this.x - size/2, this.y - size/2, size, size);
         }
     }
     
     /**
-     * Render spawn effect - glittering stars
+     * Render spawn effect using WebGL - same coordinates as sprite
      */
-    renderSpawnEffect(ctx, game) {
+    renderSpawnEffect(webglRenderer, game, screenX, screenY, scaledWidth, scaledHeight) {
+        if (!webglRenderer || !webglRenderer.initialized) return;
+        
         const elapsed = Date.now() - this.spawnEffect.startTime;
         const progress = elapsed / this.spawnEffect.duration;
         const effectAlpha = 1.0 - progress;
         
         if (effectAlpha > 0) {
-            const scaledX = this.getScaledX(game);
-            const scaledY = this.getScaledY(game);
-            
-            // Account for floating offset in fake 3D mode
-            const resolutionScale = game?.resolutionScale || 1.0;
-            const finalScale = this.scale * resolutionScale;
-            const baseHeight = this.spriteHeight || this.fallbackHeight || 64;
-            const scaledHeight = baseHeight * finalScale;
-            
-            let floatingOffset = 0;
-            let baseAltitude = 0;
-            if (this.isFloating && this.floatingSpeed && this.floatingRange && game.gameTime !== undefined) {
-                baseAltitude = scaledHeight * 0.5;
-                floatingOffset = Math.sin(game.gameTime * this.floatingSpeed) * (this.floatingRange * resolutionScale);
-            }
-            
-            // Center effect on sprite position (accounting for floating)
-            const effectY = scaledY - baseAltitude - floatingOffset;
-            
-            ctx.save();
+            // Effect center = sprite center (using SAME screenX/screenY passed from render)
+            const effectX = screenX + scaledWidth / 2;
+            const effectY = screenY + scaledHeight / 2;
             
             // Glittering stars effect
             const starCount = 12;
             const maxRadius = 60;
             
+            // Colors for sparkles [r, g, b, a]
+            const colors = [
+                [0.53, 0.81, 0.92], // Sky blue
+                [1.0, 0.84, 0.0],   // Gold
+                [1.0, 0.41, 0.71],  // Pink
+                [0.6, 0.98, 0.6]    // Pale green
+            ];
+            
             for (let i = 0; i < starCount; i++) {
-                // Each star has its own timing offset for twinkling
                 const starPhase = (i / starCount) * Math.PI * 2;
                 const twinkle = Math.sin(elapsed * 0.01 + starPhase * 3) * 0.5 + 0.5;
                 
-                // Stars spiral outward and fade
                 const angle = starPhase + progress * Math.PI;
                 const radius = progress * maxRadius * (0.5 + (i % 3) * 0.25);
                 
-                const starX = scaledX + Math.cos(angle) * radius;
-                const starY = effectY + Math.sin(angle) * radius - progress * 20; // Float upward
+                const starX = effectX + Math.cos(angle) * radius;
+                const starY = effectY + Math.sin(angle) * radius - progress * 20;
                 
-                // Star size varies with twinkle
                 const starSize = 2 + twinkle * 3;
                 
-                // Draw 4-point star
-                ctx.globalAlpha = effectAlpha * twinkle * 0.9;
-                ctx.fillStyle = '#FFFFFF';
+                // White center
+                webglRenderer.drawCircle(starX, starY, starSize * 0.6, [1.0, 1.0, 1.0, effectAlpha * twinkle * 0.9]);
                 
-                ctx.beginPath();
-                // Vertical line
-                ctx.moveTo(starX, starY - starSize);
-                ctx.lineTo(starX, starY + starSize);
-                ctx.moveTo(starX - starSize, starY);
-                ctx.lineTo(starX + starSize, starY);
-                ctx.lineWidth = 2;
-                ctx.strokeStyle = '#FFFFFF';
-                ctx.stroke();
+                // Colored outer
+                const color = colors[i % colors.length];
+                webglRenderer.drawCircle(starX, starY, starSize, [color[0], color[1], color[2], effectAlpha * twinkle * 0.5]);
+            }
+        }
+    }
+    
+    /**
+     * Canvas2D fallback for spawn effect
+     */
+    renderSpawnEffectCanvas2D(ctx, screenX, screenY, scaledWidth, scaledHeight) {
+        const elapsed = Date.now() - this.spawnEffect.startTime;
+        const progress = elapsed / this.spawnEffect.duration;
+        const effectAlpha = 1.0 - progress;
+        
+        if (effectAlpha > 0) {
+            const effectX = screenX + scaledWidth / 2;
+            const effectY = screenY + scaledHeight / 2;
+            
+            ctx.save();
+            
+            const starCount = 12;
+            const maxRadius = 60;
+            const colors = ['#87CEEB', '#FFD700', '#FF69B4', '#98FB98'];
+            
+            for (let i = 0; i < starCount; i++) {
+                const starPhase = (i / starCount) * Math.PI * 2;
+                const twinkle = Math.sin(elapsed * 0.01 + starPhase * 3) * 0.5 + 0.5;
                 
-                // Center glow
+                const angle = starPhase + progress * Math.PI;
+                const radius = progress * maxRadius * (0.5 + (i % 3) * 0.25);
+                
+                const starX = effectX + Math.cos(angle) * radius;
+                const starY = effectY + Math.sin(angle) * radius - progress * 20;
+                
+                const starSize = 2 + twinkle * 3;
+                
                 ctx.globalAlpha = effectAlpha * twinkle * 0.6;
+                ctx.fillStyle = '#FFFFFF';
                 ctx.beginPath();
                 ctx.arc(starX, starY, starSize * 0.5, 0, Math.PI * 2);
                 ctx.fill();
                 
-                // Colored sparkle (alternating colors)
-                const colors = ['#87CEEB', '#FFD700', '#FF69B4', '#98FB98'];
                 ctx.globalAlpha = effectAlpha * twinkle * 0.4;
                 ctx.fillStyle = colors[i % colors.length];
                 ctx.beginPath();
