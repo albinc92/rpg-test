@@ -398,36 +398,60 @@ class Spirit extends Actor {
             const effectX = screenX + scaledWidth / 2;
             const effectY = screenY + scaledHeight / 2;
             
-            // Glittering stars effect
-            const starCount = 12;
-            const maxRadius = 60;
+            // Central glow burst
+            const burstSize = 30 + (1 - progress) * 40; // Starts big, shrinks
+            const burstAlpha = effectAlpha * 0.6;
+            webglRenderer.drawCircle(effectX, effectY, burstSize, [1.0, 1.0, 1.0, burstAlpha * 0.3]);
+            webglRenderer.drawCircle(effectX, effectY, burstSize * 0.6, [0.53, 0.81, 0.92, burstAlpha * 0.5]);
+            webglRenderer.drawCircle(effectX, effectY, burstSize * 0.3, [1.0, 1.0, 1.0, burstAlpha * 0.7]);
+            
+            // Glittering stars effect - more stars, bigger radius
+            const starCount = 20;
+            const maxRadius = 100;
             
             // Colors for sparkles [r, g, b, a]
             const colors = [
                 [0.53, 0.81, 0.92], // Sky blue
                 [1.0, 0.84, 0.0],   // Gold
                 [1.0, 0.41, 0.71],  // Pink
-                [0.6, 0.98, 0.6]    // Pale green
+                [0.6, 0.98, 0.6],   // Pale green
+                [1.0, 1.0, 1.0]     // White
             ];
             
             for (let i = 0; i < starCount; i++) {
                 const starPhase = (i / starCount) * Math.PI * 2;
-                const twinkle = Math.sin(elapsed * 0.01 + starPhase * 3) * 0.5 + 0.5;
+                const twinkle = Math.sin(elapsed * 0.015 + starPhase * 3) * 0.5 + 0.5;
                 
-                const angle = starPhase + progress * Math.PI;
-                const radius = progress * maxRadius * (0.5 + (i % 3) * 0.25);
+                const angle = starPhase + progress * Math.PI * 1.5;
+                const radius = progress * maxRadius * (0.3 + (i % 4) * 0.25);
                 
                 const starX = effectX + Math.cos(angle) * radius;
-                const starY = effectY + Math.sin(angle) * radius - progress * 20;
+                const starY = effectY + Math.sin(angle) * radius - progress * 30;
                 
-                const starSize = 2 + twinkle * 3;
+                const starSize = 4 + twinkle * 6;
                 
-                // White center
-                webglRenderer.drawCircle(starX, starY, starSize * 0.6, [1.0, 1.0, 1.0, effectAlpha * twinkle * 0.9]);
-                
-                // Colored outer
+                // Outer glow
                 const color = colors[i % colors.length];
-                webglRenderer.drawCircle(starX, starY, starSize, [color[0], color[1], color[2], effectAlpha * twinkle * 0.5]);
+                webglRenderer.drawCircle(starX, starY, starSize * 1.5, [color[0], color[1], color[2], effectAlpha * twinkle * 0.3]);
+                
+                // White center - brighter
+                webglRenderer.drawCircle(starX, starY, starSize * 0.7, [1.0, 1.0, 1.0, effectAlpha * twinkle * 0.95]);
+                
+                // Colored ring
+                webglRenderer.drawCircle(starX, starY, starSize, [color[0], color[1], color[2], effectAlpha * twinkle * 0.7]);
+            }
+            
+            // Inner ring of faster particles
+            for (let i = 0; i < 8; i++) {
+                const ringPhase = (i / 8) * Math.PI * 2;
+                const twinkle = Math.sin(elapsed * 0.02 + ringPhase * 5) * 0.5 + 0.5;
+                const ringRadius = 20 + progress * 30;
+                const angle = ringPhase - progress * Math.PI * 2;
+                
+                const px = effectX + Math.cos(angle) * ringRadius;
+                const py = effectY + Math.sin(angle) * ringRadius;
+                
+                webglRenderer.drawCircle(px, py, 3 + twinkle * 2, [1.0, 1.0, 1.0, effectAlpha * twinkle]);
             }
         }
     }
