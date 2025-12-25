@@ -28,9 +28,33 @@
       "expYield": 30,
       "goldYield": 15,
       "abilities": [
-        { "id": "attack", "name": "Attack", "type": "physical", "element": null, "power": 40, "mpCost": 0, "target": "single_enemy" },
-        { "id": "gust", "name": "Gust", "type": "magical", "element": "wind", "power": 50, "mpCost": 8, "target": "single_enemy" },
-        { "id": "heal", "name": "Heal", "type": "supportive", "element": null, "power": 30, "mpCost": 10, "target": "single_ally" }
+        {
+          "id": "attack",
+          "name": "Attack",
+          "type": "physical",
+          "element": null,
+          "power": 40,
+          "mpCost": 0,
+          "target": "single_enemy"
+        },
+        {
+          "id": "gust",
+          "name": "Gust",
+          "type": "magical",
+          "element": "wind",
+          "power": 50,
+          "mpCost": 8,
+          "target": "single_enemy"
+        },
+        {
+          "id": "heal",
+          "name": "Heal",
+          "type": "supportive",
+          "element": null,
+          "power": 30,
+          "mpCost": 10,
+          "target": "single_ally"
+        }
       ],
       "moveSpeed": 2.5,
       "movePattern": "wander",
@@ -64,9 +88,38 @@
       "expYield": 35,
       "goldYield": 18,
       "abilities": [
-        { "id": "attack", "name": "Attack", "type": "physical", "element": null, "power": 40, "mpCost": 0, "target": "single_enemy" },
-        { "id": "aqua_jet", "name": "Aqua Jet", "type": "magical", "element": "water", "power": 55, "mpCost": 10, "target": "single_enemy" },
-        { "id": "mist", "name": "Mist", "type": "curse", "element": "water", "power": 0, "mpCost": 8, "target": "single_enemy", "debuff": { "stat": "speed", "amount": -5, "duration": 3 } }
+        {
+          "id": "attack",
+          "name": "Attack",
+          "type": "physical",
+          "element": null,
+          "power": 40,
+          "mpCost": 0,
+          "target": "single_enemy"
+        },
+        {
+          "id": "aqua_jet",
+          "name": "Aqua Jet",
+          "type": "magical",
+          "element": "water",
+          "power": 55,
+          "mpCost": 10,
+          "target": "single_enemy"
+        },
+        {
+          "id": "mist",
+          "name": "Mist",
+          "type": "curse",
+          "element": "water",
+          "power": 0,
+          "mpCost": 8,
+          "target": "single_enemy",
+          "debuff": {
+            "stat": "speed",
+            "amount": -5,
+            "duration": 3
+          }
+        }
       ],
       "moveSpeed": 2,
       "movePattern": "wander",
@@ -100,9 +153,38 @@
       "expYield": 60,
       "goldYield": 30,
       "abilities": [
-        { "id": "attack", "name": "Attack", "type": "physical", "element": null, "power": 40, "mpCost": 0, "target": "single_enemy" },
-        { "id": "fireball", "name": "Fireball", "type": "magical", "element": "fire", "power": 60, "mpCost": 12, "target": "single_enemy" },
-        { "id": "rock_armor", "name": "Rock Armor", "type": "supportive", "element": "earth", "power": 0, "mpCost": 10, "target": "self", "buff": { "stat": "defense", "amount": 10, "duration": 3 } }
+        {
+          "id": "attack",
+          "name": "Attack",
+          "type": "physical",
+          "element": null,
+          "power": 40,
+          "mpCost": 0,
+          "target": "single_enemy"
+        },
+        {
+          "id": "fireball",
+          "name": "Fireball",
+          "type": "magical",
+          "element": "fire",
+          "power": 60,
+          "mpCost": 12,
+          "target": "single_enemy"
+        },
+        {
+          "id": "rock_armor",
+          "name": "Rock Armor",
+          "type": "supportive",
+          "element": "earth",
+          "power": 0,
+          "mpCost": 10,
+          "target": "self",
+          "buff": {
+            "stat": "defense",
+            "amount": 10,
+            "duration": 3
+          }
+        }
       ],
       "moveSpeed": 1.2,
       "movePattern": "wander",
@@ -136,9 +218,38 @@
       "expYield": 45,
       "goldYield": 22,
       "abilities": [
-        { "id": "attack", "name": "Attack", "type": "physical", "element": null, "power": 40, "mpCost": 0, "target": "single_enemy" },
-        { "id": "rock_throw", "name": "Rock Throw", "type": "magical", "element": "earth", "power": 55, "mpCost": 10, "target": "single_enemy" },
-        { "id": "shadow_curse", "name": "Shadow Curse", "type": "curse", "element": null, "power": 0, "mpCost": 12, "target": "single_enemy", "debuff": { "stat": "defense", "amount": -8, "duration": 3 } }
+        {
+          "id": "attack",
+          "name": "Attack",
+          "type": "physical",
+          "element": null,
+          "power": 40,
+          "mpCost": 0,
+          "target": "single_enemy"
+        },
+        {
+          "id": "rock_throw",
+          "name": "Rock Throw",
+          "type": "magical",
+          "element": "earth",
+          "power": 55,
+          "mpCost": 10,
+          "target": "single_enemy"
+        },
+        {
+          "id": "shadow_curse",
+          "name": "Shadow Curse",
+          "type": "curse",
+          "element": null,
+          "power": 0,
+          "mpCost": 12,
+          "target": "single_enemy",
+          "debuff": {
+            "stat": "defense",
+            "amount": -8,
+            "duration": 3
+          }
+        }
       ],
       "moveSpeed": 1.8,
       "movePattern": "wander",

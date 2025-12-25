@@ -30,6 +30,24 @@ class PartyManager {
                 const data = JSON.parse(saveData);
                 this.party = data.party || [];
                 this.box = data.box || [];
+                
+                // Migrate old data - add scale and floating properties if missing
+                const migrateSpirit = (spirit) => {
+                    if (!spirit.scale) {
+                        // Default to 0.075 which matches Sylphie template
+                        spirit.scale = 0.075;
+                    }
+                    // Add floating properties for Sylphie (name-based check for old saves)
+                    if (spirit.isFloating === undefined) {
+                        // Default: Sylphie floats, others don't
+                        spirit.isFloating = spirit.name === 'Sylphie';
+                        spirit.floatingSpeed = 0.002;
+                        spirit.floatingRange = 15;
+                    }
+                    return spirit;
+                };
+                this.party = this.party.map(migrateSpirit);
+                this.box = this.box.map(migrateSpirit);
             } catch (e) {
                 console.warn('[PartyManager] Failed to load party data:', e);
             }
@@ -88,7 +106,11 @@ class PartyManager {
                 { id: 'gust', name: 'Gust', type: 'magical', element: 'wind', power: 50, mpCost: 8, target: 'single_enemy' },
                 { id: 'heal', name: 'Heal', type: 'supportive', element: null, power: 30, mpCost: 10, target: 'single_ally' }
             ],
-            sprite: '/assets/npc/Spirits/sylphie.png'
+            sprite: '/assets/npc/Spirits/sylphie.png',
+            scale: 0.075,  // Match the spirit template scale
+            isFloating: true,  // Sylphie floats/hovers
+            floatingSpeed: 0.002,
+            floatingRange: 15
         });
         
         // Add 4 Sylphies to the party

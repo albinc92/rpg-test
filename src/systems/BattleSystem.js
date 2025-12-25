@@ -205,7 +205,13 @@ class BattleSystem {
             type1: spiritData.type1 || spiritData.element || 'fire',
             type2: spiritData.type2 || null,
             sprite: spiritData.sprite || spiritData.spriteSrc,
+            scale: spiritData.scale || 0.075, // Copy scale from template (default to Sylphie's scale)
             isPlayerOwned: isPlayerOwned,
+            
+            // Floating/hovering animation
+            isFloating: spiritData.isFloating || false,
+            floatingSpeed: spiritData.floatingSpeed || 0.002,
+            floatingRange: spiritData.floatingRange || 15,
             
             // Battle stats
             maxHp: Math.floor(baseStats.hp * statMultiplier),

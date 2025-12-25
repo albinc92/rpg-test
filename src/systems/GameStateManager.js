@@ -4662,12 +4662,84 @@ class BattleState extends GameState {
         this.actionLog = [];
         this.maxLogEntries = 8;
         
+        // Battle spirit entities (actual Spirit instances for WebGL rendering)
+        this.battleSpiritEntities = [];
+        
         // Register log callback with battle system
         if (this.battleSystem) {
             this.battleSystem.onLogEntry = (entry) => this.addLogEntry(entry);
         }
         
         console.log('[BattleState] Entered battle state');
+    }
+    
+    /**
+     * Create actual Spirit entity instances for battle combatants
+     * These get rendered through the normal WebGL pipeline with shadows
+     */
+    createBattleSpiritEntities() {
+        this.battleSpiritEntities = [];
+        
+        if (!this.battleSystem) return;
+        
+        const mapWidth = this.game.MAP_WIDTH;
+        const mapHeight = this.game.MAP_HEIGHT;
+        const centerX = mapWidth / 2;
+        const centerY = mapHeight / 2;
+        
+        // Spacing in world units
+        const verticalSpacing = 80; // World units between spirits
+        
+        // Create player spirit entities (left side)
+        this.battleSystem.playerParty.forEach((spirit, index) => {
+            const worldX = centerX - 200; // Left of center
+            const worldY = centerY - 120 + index * verticalSpacing;
+            
+            const spiritEntity = new Spirit(this.game, worldX, worldY, this.battleMapId || this.game.currentMapId, {
+                id: `battle_player_${spirit.id}`,
+                name: spirit.name,
+                spriteSrc: spirit.sprite,
+                scale: spirit.scale || 0.075,
+                isFloating: spirit.isFloating || false,
+                floatingSpeed: spirit.floatingSpeed || 0.002,
+                floatingRange: spirit.floatingRange || 15,
+                spawnEffect: false, // No spawn effect in battle
+                direction: 'right' // Face right (toward enemies)
+            });
+            
+            // Link to battle spirit data for UI
+            spiritEntity._battleSpirit = spirit;
+            spiritEntity._isPlayerOwned = true;
+            spiritEntity._battleIndex = index;
+            
+            this.battleSpiritEntities.push(spiritEntity);
+        });
+        
+        // Create enemy spirit entities (right side)
+        this.battleSystem.enemyParty.forEach((spirit, index) => {
+            const worldX = centerX + 200; // Right of center  
+            const worldY = centerY - 120 + index * verticalSpacing;
+            
+            const spiritEntity = new Spirit(this.game, worldX, worldY, this.battleMapId || this.game.currentMapId, {
+                id: `battle_enemy_${spirit.id}`,
+                name: spirit.name,
+                spriteSrc: spirit.sprite,
+                scale: spirit.scale || 0.075,
+                isFloating: spirit.isFloating || false,
+                floatingSpeed: spirit.floatingSpeed || 0.002,
+                floatingRange: spirit.floatingRange || 15,
+                spawnEffect: false,
+                direction: 'left' // Face left (toward player)
+            });
+            
+            spiritEntity._battleSpirit = spirit;
+            spiritEntity._isPlayerOwned = false;
+            spiritEntity._battleIndex = index;
+            
+            this.battleSpiritEntities.push(spiritEntity);
+        });
+        
+        console.log(`[BattleState] Created ${this.battleSpiritEntities.length} battle spirit entities`);
     }
     
     loadPlayerSprite() {
@@ -4709,6 +4781,9 @@ class BattleState extends GameState {
             this.battleSystem.cleanup();
         }
         
+        // Clean up battle spirit entities
+        this.battleSpiritEntities = [];
+        
         // Restore player position if we had a battle map
         if (this.battleMapId && this.originalPlayerPos && this.game.player) {
             this.game.player.x = this.originalPlayerPos.x;
@@ -4732,6 +4807,24 @@ class BattleState extends GameState {
             }
             return;
         }
+        
+        // Update weather system during battle so particles animate
+        if (this.game.weatherSystem) {
+            this.game.weatherSystem.update(deltaTime);
+        }
+        
+        // Create battle spirit entities if not yet created (after transition)
+        if (this.battleSpiritEntities.length === 0 && this.battleSystem) {
+            this.createBattleSpiritEntities();
+        }
+        
+        // Update battle spirit entities (for floating animation, etc)
+        this.battleSpiritEntities.forEach(entity => {
+            // Sync alive state
+            if (entity._battleSpirit && !entity._battleSpirit.isAlive) {
+                entity.baseAlpha = 0.3; // Fade out dead spirits
+            }
+        });
         
         // Update battle system
         if (this.battleSystem) {
@@ -5029,6 +5122,8 @@ class BattleState extends GameState {
         const savedMapId = this.game.currentMapId;
         const savedMap = this.game.currentMap;
         const savedPlayerPos = this.game.player ? { x: this.game.player.x, y: this.game.player.y } : null;
+        const savedCameraPos = this.game.renderSystem?.camera ? 
+            { x: this.game.renderSystem.camera.x, y: this.game.renderSystem.camera.y } : null;
         
         let battleObjects = [];
         
@@ -5036,17 +5131,34 @@ class BattleState extends GameState {
         if (this.battleMapId && this.battleMapData) {
             this.game.currentMapId = this.battleMapId;
             this.game.currentMap = this.battleMapData;
-            // Center player on battle map for camera
+            
+            // Center camera on battle map
+            const centerX = this.game.MAP_WIDTH / 2;
+            const centerY = this.game.MAP_HEIGHT / 2;
+            
             if (this.game.player) {
-                this.game.player.x = this.game.MAP_WIDTH / 2;
-                this.game.player.y = this.game.MAP_HEIGHT / 2;
+                this.game.player.x = centerX;
+                this.game.player.y = centerY;
             }
+            
+            // Snap camera to center immediately
+            if (this.game.renderSystem?.camera) {
+                this.game.renderSystem.camera.x = centerX;
+                this.game.renderSystem.camera.y = centerY;
+            }
+            
             // Get objects from battle map
             battleObjects = this.game.objectManager?.getObjectsForMap(this.battleMapId) || [];
         }
         
-        // Render world with battle map objects (no NPCs, no player visible)
-        this.game.renderSystem.renderWorld(this.game.currentMap, battleObjects, [], null, this.game);
+        // Render world with battle map objects AND battle spirit entities
+        // Pass battle spirits as NPCs so they go through the WebGL shadow/sprite passes
+        this.game.renderSystem.renderWorld(this.game.currentMap, battleObjects, this.battleSpiritEntities, null, this.game);
+        
+        // Render weather effects on top of battle map
+        if (this.game.weatherSystem) {
+            this.game.weatherSystem.render();
+        }
         
         // Restore original map state
         if (this.battleMapId && this.battleMapData) {
@@ -5055,6 +5167,10 @@ class BattleState extends GameState {
             if (this.game.player && savedPlayerPos) {
                 this.game.player.x = savedPlayerPos.x;
                 this.game.player.y = savedPlayerPos.y;
+            }
+            if (this.game.renderSystem?.camera && savedCameraPos) {
+                this.game.renderSystem.camera.x = savedCameraPos.x;
+                this.game.renderSystem.camera.y = savedCameraPos.y;
             }
         }
         
@@ -5199,96 +5315,8 @@ class BattleState extends GameState {
         ctx.restore();
     }
     
-    /**
-     * Render shadows for all combatants based on sun/time position
-     */
-    renderCombatantShadows(ctx, width, height) {
-        if (!this.battleSystem) return;
-        
-        const dayNightCycle = this.game.dayNightCycle;
-        if (!dayNightCycle) return;
-        
-        // Get shadow properties from the game engine
-        const shadowProps = this.game.getShadowProperties ? this.game.getShadowProperties() : null;
-        if (!shadowProps || shadowProps.opacity < 0.05) return;
-        
-        const ds = window.ds;
-        const baseSpiritSize = ds ? ds.spacing(16) : 64;
-        const statBlockHeight = ds ? ds.spacing(14) : 56;
-        const baseSpacing = baseSpiritSize + statBlockHeight + (ds ? ds.spacing(6) : 24);
-        
-        // Check if fake 3D / perspective is enabled
-        const perspectiveSystem = this.game.perspectiveSystem;
-        const usePerspective = perspectiveSystem && perspectiveSystem.enabled;
-        
-        ctx.save();
-        
-        // All combatants with their positions
-        const allSpirits = [
-            ...this.battleSystem.playerParty.map((s, i) => ({ 
-                spirit: s, 
-                x: width * 0.18, 
-                y: height * 0.15 + i * baseSpacing, 
-                facingRight: true 
-            })),
-            ...this.battleSystem.enemyParty.map((s, i) => ({ 
-                spirit: s, 
-                x: width * 0.82, 
-                y: height * 0.15 + i * baseSpacing, 
-                facingRight: false 
-            }))
-        ];
-        
-        for (const { spirit, x, y, facingRight } of allSpirits) {
-            if (!spirit.isAlive) continue;
-            
-            // Apply perspective scaling
-            let perspectiveScale = 1.0;
-            if (usePerspective) {
-                perspectiveScale = perspectiveSystem.getDepthScale(y, height);
-            }
-            
-            const spiritSize = baseSpiritSize * perspectiveScale;
-            
-            // Get sprite dimensions
-            let spriteWidth = spiritSize;
-            let spriteHeight = spiritSize;
-            
-            if (spirit._spriteImage && spirit._spriteImage._loaded) {
-                const img = spirit._spriteImage;
-                const scale = Math.min(spiritSize / img.width, spiritSize / img.height) * 1.2;
-                spriteWidth = img.width * scale;
-                spriteHeight = img.height * scale;
-            }
-            
-            const spriteY = y + spiritSize / 2;
-            
-            // Shadow position - offset based on sun direction
-            const shadowSkewX = shadowProps.skewX || 0;
-            const shadowScaleY = shadowProps.scaleY || 0.3;
-            const shadowOpacity = shadowProps.opacity * 0.6; // Reduce opacity a bit for battle
-            
-            // Draw elliptical shadow
-            ctx.save();
-            ctx.translate(x, spriteY + spriteHeight / 2);
-            ctx.scale(1, shadowScaleY);
-            ctx.transform(1, 0, shadowSkewX, 1, 0, 0); // Apply skew
-            
-            // Create gradient for softer shadow
-            const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, spriteWidth * 0.6);
-            gradient.addColorStop(0, `rgba(0, 0, 0, ${shadowOpacity})`);
-            gradient.addColorStop(0.7, `rgba(0, 0, 0, ${shadowOpacity * 0.5})`);
-            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-            
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.ellipse(0, 0, spriteWidth * 0.6, spriteHeight * 0.4, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-        }
-        
-        ctx.restore();
-    }
+    // Shadows are now rendered through WebGL via battleSpiritEntities
+    // The old Canvas2D renderCombatantShadows method has been removed
     
     /**
      * Render weather effects in battle (rain, snow, leaves)
@@ -5507,32 +5535,29 @@ class BattleState extends GameState {
     }
     
     renderPlayerCommander(ctx, width, height) {
-        // Draw the player sprite in top-left corner - single frame, same scale as in-game
+        // Draw the player sprite in top-left corner - full sprite, same scale as in-game
         if (this.playerSprite && this.playerSprite._loaded) {
             const img = this.playerSprite;
             
-            // Player spritesheet is 4 columns x 4 rows
-            // Row 0 = facing down (forward)
-            const cols = 4;
-            const rows = 4;
-            const frameWidth = img.width / cols;
-            const frameHeight = img.height / rows;
+            // Use full sprite dimensions - player sprite is NOT a spritesheet
+            const spriteWidth = img.width;
+            const spriteHeight = img.height;
             
             // Use same scale as in-game: player.scale (1.0) * resolutionScale
             const resolutionScale = this.game.resolutionScale || 1.0;
             const playerScale = this.game.player?.scale || 1.0;
             const finalScale = playerScale * resolutionScale;
             
-            const drawW = frameWidth * finalScale;
-            const drawH = frameHeight * finalScale;
+            const drawW = spriteWidth * finalScale;
+            const drawH = spriteHeight * finalScale;
             
             // Position with padding
             const padding = 20;
             
-            // Draw first frame of row 0 (facing down/forward)
+            // Draw full sprite
             ctx.drawImage(
                 img,
-                0, 0, frameWidth, frameHeight, // Source: first frame, facing down
+                0, 0, spriteWidth, spriteHeight, // Source: full image
                 padding,
                 padding,
                 drawW,
@@ -5691,32 +5716,35 @@ class BattleState extends GameState {
     }
     
     renderCombatants(ctx, width, height) {
+        // Sprites are now rendered through WebGL via battleSpiritEntities
+        // This method only renders the UI overlay (names, HP bars, ATB, status indicators)
         if (!this.battleSystem) return;
         
         const ds = window.ds;
-        const baseSpiritSize = ds ? ds.spacing(16) : 64;
-        const statBlockHeight = ds ? ds.spacing(14) : 56; // Space for name + HP/MP + ATB bar
-        const baseSpacing = baseSpiritSize + statBlockHeight + (ds ? ds.spacing(6) : 24);
-        
-        // Check if fake 3D / perspective is enabled
+        const renderSystem = this.game.renderSystem;
         const perspectiveSystem = this.game.perspectiveSystem;
-        const usePerspective = perspectiveSystem && perspectiveSystem.enabled;
+        const perspectiveStrength = perspectiveSystem?.enabled ? perspectiveSystem.strength : 0;
         
-        // Player party (left side)
-        const playerSpirits = this.battleSystem.playerParty;
-        const playerStartX = width * 0.18;
-        const playerStartY = height * 0.15;
-        
-        playerSpirits.forEach((spirit, index) => {
-            const x = playerStartX;
-            const baseY = playerStartY + index * baseSpacing;
+        // Render UI for each battle spirit entity
+        this.battleSpiritEntities.forEach(entity => {
+            const spirit = entity._battleSpirit;
+            if (!spirit) return;
             
-            // Apply perspective scaling based on Y position
-            let perspectiveScale = 1.0;
-            if (usePerspective) {
-                perspectiveScale = perspectiveSystem.getDepthScale(baseY, height);
-            }
+            // Get screen position of the spirit entity
+            const screenPos = renderSystem.worldToScreen(
+                entity.x, entity.y,
+                width, height,
+                perspectiveStrength
+            );
             
+            if (!screenPos || screenPos.invalid) return;
+            
+            // Get the spirit's rendered size for positioning UI
+            const finalScale = entity.getFinalScale(this.game);
+            const spriteHeight = (entity.spriteHeight || 64) * finalScale;
+            const spriteWidth = (entity.spriteWidth || 64) * finalScale;
+            
+            // Check selection/targeting state
             const isSelected = spirit === this.selectedPlayerSpirit;
             let isTargeted = false;
             if (this.phase === 'target_select') {
@@ -5724,152 +5752,69 @@ class BattleState extends GameState {
                 isTargeted = targets[this.selectedTargetIndex] === spirit;
             }
             
-            this.renderSpirit(ctx, spirit, x, baseY, true, isSelected, isTargeted, perspectiveScale);
-        });
-        
-        // Enemy party (right side)
-        const enemySpirits = this.battleSystem.enemyParty;
-        const enemyStartX = width * 0.82;
-        const enemyStartY = height * 0.15;
-        
-        enemySpirits.forEach((spirit, index) => {
-            const x = enemyStartX;
-            const baseY = enemyStartY + index * baseSpacing;
-            
-            // Apply perspective scaling based on Y position
-            let perspectiveScale = 1.0;
-            if (usePerspective) {
-                perspectiveScale = perspectiveSystem.getDepthScale(baseY, height);
-            }
-            
-            let isTargeted = false;
-            if (this.phase === 'target_select') {
-                const targets = this.getSelectableTargets();
-                isTargeted = targets[this.selectedTargetIndex] === spirit;
-            }
-            
-            this.renderSpirit(ctx, spirit, x, baseY, false, false, isTargeted, perspectiveScale);
+            // Render status UI below the sprite
+            this.renderSpiritUI(ctx, spirit, screenPos.x, screenPos.y, spriteWidth, spriteHeight, isSelected, isTargeted, entity._isPlayerOwned);
         });
     }
     
-    renderSpirit(ctx, spirit, x, y, facingRight, isSelected = false, isTargeted = false, perspectiveScale = 1.0) {
+    /**
+     * Render just the UI elements for a battle spirit (name, HP/MP bars, ATB, status)
+     * The sprite itself is rendered through WebGL
+     */
+    renderSpiritUI(ctx, spirit, screenX, screenY, spriteWidth, spriteHeight, isSelected, isTargeted, isPlayerOwned) {
         const ds = window.ds;
-        const baseSize = ds ? ds.spacing(16) : 64;
-        const size = baseSize * perspectiveScale;
         
-        // Type colors as fallback
-        const typeColors = {
-            fire: '#ff6b35',
-            water: '#4da6ff',
-            earth: '#8b7355',
-            wind: '#98fb98'
-        };
-        
-        const color = typeColors[spirit.type1] || '#888';
-        
-        // Death effect
+        // Death effect - dim the UI
         if (!spirit.isAlive) {
-            ctx.globalAlpha = 0.3;
+            ctx.globalAlpha = 0.5;
         }
         
-        // Sprite center position
-        const spriteY = y + size / 2;
-        
-        // Target cursor animation (red arrow pointing at targeted enemy)
+        // Target cursor animation (pointing at sprite)
         if (isTargeted) {
             const cursorBob = Math.sin(Date.now() / 200) * 5;
             ctx.fillStyle = '#ff4444';
             ctx.beginPath();
-            if (facingRight) {
-                // Arrow on right side pointing left
-                ctx.moveTo(x + size / 2 + 20 - cursorBob, spriteY);
-                ctx.lineTo(x + size / 2 + 10 - cursorBob, spriteY - 10);
-                ctx.lineTo(x + size / 2 + 10 - cursorBob, spriteY + 10);
+            if (isPlayerOwned) {
+                // Point from right side toward player spirits
+                ctx.moveTo(screenX + spriteWidth / 2 + 20 - cursorBob, screenY);
+                ctx.lineTo(screenX + spriteWidth / 2 + 10 - cursorBob, screenY - 10);
+                ctx.lineTo(screenX + spriteWidth / 2 + 10 - cursorBob, screenY + 10);
             } else {
-                // Arrow on left side pointing right
-                ctx.moveTo(x - size / 2 - 20 + cursorBob, spriteY);
-                ctx.lineTo(x - size / 2 - 10 + cursorBob, spriteY - 10);
-                ctx.lineTo(x - size / 2 - 10 + cursorBob, spriteY + 10);
+                // Point from left side toward enemy spirits
+                ctx.moveTo(screenX - spriteWidth / 2 - 20 + cursorBob, screenY);
+                ctx.lineTo(screenX - spriteWidth / 2 - 10 + cursorBob, screenY - 10);
+                ctx.lineTo(screenX - spriteWidth / 2 - 10 + cursorBob, screenY + 10);
             }
             ctx.closePath();
             ctx.fill();
         }
         
-        // Try to draw sprite image - NO BOX, just the sprite
-        let spriteDrawn = false;
-        if (spirit.sprite) {
-            if (!spirit._spriteImage) {
-                spirit._spriteImage = new Image();
-                spirit._spriteImage._loaded = false;
-                spirit._spriteImage.onload = () => {
-                    spirit._spriteImage._loaded = true;
-                };
-                const spritePath = spirit.sprite.startsWith('/') ? spirit.sprite : '/' + spirit.sprite;
-                spirit._spriteImage.src = spritePath;
-            }
-            
-            if (spirit._spriteImage._loaded) {
-                const img = spirit._spriteImage;
-                const scale = Math.min(size / img.width, size / img.height) * 1.2; // Slightly larger
-                const drawWidth = img.width * scale;
-                const drawHeight = img.height * scale;
-                
-                ctx.save();
-                if (facingRight) {
-                    ctx.translate(x, spriteY);
-                    ctx.scale(-1, 1);
-                    ctx.drawImage(img, -drawWidth/2, -drawHeight/2, drawWidth, drawHeight);
-                } else {
-                    ctx.drawImage(img, x - drawWidth/2, spriteY - drawHeight/2, drawWidth, drawHeight);
-                }
-                ctx.restore();
-                spriteDrawn = true;
-            }
-        }
-        
-        // Fallback to colored circle if no sprite
-        if (!spriteDrawn) {
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.arc(x, spriteY, size / 2 - 4, 0, Math.PI * 2);
-            ctx.fill();
-            
-            ctx.fillStyle = '#fff';
-            ctx.font = ds ? ds.font('xs', 'bold') : 'bold 11px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(spirit.type1?.toUpperCase() || '???', x, spriteY);
-        }
-        
         // === STATS BELOW SPRITE ===
-        const statsY = y + size + (ds ? ds.spacing(1) * perspectiveScale : 4);
-        const statsWidth = (ds ? ds.spacing(22) : 88) * perspectiveScale;
-        const lineHeight = (ds ? ds.spacing(3.5) : 14) * perspectiveScale;
+        const statsY = screenY + spriteHeight / 2 + (ds ? ds.spacing(1) : 4);
+        const statsWidth = ds ? ds.spacing(22) : 88;
+        const lineHeight = ds ? ds.spacing(3.5) : 14;
+        const barHeight = ds ? ds.spacing(1.2) : 5;
         
         // Name
         ctx.fillStyle = spirit.isAlive ? '#fff' : '#666';
         ctx.font = ds ? ds.font('xs', 'bold') : 'bold 11px \'Lato\', sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillText(spirit.name, x, statsY);
+        ctx.fillText(spirit.name, screenX, statsY);
         
-        // HP Bar (visual bar + text)
+        // HP Bar
         const hpBarY = statsY + lineHeight;
         const barWidth = statsWidth;
-        const barHeight = (ds ? ds.spacing(1.2) : 5) * perspectiveScale;
-        const barX = x - barWidth / 2;
+        const barX = screenX - barWidth / 2;
         
         const hpPercent = spirit.maxHp > 0 ? spirit.currentHp / spirit.maxHp : 0;
         const hpColor = hpPercent > 0.5 ? '#4ade80' : hpPercent > 0.25 ? '#fbbf24' : '#ef4444';
         
-        // HP bar background
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(barX, hpBarY, barWidth, barHeight);
-        // HP bar fill
         ctx.fillStyle = hpColor;
         ctx.fillRect(barX, hpBarY, barWidth * hpPercent, barHeight);
         
-        // HP text on right of bar
         ctx.font = ds ? ds.font('xs') : '9px \'Lato\', sans-serif';
         ctx.fillStyle = '#fff';
         ctx.textAlign = 'right';
@@ -5880,14 +5825,11 @@ class BattleState extends GameState {
         const mpBarY = hpBarY + barHeight + lineHeight;
         const mpPercent = spirit.maxMp > 0 ? spirit.currentMp / spirit.maxMp : 0;
         
-        // MP bar background
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(barX, mpBarY, barWidth, barHeight);
-        // MP bar fill
         ctx.fillStyle = ds ? ds.colors.primary : '#4da6ff';
         ctx.fillRect(barX, mpBarY, barWidth * mpPercent, barHeight);
         
-        // MP text on right of bar
         ctx.fillStyle = '#fff';
         ctx.textAlign = 'right';
         ctx.fillText(`${spirit.currentMp}`, barX + barWidth, mpBarY + barHeight + 1);
@@ -5895,39 +5837,42 @@ class BattleState extends GameState {
         // ATB Bar or Casting Bar
         const atbY = mpBarY + barHeight + lineHeight;
         const atbWidth = barWidth;
-        const atbHeight = (ds ? ds.spacing(1.2) : 5) * perspectiveScale;
+        const atbHeight = ds ? ds.spacing(1.2) : 5;
         const atbX = barX;
         
-        // ATB background
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(atbX, atbY, atbWidth, atbHeight);
         
-        // Check if casting
         if (spirit.isCasting && spirit.castDuration > 0) {
-            // Casting bar - purple/magenta color
             const castPercent = spirit.castTimer / spirit.castDuration;
-            ctx.fillStyle = '#a855f7'; // Purple for casting
+            ctx.fillStyle = '#a855f7';
             ctx.fillRect(atbX, atbY, atbWidth * castPercent, atbHeight);
             
-            // Casting label
             ctx.fillStyle = '#a855f7';
             ctx.font = ds ? ds.font('xs') : '9px \'Lato\', sans-serif';
             ctx.textAlign = 'right';
             ctx.textBaseline = 'top';
             ctx.fillText('CAST', atbX + atbWidth, atbY + atbHeight + 1);
         } else {
-            // Normal ATB fill
             const atbPercent = this.battleSystem ? spirit.atb / this.battleSystem.ATB_MAX : 0;
             const atbFillColor = spirit.isReady ? '#ffd700' : '#888';
             ctx.fillStyle = atbFillColor;
             ctx.fillRect(atbX, atbY, atbWidth * atbPercent, atbHeight);
             
-            // ATB label
             ctx.fillStyle = spirit.isReady ? '#ffd700' : '#aaa';
             ctx.font = ds ? ds.font('xs') : '9px \'Lato\', sans-serif';
             ctx.textAlign = 'right';
             ctx.textBaseline = 'top';
             ctx.fillText(spirit.isReady ? 'READY' : 'ATB', atbX + atbWidth, atbY + atbHeight + 1);
+        }
+        
+        // Active/Selected indicator
+        if (isSelected) {
+            ctx.fillStyle = '#ffd700';
+            ctx.font = ds ? ds.font('xs', 'bold') : 'bold 10px \'Lato\', sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('ACTIVE', screenX, statsY - 4);
         }
         
         ctx.globalAlpha = 1;
