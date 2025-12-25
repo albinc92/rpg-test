@@ -4605,20 +4605,31 @@ class BattleState extends GameState {
         // Check if current map has a battle map configured
         const currentMap = this.game.currentMap;
         this.battleMapId = null;
+        this.battleMapData = null;
         
         if (currentMap?.battleMap && currentMap.battleMap !== this.game.currentMapId) {
-            // Get battle map data without fully loading it
+            // Get battle map data
             const battleMapData = this.game.mapManager?.getMapData(currentMap.battleMap);
             if (battleMapData) {
                 this.battleMapId = currentMap.battleMap;
-                // Temporarily swap to battle map for rendering
-                this.game.currentMapId = currentMap.battleMap;
-                this.game.currentMap = battleMapData;
-                // Center camera on battle map
-                if (this.game.player) {
-                    this.game.player.x = this.game.MAP_WIDTH / 2;
-                    this.game.player.y = this.game.MAP_HEIGHT / 2;
+                this.battleMapData = battleMapData;
+                
+                // Make sure the battle map's paint layer is loaded
+                if (this.game.editorManager) {
+                    if (!this.game.editorManager.paintLayers[this.battleMapId]) {
+                        // Initialize and load the paint layer from saved data
+                        this.game.editorManager.initializePaintLayer(this.battleMapId);
+                        if (battleMapData.paintLayerData) {
+                            this.game.editorManager.importPaintLayerData(this.battleMapId, battleMapData.paintLayerData);
+                        }
+                    }
                 }
+                
+                // Load the battle map's objects if not already loaded
+                if (this.game.objectManager) {
+                    this.game.objectManager.loadObjectsForMap(this.battleMapId);
+                }
+                
                 console.log(`[BattleState] Using battle map: ${this.battleMapId}`);
             }
         }
@@ -4698,16 +4709,10 @@ class BattleState extends GameState {
             this.battleSystem.cleanup();
         }
         
-        // Restore original map if we switched to a battle map
-        if (this.battleMapId && this.originalMapId) {
-            this.game.currentMapId = this.originalMapId;
-            this.game.currentMap = this.originalMap;
-            // Restore player position
-            if (this.game.player && this.originalPlayerPos) {
-                this.game.player.x = this.originalPlayerPos.x;
-                this.game.player.y = this.originalPlayerPos.y;
-            }
-            console.log(`[BattleState] Restored original map: ${this.originalMapId}`);
+        // Restore player position if we had a battle map
+        if (this.battleMapId && this.originalPlayerPos && this.game.player) {
+            this.game.player.x = this.originalPlayerPos.x;
+            this.game.player.y = this.originalPlayerPos.y;
         }
         
         // Resume world BGM
@@ -5019,13 +5024,39 @@ class BattleState extends GameState {
             return;
         }
         
-        // === RENDER THE ACTUAL GAME WORLD UNDERNEATH ===
-        // This gives us day/night, shadows, weather, lens flare - everything for free!
-        const map = this.game.currentMap;
-        const objects = this.game.objectManager?.getAllObjects() || [];
-        const npcs = this.game.objectManager?.npcs || [];
-        const player = this.game.player;
-        this.game.renderSystem.renderWorld(map, objects, npcs, player, this.game);
+        // === RENDER THE GAME WORLD AS BATTLE BACKGROUND ===
+        // Temporarily swap to battle map if configured
+        const savedMapId = this.game.currentMapId;
+        const savedMap = this.game.currentMap;
+        const savedPlayerPos = this.game.player ? { x: this.game.player.x, y: this.game.player.y } : null;
+        
+        let battleObjects = [];
+        
+        // Use battle map if configured
+        if (this.battleMapId && this.battleMapData) {
+            this.game.currentMapId = this.battleMapId;
+            this.game.currentMap = this.battleMapData;
+            // Center player on battle map for camera
+            if (this.game.player) {
+                this.game.player.x = this.game.MAP_WIDTH / 2;
+                this.game.player.y = this.game.MAP_HEIGHT / 2;
+            }
+            // Get objects from battle map
+            battleObjects = this.game.objectManager?.getObjectsForMap(this.battleMapId) || [];
+        }
+        
+        // Render world with battle map objects (no NPCs, no player visible)
+        this.game.renderSystem.renderWorld(this.game.currentMap, battleObjects, [], null, this.game);
+        
+        // Restore original map state
+        if (this.battleMapId && this.battleMapData) {
+            this.game.currentMapId = savedMapId;
+            this.game.currentMap = savedMap;
+            if (this.game.player && savedPlayerPos) {
+                this.game.player.x = savedPlayerPos.x;
+                this.game.player.y = savedPlayerPos.y;
+            }
+        }
         
         // Now draw battle-specific elements on top using Canvas2D
         
