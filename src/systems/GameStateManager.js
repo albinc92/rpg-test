@@ -4680,9 +4680,14 @@ class BattleState extends GameState {
         
         if (!this.battleSystem) return;
         
-        // ALWAYS center battle at map center - this ensures it's always centered on screen
-        const centerX = this.game.MAP_WIDTH / 2;
-        const centerY = this.game.MAP_HEIGHT / 2;
+        // Get current camera position - we'll position battle at screen center
+        const camera = this.game.renderSystem?.camera;
+        const screenCenterWorldX = (camera?.x || 0) + this.game.CANVAS_WIDTH / 2;
+        const screenCenterWorldY = (camera?.y || 0) + this.game.CANVAS_HEIGHT / 2;
+        
+        // Use screen center as battle center
+        const centerX = screenCenterWorldX;
+        const centerY = screenCenterWorldY;
         
         // Calculate vertical centering based on number of spirits
         const playerCount = this.battleSystem.playerParty.length;
@@ -4768,6 +4773,45 @@ class BattleState extends GameState {
         this.battleCenterY = centerY;
     }
     
+    /**
+     * Reposition all battle entities so they're centered on screen
+     * Called every frame to ensure they stay centered regardless of camera
+     */
+    repositionBattleEntities(centerX, centerY) {
+        const verticalSpacing = 70;
+        const horizontalOffset = 120;
+        
+        const playerCount = this.battleSystem?.playerParty?.length || 0;
+        const enemyCount = this.battleSystem?.enemyParty?.length || 0;
+        
+        // Reposition player spirits (left side)
+        const playerTotalHeight = (playerCount - 1) * verticalSpacing;
+        const playerStartY = centerY - playerTotalHeight / 2;
+        
+        let playerIndex = 0;
+        let enemyIndex = 0;
+        
+        for (const entity of this.battleSpiritEntities) {
+            if (entity._isPlayerOwned) {
+                entity.x = centerX - horizontalOffset;
+                entity.y = playerStartY + playerIndex * verticalSpacing;
+                playerIndex++;
+            } else {
+                const enemyTotalHeight = (enemyCount - 1) * verticalSpacing;
+                const enemyStartY = centerY - enemyTotalHeight / 2;
+                entity.x = centerX + horizontalOffset;
+                entity.y = enemyStartY + enemyIndex * verticalSpacing;
+                enemyIndex++;
+            }
+        }
+        
+        // Reposition player character
+        if (this.game.player) {
+            this.game.player.x = centerX - horizontalOffset - 80;
+            this.game.player.y = centerY;
+        }
+    }
+    
     // Player sprite is now rendered through WebGL - no separate loading needed
     
     addLogEntry(text) {
@@ -4810,11 +4854,6 @@ class BattleState extends GameState {
             if (this.savedPlayerDirection) {
                 this.game.player.direction = this.savedPlayerDirection;
             }
-        }
-        
-        // Re-enable camera clamping after battle
-        if (this.game.renderSystem?.camera) {
-            this.game.renderSystem.camera.clampToBounds = true;
         }
         
         // Resume world BGM
@@ -5156,24 +5195,30 @@ class BattleState extends GameState {
             this.game.currentMapId = this.battleMapId;
             this.game.currentMap = this.battleMapData;
             battleObjects = this.game.objectManager?.getObjectsForMap(this.battleMapId) || [];
+            
+            // Center camera on battle map center
+            const mapCenterX = this.game.MAP_WIDTH / 2;
+            const mapCenterY = this.game.MAP_HEIGHT / 2;
+            const cameraX = mapCenterX - width / 2;
+            const cameraY = mapCenterY - height / 2;
+            
+            if (this.game.renderSystem?.camera) {
+                this.game.renderSystem.camera.x = cameraX;
+                this.game.renderSystem.camera.y = cameraY;
+                this.game.renderSystem.camera.targetX = cameraX;
+                this.game.renderSystem.camera.targetY = cameraY;
+            }
+            
+            // Position battle entities at map center
+            this.repositionBattleEntities(mapCenterX, mapCenterY);
         } else {
             battleObjects = this.game.objectManager?.getObjectsForMap(this.game.currentMapId) || [];
-        }
-        
-        // Force camera to center on battle formation - bypass all clamping
-        // Camera position = target point - half screen size
-        const battleCenterX = this.game.MAP_WIDTH / 2;
-        const battleCenterY = this.game.MAP_HEIGHT / 2;
-        const cameraX = battleCenterX - width / 2;
-        const cameraY = battleCenterY - height / 2;
-        
-        if (this.game.renderSystem?.camera) {
-            // Disable camera clamping during battle
-            this.game.renderSystem.camera.clampToBounds = false;
-            this.game.renderSystem.camera.x = cameraX;
-            this.game.renderSystem.camera.y = cameraY;
-            this.game.renderSystem.camera.targetX = cameraX;
-            this.game.renderSystem.camera.targetY = cameraY;
+            
+            // No battle map - position at current screen center
+            const camera = this.game.renderSystem?.camera;
+            const screenCenterX = (camera?.x || 0) + width / 2;
+            const screenCenterY = (camera?.y || 0) + height / 2;
+            this.repositionBattleEntities(screenCenterX, screenCenterY);
         }
         
         // Render world with battle map, battle spirit entities, AND the player
