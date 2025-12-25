@@ -4639,9 +4639,7 @@ class BattleState extends GameState {
         this.backgroundImage = null;
         this.loadBackground();
         
-        // Player commander sprite
-        this.playerSprite = null;
-        this.loadPlayerSprite();
+        // Player is now rendered through WebGL - no separate sprite loading needed
         
         // Transition animation
         this.transitionTimer = 0;
@@ -4740,18 +4738,26 @@ class BattleState extends GameState {
         });
         
         console.log(`[BattleState] Created ${this.battleSpiritEntities.length} battle spirit entities`);
-    }
-    
-    loadPlayerSprite() {
-        if (this.game.player && this.game.player.spriteSrc) {
-            this.playerSprite = new Image();
-            this.playerSprite._loaded = false;
-            this.playerSprite.onload = () => {
-                this.playerSprite._loaded = true;
-            };
-            this.playerSprite.src = this.game.player.spriteSrc;
+        
+        // Position the player (commander) on the battle field
+        // They stand behind their spirits on the far left, facing right
+        if (this.game.player) {
+            const mapWidth = this.game.MAP_WIDTH;
+            const mapHeight = this.game.MAP_HEIGHT;
+            const centerX = mapWidth / 2;
+            const centerY = mapHeight / 2;
+            
+            // Store original position and direction
+            this.savedPlayerDirection = this.game.player.direction;
+            
+            // Position player on the far left, vertically centered
+            this.game.player.x = centerX - 350;
+            this.game.player.y = centerY - 50;
+            this.game.player.direction = 'right'; // Face toward enemies
         }
     }
+    
+    // Player sprite is now rendered through WebGL - no separate loading needed
     
     addLogEntry(text) {
         this.actionLog.unshift({
@@ -4784,10 +4790,15 @@ class BattleState extends GameState {
         // Clean up battle spirit entities
         this.battleSpiritEntities = [];
         
-        // Restore player position if we had a battle map
-        if (this.battleMapId && this.originalPlayerPos && this.game.player) {
-            this.game.player.x = this.originalPlayerPos.x;
-            this.game.player.y = this.originalPlayerPos.y;
+        // Restore player position and direction if we had a battle map
+        if (this.game.player) {
+            if (this.originalPlayerPos) {
+                this.game.player.x = this.originalPlayerPos.x;
+                this.game.player.y = this.originalPlayerPos.y;
+            }
+            if (this.savedPlayerDirection) {
+                this.game.player.direction = this.savedPlayerDirection;
+            }
         }
         
         // Resume world BGM
@@ -5121,7 +5132,6 @@ class BattleState extends GameState {
         // Temporarily swap to battle map if configured
         const savedMapId = this.game.currentMapId;
         const savedMap = this.game.currentMap;
-        const savedPlayerPos = this.game.player ? { x: this.game.player.x, y: this.game.player.y } : null;
         const savedCameraPos = this.game.renderSystem?.camera ? 
             { x: this.game.renderSystem.camera.x, y: this.game.renderSystem.camera.y } : null;
         
@@ -5136,10 +5146,7 @@ class BattleState extends GameState {
             const centerX = this.game.MAP_WIDTH / 2;
             const centerY = this.game.MAP_HEIGHT / 2;
             
-            if (this.game.player) {
-                this.game.player.x = centerX;
-                this.game.player.y = centerY;
-            }
+            // Player position is set in createBattleSpiritEntities, don't override here
             
             // Snap camera to center immediately
             if (this.game.renderSystem?.camera) {
@@ -5151,23 +5158,22 @@ class BattleState extends GameState {
             battleObjects = this.game.objectManager?.getObjectsForMap(this.battleMapId) || [];
         }
         
-        // Render world with battle map objects AND battle spirit entities
+        // Render world with battle map objects, battle spirit entities, AND the player
         // Pass battle spirits as NPCs so they go through the WebGL shadow/sprite passes
-        this.game.renderSystem.renderWorld(this.game.currentMap, battleObjects, this.battleSpiritEntities, null, this.game);
+        // Player is also rendered through WebGL for proper shadows
+        this.game.renderSystem.renderWorld(this.game.currentMap, battleObjects, this.battleSpiritEntities, this.game.player, this.game);
         
         // Render weather effects on top of battle map
         if (this.game.weatherSystem) {
             this.game.weatherSystem.render();
         }
         
-        // Restore original map state
+        // Restore original map state (but NOT player position - that stays for battle)
         if (this.battleMapId && this.battleMapData) {
             this.game.currentMapId = savedMapId;
             this.game.currentMap = savedMap;
-            if (this.game.player && savedPlayerPos) {
-                this.game.player.x = savedPlayerPos.x;
-                this.game.player.y = savedPlayerPos.y;
-            }
+            // Don't restore player position here - they stay in battle position
+            // Player position is restored in exit()
             if (this.game.renderSystem?.camera && savedCameraPos) {
                 this.game.renderSystem.camera.x = savedCameraPos.x;
                 this.game.renderSystem.camera.y = savedCameraPos.y;
@@ -5176,14 +5182,13 @@ class BattleState extends GameState {
         
         // Now draw battle-specific elements on top using Canvas2D
         
-        // Draw combatants (spirits)
+        // Draw combatants (spirits) UI overlays
         this.renderCombatants(ctx, width, height);
         
         // Draw active spirit indicator
         this.renderActiveSpiritIndicator(ctx, width, height);
         
-        // Draw player commander in top-left
-        this.renderPlayerCommander(ctx, width, height);
+        // Player is now rendered through WebGL with battle spirits
         
         // Draw action log at bottom center
         this.renderActionLog(ctx, width, height);
@@ -5534,37 +5539,7 @@ class BattleState extends GameState {
         ctx.restore();
     }
     
-    renderPlayerCommander(ctx, width, height) {
-        // Draw the player sprite in top-left corner - full sprite, same scale as in-game
-        if (this.playerSprite && this.playerSprite._loaded) {
-            const img = this.playerSprite;
-            
-            // Use full sprite dimensions - player sprite is NOT a spritesheet
-            const spriteWidth = img.width;
-            const spriteHeight = img.height;
-            
-            // Use same scale as in-game: player.scale (1.0) * resolutionScale
-            const resolutionScale = this.game.resolutionScale || 1.0;
-            const playerScale = this.game.player?.scale || 1.0;
-            const finalScale = playerScale * resolutionScale;
-            
-            const drawW = spriteWidth * finalScale;
-            const drawH = spriteHeight * finalScale;
-            
-            // Position with padding
-            const padding = 20;
-            
-            // Draw full sprite
-            ctx.drawImage(
-                img,
-                0, 0, spriteWidth, spriteHeight, // Source: full image
-                padding,
-                padding,
-                drawW,
-                drawH
-            );
-        }
-    }
+    // Player commander is now rendered through WebGL as part of the battle scene
     
     renderActiveSpiritIndicator(ctx, width, height) {
         if (!this.battleSystem) return;
