@@ -58,6 +58,70 @@ class SpawnManager {
         
         this.activeMaps.set(mapId, mapConfig);
         console.log(`[SpawnManager] ✅ Map ${mapId} activated. Density: ${spawnDensity}`);
+        
+        // Instantly spawn spirits up to the density limit
+        this.spawnInitialSpirits(mapId, mapConfig);
+    }
+    
+    /**
+     * Instantly spawn spirits when a map is first activated
+     * Spawns without sound effects or spawn animations for seamless loading
+     */
+    spawnInitialSpirits(mapId, config) {
+        const targetCount = config.spawnDensity;
+        let spawned = 0;
+        
+        console.log(`[SpawnManager] 🌟 Spawning ${targetCount} initial spirits for map ${mapId}`);
+        
+        for (let i = 0; i < targetCount; i++) {
+            if (this.spawnSpiritSilent(mapId, config)) {
+                spawned++;
+            }
+        }
+        
+        console.log(`[SpawnManager] ✅ Spawned ${spawned}/${targetCount} initial spirits for map ${mapId}`);
+    }
+    
+    /**
+     * Spawn a spirit without sound or spawn effect (for initial map load)
+     */
+    spawnSpiritSilent(mapId, config) {
+        if (!config.spawnZoneCache || config.spawnZoneCache.length === 0) return false;
+        
+        // 1. Select Spirit Type (considering time conditions)
+        const spiritId = this.selectRandomSpirit(config.spawnTable);
+        if (!spiritId) return false;
+        
+        // 2. Find Valid Position (with collision check)
+        const position = this.findValidSpawnPosition(mapId, config, spiritId);
+        if (!position) return false;
+        
+        // 3. Convert to Unscaled World Coordinates
+        const resolutionScale = this.game.resolutionScale || 1.0;
+        
+        const unscaledX = position.x / resolutionScale;
+        const unscaledY = position.y / resolutionScale;
+        
+        // 4. Create Spirit (no spawn effect)
+        const spirit = this.game.spiritRegistry.createSpirit(
+            spiritId,
+            unscaledX,
+            unscaledY,
+            mapId
+        );
+        
+        if (!spirit) return false;
+
+        spirit.isDynamicSpawn = true;
+        
+        // No spawn effect - spirit appears already there
+        spirit.spawnEffectTimer = 0;
+        spirit.isSpawning = false;
+        
+        this.game.objectManager.addObject(mapId, spirit);
+        config.spirits.push(spirit);
+        
+        return true;
     }
 
     /**

@@ -512,5 +512,81 @@
   "-1-0": [],
   "1-1": [],
   "-1-1": [],
-  "forest-battle-01": []
+  "forest-battle-01": [
+    {
+      "category": "StaticObject",
+      "x": 1366.1952862807764,
+      "y": 299.58302859380706,
+      "scale": 0.81,
+      "spriteSrc": "assets/objects/trees/tree-01.png",
+      "id": "static_2cf3217d-524a-4c49-824b-5f735fae9a6f",
+      "collisionExpandTopPercent": -0.9,
+      "collisionExpandLeftPercent": -0.25,
+      "collisionExpandRightPercent": -0.25,
+      "name": "Oak Tree"
+    },
+    {
+      "category": "StaticObject",
+      "x": 1450.2861953716854,
+      "y": 1663.9769679877468,
+      "scale": 0.81,
+      "spriteSrc": "assets/objects/trees/tree-01.png",
+      "id": "static_a0386587-a6ee-43b8-b160-995f814a6971",
+      "reverseFacing": true,
+      "collisionExpandTopPercent": -0.9,
+      "collisionExpandLeftPercent": -0.25,
+      "collisionExpandRightPercent": -0.25,
+      "name": "Oak Tree"
+    },
+    {
+      "category": "StaticObject",
+      "x": 2689.6801347656246,
+      "y": 545.7951498059284,
+      "scale": 0.81,
+      "spriteSrc": "assets/objects/trees/tree-01.png",
+      "id": "static_b63be805-35b8-4efa-8609-a95770eb419b",
+      "collisionExpandTopPercent": -0.9,
+      "collisionExpandLeftPercent": -0.25,
+      "collisionExpandRightPercent": -0.25,
+      "name": "Oak Tree"
+    },
+    {
+      "category": "StaticObject",
+      "x": 2766.9528620383517,
+      "y": 1239.7345437453223,
+      "scale": 0.31,
+      "spriteSrc": "assets/objects/bushes/bush-01.png",
+      "id": "static_8f0e31e8-9c9e-443e-9818-7f0fc707d824",
+      "collisionExpandTopPercent": -0.7,
+      "collisionExpandLeftPercent": -0.05,
+      "collisionExpandRightPercent": -0.05,
+      "name": "Green Bush"
+    },
+    {
+      "category": "StaticObject",
+      "x": 1148.0134680989581,
+      "y": 682.1587861695647,
+      "scale": 0.41,
+      "spriteSrc": "assets/objects/bushes/bush-01.png",
+      "id": "static_f8aed661-beba-43af-9abd-6e8d9fa6b096",
+      "reverseFacing": true,
+      "collisionExpandTopPercent": -0.7,
+      "collisionExpandLeftPercent": -0.05,
+      "collisionExpandRightPercent": -0.05,
+      "name": "Green Bush"
+    },
+    {
+      "category": "StaticObject",
+      "x": 2218.600931908914,
+      "y": 584.4290255301145,
+      "scale": 0.21,
+      "spriteSrc": "assets/objects/rocks/rock-02.png",
+      "id": "static_f4514b7a-342a-4adb-9090-cb6cadfcdaac",
+      "reverseFacing": true,
+      "collisionExpandTopPercent": -0.3,
+      "collisionExpandLeftPercent": -0.1,
+      "collisionExpandRightPercent": -0.1,
+      "name": "Rock"
+    }
+  ]
 }

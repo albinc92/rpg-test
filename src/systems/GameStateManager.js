@@ -4680,18 +4680,27 @@ class BattleState extends GameState {
         
         if (!this.battleSystem) return;
         
-        const mapWidth = this.game.MAP_WIDTH;
-        const mapHeight = this.game.MAP_HEIGHT;
-        const centerX = mapWidth / 2;
-        const centerY = mapHeight / 2;
+        // ALWAYS center battle at map center - this ensures it's always centered on screen
+        const centerX = this.game.MAP_WIDTH / 2;
+        const centerY = this.game.MAP_HEIGHT / 2;
+        
+        // Calculate vertical centering based on number of spirits
+        const playerCount = this.battleSystem.playerParty.length;
+        const enemyCount = this.battleSystem.enemyParty.length;
         
         // Spacing in world units
-        const verticalSpacing = 80; // World units between spirits
+        const verticalSpacing = 70; // World units between spirits
+        
+        // Horizontal spread
+        const horizontalOffset = 120; // Distance from center
         
         // Create player spirit entities (left side)
+        const playerTotalHeight = (playerCount - 1) * verticalSpacing;
+        const playerStartY = centerY - playerTotalHeight / 2;
+        
         this.battleSystem.playerParty.forEach((spirit, index) => {
-            const worldX = centerX - 200; // Left of center
-            const worldY = centerY - 120 + index * verticalSpacing;
+            const worldX = centerX - horizontalOffset;
+            const worldY = playerStartY + index * verticalSpacing;
             
             const spiritEntity = new Spirit(this.game, worldX, worldY, this.battleMapId || this.game.currentMapId, {
                 id: `battle_player_${spirit.id}`,
@@ -4714,9 +4723,12 @@ class BattleState extends GameState {
         });
         
         // Create enemy spirit entities (right side)
+        const enemyTotalHeight = (enemyCount - 1) * verticalSpacing;
+        const enemyStartY = centerY - enemyTotalHeight / 2;
+        
         this.battleSystem.enemyParty.forEach((spirit, index) => {
-            const worldX = centerX + 200; // Right of center  
-            const worldY = centerY - 120 + index * verticalSpacing;
+            const worldX = centerX + horizontalOffset;
+            const worldY = enemyStartY + index * verticalSpacing;
             
             const spiritEntity = new Spirit(this.game, worldX, worldY, this.battleMapId || this.game.currentMapId, {
                 id: `battle_enemy_${spirit.id}`,
@@ -4737,24 +4749,23 @@ class BattleState extends GameState {
             this.battleSpiritEntities.push(spiritEntity);
         });
         
-        console.log(`[BattleState] Created ${this.battleSpiritEntities.length} battle spirit entities`);
+        console.log(`[BattleState] Created ${this.battleSpiritEntities.length} battle spirit entities at (${centerX}, ${centerY})`);
         
         // Position the player (commander) on the battle field
-        // They stand behind their spirits on the far left, facing right
+        // They stand behind their spirits, facing right
         if (this.game.player) {
-            const mapWidth = this.game.MAP_WIDTH;
-            const mapHeight = this.game.MAP_HEIGHT;
-            const centerX = mapWidth / 2;
-            const centerY = mapHeight / 2;
-            
-            // Store original position and direction
+            // Store original direction
             this.savedPlayerDirection = this.game.player.direction;
             
-            // Position player on the far left, vertically centered
-            this.game.player.x = centerX - 350;
-            this.game.player.y = centerY - 50;
+            // Position player behind their spirits
+            this.game.player.x = centerX - horizontalOffset - 80;
+            this.game.player.y = centerY;
             this.game.player.direction = 'right'; // Face toward enemies
         }
+        
+        // Store the battle center for camera (same as player's original position)
+        this.battleCenterX = centerX;
+        this.battleCenterY = centerY;
     }
     
     // Player sprite is now rendered through WebGL - no separate loading needed
@@ -4799,6 +4810,11 @@ class BattleState extends GameState {
             if (this.savedPlayerDirection) {
                 this.game.player.direction = this.savedPlayerDirection;
             }
+        }
+        
+        // Re-enable camera clamping after battle
+        if (this.game.renderSystem?.camera) {
+            this.game.renderSystem.camera.clampToBounds = true;
         }
         
         // Resume world BGM
@@ -5129,11 +5145,9 @@ class BattleState extends GameState {
         }
         
         // === RENDER THE GAME WORLD AS BATTLE BACKGROUND ===
-        // Temporarily swap to battle map if configured
+        // Save current state
         const savedMapId = this.game.currentMapId;
         const savedMap = this.game.currentMap;
-        const savedCameraPos = this.game.renderSystem?.camera ? 
-            { x: this.game.renderSystem.camera.x, y: this.game.renderSystem.camera.y } : null;
         
         let battleObjects = [];
         
@@ -5141,26 +5155,29 @@ class BattleState extends GameState {
         if (this.battleMapId && this.battleMapData) {
             this.game.currentMapId = this.battleMapId;
             this.game.currentMap = this.battleMapData;
-            
-            // Center camera on battle map
-            const centerX = this.game.MAP_WIDTH / 2;
-            const centerY = this.game.MAP_HEIGHT / 2;
-            
-            // Player position is set in createBattleSpiritEntities, don't override here
-            
-            // Snap camera to center immediately
-            if (this.game.renderSystem?.camera) {
-                this.game.renderSystem.camera.x = centerX;
-                this.game.renderSystem.camera.y = centerY;
-            }
-            
-            // Get objects from battle map
             battleObjects = this.game.objectManager?.getObjectsForMap(this.battleMapId) || [];
+        } else {
+            battleObjects = this.game.objectManager?.getObjectsForMap(this.game.currentMapId) || [];
         }
         
-        // Render world with battle map objects, battle spirit entities, AND the player
+        // Force camera to center on battle formation - bypass all clamping
+        // Camera position = target point - half screen size
+        const battleCenterX = this.game.MAP_WIDTH / 2;
+        const battleCenterY = this.game.MAP_HEIGHT / 2;
+        const cameraX = battleCenterX - width / 2;
+        const cameraY = battleCenterY - height / 2;
+        
+        if (this.game.renderSystem?.camera) {
+            // Disable camera clamping during battle
+            this.game.renderSystem.camera.clampToBounds = false;
+            this.game.renderSystem.camera.x = cameraX;
+            this.game.renderSystem.camera.y = cameraY;
+            this.game.renderSystem.camera.targetX = cameraX;
+            this.game.renderSystem.camera.targetY = cameraY;
+        }
+        
+        // Render world with battle map, battle spirit entities, AND the player
         // Pass battle spirits as NPCs so they go through the WebGL shadow/sprite passes
-        // Player is also rendered through WebGL for proper shadows
         this.game.renderSystem.renderWorld(this.game.currentMap, battleObjects, this.battleSpiritEntities, this.game.player, this.game);
         
         // Render weather effects on top of battle map
@@ -5168,16 +5185,10 @@ class BattleState extends GameState {
             this.game.weatherSystem.render();
         }
         
-        // Restore original map state (but NOT player position - that stays for battle)
+        // Restore original map state
         if (this.battleMapId && this.battleMapData) {
             this.game.currentMapId = savedMapId;
             this.game.currentMap = savedMap;
-            // Don't restore player position here - they stay in battle position
-            // Player position is restored in exit()
-            if (this.game.renderSystem?.camera && savedCameraPos) {
-                this.game.renderSystem.camera.x = savedCameraPos.x;
-                this.game.renderSystem.camera.y = savedCameraPos.y;
-            }
         }
         
         // Now draw battle-specific elements on top using Canvas2D
