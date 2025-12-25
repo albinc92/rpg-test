@@ -4597,7 +4597,33 @@ class BattleState extends GameState {
         // Menu options for action selection
         this.menuOptions = ['Attack', 'Ability', 'Item', 'Seal', 'Switch', 'Flee'];
         
-        // Battle background
+        // Store original map info to return to after battle
+        this.originalMapId = this.game.currentMapId;
+        this.originalMap = this.game.currentMap;
+        this.originalPlayerPos = this.game.player ? { x: this.game.player.x, y: this.game.player.y } : null;
+        
+        // Check if current map has a battle map configured
+        const currentMap = this.game.currentMap;
+        this.battleMapId = null;
+        
+        if (currentMap?.battleMap && currentMap.battleMap !== this.game.currentMapId) {
+            // Get battle map data without fully loading it
+            const battleMapData = this.game.mapManager?.getMapData(currentMap.battleMap);
+            if (battleMapData) {
+                this.battleMapId = currentMap.battleMap;
+                // Temporarily swap to battle map for rendering
+                this.game.currentMapId = currentMap.battleMap;
+                this.game.currentMap = battleMapData;
+                // Center camera on battle map
+                if (this.game.player) {
+                    this.game.player.x = this.game.MAP_WIDTH / 2;
+                    this.game.player.y = this.game.MAP_HEIGHT / 2;
+                }
+                console.log(`[BattleState] Using battle map: ${this.battleMapId}`);
+            }
+        }
+        
+        // Battle background (legacy - for old-style image backgrounds)
         this.background = data.background || 'forest-0';
         this.backgroundImage = null;
         this.loadBackground();
@@ -4670,6 +4696,18 @@ class BattleState extends GameState {
         if (this.battleSystem) {
             this.battleSystem.onLogEntry = null;
             this.battleSystem.cleanup();
+        }
+        
+        // Restore original map if we switched to a battle map
+        if (this.battleMapId && this.originalMapId) {
+            this.game.currentMapId = this.originalMapId;
+            this.game.currentMap = this.originalMap;
+            // Restore player position
+            if (this.game.player && this.originalPlayerPos) {
+                this.game.player.x = this.originalPlayerPos.x;
+                this.game.player.y = this.originalPlayerPos.y;
+            }
+            console.log(`[BattleState] Restored original map: ${this.originalMapId}`);
         }
         
         // Resume world BGM
@@ -4981,29 +5019,23 @@ class BattleState extends GameState {
             return;
         }
         
-        // Draw battle background
-        this.renderBackground(ctx, width, height);
+        // === RENDER THE ACTUAL GAME WORLD UNDERNEATH ===
+        // This gives us day/night, shadows, weather, lens flare - everything for free!
+        const map = this.game.currentMap;
+        const objects = this.game.objectManager?.getAllObjects() || [];
+        const npcs = this.game.objectManager?.npcs || [];
+        const player = this.game.player;
+        this.game.renderSystem.renderWorld(map, objects, npcs, player, this.game);
         
-        // Render shadows for combatants (before sprites)
-        this.renderCombatantShadows(ctx, width, height);
+        // Now draw battle-specific elements on top using Canvas2D
         
-        // Draw combatants
+        // Draw combatants (spirits)
         this.renderCombatants(ctx, width, height);
         
         // Draw active spirit indicator
         this.renderActiveSpiritIndicator(ctx, width, height);
         
-        // Render weather effects (rain/snow particles over battle scene)
-        this.renderBattleWeather(ctx, width, height);
-        
-        // Apply day/night lighting effect to battle scene (background + sprites)
-        // This happens BEFORE UI elements so menus aren't affected
-        this.renderDayNightOverlay(ctx, width, height);
-        
-        // Render lens flare effect (if sun is visible)
-        this.renderBattleLensFlare(ctx, width, height);
-        
-        // Draw player commander in top-left (after overlay so it's visible)
+        // Draw player commander in top-left
         this.renderPlayerCommander(ctx, width, height);
         
         // Draw action log at bottom center

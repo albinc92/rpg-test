@@ -991,6 +991,25 @@ class EditorUI {
         form.appendChild(createMapSelector('east', '➡️ East Map'));
         form.appendChild(createMapSelector('west', '⬅️ West Map'));
 
+        // Battle Map Section
+        const battleHeader = document.createElement('div');
+        battleHeader.textContent = '⚔️ Battle Settings';
+        battleHeader.style.cssText = 'font-size: 16px; font-weight: bold; color: #ff6b6b; margin-top: 20px; margin-bottom: 12px; border-top: 1px solid #444; padding-top: 12px;';
+        form.appendChild(battleHeader);
+
+        // Battle map selector - which map to use as battle background
+        const battleMapValue = mapData.battleMap || 'none';
+        const battleMapSelector = this.createConfigSelect('🗺️ Battle Map', battleMapValue, mapOptions, (value) => {
+            mapData.battleMap = value === 'none' ? null : value;
+        });
+        form.appendChild(battleMapSelector);
+
+        // Add help text
+        const battleHelpText = document.createElement('div');
+        battleHelpText.textContent = 'The map to use as background during battles on this map. If not set, battles use the current map.';
+        battleHelpText.style.cssText = 'font-size: 11px; color: #888; margin-top: -8px; margin-bottom: 12px; padding-left: 4px;';
+        form.appendChild(battleHelpText);
+
         modal.appendChild(form);
 
         // Buttons
