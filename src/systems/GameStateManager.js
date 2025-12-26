@@ -4683,17 +4683,33 @@ class BattleState extends GameState {
         // Action animation
         this.actionAnimation = null;
         this.damageNumbers = [];
+        this.actionTexts = []; // Floating action names like "Attack", "Gust", etc.
         
-        // Action log
+        // Action log (no longer rendered, but kept for debugging)
         this.actionLog = [];
         this.maxLogEntries = 8;
         
         // Battle spirit entities (actual Spirit instances for WebGL rendering)
         this.battleSpiritEntities = [];
         
-        // Register log callback with battle system
+        // Register callbacks with battle system
         if (this.battleSystem) {
             this.battleSystem.onLogEntry = (entry) => this.addLogEntry(entry);
+            
+            // Damage callback - spawns floating damage number on target
+            this.battleSystem.onDamage = (target, meta) => {
+                this.spawnDamageNumber(target, meta);
+            };
+            
+            // Heal callback - spawns green floating heal number
+            this.battleSystem.onHeal = (target, amount) => {
+                this.spawnHealNumber(target, amount);
+            };
+            
+            // Action text callback - shows ability name above user
+            this.battleSystem.onActionText = (user, actionName) => {
+                this.spawnActionText(user, actionName);
+            };
         }
         
         console.log('[BattleState] Entered battle state');
@@ -4837,7 +4853,7 @@ class BattleState extends GameState {
         
         // Reposition player character (behind their spirits)
         if (this.game.player) {
-            this.game.player.x = centerX - horizontalOffset - 120;
+            this.game.player.x = centerX - horizontalOffset - 200;
             this.game.player.y = centerY;
         }
     }
@@ -4866,9 +4882,12 @@ class BattleState extends GameState {
     }
     
     exit() {
-        // Clear log callback
+        // Clear callbacks
         if (this.battleSystem) {
             this.battleSystem.onLogEntry = null;
+            this.battleSystem.onDamage = null;
+            this.battleSystem.onHeal = null;
+            this.battleSystem.onActionText = null;
             this.battleSystem.cleanup();
         }
         
@@ -4923,11 +4942,15 @@ class BattleState extends GameState {
             this.createBattleSpiritEntities();
         }
         
-        // Update battle spirit entities (for floating animation, etc)
+        // Update battle spirit entities (for floating animation, damage flash, etc)
         this.battleSpiritEntities.forEach(entity => {
             // Sync alive state
             if (entity._battleSpirit && !entity._battleSpirit.isAlive) {
                 entity.baseAlpha = 0.3; // Fade out dead spirits
+            }
+            // Update damage flash on the spirit data
+            if (entity._battleSpirit && entity._battleSpirit._damageFlash > 0) {
+                entity._battleSpirit._damageFlash -= deltaTime * 3; // Fade out over ~0.33s
             }
         });
         
@@ -4943,12 +4966,20 @@ class BattleState extends GameState {
             }
         }
         
-        // Update damage numbers
+        // Update damage numbers (float up and fade out)
         this.damageNumbers = this.damageNumbers.filter(dn => {
             dn.timer += deltaTime;
-            dn.y -= 50 * deltaTime;
+            dn.y -= 60 * deltaTime; // Float up
             dn.alpha = Math.max(0, 1 - dn.timer / dn.duration);
             return dn.timer < dn.duration;
+        });
+        
+        // Update action texts (float up faster and fade out)
+        this.actionTexts = this.actionTexts.filter(at => {
+            at.timer += deltaTime;
+            at.y -= 40 * deltaTime;
+            at.alpha = Math.max(0, 1 - at.timer / at.duration);
+            return at.timer < at.duration;
         });
         
         // Auto-select ready spirit
@@ -5272,15 +5303,14 @@ class BattleState extends GameState {
         // Draw combatants (spirits) UI overlays
         this.renderCombatants(ctx, width, height);
         
-        // Draw active spirit indicator
-        this.renderActiveSpiritIndicator(ctx, width, height);
+        // Active spirit indicator is now rendered in renderSpiritUI with pulsing border
         
         // Player is now rendered through WebGL with battle spirits
         
-        // Draw action log at bottom center
-        this.renderActionLog(ctx, width, height);
+        // Action log removed - using floating damage numbers instead
+        // this.renderActionLog(ctx, width, height);
         
-        // Draw damage numbers
+        // Draw damage numbers and action texts
         this.renderDamageNumbers(ctx);
         
         // Draw action menu if selecting
@@ -5908,15 +5938,48 @@ class BattleState extends GameState {
         // Position UI below the sprite's feet (screenY is at sprite base/feet)
         const uiStartY = screenY + 8; // Small gap below sprite base
         const statsWidth = ds ? ds.spacing(22) : 88;
-        const barHeight = ds ? ds.spacing(3.5) : 14; // Thicker bars to fit text inside
+        const barHeight = 16; // Bar height
         const barSpacing = 2; // Gap between bars
+        const barFont = 'bold 11px \'Lato\', sans-serif';
         
-        // Name
+        // Draw pulsing border for active spirit
+        if (isSelected) {
+            const time = Date.now() / 300;
+            const pulse = 0.5 + Math.sin(time) * 0.5; // 0 to 1 pulsing
+            const borderWidth = statsWidth + 12;
+            const borderHeight = barHeight * 3 + barSpacing * 2 + 30; // Name + 3 bars + spacing
+            const borderX = screenX - borderWidth / 2;
+            const borderY = uiStartY - 4;
+            
+            ctx.strokeStyle = `rgba(255, 215, 0, ${0.4 + pulse * 0.6})`;
+            ctx.lineWidth = 2 + pulse;
+            ctx.shadowColor = '#ffd700';
+            ctx.shadowBlur = 8 + pulse * 8;
+            ctx.beginPath();
+            ctx.roundRect(borderX, borderY, borderWidth, borderHeight, 6);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+        
+        // Damage flash effect - red overlay on the sprite area
+        if (spirit._damageFlash && spirit._damageFlash > 0) {
+            const flashAlpha = spirit._damageFlash * 0.5;
+            ctx.fillStyle = `rgba(255, 50, 50, ${flashAlpha})`;
+            // Flash around the sprite (screenY is at feet, so sprite center is at screenY - spriteHeight/2)
+            const flashWidth = 70;
+            const flashHeight = spriteHeight + 20;
+            ctx.fillRect(screenX - flashWidth/2, screenY - spriteHeight - 10, flashWidth, flashHeight);
+        }
+        
+        // Name with text shadow for readability
         ctx.fillStyle = spirit.isAlive ? '#fff' : '#666';
-        ctx.font = ds ? ds.font('xs', 'bold') : 'bold 10px \'Lato\', sans-serif';
+        ctx.font = ds ? ds.font('xs', 'bold') : 'bold 11px \'Lato\', sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 3;
         ctx.fillText(spirit.name, screenX, uiStartY);
+        ctx.shadowBlur = 0;
         
         // HP Bar
         const hpBarY = uiStartY + 14;
@@ -5933,7 +5996,7 @@ class BattleState extends GameState {
         ctx.fillStyle = hpColor;
         ctx.fillRect(barX, hpBarY, barWidth * hpPercent, barHeight);
         // Text inside bar
-        ctx.font = ds ? ds.font('xxs', 'bold') : 'bold 9px \'Lato\', sans-serif';
+        ctx.font = barFont;
         ctx.fillStyle = '#fff';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -5950,6 +6013,7 @@ class BattleState extends GameState {
         ctx.fillStyle = ds ? ds.colors.primary : '#4da6ff';
         ctx.fillRect(barX, mpBarY, barWidth * mpPercent, barHeight);
         // Text inside bar
+        ctx.font = barFont;
         ctx.fillStyle = '#fff';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -5969,6 +6033,7 @@ class BattleState extends GameState {
             ctx.fillStyle = '#a855f7';
             ctx.fillRect(atbX, atbY, atbWidth * castPercent, barHeight);
             // Text inside bar
+            ctx.font = barFont;
             ctx.fillStyle = '#fff';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -5979,23 +6044,14 @@ class BattleState extends GameState {
             ctx.fillStyle = atbFillColor;
             ctx.fillRect(atbX, atbY, atbWidth * atbPercent, barHeight);
             // Text inside bar
+            ctx.font = barFont;
             ctx.fillStyle = spirit.isReady ? '#000' : '#aaa';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(spirit.isReady ? 'READY' : 'ATB', screenX, atbY + barHeight / 2);
         }
         
-        // Active/Selected indicator (above the sprite's head)
-        if (isSelected) {
-            ctx.fillStyle = '#ffd700';
-            ctx.font = ds ? ds.font('xs', 'bold') : 'bold 10px \'Lato\', sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            // screenY is at feet, sprite top is at screenY - spriteHeight
-            const spriteTopY = screenY - spriteHeight;
-            ctx.fillText('ACTIVE', screenX, spriteTopY - 20);
-            ctx.fillText('▼', screenX, spriteTopY - 6);
-        }
+        // Active indicator is now the pulsing border around the status UI
         
         ctx.globalAlpha = 1;
     }
@@ -6178,13 +6234,83 @@ class BattleState extends GameState {
     renderDamageNumbers(ctx) {
         const ds = window.ds;
         
-        this.damageNumbers.forEach(dn => {
-            ctx.globalAlpha = dn.alpha;
-            ctx.fillStyle = dn.isHeal ? '#4ade80' : (dn.isCrit ? '#ff4444' : '#fff');
-            ctx.font = ds ? ds.font(dn.isCrit ? 'xl' : 'lg', 'bold') : `bold ${dn.isCrit ? 28 : 22}px Arial`;
+        // Render action texts first (behind damage numbers)
+        this.actionTexts.forEach(at => {
+            ctx.globalAlpha = at.alpha;
+            ctx.fillStyle = '#ffd700';
+            ctx.font = ds ? ds.font('md', 'bold') : 'bold 16px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(dn.isHeal ? `+${dn.value}` : `-${dn.value}`, dn.x, dn.y);
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 4;
+            ctx.fillText(at.text, at.x, at.y);
+            ctx.shadowBlur = 0;
+        });
+        
+        // Render damage/heal numbers
+        this.damageNumbers.forEach(dn => {
+            ctx.globalAlpha = dn.alpha;
+            
+            // Draw crit star effect behind number (Ragnarok Online style)
+            if (dn.isCrit) {
+                ctx.save();
+                const starSize = 30 + (1 - dn.alpha) * 20; // Expand as it fades
+                const starRotation = dn.timer * 2; // Spin
+                ctx.translate(dn.x, dn.y);
+                ctx.rotate(starRotation);
+                
+                // Red star burst
+                ctx.fillStyle = 'rgba(255, 50, 50, 0.6)';
+                const points = 6;
+                ctx.beginPath();
+                for (let i = 0; i < points * 2; i++) {
+                    const radius = i % 2 === 0 ? starSize : starSize * 0.4;
+                    const angle = (i * Math.PI) / points;
+                    if (i === 0) ctx.moveTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+                    else ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+            
+            // Main damage number
+            ctx.fillStyle = dn.isHeal ? '#4ade80' : (dn.isCrit ? '#ff4444' : '#fff');
+            const fontSize = dn.isCrit ? 32 : 24;
+            ctx.font = `bold ${fontSize}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'rgba(0,0,0,0.9)';
+            ctx.shadowBlur = 4;
+            
+            // Build display text
+            let text = dn.isHeal ? `+${dn.value}` : `${dn.value}`;
+            if (dn.isCrit) text += '!';
+            ctx.fillText(text, dn.x, dn.y);
+            
+            // Additional info below the main number
+            if (!dn.isHeal) {
+                ctx.font = 'bold 12px Arial';
+                let yOffset = fontSize / 2 + 12;
+                
+                // Absorbed damage indicator
+                if (dn.absorbed > 0) {
+                    ctx.fillStyle = 'rgba(150, 150, 150, ' + dn.alpha + ')';
+                    ctx.fillText(`(-${dn.absorbed})`, dn.x, dn.y + yOffset);
+                    yOffset += 14;
+                }
+                
+                // Effectiveness multiplier
+                if (dn.effectiveness > 1) {
+                    ctx.fillStyle = 'rgba(255, 200, 50, ' + dn.alpha + ')';
+                    ctx.fillText(`x${dn.effectiveness.toFixed(1)}`, dn.x, dn.y + yOffset);
+                } else if (dn.effectiveness < 1) {
+                    ctx.fillStyle = 'rgba(100, 150, 255, ' + dn.alpha + ')';
+                    ctx.fillText(`x${dn.effectiveness.toFixed(1)}`, dn.x, dn.y + yOffset);
+                }
+            }
+            
+            ctx.shadowBlur = 0;
         });
         ctx.globalAlpha = 1;
     }
@@ -6283,13 +6409,129 @@ class BattleState extends GameState {
         }
     }
     
-    // Helper to add damage number
+    // Helper to add damage number (legacy - use spawnDamageNumber instead)
     addDamageNumber(x, y, value, isHeal = false, isCrit = false) {
         this.damageNumbers.push({
             x, y,
             value,
             isHeal,
             isCrit,
+            effectiveness: 1.0,
+            absorbed: 0,
+            timer: 0,
+            duration: 1.2,
+            alpha: 1
+        });
+    }
+    
+    /**
+     * Get screen position for a battle spirit
+     */
+    getSpiritScreenPosition(spirit) {
+        const entity = this.battleSpiritEntities.find(e => e._battleSpirit === spirit);
+        if (!entity) return null;
+        
+        const worldScale = this.game.worldScale || 1;
+        const camera = this.game.renderSystem?.camera;
+        const webglRenderer = this.game.renderSystem?.webglRenderer;
+        
+        if (!camera) return null;
+        
+        // Get entity world position
+        const worldX = entity.x * worldScale;
+        const worldY = entity.y * worldScale;
+        
+        // Get sprite dimensions
+        const finalScale = entity.getFinalScale(this.game);
+        const baseHeight = entity.spriteHeight || 64;
+        const spriteHeight = baseHeight * finalScale;
+        
+        // Calculate screen position accounting for perspective
+        let screenX, screenY;
+        const width = this.game.CANVAS_WIDTH;
+        const height = this.game.CANVAS_HEIGHT;
+        
+        if (webglRenderer && webglRenderer.perspectiveStrength > 0 && webglRenderer.viewMatrix) {
+            const vm = webglRenderer.viewMatrix;
+            const pm = webglRenderer.projectionMatrix;
+            
+            // Center of sprite
+            const viewX = worldX * vm[0] + worldY * vm[4] + vm[12];
+            const viewY = worldX * vm[1] + worldY * vm[5] + vm[13];
+            const clipX = viewX * pm[0] + viewY * pm[4] + pm[12];
+            const clipY = viewX * pm[1] + viewY * pm[5] + pm[13];
+            
+            const depth = (clipY + 1.0) * 0.5;
+            const perspectiveW = 1.0 + (depth * webglRenderer.perspectiveStrength);
+            const clipX_persp = clipX / perspectiveW;
+            const clipY_persp = clipY / perspectiveW;
+            
+            screenX = (clipX_persp + 1.0) * 0.5 * width;
+            screenY = (1.0 - clipY_persp) * 0.5 * height;
+        } else {
+            screenX = worldX - camera.x;
+            screenY = worldY - camera.y;
+        }
+        
+        return { x: screenX, y: screenY - spriteHeight / 2, spriteHeight };
+    }
+    
+    /**
+     * Spawn floating damage number on a target spirit
+     */
+    spawnDamageNumber(target, meta) {
+        const pos = this.getSpiritScreenPosition(target);
+        if (!pos) return;
+        
+        // Random horizontal offset for variety
+        const offsetX = (Math.random() - 0.5) * 30;
+        
+        this.damageNumbers.push({
+            x: pos.x + offsetX,
+            y: pos.y,
+            value: meta.damage,
+            isHeal: false,
+            isCrit: meta.isCrit || false,
+            effectiveness: meta.effectiveness || 1.0,
+            absorbed: meta.absorbed || 0,
+            timer: 0,
+            duration: 1.5,
+            alpha: 1
+        });
+    }
+    
+    /**
+     * Spawn floating heal number on a target spirit
+     */
+    spawnHealNumber(target, amount) {
+        const pos = this.getSpiritScreenPosition(target);
+        if (!pos) return;
+        
+        this.damageNumbers.push({
+            x: pos.x,
+            y: pos.y,
+            value: amount,
+            isHeal: true,
+            isCrit: false,
+            effectiveness: 1.0,
+            absorbed: 0,
+            timer: 0,
+            duration: 1.2,
+            alpha: 1
+        });
+    }
+    
+    /**
+     * Spawn action text above a spirit (e.g., "Attack", "Gust")
+     */
+    spawnActionText(user, actionName) {
+        const pos = this.getSpiritScreenPosition(user);
+        if (!pos) return;
+        
+        this.actionTexts.push({
+            x: pos.x,
+            y: pos.y - pos.spriteHeight / 2 - 20,
+            text: actionName,
             timer: 0,
             duration: 1.0,
             alpha: 1

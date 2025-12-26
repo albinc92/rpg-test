@@ -42,6 +42,11 @@ class BattleSystem {
         // Log callback (set by BattleState)
         this.onLogEntry = null;
         
+        // Callbacks for UI effects (damage numbers, action text, etc.)
+        this.onDamage = null;  // (target, { damage, isCrit, effectiveness, absorbed }) => {}
+        this.onHeal = null;    // (target, healAmount) => {}
+        this.onActionText = null; // (user, actionName) => {}
+        
         // Type effectiveness chart
         // Multipliers: 2.0 = super effective, 0.5 = not very effective, 1.0 = normal
         this.typeChart = {
@@ -554,22 +559,33 @@ class BattleSystem {
     executeAttack(user, target) {
         if (!target || !target.isAlive) return;
         
+        // Show action text
+        if (this.onActionText) {
+            this.onActionText(user, 'Attack');
+        }
+        
         // Play attack sound effect
         this.game.audioManager?.playEffect('strike01.mp3');
         
         // Calculate damage
         const baseDamage = user.attack * 2;
-        const defense = target.defense;
+        const rawDefense = target.defense;
         
         // Type effectiveness (using attacker's type1)
         const effectiveness = this.calculateTypeEffectiveness(user.type1, target.type1, target.type2);
         
-        // Damage formula
-        let damage = Math.floor((baseDamage - defense * 0.5) * effectiveness);
+        // Critical hit check (10% base chance)
+        const isCrit = Math.random() < 0.1;
+        const critMultiplier = isCrit ? 1.5 : 1.0;
+        
+        // Damage formula  
+        const rawDamage = baseDamage * effectiveness * critMultiplier;
+        const absorbed = Math.floor(rawDefense * 0.5);
+        let damage = Math.floor(rawDamage - absorbed);
         damage = Math.max(1, damage); // Minimum 1 damage
         
-        // Apply damage
-        this.applyDamage(target, damage);
+        // Apply damage with metadata
+        this.applyDamage(target, damage, { isCrit, effectiveness, absorbed });
         
         // Build effectiveness text
         let effText = '';
@@ -623,21 +639,32 @@ class BattleSystem {
      * Execute physical ability
      */
     executePhysicalAbility(user, target, ability) {
+        // Show action text
+        if (this.onActionText) {
+            this.onActionText(user, ability.name);
+        }
+        
         const targets = Array.isArray(target) ? target : [target];
         
         targets.forEach(t => {
             if (!t || !t.isAlive) return;
             
             const baseDamage = (user.attack * ability.power) / 20;
-            const defense = t.defense;
+            const rawDefense = t.defense;
             const effectiveness = ability.element 
                 ? this.calculateTypeEffectiveness(ability.element, t.type1, t.type2)
                 : 1.0;
             
-            let damage = Math.floor((baseDamage - defense * 0.3) * effectiveness);
+            // Critical hit check (8% for abilities)
+            const isCrit = Math.random() < 0.08;
+            const critMultiplier = isCrit ? 1.5 : 1.0;
+            
+            const rawDamage = baseDamage * effectiveness * critMultiplier;
+            const absorbed = Math.floor(rawDefense * 0.3);
+            let damage = Math.floor(rawDamage - absorbed);
             damage = Math.max(1, damage);
             
-            this.applyDamage(t, damage);
+            this.applyDamage(t, damage, { isCrit, effectiveness, absorbed });
             
             let effText = '';
             if (effectiveness > 1) effText = ' (Super effective!)';
@@ -650,21 +677,32 @@ class BattleSystem {
      * Execute magical ability
      */
     executeMagicalAbility(user, target, ability) {
+        // Show action text
+        if (this.onActionText) {
+            this.onActionText(user, ability.name);
+        }
+        
         const targets = Array.isArray(target) ? target : [target];
         
         targets.forEach(t => {
             if (!t || !t.isAlive) return;
             
             const baseDamage = (user.magicAttack * ability.power) / 20;
-            const magicDef = t.magicDefense;
+            const rawMagicDef = t.magicDefense;
             const effectiveness = ability.element 
                 ? this.calculateTypeEffectiveness(ability.element, t.type1, t.type2)
                 : 1.0;
             
-            let damage = Math.floor((baseDamage - magicDef * 0.3) * effectiveness);
+            // Critical hit check (8% for abilities)
+            const isCrit = Math.random() < 0.08;
+            const critMultiplier = isCrit ? 1.5 : 1.0;
+            
+            const rawDamage = baseDamage * effectiveness * critMultiplier;
+            const absorbed = Math.floor(rawMagicDef * 0.3);
+            let damage = Math.floor(rawDamage - absorbed);
             damage = Math.max(1, damage);
             
-            this.applyDamage(t, damage);
+            this.applyDamage(t, damage, { isCrit, effectiveness, absorbed });
             
             let effText = '';
             if (effectiveness > 1) effText = ' (Super effective!)';
@@ -677,6 +715,11 @@ class BattleSystem {
      * Execute supportive ability (healing, buffs)
      */
     executeSupportiveAbility(user, target, ability) {
+        // Show action text
+        if (this.onActionText) {
+            this.onActionText(user, ability.name);
+        }
+        
         const targets = Array.isArray(target) ? target : [target];
         
         targets.forEach(t => {
@@ -745,10 +788,23 @@ class BattleSystem {
     }
     
     /**
-     * Apply damage to a target
+     * Apply damage to a target with optional metadata
      */
-    applyDamage(target, amount) {
+    applyDamage(target, amount, meta = {}) {
         target.currentHp = Math.max(0, target.currentHp - amount);
+        
+        // Trigger damage flash on the target sprite
+        target._damageFlash = 1.0;
+        
+        // Trigger damage callback for floating numbers
+        if (this.onDamage) {
+            this.onDamage(target, {
+                damage: amount,
+                isCrit: meta.isCrit || false,
+                effectiveness: meta.effectiveness || 1.0,
+                absorbed: meta.absorbed || 0
+            });
+        }
         
         if (target.currentHp <= 0) {
             target.isAlive = false;
@@ -768,7 +824,13 @@ class BattleSystem {
      */
     applyHealing(target, amount) {
         if (!target.isAlive) return;
+        const actualHeal = Math.min(target.maxHp - target.currentHp, amount);
         target.currentHp = Math.min(target.maxHp, target.currentHp + amount);
+        
+        // Trigger heal callback for floating numbers
+        if (this.onHeal) {
+            this.onHeal(target, actualHeal);
+        }
     }
     
     /**
