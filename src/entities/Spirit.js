@@ -290,17 +290,47 @@ class Spirit extends Actor {
         if (webglRenderer && webglRenderer.initialized) {
             // Draw sprite
             const imageUrl = this.sprite.src || `sprite_${this.id}`;
-            webglRenderer.drawSprite(
-                screenX, 
-                screenY, 
-                scaledWidth, 
-                scaledHeight, 
-                this.sprite, 
-                imageUrl,
-                1.0,        // alpha (WebGL doesn't support per-sprite alpha yet)
-                shouldFlip, // flipX
-                false       // flipY
-            );
+            
+            // Check for battle effects from linked battle spirit data
+            const battleSpirit = this._battleSpirit;
+            const isSelected = battleSpirit && this._isSelected;
+            const damageFlash = battleSpirit?._damageFlash || 0;
+            
+            // Draw outline if selected (pulsing golden outline)
+            if (isSelected) {
+                const time = Date.now() / 300;
+                const pulse = 0.5 + Math.sin(time) * 0.5;
+                const outlineAlpha = 0.6 + pulse * 0.4;
+                webglRenderer.drawSpriteWithOutline(
+                    screenX, screenY, scaledWidth, scaledHeight,
+                    this.sprite, imageUrl, 1.0, shouldFlip, false,
+                    [1.0, 0.84, 0, outlineAlpha], // Golden outline
+                    2 + Math.floor(pulse) // 2-3 pixel outline
+                );
+            } 
+            // Draw with damage flash (red tint)
+            else if (damageFlash > 0) {
+                webglRenderer.setColorOverlay(1.0, 0.2, 0.2, damageFlash * 0.7);
+                webglRenderer.drawSprite(
+                    screenX, screenY, scaledWidth, scaledHeight,
+                    this.sprite, imageUrl, 1.0, shouldFlip, false
+                );
+                webglRenderer.clearColorOverlay();
+            }
+            // Normal sprite draw
+            else {
+                webglRenderer.drawSprite(
+                    screenX, 
+                    screenY, 
+                    scaledWidth, 
+                    scaledHeight, 
+                    this.sprite, 
+                    imageUrl,
+                    1.0,        // alpha (WebGL doesn't support per-sprite alpha yet)
+                    shouldFlip, // flipX
+                    false       // flipY
+                );
+            }
             
             // Draw spawn effect on top using WebGL
             if (this.spawnEffect.active) {

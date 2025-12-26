@@ -4942,7 +4942,7 @@ class BattleState extends GameState {
             this.createBattleSpiritEntities();
         }
         
-        // Update battle spirit entities (for floating animation, damage flash, etc)
+        // Update battle spirit entities (for floating animation, damage flash, selection state, etc)
         this.battleSpiritEntities.forEach(entity => {
             // Sync alive state
             if (entity._battleSpirit && !entity._battleSpirit.isAlive) {
@@ -4952,6 +4952,8 @@ class BattleState extends GameState {
             if (entity._battleSpirit && entity._battleSpirit._damageFlash > 0) {
                 entity._battleSpirit._damageFlash -= deltaTime * 3; // Fade out over ~0.33s
             }
+            // Sync selection state for outline rendering
+            entity._isSelected = (entity._battleSpirit === this.selectedPlayerSpirit);
         });
         
         // Update battle system
@@ -5938,40 +5940,14 @@ class BattleState extends GameState {
         // Position UI below the sprite's feet (screenY is at sprite base/feet)
         const uiStartY = screenY + 8; // Small gap below sprite base
         const statsWidth = ds ? ds.spacing(22) : 88;
-        const barHeight = 16; // Bar height
+        const barHeight = 14; // Bar height
         const barSpacing = 2; // Gap between bars
         const barFont = 'bold 11px \'Lato\', sans-serif';
         
-        // Draw pulsing border for active spirit
-        if (isSelected) {
-            const time = Date.now() / 300;
-            const pulse = 0.5 + Math.sin(time) * 0.5; // 0 to 1 pulsing
-            const borderWidth = statsWidth + 12;
-            const borderHeight = barHeight * 3 + barSpacing * 2 + 30; // Name + 3 bars + spacing
-            const borderX = screenX - borderWidth / 2;
-            const borderY = uiStartY - 4;
-            
-            ctx.strokeStyle = `rgba(255, 215, 0, ${0.4 + pulse * 0.6})`;
-            ctx.lineWidth = 2 + pulse;
-            ctx.shadowColor = '#ffd700';
-            ctx.shadowBlur = 8 + pulse * 8;
-            ctx.beginPath();
-            ctx.roundRect(borderX, borderY, borderWidth, borderHeight, 6);
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-        }
+        // NOTE: Sprite outline (selection) and damage flash are now rendered in WebGL via Spirit.js
+        // The entity syncs _isSelected and _damageFlash properties for the shader effects
         
-        // Damage flash effect - red overlay on the sprite area
-        if (spirit._damageFlash && spirit._damageFlash > 0) {
-            const flashAlpha = spirit._damageFlash * 0.5;
-            ctx.fillStyle = `rgba(255, 50, 50, ${flashAlpha})`;
-            // Flash around the sprite (screenY is at feet, so sprite center is at screenY - spriteHeight/2)
-            const flashWidth = 70;
-            const flashHeight = spriteHeight + 20;
-            ctx.fillRect(screenX - flashWidth/2, screenY - spriteHeight - 10, flashWidth, flashHeight);
-        }
-        
-        // Name with text shadow for readability
+        // Name with text shadow for readability - ABOVE the bars with more space
         ctx.fillStyle = spirit.isAlive ? '#fff' : '#666';
         ctx.font = ds ? ds.font('xs', 'bold') : 'bold 11px \'Lato\', sans-serif';
         ctx.textAlign = 'center';
@@ -5981,8 +5957,8 @@ class BattleState extends GameState {
         ctx.fillText(spirit.name, screenX, uiStartY);
         ctx.shadowBlur = 0;
         
-        // HP Bar
-        const hpBarY = uiStartY + 14;
+        // HP Bar - starts after name with proper gap
+        const hpBarY = uiStartY + 16; // More gap after name
         const barWidth = statsWidth;
         const barX = screenX - barWidth / 2;
         

@@ -445,6 +445,10 @@ class BattleSystem {
                 const ability = abilities[Math.floor(Math.random() * abilities.length)];
                 const target = this.selectRandomTarget(this.playerParty, ability.target);
                 action = { type: 'ability', user: enemy, ability: ability, target: target };
+                // Show action text immediately when action starts
+                if (this.onActionText) {
+                    this.onActionText(enemy, ability.name);
+                }
             }
         }
         
@@ -452,6 +456,10 @@ class BattleSystem {
             // Default to basic attack
             const target = this.selectRandomTarget(this.playerParty, 'single_enemy');
             action = { type: 'attack', user: enemy, target: target };
+            // Show action text immediately when action starts
+            if (this.onActionText) {
+                this.onActionText(enemy, 'Attack');
+            }
         }
         
         this.actionQueue.push(action);
@@ -481,6 +489,19 @@ class BattleSystem {
         if (!user || !user.isReady) {
             console.warn('[BattleSystem] Cannot queue action - user not ready');
             return false;
+        }
+        
+        // Show action text immediately when action starts
+        if (this.onActionText) {
+            if (action.type === 'ability' && action.ability) {
+                this.onActionText(user, action.ability.name);
+            } else if (action.type === 'attack') {
+                this.onActionText(user, 'Attack');
+            } else if (action.type === 'seal') {
+                this.onActionText(user, 'Seal');
+            } else if (action.type === 'flee') {
+                this.onActionText(user, 'Flee');
+            }
         }
         
         this.actionQueue.push(action);
@@ -559,11 +580,6 @@ class BattleSystem {
     executeAttack(user, target) {
         if (!target || !target.isAlive) return;
         
-        // Show action text
-        if (this.onActionText) {
-            this.onActionText(user, 'Attack');
-        }
-        
         // Play attack sound effect
         this.game.audioManager?.playEffect('strike01.mp3');
         
@@ -639,11 +655,6 @@ class BattleSystem {
      * Execute physical ability
      */
     executePhysicalAbility(user, target, ability) {
-        // Show action text
-        if (this.onActionText) {
-            this.onActionText(user, ability.name);
-        }
-        
         const targets = Array.isArray(target) ? target : [target];
         
         targets.forEach(t => {
@@ -677,11 +688,6 @@ class BattleSystem {
      * Execute magical ability
      */
     executeMagicalAbility(user, target, ability) {
-        // Show action text
-        if (this.onActionText) {
-            this.onActionText(user, ability.name);
-        }
-        
         const targets = Array.isArray(target) ? target : [target];
         
         targets.forEach(t => {
@@ -715,11 +721,6 @@ class BattleSystem {
      * Execute supportive ability (healing, buffs)
      */
     executeSupportiveAbility(user, target, ability) {
-        // Show action text
-        if (this.onActionText) {
-            this.onActionText(user, ability.name);
-        }
-        
         const targets = Array.isArray(target) ? target : [target];
         
         targets.forEach(t => {

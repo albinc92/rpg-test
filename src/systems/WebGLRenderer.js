@@ -417,12 +417,20 @@ class WebGLRenderer {
             uniform sampler2D u_texture;
             uniform float u_alpha;
             uniform vec3 u_tint;
+            uniform vec4 u_colorOverlay; // RGBA overlay (for damage flash etc)
             varying vec2 v_texCoord;
             void main() {
                 vec4 color = texture2D(u_texture, v_texCoord);
+                
+                // Apply tint (multiplicative)
+                vec3 tinted = color.rgb * u_tint;
+                
+                // Apply color overlay (additive blend based on overlay alpha)
+                tinted = mix(tinted, u_colorOverlay.rgb, u_colorOverlay.a * color.a);
+                
                 // Since we use premultiplied alpha, we must multiply RGB by alpha as well
                 // to maintain the premultiplied state when opacity changes
-                gl_FragColor = vec4(color.rgb * u_tint * u_alpha, color.a * u_alpha);
+                gl_FragColor = vec4(tinted * u_alpha, color.a * u_alpha);
             }
         `;
         
@@ -448,9 +456,13 @@ class WebGLRenderer {
             texture: this.gl.getUniformLocation(this.spriteProgram, 'u_texture'),
             alpha: this.gl.getUniformLocation(this.spriteProgram, 'u_alpha'),
             tint: this.gl.getUniformLocation(this.spriteProgram, 'u_tint'),
+            colorOverlay: this.gl.getUniformLocation(this.spriteProgram, 'u_colorOverlay'),
             perspectiveStrength: this.gl.getUniformLocation(this.spriteProgram, 'u_perspectiveStrength'),
             billboardMode: this.gl.getUniformLocation(this.spriteProgram, 'u_billboardMode')
         };
+        
+        // Current color overlay (default: no overlay)
+        this.currentColorOverlay = [0, 0, 0, 0];
         
         // Initialize billboard mode to off (normal perspective for map)
         this.billboardMode = false;
@@ -1684,6 +1696,67 @@ class WebGLRenderer {
     }
     
     /**
+     * Set color overlay for subsequent sprite draws (for damage flash, etc)
+     * @param {number} r - Red (0-1)
+     * @param {number} g - Green (0-1)
+     * @param {number} b - Blue (0-1)
+     * @param {number} a - Overlay intensity (0-1)
+     */
+    setColorOverlay(r, g, b, a) {
+        // If overlay changes, flush first
+        const newOverlay = [r, g, b, a];
+        const current = this.currentColorOverlay || [0, 0, 0, 0];
+        if (current[0] !== r || current[1] !== g || current[2] !== b || current[3] !== a) {
+            this.flush();
+            this.currentColorOverlay = newOverlay;
+        }
+    }
+    
+    /**
+     * Clear color overlay (restore normal rendering)
+     */
+    clearColorOverlay() {
+        this.setColorOverlay(0, 0, 0, 0);
+    }
+    
+    /**
+     * Draw sprite with pixel-perfect outline effect
+     * Draws the sprite multiple times with offsets to create outline, then draws normal sprite on top
+     * @param {number} x - X position
+     * @param {number} y - Y position
+     * @param {number} width - Sprite width
+     * @param {number} height - Sprite height
+     * @param {Image} image - Sprite image
+     * @param {string} imageUrl - Cache key
+     * @param {number} alpha - Opacity
+     * @param {boolean} flipX - Horizontal flip
+     * @param {boolean} flipY - Vertical flip
+     * @param {Array} outlineColor - [r, g, b, a] outline color (0-1 range)
+     * @param {number} outlineSize - Outline thickness in pixels
+     */
+    drawSpriteWithOutline(x, y, width, height, image, imageUrl, alpha, flipX, flipY, outlineColor, outlineSize = 2) {
+        if (!this.initialized) return;
+        
+        // Set outline color overlay
+        this.setColorOverlay(outlineColor[0], outlineColor[1], outlineColor[2], 1.0);
+        
+        // Draw outline copies (8 directions for pixel-perfect outline)
+        const offsets = [
+            [-outlineSize, 0], [outlineSize, 0], [0, -outlineSize], [0, outlineSize],
+            [-outlineSize, -outlineSize], [outlineSize, -outlineSize], 
+            [-outlineSize, outlineSize], [outlineSize, outlineSize]
+        ];
+        
+        for (const [ox, oy] of offsets) {
+            this.drawSprite(x + ox, y + oy, width, height, image, imageUrl, alpha, flipX, flipY);
+        }
+        
+        // Clear overlay and draw normal sprite on top
+        this.clearColorOverlay();
+        this.drawSprite(x, y, width, height, image, imageUrl, alpha, flipX, flipY);
+    }
+    
+    /**
      * Draw shadow with skew transform for sun direction
      * @param {number} x - Shadow center X (base of sprite)
      * @param {number} y - Shadow center Y (base of sprite)
@@ -1760,7 +1833,12 @@ class WebGLRenderer {
         this.gl.uniform1f(this.spriteProgram.locations.alpha, alpha);
         this.gl.uniform3f(this.spriteProgram.locations.tint, 1.0, 1.0, 1.0);
         
+        // Set color overlay (for damage flash, etc)
+        const overlay = this.currentColorOverlay || [0, 0, 0, 0];
+        this.gl.uniform4f(this.spriteProgram.locations.colorOverlay, overlay[0], overlay[1], overlay[2], overlay[3]);
+        
         // Set billboard mode uniform - controls whether sprites get shape distortion
+        this.gl.uniform1f(this.spriteProgram.locations.billboardMode, this.billboardMode ? 1.0 : 0.0);
         this.gl.uniform1f(this.spriteProgram.locations.billboardMode, this.billboardMode ? 1.0 : 0.0);
         
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
