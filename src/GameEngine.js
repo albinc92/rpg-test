@@ -457,7 +457,24 @@ class GameEngine {
                 }
                 
                 // Update camera immediately to prevent visible player jump
-                this.updateCamera();
+                // During battle, recalculate battle camera position with new canvas size
+                if (this.stateManager?.getCurrentState() === 'BATTLE') {
+                    const battleState = this.stateManager.states['BATTLE'];
+                    if (battleState?.battleCenterX && battleState?.battleCenterY) {
+                        const camera = this.renderSystem?.camera;
+                        if (camera) {
+                            // Camera uses SCREEN SPACE (world * worldScale)
+                            const screenCenterX = battleState.battleCenterX * this.worldScale;
+                            const screenCenterY = battleState.battleCenterY * this.worldScale;
+                            camera.x = screenCenterX - this.CANVAS_WIDTH / 2;
+                            camera.y = screenCenterY - this.CANVAS_HEIGHT / 2;
+                            camera.targetX = camera.x;
+                            camera.targetY = camera.y;
+                        }
+                    }
+                } else {
+                    this.updateCamera();
+                }
             };
             
             window.addEventListener('resize', this.handleResize);
@@ -578,7 +595,24 @@ class GameEngine {
                 
                 // Update camera immediately to prevent visible player jump
                 // The worldScale changed, so player's screen position changed
-                this.updateCamera();
+                // During battle, recalculate battle camera position with new canvas size
+                if (this.stateManager?.getCurrentState() === 'BATTLE') {
+                    const battleState = this.stateManager.states['BATTLE'];
+                    if (battleState?.battleCenterX && battleState?.battleCenterY) {
+                        const camera = this.renderSystem?.camera;
+                        if (camera) {
+                            // Camera uses SCREEN SPACE (world * worldScale)
+                            const screenCenterX = battleState.battleCenterX * this.worldScale;
+                            const screenCenterY = battleState.battleCenterY * this.worldScale;
+                            camera.x = screenCenterX - this.CANVAS_WIDTH / 2;
+                            camera.y = screenCenterY - this.CANVAS_HEIGHT / 2;
+                            camera.targetX = camera.x;
+                            camera.targetY = camera.y;
+                        }
+                    }
+                } else {
+                    this.updateCamera();
+                }
                 
                 // Update resolution setting to reflect current window size
                 // BUT NOT in fullscreen mode - the resolution setting is the rendering resolution there

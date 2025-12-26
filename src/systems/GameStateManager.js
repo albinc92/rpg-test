@@ -4602,6 +4602,11 @@ class BattleState extends GameState {
         this.originalMap = this.game.currentMap;
         this.originalPlayerPos = this.game.player ? { x: this.game.player.x, y: this.game.player.y } : null;
         
+        // Store original camera position to restore after battle
+        const camera = this.game.renderSystem?.camera;
+        this.originalCameraX = camera?.x || 0;
+        this.originalCameraY = camera?.y || 0;
+        
         // Check if current map has a battle map configured
         const currentMap = this.game.currentMap;
         this.battleMapId = null;
@@ -4631,6 +4636,29 @@ class BattleState extends GameState {
                 }
                 
                 console.log(`[BattleState] Using battle map: ${this.battleMapId}`);
+                
+                // Calculate the center of the battle map (use game world dimensions as default)
+                const battleMapWidth = this.battleMapData.width || this.game.MAP_WIDTH || 3840;
+                const battleMapHeight = this.battleMapData.height || this.game.MAP_HEIGHT || 2160;
+                
+                // Store battle center for positioning entities (WORLD coordinates)
+                this.battleCenterX = battleMapWidth / 2;
+                this.battleCenterY = battleMapHeight / 2;
+                
+                // Set camera IMMEDIATELY to battle map center (instant snap, no smoothing)
+                // Camera uses SCREEN SPACE coordinates (world * worldScale)
+                if (camera) {
+                    const worldScale = this.game.worldScale || 1;
+                    const screenCenterX = this.battleCenterX * worldScale;
+                    const screenCenterY = this.battleCenterY * worldScale;
+                    const targetX = screenCenterX - this.game.CANVAS_WIDTH / 2;
+                    const targetY = screenCenterY - this.game.CANVAS_HEIGHT / 2;
+                    camera.x = targetX;
+                    camera.y = targetY;
+                    camera.targetX = targetX;
+                    camera.targetY = targetY;
+                    console.log(`[BattleState] Camera set to screen coords: (${targetX}, ${targetY}), worldScale: ${worldScale}`);
+                }
             }
         }
         
@@ -4680,14 +4708,16 @@ class BattleState extends GameState {
         
         if (!this.battleSystem) return;
         
-        // Get current camera position - we'll position battle at screen center
-        const camera = this.game.renderSystem?.camera;
-        const screenCenterWorldX = (camera?.x || 0) + this.game.CANVAS_WIDTH / 2;
-        const screenCenterWorldY = (camera?.y || 0) + this.game.CANVAS_HEIGHT / 2;
-        
-        // Use screen center as battle center
-        const centerX = screenCenterWorldX;
-        const centerY = screenCenterWorldY;
+        // Use battle map center if we have a battle map, otherwise use camera view center
+        let centerX, centerY;
+        if (this.battleMapId && this.battleMapData) {
+            centerX = this.battleCenterX || (this.battleMapData.width || this.game.MAP_WIDTH || 3840) / 2;
+            centerY = this.battleCenterY || (this.battleMapData.height || this.game.MAP_HEIGHT || 2160) / 2;
+        } else {
+            const camera = this.game.renderSystem?.camera;
+            centerX = (camera?.x || 0) + this.game.CANVAS_WIDTH / 2;
+            centerY = (camera?.y || 0) + this.game.CANVAS_HEIGHT / 2;
+        }
         
         // Calculate vertical centering based on number of spirits
         const playerCount = this.battleSystem.playerParty.length;
@@ -4854,6 +4884,15 @@ class BattleState extends GameState {
             if (this.savedPlayerDirection) {
                 this.game.player.direction = this.savedPlayerDirection;
             }
+        }
+        
+        // Restore original camera position
+        const camera = this.game.renderSystem?.camera;
+        if (camera && this.originalCameraX !== undefined) {
+            camera.x = this.originalCameraX;
+            camera.y = this.originalCameraY;
+            camera.targetX = this.originalCameraX;
+            camera.targetY = this.originalCameraY;
         }
         
         // Resume world BGM
@@ -5184,11 +5223,14 @@ class BattleState extends GameState {
         }
         
         // === RENDER THE GAME WORLD AS BATTLE BACKGROUND ===
+        const camera = this.game.renderSystem?.camera;
+        
         // Save current state
         const savedMapId = this.game.currentMapId;
         const savedMap = this.game.currentMap;
         
         let battleObjects = [];
+        let battleCenterX, battleCenterY;
         
         // Use battle map if configured
         if (this.battleMapId && this.battleMapData) {
@@ -5196,30 +5238,19 @@ class BattleState extends GameState {
             this.game.currentMap = this.battleMapData;
             battleObjects = this.game.objectManager?.getObjectsForMap(this.battleMapId) || [];
             
-            // Center camera on battle map center
-            const mapCenterX = this.game.MAP_WIDTH / 2;
-            const mapCenterY = this.game.MAP_HEIGHT / 2;
-            const cameraX = mapCenterX - width / 2;
-            const cameraY = mapCenterY - height / 2;
-            
-            if (this.game.renderSystem?.camera) {
-                this.game.renderSystem.camera.x = cameraX;
-                this.game.renderSystem.camera.y = cameraY;
-                this.game.renderSystem.camera.targetX = cameraX;
-                this.game.renderSystem.camera.targetY = cameraY;
-            }
-            
-            // Position battle entities at map center
-            this.repositionBattleEntities(mapCenterX, mapCenterY);
+            // Use the stored battle center (center of battle map)
+            battleCenterX = this.battleCenterX;
+            battleCenterY = this.battleCenterY;
         } else {
             battleObjects = this.game.objectManager?.getObjectsForMap(this.game.currentMapId) || [];
             
-            // No battle map - position at current screen center
-            const camera = this.game.renderSystem?.camera;
-            const screenCenterX = (camera?.x || 0) + width / 2;
-            const screenCenterY = (camera?.y || 0) + height / 2;
-            this.repositionBattleEntities(screenCenterX, screenCenterY);
+            // No battle map - use current camera view center
+            battleCenterX = (camera?.x || 0) + width / 2;
+            battleCenterY = (camera?.y || 0) + height / 2;
         }
+        
+        // Position battle entities at the battle center
+        this.repositionBattleEntities(battleCenterX, battleCenterY);
         
         // Render world with battle map, battle spirit entities, AND the player
         // Pass battle spirits as NPCs so they go through the WebGL shadow/sprite passes
