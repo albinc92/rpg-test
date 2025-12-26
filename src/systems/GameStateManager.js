@@ -5905,81 +5905,84 @@ class BattleState extends GameState {
         }
         
         // === STATS BELOW SPRITE ===
-        // Position UI below the sprite's feet (screenY is the base position, sprite renders upward from there)
-        const uiStartY = screenY + 20; // Small gap below sprite base
-        const statsWidth = ds ? ds.spacing(20) : 80;
-        const lineHeight = ds ? ds.spacing(3) : 12;
-        const barHeight = ds ? ds.spacing(1.5) : 6;
+        // Position UI below the sprite's feet (screenY is at sprite base/feet)
+        const uiStartY = screenY + 8; // Small gap below sprite base
+        const statsWidth = ds ? ds.spacing(22) : 88;
+        const barHeight = ds ? ds.spacing(3.5) : 14; // Thicker bars to fit text inside
+        const barSpacing = 2; // Gap between bars
         
         // Name
         ctx.fillStyle = spirit.isAlive ? '#fff' : '#666';
-        ctx.font = ds ? ds.font('xs', 'bold') : 'bold 11px \'Lato\', sans-serif';
+        ctx.font = ds ? ds.font('xs', 'bold') : 'bold 10px \'Lato\', sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText(spirit.name, screenX, uiStartY);
         
         // HP Bar
-        const hpBarY = uiStartY + lineHeight;
+        const hpBarY = uiStartY + 14;
         const barWidth = statsWidth;
         const barX = screenX - barWidth / 2;
         
         const hpPercent = spirit.maxHp > 0 ? spirit.currentHp / spirit.maxHp : 0;
         const hpColor = hpPercent > 0.5 ? '#4ade80' : hpPercent > 0.25 ? '#fbbf24' : '#ef4444';
         
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        // Bar background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
         ctx.fillRect(barX, hpBarY, barWidth, barHeight);
+        // Bar fill
         ctx.fillStyle = hpColor;
         ctx.fillRect(barX, hpBarY, barWidth * hpPercent, barHeight);
-        
-        ctx.font = ds ? ds.font('xs') : '9px \'Lato\', sans-serif';
+        // Text inside bar
+        ctx.font = ds ? ds.font('xxs', 'bold') : 'bold 9px \'Lato\', sans-serif';
         ctx.fillStyle = '#fff';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'top';
-        ctx.fillText(`${spirit.currentHp}`, barX + barWidth, hpBarY + barHeight + 1);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${spirit.currentHp}`, screenX, hpBarY + barHeight / 2);
         
         // MP Bar
-        const mpBarY = hpBarY + barHeight + 2; // Tight spacing between bars
+        const mpBarY = hpBarY + barHeight + barSpacing;
         const mpPercent = spirit.maxMp > 0 ? spirit.currentMp / spirit.maxMp : 0;
         
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        // Bar background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
         ctx.fillRect(barX, mpBarY, barWidth, barHeight);
+        // Bar fill
         ctx.fillStyle = ds ? ds.colors.primary : '#4da6ff';
         ctx.fillRect(barX, mpBarY, barWidth * mpPercent, barHeight);
-        
+        // Text inside bar
         ctx.fillStyle = '#fff';
-        ctx.textAlign = 'right';
-        ctx.fillText(`${spirit.currentMp}`, barX + barWidth, mpBarY + barHeight + 1);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${spirit.currentMp}`, screenX, mpBarY + barHeight / 2);
         
         // ATB Bar or Casting Bar
-        const atbY = mpBarY + barHeight + 2; // Tight spacing
+        const atbY = mpBarY + barHeight + barSpacing;
         const atbWidth = barWidth;
-        const atbHeight = ds ? ds.spacing(1.5) : 6;
         const atbX = barX;
         
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        ctx.fillRect(atbX, atbY, atbWidth, atbHeight);
+        // Bar background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(atbX, atbY, atbWidth, barHeight);
         
         if (spirit.isCasting && spirit.castDuration > 0) {
             const castPercent = spirit.castTimer / spirit.castDuration;
             ctx.fillStyle = '#a855f7';
-            ctx.fillRect(atbX, atbY, atbWidth * castPercent, atbHeight);
-            
-            ctx.fillStyle = '#a855f7';
-            ctx.font = ds ? ds.font('xs') : '9px \'Lato\', sans-serif';
-            ctx.textAlign = 'right';
-            ctx.textBaseline = 'top';
-            ctx.fillText('CAST', atbX + atbWidth, atbY + atbHeight + 1);
+            ctx.fillRect(atbX, atbY, atbWidth * castPercent, barHeight);
+            // Text inside bar
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('CAST', screenX, atbY + barHeight / 2);
         } else {
             const atbPercent = this.battleSystem ? spirit.atb / this.battleSystem.ATB_MAX : 0;
-            const atbFillColor = spirit.isReady ? '#ffd700' : '#888';
+            const atbFillColor = spirit.isReady ? '#ffd700' : '#666';
             ctx.fillStyle = atbFillColor;
-            ctx.fillRect(atbX, atbY, atbWidth * atbPercent, atbHeight);
-            
-            ctx.fillStyle = spirit.isReady ? '#ffd700' : '#aaa';
-            ctx.font = ds ? ds.font('xs') : '9px \'Lato\', sans-serif';
-            ctx.textAlign = 'right';
-            ctx.textBaseline = 'top';
-            ctx.fillText(spirit.isReady ? 'READY' : 'ATB', atbX + atbWidth, atbY + atbHeight + 1);
+            ctx.fillRect(atbX, atbY, atbWidth * atbPercent, barHeight);
+            // Text inside bar
+            ctx.fillStyle = spirit.isReady ? '#000' : '#aaa';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(spirit.isReady ? 'READY' : 'ATB', screenX, atbY + barHeight / 2);
         }
         
         // Active/Selected indicator (above the sprite's head)
@@ -5990,8 +5993,8 @@ class BattleState extends GameState {
             ctx.textBaseline = 'bottom';
             // screenY is at feet, sprite top is at screenY - spriteHeight
             const spriteTopY = screenY - spriteHeight;
-            ctx.fillText('ACTIVE', screenX, spriteTopY - 16);
-            ctx.fillText('▼', screenX, spriteTopY - 2);
+            ctx.fillText('ACTIVE', screenX, spriteTopY - 20);
+            ctx.fillText('▼', screenX, spriteTopY - 6);
         }
         
         ctx.globalAlpha = 1;
