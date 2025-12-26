@@ -298,14 +298,14 @@ class Spirit extends Actor {
             
             // Draw outline if selected (pulsing golden outline)
             if (isSelected) {
-                const time = Date.now() / 300;
+                const time = Date.now() / 200; // Faster pulse
                 const pulse = 0.5 + Math.sin(time) * 0.5;
-                const outlineAlpha = 0.6 + pulse * 0.4;
+                const outlineAlpha = 0.8 + pulse * 0.2; // More visible base
                 webglRenderer.drawSpriteWithOutline(
                     screenX, screenY, scaledWidth, scaledHeight,
                     this.sprite, imageUrl, 1.0, shouldFlip, false,
-                    [1.0, 0.84, 0, outlineAlpha], // Golden outline
-                    2 + Math.floor(pulse) // 2-3 pixel outline
+                    [1.0, 0.9, 0.2, outlineAlpha], // Brighter golden-yellow outline
+                    2 + Math.round(pulse * 2) // 2-4 pixel pulsing outline
                 );
             } 
             // Draw with damage flash (red tint)

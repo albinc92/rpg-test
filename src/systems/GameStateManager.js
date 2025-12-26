@@ -4968,18 +4968,21 @@ class BattleState extends GameState {
             }
         }
         
-        // Update damage numbers (float up and fade out)
+        // Update damage numbers (arc trajectory like fountain)
         this.damageNumbers = this.damageNumbers.filter(dn => {
             dn.timer += deltaTime;
-            dn.y -= 60 * deltaTime; // Float up
+            // Apply velocity for dramatic arc effect
+            dn.x += (dn.vx || 0) * deltaTime;
+            dn.vy = (dn.vy || -180) + 400 * deltaTime; // Strong gravity for dramatic arc
+            dn.y += dn.vy * deltaTime;
             dn.alpha = Math.max(0, 1 - dn.timer / dn.duration);
             return dn.timer < dn.duration;
         });
         
-        // Update action texts (float up faster and fade out)
+        // Update action texts (stay in place, just fade out)
         this.actionTexts = this.actionTexts.filter(at => {
             at.timer += deltaTime;
-            at.y -= 40 * deltaTime;
+            // Action texts stay in place - no floating
             at.alpha = Math.max(0, 1 - at.timer / at.duration);
             return at.timer < at.duration;
         });
@@ -5087,7 +5090,14 @@ class BattleState extends GameState {
             if (ability && this.selectedPlayerSpirit.currentMp >= ability.mpCost) {
                 this.pendingAbility = ability;
                 this.phase = 'target_select';
-                this.selectedTargetIndex = 0;
+                // Default target index - for ally abilities, default to self
+                if (ability.target === 'single_ally' || ability.target === 'all_allies') {
+                    const allies = this.battleSystem.getAlivePlayerSpirits();
+                    const selfIndex = allies.findIndex(s => s === this.selectedPlayerSpirit);
+                    this.selectedTargetIndex = selfIndex >= 0 ? selfIndex : 0;
+                } else {
+                    this.selectedTargetIndex = 0;
+                }
             } else {
                 // Not enough MP
                 this.game.audioManager?.playEffect('error.mp3');
@@ -5305,7 +5315,8 @@ class BattleState extends GameState {
         // Draw combatants (spirits) UI overlays
         this.renderCombatants(ctx, width, height);
         
-        // Active spirit indicator is now rendered in renderSpiritUI with pulsing border
+        // Draw yellow bouncing arrow over active spirit
+        this.renderActiveSpiritIndicator(ctx, width, height);
         
         // Player is now rendered through WebGL with battle spirits
         
@@ -5671,78 +5682,68 @@ class BattleState extends GameState {
         }
         if (!activeSpirit) return;
         
+        // Find the entity for this spirit to get proper screen position
+        const entity = this.battleSpiritEntities.find(e => e._battleSpirit === activeSpirit);
+        if (!entity) return;
+        
         const ds = window.ds;
-        const baseSpiritSize = ds ? ds.spacing(16) : 64;
+        const worldScale = this.game.worldScale || 1;
+        const camera = this.game.renderSystem?.camera;
+        const webglRenderer = this.game.renderSystem?.webglRenderer;
         
-        // Find the spirit's position - using same calculations as renderCombatants
-        const playerSpirits = this.battleSystem.playerParty;
-        const enemySpirits = this.battleSystem.enemyParty;
-        const statBlockHeight = ds ? ds.spacing(14) : 56;
-        const baseSpacing = baseSpiritSize + statBlockHeight + (ds ? ds.spacing(6) : 24);
+        if (!camera) return;
         
-        // Check if fake 3D / perspective is enabled
-        const perspectiveSystem = this.game.perspectiveSystem;
-        const usePerspective = perspectiveSystem && perspectiveSystem.enabled;
+        // Get entity world position
+        const worldX = entity.x * worldScale;
+        const worldY = entity.y * worldScale;
         
-        let spiritX, spiritY, baseY;
-        let isPlayer = false;
+        // Get sprite dimensions
+        const finalScale = entity.getFinalScale(this.game);
+        const baseHeight = entity.spriteHeight || 64;
+        const spriteHeight = baseHeight * finalScale;
         
-        // Check player party
-        const playerIndex = playerSpirits.indexOf(activeSpirit);
-        if (playerIndex !== -1) {
-            spiritX = width * 0.18;
-            baseY = height * 0.15 + playerIndex * baseSpacing;
-            isPlayer = true;
+        // Calculate screen position with perspective
+        let screenX, screenY;
+        
+        if (webglRenderer && webglRenderer.perspectiveStrength > 0 && webglRenderer.viewMatrix) {
+            const vm = webglRenderer.viewMatrix;
+            const pm = webglRenderer.projectionMatrix;
+            
+            const viewX = worldX * vm[0] + worldY * vm[4] + vm[12];
+            const viewY = worldX * vm[1] + worldY * vm[5] + vm[13];
+            const clipX = viewX * pm[0] + viewY * pm[4] + pm[12];
+            const clipY = viewX * pm[1] + viewY * pm[5] + pm[13];
+            
+            const depth = (clipY + 1.0) * 0.5;
+            const perspectiveW = 1.0 + (depth * webglRenderer.perspectiveStrength);
+            const clipX_persp = clipX / perspectiveW;
+            const clipY_persp = clipY / perspectiveW;
+            
+            screenX = (clipX_persp + 1.0) * 0.5 * width;
+            screenY = (1.0 - clipY_persp) * 0.5 * height;
         } else {
-            // Check enemy party
-            const enemyIndex = enemySpirits.indexOf(activeSpirit);
-            if (enemyIndex !== -1) {
-                spiritX = width * 0.82;
-                baseY = height * 0.15 + enemyIndex * baseSpacing;
-            } else {
-                return;
-            }
+            screenX = worldX - camera.x;
+            screenY = worldY - camera.y;
         }
         
-        // Apply perspective scaling
-        let perspectiveScale = 1.0;
-        if (usePerspective) {
-            perspectiveScale = perspectiveSystem.getDepthScale(baseY, height);
-        }
-        const spiritSize = baseSpiritSize * perspectiveScale;
-        spiritY = baseY + spiritSize / 2;
-        
-        // Draw animated arrow indicator pointing down at the spirit
+        // Draw animated arrow indicator pointing down at the sprite
         const time = Date.now() / 200;
-        const bounce = Math.sin(time) * 5;
+        const bounce = Math.sin(time) * 6;
         
         ctx.save();
-        ctx.fillStyle = '#ffd700';
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 1.5;
+        ctx.fillStyle = '#ffd700'; // Yellow arrow only, no outline
         
-        const arrowX = spiritX;
-        const arrowY = spiritY - spiritSize / 2 - 20 + bounce;
-        const arrowSize = (ds ? ds.spacing(2.5) : 10) * perspectiveScale;
+        const arrowX = screenX;
+        const arrowY = screenY - spriteHeight - 20 + bounce; // Above sprite top
+        const arrowSize = 14;
         
+        // Simple triangle pointing down
         ctx.beginPath();
-        ctx.moveTo(arrowX, arrowY + arrowSize);
-        ctx.lineTo(arrowX - arrowSize, arrowY - arrowSize/2);
-        ctx.lineTo(arrowX - arrowSize/3, arrowY - arrowSize/2);
-        ctx.lineTo(arrowX - arrowSize/3, arrowY - arrowSize * 1.5);
-        ctx.lineTo(arrowX + arrowSize/3, arrowY - arrowSize * 1.5);
-        ctx.lineTo(arrowX + arrowSize/3, arrowY - arrowSize/2);
-        ctx.lineTo(arrowX + arrowSize, arrowY - arrowSize/2);
+        ctx.moveTo(arrowX, arrowY + arrowSize); // Bottom tip
+        ctx.lineTo(arrowX - arrowSize * 0.7, arrowY - arrowSize * 0.3);
+        ctx.lineTo(arrowX + arrowSize * 0.7, arrowY - arrowSize * 0.3);
         ctx.closePath();
         ctx.fill();
-        ctx.stroke();
-        
-        // "ACTIVE" label
-        ctx.fillStyle = '#fff';
-        ctx.font = ds ? ds.font('xs', 'bold') : 'bold 10px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText('ACTIVE', arrowX, arrowY - arrowSize * 1.6);
         
         ctx.restore();
     }
@@ -5958,7 +5959,7 @@ class BattleState extends GameState {
         ctx.shadowBlur = 0;
         
         // HP Bar - starts after name with proper gap
-        const hpBarY = uiStartY + 16; // More gap after name
+        const hpBarY = uiStartY + 18; // Name text is ~12px, plus 6px gap
         const barWidth = statsWidth;
         const barX = screenX - barWidth / 2;
         
@@ -6250,18 +6251,22 @@ class BattleState extends GameState {
                 ctx.restore();
             }
             
-            // Main damage number
+            // Main damage number - LARGE and visible
             ctx.fillStyle = dn.isHeal ? '#4ade80' : (dn.isCrit ? '#ff4444' : '#fff');
-            const fontSize = dn.isCrit ? 32 : 24;
+            const fontSize = dn.isCrit ? 42 : 32; // Larger sizes
             ctx.font = `bold ${fontSize}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.shadowColor = 'rgba(0,0,0,0.9)';
-            ctx.shadowBlur = 4;
+            ctx.shadowBlur = 6;
+            ctx.strokeStyle = dn.isHeal ? '#1a5a30' : '#000';
+            ctx.lineWidth = 3;
             
             // Build display text
             let text = dn.isHeal ? `+${dn.value}` : `${dn.value}`;
             if (dn.isCrit) text += '!';
+            // Draw stroke for better visibility
+            ctx.strokeText(text, dn.x, dn.y);
             ctx.fillText(text, dn.x, dn.y);
             
             // Additional info below the main number
@@ -6459,12 +6464,15 @@ class BattleState extends GameState {
         const pos = this.getSpiritScreenPosition(target);
         if (!pos) return;
         
-        // Random horizontal offset for variety
-        const offsetX = (Math.random() - 0.5) * 30;
+        // Random horizontal velocity for dramatic fountain arc effect
+        const vx = (Math.random() - 0.5) * 200; // More horizontal spread
+        const vy = -180 - Math.random() * 80; // Stronger upward burst
         
         this.damageNumbers.push({
-            x: pos.x + offsetX,
+            x: pos.x,
             y: pos.y,
+            vx: vx,
+            vy: vy,
             value: meta.damage,
             isHeal: false,
             isCrit: meta.isCrit || false,
@@ -6483,9 +6491,15 @@ class BattleState extends GameState {
         const pos = this.getSpiritScreenPosition(target);
         if (!pos) return;
         
+        // Random horizontal velocity for fountain arc effect
+        const vx = (Math.random() - 0.5) * 60;
+        const vy = -80 - Math.random() * 40; // Initial upward velocity
+        
         this.damageNumbers.push({
             x: pos.x,
             y: pos.y,
+            vx: vx,
+            vy: vy,
             value: amount,
             isHeal: true,
             isCrit: false,
