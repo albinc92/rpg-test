@@ -4586,6 +4586,12 @@ class BattleState extends GameState {
         // Get reference to battle system
         this.battleSystem = this.game.battleSystem;
         
+        // Stop player movement immediately when entering battle
+        if (this.game.player) {
+            this.game.player.velocityX = 0;
+            this.game.player.velocityY = 0;
+        }
+        
         // UI State
         this.phase = 'transition'; // 'transition', 'battle', 'action_select', 'ability_select', 'target_select', 'results'
         this.selectedMenuOption = 0;
