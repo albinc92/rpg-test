@@ -4723,11 +4723,11 @@ class BattleState extends GameState {
         const playerCount = this.battleSystem.playerParty.length;
         const enemyCount = this.battleSystem.enemyParty.length;
         
-        // Spacing in world units
-        const verticalSpacing = 70; // World units between spirits
+        // Spacing in world units - loose formation to fit UI elements
+        const verticalSpacing = 220; // World units between spirits (needs room for HP/MP/ATB bars)
         
         // Horizontal spread
-        const horizontalOffset = 120; // Distance from center
+        const horizontalOffset = 280; // Distance from center
         
         // Create player spirit entities (left side)
         const playerTotalHeight = (playerCount - 1) * verticalSpacing;
@@ -4808,8 +4808,8 @@ class BattleState extends GameState {
      * Called every frame to ensure they stay centered regardless of camera
      */
     repositionBattleEntities(centerX, centerY) {
-        const verticalSpacing = 70;
-        const horizontalOffset = 120;
+        const verticalSpacing = 220;
+        const horizontalOffset = 280;
         
         const playerCount = this.battleSystem?.playerParty?.length || 0;
         const enemyCount = this.battleSystem?.enemyParty?.length || 0;
@@ -4835,9 +4835,9 @@ class BattleState extends GameState {
             }
         }
         
-        // Reposition player character
+        // Reposition player character (behind their spirits)
         if (this.game.player) {
-            this.game.player.x = centerX - horizontalOffset - 80;
+            this.game.player.x = centerX - horizontalOffset - 120;
             this.game.player.y = centerY;
         }
     }
@@ -5783,28 +5783,80 @@ class BattleState extends GameState {
         if (!this.battleSystem) return;
         
         const ds = window.ds;
-        const renderSystem = this.game.renderSystem;
-        const perspectiveSystem = this.game.perspectiveSystem;
-        const perspectiveStrength = perspectiveSystem?.enabled ? perspectiveSystem.strength : 0;
+        const camera = this.game.renderSystem?.camera;
+        const webglRenderer = this.game.renderSystem?.webglRenderer;
+        const worldScale = this.game.worldScale || 1;
+        const zoom = camera?.zoom || 1;
+        
+        if (!camera) return;
         
         // Render UI for each battle spirit entity
         this.battleSpiritEntities.forEach(entity => {
             const spirit = entity._battleSpirit;
             if (!spirit) return;
             
-            // Get screen position of the spirit entity
-            const screenPos = renderSystem.worldToScreen(
-                entity.x, entity.y,
-                width, height,
-                perspectiveStrength
-            );
-            
-            if (!screenPos || screenPos.invalid) return;
-            
-            // Get the spirit's rendered size for positioning UI
+            // Get sprite dimensions
             const finalScale = entity.getFinalScale(this.game);
-            const spriteHeight = (entity.spriteHeight || 64) * finalScale;
-            const spriteWidth = (entity.spriteWidth || 64) * finalScale;
+            const baseWidth = entity.spriteWidth || 64;
+            const baseHeight = entity.spriteHeight || 64;
+            const spriteWidth = baseWidth * finalScale;
+            const spriteHeight = baseHeight * finalScale;
+            
+            // Get entity world position (scaled for resolution)
+            const worldX = entity.x * worldScale;
+            const worldY = entity.y * worldScale;
+            
+            // Calculate where the BOTTOM of the sprite is (base/feet position)
+            // Sprites are rendered with origin at center, so bottom = worldY + spriteHeight/2
+            let bottomWorldX = worldX;
+            let bottomWorldY = worldY + spriteHeight / 2;
+            let scaledSpriteHeight = spriteHeight;
+            
+            // Handle perspective transformation (same as NPC talk bubble)
+            if (webglRenderer && webglRenderer.perspectiveStrength > 0 && webglRenderer.viewMatrix) {
+                const vm = webglRenderer.viewMatrix;
+                const pm = webglRenderer.projectionMatrix;
+                const zoomFactor = vm[0];
+                
+                // Sprite base position (bottom center)
+                const baseX = worldX;
+                const baseY = worldY + spriteHeight / 2;
+                
+                // Transform base to clip space
+                const viewX = baseX * vm[0] + baseY * vm[4] + vm[12];
+                const viewY = baseX * vm[1] + baseY * vm[5] + vm[13];
+                const clipX = viewX * pm[0] + viewY * pm[4] + pm[12];
+                const clipY = viewX * pm[1] + viewY * pm[5] + pm[13];
+                
+                // Calculate perspective factor
+                const depth = (clipY + 1.0) * 0.5;
+                const perspectiveW = 1.0 + (depth * webglRenderer.perspectiveStrength);
+                const scale = 1.0 / perspectiveW;
+                
+                // Scaled sprite height
+                scaledSpriteHeight = spriteHeight * scale;
+                
+                // Calculate base position delta
+                const screenX_noPerspective = (clipX + 1.0) * 0.5 * width;
+                const screenY_noPerspective = (1.0 - clipY) * 0.5 * height;
+                const clipX_persp = clipX / perspectiveW;
+                const clipY_persp = clipY / perspectiveW;
+                const screenX_withPerspective = (clipX_persp + 1.0) * 0.5 * width;
+                const screenY_withPerspective = (1.0 - clipY_persp) * 0.5 * height;
+                
+                const deltaScreenX = screenX_withPerspective - screenX_noPerspective;
+                const deltaScreenY = screenY_withPerspective - screenY_noPerspective;
+                const deltaWorldX = deltaScreenX / zoomFactor;
+                const deltaWorldY = deltaScreenY / zoomFactor;
+                
+                // Corrected base position
+                bottomWorldX = baseX + deltaWorldX;
+                bottomWorldY = baseY + deltaWorldY;
+            }
+            
+            // Convert to screen coordinates
+            const screenX = (bottomWorldX - camera.x) * zoom + width / 2 * (1 - zoom);
+            const screenY = (bottomWorldY - camera.y) * zoom + height / 2 * (1 - zoom);
             
             // Check selection/targeting state
             const isSelected = spirit === this.selectedPlayerSpirit;
@@ -5814,8 +5866,8 @@ class BattleState extends GameState {
                 isTargeted = targets[this.selectedTargetIndex] === spirit;
             }
             
-            // Render status UI below the sprite
-            this.renderSpiritUI(ctx, spirit, screenPos.x, screenPos.y, spriteWidth, spriteHeight, isSelected, isTargeted, entity._isPlayerOwned);
+            // Render status UI below the sprite (screenX/Y is at sprite's feet)
+            this.renderSpiritUI(ctx, spirit, screenX, screenY, spriteWidth, scaledSpriteHeight, isSelected, isTargeted, entity._isPlayerOwned);
         });
     }
     
@@ -5831,41 +5883,43 @@ class BattleState extends GameState {
             ctx.globalAlpha = 0.5;
         }
         
-        // Target cursor animation (pointing at sprite)
+        // Target cursor animation (pointing at sprite center)
         if (isTargeted) {
             const cursorBob = Math.sin(Date.now() / 200) * 5;
+            const spriteCenterY = screenY - spriteHeight / 2; // Center of sprite (screenY is at feet)
             ctx.fillStyle = '#ff4444';
             ctx.beginPath();
             if (isPlayerOwned) {
                 // Point from right side toward player spirits
-                ctx.moveTo(screenX + spriteWidth / 2 + 20 - cursorBob, screenY);
-                ctx.lineTo(screenX + spriteWidth / 2 + 10 - cursorBob, screenY - 10);
-                ctx.lineTo(screenX + spriteWidth / 2 + 10 - cursorBob, screenY + 10);
+                ctx.moveTo(screenX + spriteWidth / 2 + 20 - cursorBob, spriteCenterY);
+                ctx.lineTo(screenX + spriteWidth / 2 + 10 - cursorBob, spriteCenterY - 10);
+                ctx.lineTo(screenX + spriteWidth / 2 + 10 - cursorBob, spriteCenterY + 10);
             } else {
                 // Point from left side toward enemy spirits
-                ctx.moveTo(screenX - spriteWidth / 2 - 20 + cursorBob, screenY);
-                ctx.lineTo(screenX - spriteWidth / 2 - 10 + cursorBob, screenY - 10);
-                ctx.lineTo(screenX - spriteWidth / 2 - 10 + cursorBob, screenY + 10);
+                ctx.moveTo(screenX - spriteWidth / 2 - 20 + cursorBob, spriteCenterY);
+                ctx.lineTo(screenX - spriteWidth / 2 - 10 + cursorBob, spriteCenterY - 10);
+                ctx.lineTo(screenX - spriteWidth / 2 - 10 + cursorBob, spriteCenterY + 10);
             }
             ctx.closePath();
             ctx.fill();
         }
         
         // === STATS BELOW SPRITE ===
-        const statsY = screenY + spriteHeight / 2 + (ds ? ds.spacing(1) : 4);
-        const statsWidth = ds ? ds.spacing(22) : 88;
-        const lineHeight = ds ? ds.spacing(3.5) : 14;
-        const barHeight = ds ? ds.spacing(1.2) : 5;
+        // Position UI below the sprite's feet (screenY is the base position, sprite renders upward from there)
+        const uiStartY = screenY + 20; // Small gap below sprite base
+        const statsWidth = ds ? ds.spacing(20) : 80;
+        const lineHeight = ds ? ds.spacing(3) : 12;
+        const barHeight = ds ? ds.spacing(1.5) : 6;
         
         // Name
         ctx.fillStyle = spirit.isAlive ? '#fff' : '#666';
         ctx.font = ds ? ds.font('xs', 'bold') : 'bold 11px \'Lato\', sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillText(spirit.name, screenX, statsY);
+        ctx.fillText(spirit.name, screenX, uiStartY);
         
         // HP Bar
-        const hpBarY = statsY + lineHeight;
+        const hpBarY = uiStartY + lineHeight;
         const barWidth = statsWidth;
         const barX = screenX - barWidth / 2;
         
@@ -5884,7 +5938,7 @@ class BattleState extends GameState {
         ctx.fillText(`${spirit.currentHp}`, barX + barWidth, hpBarY + barHeight + 1);
         
         // MP Bar
-        const mpBarY = hpBarY + barHeight + lineHeight;
+        const mpBarY = hpBarY + barHeight + 2; // Tight spacing between bars
         const mpPercent = spirit.maxMp > 0 ? spirit.currentMp / spirit.maxMp : 0;
         
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
@@ -5897,9 +5951,9 @@ class BattleState extends GameState {
         ctx.fillText(`${spirit.currentMp}`, barX + barWidth, mpBarY + barHeight + 1);
         
         // ATB Bar or Casting Bar
-        const atbY = mpBarY + barHeight + lineHeight;
+        const atbY = mpBarY + barHeight + 2; // Tight spacing
         const atbWidth = barWidth;
-        const atbHeight = ds ? ds.spacing(1.2) : 5;
+        const atbHeight = ds ? ds.spacing(1.5) : 6;
         const atbX = barX;
         
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
@@ -5928,13 +5982,16 @@ class BattleState extends GameState {
             ctx.fillText(spirit.isReady ? 'READY' : 'ATB', atbX + atbWidth, atbY + atbHeight + 1);
         }
         
-        // Active/Selected indicator
+        // Active/Selected indicator (above the sprite's head)
         if (isSelected) {
             ctx.fillStyle = '#ffd700';
             ctx.font = ds ? ds.font('xs', 'bold') : 'bold 10px \'Lato\', sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
-            ctx.fillText('ACTIVE', screenX, statsY - 4);
+            // screenY is at feet, sprite top is at screenY - spriteHeight
+            const spriteTopY = screenY - spriteHeight;
+            ctx.fillText('ACTIVE', screenX, spriteTopY - 16);
+            ctx.fillText('▼', screenX, spriteTopY - 2);
         }
         
         ctx.globalAlpha = 1;
