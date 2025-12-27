@@ -5306,9 +5306,26 @@ class BattleState extends GameState {
         // === RENDER THE GAME WORLD AS BATTLE BACKGROUND ===
         const camera = this.game.renderSystem?.camera;
         
-        // Save current state
+        // Save current state (including camera for pause menu rendering)
         const savedMapId = this.game.currentMapId;
         const savedMap = this.game.currentMap;
+        const savedCameraX = camera?.x;
+        const savedCameraY = camera?.y;
+        const savedCameraTargetX = camera?.targetX;
+        const savedCameraTargetY = camera?.targetY;
+        
+        // Set camera to battle position
+        if (camera && this.battleMapId && this.battleMapData) {
+            const worldScale = this.game.worldScale || 1;
+            const screenCenterX = this.battleCenterX * worldScale;
+            const screenCenterY = this.battleCenterY * worldScale;
+            const targetX = screenCenterX - width / 2;
+            const targetY = screenCenterY - height / 2;
+            camera.x = targetX;
+            camera.y = targetY;
+            camera.targetX = targetX;
+            camera.targetY = targetY;
+        }
         
         let battleObjects = [];
         let battleCenterX, battleCenterY;
