@@ -936,13 +936,11 @@ class PlayingState extends GameState {
         // Called when returning from a pushed state (like pause menu)
         console.log('🔄 [PlayingState] RESUME called - setting interactionCooldown = 0.3');
         
-        // Snap camera instantly to prevent visual glitch if resolution changed while paused
-        // Without this, the camera would smoothly interpolate to the new position causing a "glide"
-        if (this.game.renderSystem?.camera) {
-            this.game.renderSystem.camera.snapToTarget = true;
-        }
-        this.game.updateCamera();
-        
+        // DON'T snap camera when resuming - preserve the rubber-band offset
+        // The camera will naturally continue following the player with smoothing
+        // Only snap if resolution changed while paused (detected by significant position difference)
+        // this.game.updateCamera(); // Let the normal update loop handle camera
+
         // Show touch controls when resuming
         if (this.game.touchControlsUI) {
             this.game.touchControlsUI.show();
