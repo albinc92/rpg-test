@@ -1151,8 +1151,18 @@ class PausedState extends GameState {
         const canvasHeight = this.game.CANVAS_HEIGHT;
         const menuRenderer = this.stateManager.menuRenderer;
         
-        // Render game world behind pause menu (PLAYING is on stack)
-        if (this.stateManager.isStateInStack('PLAYING')) {
+        // Get the most recent state on the stack (the one we paused from)
+        const stackLength = this.stateManager.stateStack.length;
+        const topOfStack = stackLength > 0 ? this.stateManager.stateStack[stackLength - 1].state : null;
+        
+        // Render the state we paused FROM (top of stack)
+        if (topOfStack === 'BATTLE') {
+            // Render battle scene behind pause menu
+            const battleState = this.stateManager.states['BATTLE'];
+            if (battleState && battleState.render) {
+                battleState.render(ctx, true); // Pass true to skip transition animation
+            }
+        } else if (topOfStack === 'PLAYING' || this.stateManager.isStateInStack('PLAYING')) {
             this.game.renderGameplay(ctx);
         }
         
@@ -4583,6 +4593,12 @@ class LootWindowState extends GameState {}
  */
 class BattleState extends GameState {
     enter(data = {}) {
+        // If resuming from pause menu, don't reinitialize
+        if (data.isResumingFromPause) {
+            console.log('[BattleState] Resumed from pause');
+            return;
+        }
+        
         // Get reference to battle system
         this.battleSystem = this.game.battleSystem;
         
@@ -4719,6 +4735,22 @@ class BattleState extends GameState {
         }
         
         console.log('[BattleState] Entered battle state');
+    }
+    
+    /**
+     * Pause the battle (when opening menu overlay)
+     */
+    pause() {
+        console.log('[BattleState] Battle paused');
+        // Battle system will stop updating automatically since handleInput won't be called
+    }
+    
+    /**
+     * Resume the battle (when closing menu overlay)
+     */
+    resume() {
+        console.log('[BattleState] Battle resumed');
+        this.inputCooldown = 0.2; // Small cooldown to prevent accidental input
     }
     
     /**
@@ -5012,10 +5044,10 @@ class BattleState extends GameState {
     handleInput(inputManager) {
         if (this.inputCooldown > 0) return;
         
-        // Menu/Escape opens pause menu (pauses battle)
-        if (inputManager.isJustPressed('menu') || inputManager.isJustPressed('cancel')) {
+        // Menu key ALWAYS opens pause menu (pauses battle)
+        if (inputManager.isJustPressed('menu')) {
             this.game.audioManager?.playEffect('cancel.mp3');
-            this.game.stateManager.pushState('menu');
+            this.game.stateManager.pushState('PAUSED');
             this.inputCooldown = 0.2;
             return;
         }
@@ -5260,13 +5292,13 @@ class BattleState extends GameState {
         this.stateManager.popState();
     }
     
-    render(ctx) {
+    render(ctx, skipTransition = false) {
         const width = this.game.CANVAS_WIDTH;
         const height = this.game.CANVAS_HEIGHT;
         const ds = window.ds;
         
-        // Transition effect
-        if (this.phase === 'transition') {
+        // Transition effect (skip if called from pause menu)
+        if (this.phase === 'transition' && !skipTransition) {
             this.renderTransition(ctx, width, height);
             return;
         }

@@ -935,10 +935,11 @@ class GameEngine {
         this.ctx.clearRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
         
         // Clear WebGL canvas if not in gameplay state (to prevent leftover frames showing through)
-        // The WebGL canvas is only rendered by PlayingState, so other states need to clear it
+        // The WebGL canvas is rendered by PlayingState and BattleState, so other states need to clear it
         const currentState = this.stateManager.getCurrentState();
         const isPlayingOnStack = this.stateManager.isStateInStack('PLAYING');
-        const isGameplayActive = currentState === 'PLAYING' || isPlayingOnStack;
+        const isBattleOnStack = this.stateManager.isStateInStack('BATTLE');
+        const isGameplayActive = currentState === 'PLAYING' || currentState === 'BATTLE' || isPlayingOnStack || isBattleOnStack;
         
         if (!isGameplayActive && this.renderSystem?.webglRenderer?.initialized) {
             const gl = this.renderSystem.webglRenderer.gl;
