@@ -4805,6 +4805,7 @@ class BattleState extends GameState {
             
             // Link to battle spirit data for UI
             spiritEntity._battleSpirit = spirit;
+            spirit._entity = spiritEntity;  // Reverse link for animation system
             spiritEntity._isPlayerOwned = true;
             spiritEntity._battleIndex = index;
             
@@ -4832,6 +4833,7 @@ class BattleState extends GameState {
             });
             
             spiritEntity._battleSpirit = spirit;
+            spirit._entity = spiritEntity;  // Reverse link for animation system
             spiritEntity._isPlayerOwned = false;
             spiritEntity._battleIndex = index;
             
@@ -4876,6 +4878,17 @@ class BattleState extends GameState {
         let enemyIndex = 0;
         
         for (const entity of this.battleSpiritEntities) {
+            // Skip repositioning if this entity is currently animating
+            if (this.battleSystem?.getAnimatedPosition(entity)) {
+                // Still need to increment indices to keep formation consistent
+                if (entity._isPlayerOwned) {
+                    playerIndex++;
+                } else {
+                    enemyIndex++;
+                }
+                continue;
+            }
+            
             if (entity._isPlayerOwned) {
                 entity.x = centerX - horizontalOffset;
                 entity.y = playerStartY + playerIndex * verticalSpacing;
@@ -5005,6 +5018,16 @@ class BattleState extends GameState {
         // Update battle system
         if (this.battleSystem) {
             this.battleSystem.update(deltaTime);
+            
+            // Update action animation positions AFTER battle system update
+            // (so animation state is current)
+            this.battleSpiritEntities.forEach(entity => {
+                const animatedPos = this.battleSystem.getAnimatedPosition(entity);
+                if (animatedPos) {
+                    entity.x = animatedPos.x;
+                    entity.y = animatedPos.y;
+                }
+            });
             
             // Check for battle end - wait for death animations to complete
             if (this.battleSystem.result && !this.showingResults) {

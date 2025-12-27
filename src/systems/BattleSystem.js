@@ -61,6 +61,22 @@ class BattleSystem {
         this.transitionDuration = 1.0; // seconds
         this.isTransitioning = false;
         
+        // Action animation state
+        this.actionAnimation = {
+            phase: null,          // 'moving_to_target', 'impact', 'returning', null
+            timer: 0,
+            userEntity: null,     // The entity performing the action
+            targetEntity: null,   // The target entity (for attack movement)
+            originalX: 0,         // User's original X position
+            originalY: 0,         // User's original Y position
+            targetX: 0,           // Position to move to (near target)
+            targetY: 0,
+            moveToTargetDuration: 0.25,   // Time to reach target
+            impactDuration: 0.15,         // Brief pause at impact
+            returnDuration: 0.3,          // Time to return
+            isAttackAnimation: false      // Whether this action has movement
+        };
+        
         // Triggered spirit reference (to remove after battle)
         this.triggeringSpirit = null;
     }
@@ -512,21 +528,155 @@ class BattleSystem {
     }
     
     /**
-     * Process the current action
+     * Process the current action with animation phases
      */
     processCurrentAction(deltaTime) {
         if (!this.currentAction) return;
         
-        this.actionTimer += deltaTime;
+        const anim = this.actionAnimation;
         
-        // Action animation time (simplified)
-        const actionDuration = 0.5;
-        
-        if (this.actionTimer >= actionDuration) {
-            // Execute the action
-            this.executeAction(this.currentAction);
-            this.currentAction = null;
+        // Initialize animation if not started
+        if (!anim.phase) {
+            this.startActionAnimation(this.currentAction);
         }
+        
+        anim.timer += deltaTime;
+        
+        switch (anim.phase) {
+            case 'moving_to_target':
+                if (anim.timer >= anim.moveToTargetDuration) {
+                    anim.phase = 'impact';
+                    anim.timer = 0;
+                    // Apply the action effect at impact
+                    this.executeAction(this.currentAction);
+                }
+                break;
+                
+            case 'impact':
+                if (anim.timer >= anim.impactDuration) {
+                    if (anim.isAttackAnimation) {
+                        anim.phase = 'returning';
+                        anim.timer = 0;
+                    } else {
+                        // Non-attack actions end here
+                        this.finishActionAnimation();
+                    }
+                }
+                break;
+                
+            case 'returning':
+                if (anim.timer >= anim.returnDuration) {
+                    this.finishActionAnimation();
+                }
+                break;
+        }
+    }
+    
+    /**
+     * Start the action animation
+     */
+    startActionAnimation(action) {
+        const anim = this.actionAnimation;
+        const { type, user, target } = action;
+        
+        // Find the user entity (set by GameStateManager)
+        anim.userEntity = user._entity;
+        anim.targetEntity = Array.isArray(target) ? target[0]?._entity : target?._entity;
+        
+        // Store original position
+        if (anim.userEntity) {
+            anim.originalX = anim.userEntity.x;
+            anim.originalY = anim.userEntity.y;
+        }
+        
+        // Determine if this is an attack animation (movement to target)
+        anim.isAttackAnimation = (type === 'attack');
+        
+        if (anim.isAttackAnimation && anim.targetEntity) {
+            // Calculate target position (stop short of the target)
+            const stopDistance = 60; // Stop this far from target
+            const dx = anim.targetEntity.x - anim.originalX;
+            const dy = anim.targetEntity.y - anim.originalY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist > stopDistance) {
+                const ratio = (dist - stopDistance) / dist;
+                anim.targetX = anim.originalX + dx * ratio;
+                anim.targetY = anim.originalY + dy * ratio;
+            } else {
+                anim.targetX = anim.originalX;
+                anim.targetY = anim.originalY;
+            }
+        }
+        
+        anim.phase = 'moving_to_target';
+        anim.timer = 0;
+    }
+    
+    /**
+     * Finish the action animation and clean up
+     */
+    finishActionAnimation() {
+        const anim = this.actionAnimation;
+        
+        // Reset entity position
+        if (anim.userEntity) {
+            anim.userEntity.x = anim.originalX;
+            anim.userEntity.y = anim.originalY;
+        }
+        
+        // Reset animation state
+        anim.phase = null;
+        anim.timer = 0;
+        anim.userEntity = null;
+        anim.targetEntity = null;
+        anim.isAttackAnimation = false;
+        
+        // Clear current action
+        this.currentAction = null;
+    }
+    
+    /**
+     * Get the current animated position for the action user
+     * Called by GameStateManager to update entity positions
+     */
+    getAnimatedPosition(entity) {
+        const anim = this.actionAnimation;
+        
+        if (!anim.phase || anim.userEntity !== entity) {
+            return null; // No animation active for this entity
+        }
+        
+        if (!anim.isAttackAnimation) {
+            return null; // Non-attack animations don't move
+        }
+        
+        let progress;
+        let x, y;
+        
+        switch (anim.phase) {
+            case 'moving_to_target':
+                // Ease out - start fast, slow down at end
+                progress = Math.min(1, anim.timer / anim.moveToTargetDuration);
+                progress = 1 - Math.pow(1 - progress, 2); // ease out quad
+                x = anim.originalX + (anim.targetX - anim.originalX) * progress;
+                y = anim.originalY + (anim.targetY - anim.originalY) * progress;
+                return { x, y };
+                
+            case 'impact':
+                // Stay at target position
+                return { x: anim.targetX, y: anim.targetY };
+                
+            case 'returning':
+                // Ease in - start slow, speed up at end
+                progress = Math.min(1, anim.timer / anim.returnDuration);
+                progress = progress * progress; // ease in quad
+                x = anim.targetX + (anim.originalX - anim.targetX) * progress;
+                y = anim.targetY + (anim.originalY - anim.targetY) * progress;
+                return { x, y };
+        }
+        
+        return null;
     }
     
     /**
