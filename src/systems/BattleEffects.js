@@ -6,6 +6,38 @@
 
 class BattleEffects {
     constructor() {
+        // Sound effect mappings for each visual effect
+        this.effectSounds = {
+            // Healing
+            'heal_sparkle': 'heal.mp3',
+            'heal_ring': 'heal-grand.mp3',
+            // Wind
+            'wind_slash': 'wind-slash.mp3',
+            'wind_tornado': 'wind-tornado.mp3',
+            // Fire
+            'fire_burst': 'fire-burst.mp3',
+            'fire_pillar': 'fire-pillar.mp3',
+            // Water
+            'water_splash': 'water-splash.mp3',
+            'water_wave': 'water-wave.mp3',
+            // Earth
+            'earth_rocks': 'earth-rocks.mp3',
+            'earth_quake': 'earth-quake.mp3',
+            // Dark
+            'dark_miasma': 'dark-miasma.mp3',
+            'dark_chains': 'dark-chains.mp3',
+            // Light
+            'light_rays': 'light-rays.mp3',
+            // Electric
+            'electric_spark': 'electric-spark.mp3',
+            // Buffs/Debuffs
+            'buff_up': 'buff.mp3',
+            'debuff_down': 'debuff.mp3',
+            // Generic
+            'magic_burst': 'spell.mp3',
+            'impact_hit': 'strike01.mp3'
+        };
+        
         // Effect library - each effect is a function that generates particles
         this.effects = {
             // === HEALING EFFECTS ===
@@ -704,8 +736,17 @@ class BattleEffects {
             y: pos.y,
             timer: 0,
             duration: result.duration,
-            particles: result.particles
+            particles: result.particles,
+            sound: this.effectSounds[effectName] || null
         };
+    }
+    
+    /**
+     * Get the sound file for an effect
+     * @param {string} effectName - Name of the effect
+     */
+    getEffectSound(effectName) {
+        return this.effectSounds[effectName] || null;
     }
     
     /**

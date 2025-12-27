@@ -6665,6 +6665,11 @@ class BattleState extends GameState {
             const effect = window.battleEffects.createEffect(effectName, pos, options);
             if (effect) {
                 this.abilityEffects.push(effect);
+                
+                // Play associated sound effect
+                if (effect.sound && this.game?.audioManager) {
+                    this.game.audioManager.playEffect(effect.sound);
+                }
             }
         }
     }
