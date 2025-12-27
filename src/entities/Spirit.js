@@ -295,6 +295,30 @@ class Spirit extends Actor {
             const battleSpirit = this._battleSpirit;
             const isSelected = battleSpirit && this._isSelected;
             const damageFlash = battleSpirit?._damageFlash || 0;
+            const deathAnim = battleSpirit?._deathAnimation;
+            
+            // Death animation - red shift and fade out (skip rendering if animation complete)
+            if (deathAnim) {
+                if (!deathAnim.active && deathAnim.timer >= deathAnim.duration) {
+                    // Animation complete - don't render sprite at all
+                    return;
+                }
+                if (deathAnim.active) {
+                    // Calculate death animation progress (0 to 1)
+                    const progress = Math.min(1, deathAnim.timer / deathAnim.duration);
+                    const fadeAlpha = 1 - progress; // Fade from 1 to 0
+                    const redShift = progress; // Red tint increases
+                    
+                    // Apply red tint that increases as sprite fades
+                    webglRenderer.setColorOverlay(1.0, 0.2, 0.2, redShift * 0.8);
+                    webglRenderer.drawSprite(
+                        screenX, screenY, scaledWidth, scaledHeight,
+                        this.sprite, imageUrl, fadeAlpha, shouldFlip, false
+                    );
+                    webglRenderer.clearColorOverlay();
+                    return;
+                }
+            }
             
             // Draw outline if selected (pulsing golden outline)
             if (isSelected) {

@@ -4980,29 +4980,43 @@ class BattleState extends GameState {
             this.createBattleSpiritEntities();
         }
         
-        // Update battle spirit entities (for floating animation, damage flash, selection state, etc)
+        // Update battle spirit entities (for floating animation, damage flash, death animation, selection state, etc)
         this.battleSpiritEntities.forEach(entity => {
-            // Sync alive state
-            if (entity._battleSpirit && !entity._battleSpirit.isAlive) {
-                entity.baseAlpha = 0.3; // Fade out dead spirits
+            const battleSpirit = entity._battleSpirit;
+            if (!battleSpirit) return;
+            
+            // Update death animation
+            if (battleSpirit._deathAnimation?.active) {
+                battleSpirit._deathAnimation.timer += deltaTime;
+                if (battleSpirit._deathAnimation.timer >= battleSpirit._deathAnimation.duration) {
+                    battleSpirit._deathAnimation.active = false;
+                }
             }
+            
             // Update damage flash on the spirit data
-            if (entity._battleSpirit && entity._battleSpirit._damageFlash > 0) {
-                entity._battleSpirit._damageFlash -= deltaTime * 3; // Fade out over ~0.33s
+            if (battleSpirit._damageFlash > 0) {
+                battleSpirit._damageFlash -= deltaTime * 3; // Fade out over ~0.33s
             }
+            
             // Sync selection state for outline rendering
-            entity._isSelected = (entity._battleSpirit === this.selectedPlayerSpirit);
+            entity._isSelected = (battleSpirit === this.selectedPlayerSpirit);
         });
         
         // Update battle system
         if (this.battleSystem) {
             this.battleSystem.update(deltaTime);
             
-            // Check for battle end
+            // Check for battle end - wait for death animations to complete
             if (this.battleSystem.result && !this.showingResults) {
-                this.showingResults = true;
-                this.phase = 'results';
-                this.resultsTimer = 0;
+                // Check if any death animations are still playing
+                const allSpirits = [...(this.battleSystem.playerParty || []), ...(this.battleSystem.enemyParty || [])];
+                const deathAnimationsPlaying = allSpirits.some(s => s._deathAnimation?.active);
+                
+                if (!deathAnimationsPlaying) {
+                    this.showingResults = true;
+                    this.phase = 'results';
+                    this.resultsTimer = 0;
+                }
             }
         }
         

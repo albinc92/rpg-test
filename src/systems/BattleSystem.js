@@ -810,6 +810,14 @@ class BattleSystem {
         if (target.currentHp <= 0) {
             target.isAlive = false;
             target.currentHp = 0;
+            
+            // Start death animation (red shift + fade out)
+            target._deathAnimation = {
+                active: true,
+                timer: 0,
+                duration: 1.2 // 1.2 seconds for death animation
+            };
+            
             this.log(`${target.name} has been defeated!`);
             
             // Add rewards if enemy
