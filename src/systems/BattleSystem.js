@@ -46,6 +46,7 @@ class BattleSystem {
         this.onDamage = null;  // (target, { damage, isCrit, effectiveness, absorbed }) => {}
         this.onHeal = null;    // (target, healAmount) => {}
         this.onActionText = null; // (user, actionName) => {}
+        this.onAbilityEffect = null; // (target, effectName, options) => {}
         
         // Type effectiveness chart
         // Multipliers: 2.0 = super effective, 0.5 = not very effective, 1.0 = normal
@@ -295,6 +296,31 @@ class BattleSystem {
         abilities.push({ id: 'heal', name: 'Heal', type: 'supportive', element: null, power: 30, mpCost: 10, target: 'single_ally' });
         
         return abilities;
+    }
+    
+    /**
+     * Get the default visual effect name for an element type
+     * Used when an ability doesn't specify its own effect
+     * @param {string} element - Element type (fire, water, wind, earth, etc.)
+     * @param {string} role - 'offensive' or 'defensive'
+     */
+    getElementEffect(element, role = 'offensive') {
+        const elementEffects = {
+            fire: { offensive: 'fire_burst', defensive: 'fire_pillar' },
+            water: { offensive: 'water_splash', defensive: 'water_wave' },
+            wind: { offensive: 'wind_slash', defensive: 'wind_tornado' },
+            earth: { offensive: 'earth_rocks', defensive: 'earth_quake' },
+            dark: { offensive: 'dark_miasma', defensive: 'dark_chains' },
+            light: { offensive: 'light_rays', defensive: 'light_rays' },
+            electric: { offensive: 'electric_spark', defensive: 'electric_spark' }
+        };
+        
+        if (elementEffects[element]) {
+            return elementEffects[element][role] || elementEffects[element].offensive;
+        }
+        
+        // Default fallback
+        return 'magic_burst';
     }
     
     /**
@@ -843,6 +869,13 @@ class BattleSystem {
         targets.forEach(t => {
             if (!t || !t.isAlive) return;
             
+            // Spawn visual effect - use ability's specified effect or fall back to element-based
+            if (this.onAbilityEffect) {
+                const effectName = ability.effect || this.getElementEffect(ability.element, 'offensive');
+                const intensity = ability.effectIntensity || 1.0;
+                this.onAbilityEffect(t, effectName, { intensity });
+            }
+            
             const baseDamage = (user.magicAttack * ability.power) / 20;
             const rawMagicDef = t.magicDefense;
             const effectiveness = ability.element 
@@ -877,6 +910,13 @@ class BattleSystem {
             if (!t) return;
             
             if (ability.id === 'heal' || ability.effect === 'heal') {
+                // Spawn heal visual effect
+                if (this.onAbilityEffect) {
+                    const effectName = ability.visualEffect || 'heal_sparkle';
+                    const intensity = ability.effectIntensity || 1.0;
+                    this.onAbilityEffect(t, effectName, { intensity });
+                }
+                
                 const healAmount = Math.floor(user.magicAttack * ability.power / 20);
                 this.applyHealing(t, healAmount);
                 this.log(`${user.name}'s ${ability.name} heals ${t.name} for ${healAmount} HP`);
@@ -884,6 +924,13 @@ class BattleSystem {
             
             // Handle buffs
             if (ability.buff) {
+                // Spawn buff visual effect
+                if (this.onAbilityEffect) {
+                    const effectName = ability.visualEffect || 'buff_up';
+                    const intensity = ability.effectIntensity || 1.0;
+                    this.onAbilityEffect(t, effectName, { intensity });
+                }
+                
                 t.statusEffects.push({
                     type: 'buff',
                     stat: ability.buff.stat,
@@ -902,6 +949,13 @@ class BattleSystem {
         
         targets.forEach(t => {
             if (!t || !t.isAlive) return;
+            
+            // Spawn debuff visual effect
+            if (this.onAbilityEffect) {
+                const effectName = ability.visualEffect || 'debuff_down';
+                const intensity = ability.effectIntensity || 1.0;
+                this.onAbilityEffect(t, effectName, { intensity });
+            }
             
             if (ability.debuff) {
                 t.statusEffects.push({

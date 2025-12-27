@@ -80,6 +80,7 @@ async function loadGameScripts() {
         await loadScript('/src/systems/HUDSystem.js'); // NEW: HUD rendering system
         await loadScript('/src/systems/CompressionUtils.js'); // NEW: LZ compression for map data
         await loadScript('/src/systems/PartyManager.js'); // NEW: Player spirit party management
+        await loadScript('/src/systems/BattleEffects.js'); // NEW: Battle visual effects library
         await loadScript('/src/systems/BattleSystem.js'); // NEW: ATB battle system
         
         // Load editor components

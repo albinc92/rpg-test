@@ -4706,6 +4706,7 @@ class BattleState extends GameState {
         this.actionAnimation = null;
         this.damageNumbers = [];
         this.actionTexts = []; // Floating action names like "Attack", "Gust", etc.
+        this.abilityEffects = []; // Visual effects for abilities (particles, swooshes, etc.)
         
         // Action log (no longer rendered, but kept for debugging)
         this.actionLog = [];
@@ -4723,14 +4724,20 @@ class BattleState extends GameState {
                 this.spawnDamageNumber(target, meta);
             };
             
-            // Heal callback - spawns green floating heal number
+            // Heal callback - spawns green floating heal number and heal effect
             this.battleSystem.onHeal = (target, amount) => {
                 this.spawnHealNumber(target, amount);
+                // Note: heal effect is now spawned by executeSupportiveAbility
             };
             
             // Action text callback - shows ability name above user
             this.battleSystem.onActionText = (user, actionName) => {
                 this.spawnActionText(user, actionName);
+            };
+            
+            // Ability effect callback - spawns visual effects for abilities using effect library
+            this.battleSystem.onAbilityEffect = (target, effectName, options) => {
+                this.spawnAbilityEffect(target, effectName, options);
             };
         }
         
@@ -5060,6 +5067,26 @@ class BattleState extends GameState {
             // Action texts stay in place - no floating
             at.alpha = Math.max(0, 1 - at.timer / at.duration);
             return at.timer < at.duration;
+        });
+        
+        // Update ability effects (particles, swooshes, etc.)
+        this.abilityEffects = this.abilityEffects.filter(effect => {
+            effect.timer += deltaTime;
+            const progress = effect.timer / effect.duration;
+            
+            // Update particles within the effect
+            if (effect.particles) {
+                effect.particles.forEach(p => {
+                    p.x += p.vx * deltaTime;
+                    p.y += p.vy * deltaTime;
+                    p.vy += (p.gravity || 0) * deltaTime;
+                    p.alpha = Math.max(0, p.baseAlpha * (1 - progress));
+                    p.scale = p.baseScale * (1 + progress * (p.scaleGrowth || 0));
+                    p.rotation += (p.rotationSpeed || 0) * deltaTime;
+                });
+            }
+            
+            return effect.timer < effect.duration;
         });
         
         // Auto-select ready spirit
@@ -5414,6 +5441,9 @@ class BattleState extends GameState {
         
         // Action log removed - using floating damage numbers instead
         // this.renderActionLog(ctx, width, height);
+        
+        // Draw ability effects (particles, swooshes)
+        this.renderAbilityEffects(ctx);
         
         // Draw damage numbers and action texts
         this.renderDamageNumbers(ctx);
@@ -6617,6 +6647,157 @@ class BattleState extends GameState {
             timer: 0,
             duration: 1.0,
             alpha: 1
+        });
+    }
+    
+    /**
+     * Spawn visual effect for an ability using the effect library
+     * @param {Object} target - Target spirit
+     * @param {string} effectName - Name of effect from BattleEffects library
+     * @param {Object} options - Options including intensity, color, etc.
+     */
+    spawnAbilityEffect(target, effectName, options = {}) {
+        const pos = this.getSpiritScreenPosition(target);
+        if (!pos) return;
+        
+        // Use the effect library
+        if (window.battleEffects) {
+            const effect = window.battleEffects.createEffect(effectName, pos, options);
+            if (effect) {
+                this.abilityEffects.push(effect);
+            }
+        }
+    }
+    
+    /**
+     * Render ability effects (particles, swooshes)
+     */
+    renderAbilityEffects(ctx) {
+        this.abilityEffects.forEach(effect => {
+            const progress = effect.timer / effect.duration;
+            
+            effect.particles.forEach(p => {
+                // Skip particles with delay that haven't started yet
+                if (p.delay && effect.timer < p.delay) return;
+                
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rotation);
+                
+                if (p.isLine) {
+                    // Draw swoosh line
+                    ctx.strokeStyle = p.color;
+                    ctx.lineWidth = (p.isLightning ? 2 : 3) * p.scale;
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    if (p.isLightning) {
+                        // Jagged lightning line
+                        const len = p.length * p.scale;
+                        const segments = 4;
+                        ctx.moveTo(-len/2, 0);
+                        for (let i = 1; i < segments; i++) {
+                            const x = -len/2 + (len / segments) * i;
+                            const y = (Math.random() - 0.5) * 10;
+                            ctx.lineTo(x, y);
+                        }
+                        ctx.lineTo(len/2, 0);
+                    } else {
+                        ctx.moveTo(-p.length * p.scale / 2, 0);
+                        ctx.lineTo(p.length * p.scale / 2, 0);
+                    }
+                    ctx.stroke();
+                } else if (p.isRock) {
+                    // Draw angular rock shape
+                    ctx.fillStyle = p.color;
+                    const s = p.size * p.scale;
+                    ctx.beginPath();
+                    ctx.moveTo(-s/2, -s/3);
+                    ctx.lineTo(s/3, -s/2);
+                    ctx.lineTo(s/2, s/4);
+                    ctx.lineTo(-s/4, s/2);
+                    ctx.lineTo(-s/2, 0);
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (p.isDust) {
+                    // Draw soft dust cloud
+                    ctx.fillStyle = p.color;
+                    const s = p.size * p.scale;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, s, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (p.isDroplet) {
+                    // Draw water droplet
+                    ctx.fillStyle = p.color;
+                    const s = p.size * p.scale;
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, s * 0.6, s, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (p.isEmber) {
+                    // Draw small ember/spark dot
+                    ctx.fillStyle = p.color;
+                    const s = p.size * p.scale;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, s, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (p.isGlow) {
+                    // Draw soft glow
+                    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, p.size * p.scale);
+                    gradient.addColorStop(0, p.color);
+                    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, p.size * p.scale, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (p.isArrow) {
+                    // Draw up/down arrow (for buff/debuff)
+                    ctx.fillStyle = p.color;
+                    const s = p.size * p.scale;
+                    ctx.beginPath();
+                    ctx.moveTo(0, -s);
+                    ctx.lineTo(s * 0.6, s * 0.3);
+                    ctx.lineTo(s * 0.2, s * 0.3);
+                    ctx.lineTo(s * 0.2, s);
+                    ctx.lineTo(-s * 0.2, s);
+                    ctx.lineTo(-s * 0.2, s * 0.3);
+                    ctx.lineTo(-s * 0.6, s * 0.3);
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (p.isDark) {
+                    // Draw dark wispy cloud
+                    ctx.fillStyle = p.color;
+                    const s = p.size * p.scale;
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, s, s * 0.7, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (p.isChain) {
+                    // Draw chain link
+                    ctx.strokeStyle = p.color;
+                    ctx.lineWidth = 2;
+                    const s = p.size * p.scale;
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, s, s * 0.5, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+                } else {
+                    // Draw sparkle/particle (default diamond/star shape)
+                    ctx.fillStyle = p.color;
+                    const s = p.size * p.scale;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(0, -s);
+                    ctx.lineTo(s * 0.3, -s * 0.3);
+                    ctx.lineTo(s, 0);
+                    ctx.lineTo(s * 0.3, s * 0.3);
+                    ctx.lineTo(0, s);
+                    ctx.lineTo(-s * 0.3, s * 0.3);
+                    ctx.lineTo(-s, 0);
+                    ctx.lineTo(-s * 0.3, -s * 0.3);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                
+                ctx.restore();
+            });
         });
     }
 }
