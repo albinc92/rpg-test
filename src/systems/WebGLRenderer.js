@@ -2368,3 +2368,4 @@ class WebGLRenderer {
         return this.currentAA || 'msaa';
     }
 }
+window.WebGLRenderer = WebGLRenderer;

@@ -211,3 +211,5 @@ function t(key, params = {}) {
     }
     return key; // Fallback if not initialized
 }
+window.LocaleManager = LocaleManager;
+window.t = t;

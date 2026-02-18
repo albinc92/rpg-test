@@ -390,3 +390,4 @@ class CollisionSystem {
         return inside;
     }
 }
+window.CollisionSystem = CollisionSystem;

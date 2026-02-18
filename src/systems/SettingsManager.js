@@ -118,3 +118,4 @@ class SettingsManager {
         this.save();
     }
 }
+window.SettingsManager = SettingsManager;

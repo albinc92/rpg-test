@@ -1116,3 +1116,4 @@ class MenuRenderer {
         });
     }
 }
+window.MenuRenderer = MenuRenderer;

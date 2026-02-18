@@ -211,3 +211,4 @@ class PerformanceMonitor {
         };
     }
 }
+window.PerformanceMonitor = PerformanceMonitor;

@@ -298,3 +298,4 @@ class HUDSystem {
         ctx.restore();
     }
 }
+window.HUDSystem = HUDSystem;

@@ -179,3 +179,4 @@ class Chest extends InteractiveObject {
         this.gold = state.gold !== undefined ? state.gold : this.gold;
     }
 }
+window.Chest = Chest;

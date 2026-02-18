@@ -81,7 +81,7 @@ class GameEngine {
         this.portalRegistry = new PortalRegistry();
         
         // Core systems
-        this.audioManager = new AudioManager();
+        this.audioManager = window.AudioManager || new AudioManager();
         this.inputManager = new InputManager();
         this.stateManager = new GameStateManager(this);
         

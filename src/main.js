@@ -1,117 +1,94 @@
-// Main entry point for the game - load scripts in order
+// Main entry point for the game
+// All imports are bundled by Vite for production builds
 
-// Function to dynamically load scripts
-function loadScript(src) {
-    return new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = src;
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-    });
-}
+// Core classes
+import './core/GameObject.js';
+import './core/Actor.js';
 
-// Load all scripts in the correct order
-async function loadGameScripts() {
-    try {
-        // Load core classes first
-        await loadScript('/src/core/GameObject.js');
-        await loadScript('/src/core/Actor.js');
-        
-        // Load entity classes
-        await loadScript('/src/entities/Player.js');
-        await loadScript('/src/entities/NPC.js');
-        await loadScript('/src/entities/Spirit.js');
-        
-        // Load object classes
-        await loadScript('/src/objects/StaticObject.js');
-        await loadScript('/src/objects/InteractiveObject.js');
-        await loadScript('/src/objects/Chest.js');
-        await loadScript('/src/objects/Portal.js');
-        
-        // Load data loader FIRST (before managers)
-        await loadScript('/src/systems/DataLoader.js');
-        
-        // Load static object registry for template management
-        await loadScript('/src/systems/StaticObjectRegistry.js');
-        
-        // Load spirit registry for spirit templates
-        await loadScript('/src/systems/SpiritRegistry.js');
-        
-        // Load NPC, Chest, and Portal registries
-        await loadScript('/src/systems/NPCRegistry.js');
-        await loadScript('/src/systems/ChestRegistry.js');
-        await loadScript('/src/systems/PortalRegistry.js');
-        
-        // Load light system for dynamic lighting
-        await loadScript('/src/systems/LightRegistry.js');
-        await loadScript('/src/systems/LightManager.js');
-        
-        // Load manager systems
-        await loadScript('/src/systems/AudioManager.js');
-        await loadScript('/src/systems/InputManager.js');
-        await loadScript('/src/systems/TouchControlsUI.js'); // NEW: Touch controls for mobile
-        await loadScript('/src/systems/LocaleManager.js'); // NEW: Internationalization (i18n)
-        await loadScript('/src/systems/DesignSystem.js'); // NEW: Centralized design tokens
-        await loadScript('/src/systems/MenuRenderer.js'); // NEW: Standardized menu rendering
-        await loadScript('/src/systems/GameVariables.js'); // NEW: Global game variables for quest tracking
-        await loadScript('/src/systems/ScriptEngine.js'); // NEW: NPC script parser and executor
-        await loadScript('/src/systems/GameStateManager.js');
-        await loadScript('/src/systems/MapManager.js');
-        await loadScript('/src/systems/ObjectManager.js'); // NEW: Unified object manager
-        await loadScript('/src/systems/ItemManager.js');
-        await loadScript('/src/systems/InventoryManager.js');
-        
-        // Load new subsystems for better architecture
-        await loadScript('/src/systems/LayerManager.js'); // NEW: Multi-layer map system
-        await loadScript('/src/systems/WebGLRenderer.js'); // NEW: GPU-accelerated rendering
-        await loadScript('/src/systems/RenderSystem.js');
-        await loadScript('/src/systems/CollisionSystem.js');
-        await loadScript('/src/systems/InteractionSystem.js');
-        await loadScript('/src/systems/SettingsManager.js');
-        await loadScript('/src/systems/DayNightShader.js'); // NEW: WebGL shader for day/night lighting
-        await loadScript('/src/systems/DayNightCycle.js'); // NEW: Day/night cycle system
-        await loadScript('/src/systems/WeatherSystem.js'); // NEW: Weather effects system
-        await loadScript('/src/systems/PerspectiveSystem.js'); // NEW: Fake 3D perspective (Diablo 2 style)
-        await loadScript('/src/systems/SpawnManager.js'); // NEW: Spirit spawning system
-        await loadScript('/src/systems/PerformanceMonitor.js');
-        await loadScript('/src/systems/SaveGameManager.js');
-        await loadScript('/src/systems/TemplateManager.js'); // NEW: Object template system
-        await loadScript('/src/systems/HUDSystem.js'); // NEW: HUD rendering system
-        await loadScript('/src/systems/CompressionUtils.js'); // NEW: LZ compression for map data
-        await loadScript('/src/systems/PartyManager.js'); // NEW: Player spirit party management
-        await loadScript('/src/systems/BattleEffects.js'); // NEW: Battle visual effects library
-        await loadScript('/src/systems/BattleSystem.js'); // NEW: ATB battle system
-        
-        // Load editor components
-        await loadScript('/src/editor/EditorStyles.js'); // NEW: Standardized editor styling
-        await loadScript('/src/editor/DropdownMenu.js'); // NEW: Dropdown menu component
-        await loadScript('/src/editor/VisualScriptEditor.js'); // NEW: Visual block-based script editor
-        await loadScript('/src/editor/EditorUI.js');
-        await loadScript('/src/editor/ObjectPalette.js');
-        await loadScript('/src/editor/PropertyPanel.js');
-        await loadScript('/src/editor/LayerPanel.js'); // NEW: Layer management panel
-        await loadScript('/src/editor/TemplateEditor.js'); // NEW: Template editor (legacy)
-        await loadScript('/src/editor/LightEditor.js'); // NEW: Light template editor (standardized)
-        await loadScript('/src/editor/NPCEditor.js'); // NEW: NPC template editor (standardized)
-        await loadScript('/src/editor/ChestEditor.js'); // NEW: Chest template editor (standardized)
-        await loadScript('/src/editor/PortalEditor.js'); // NEW: Portal template editor (standardized)
-        await loadScript('/src/editor/DoodadEditor.js'); // NEW: Doodad template editor (standardized)
-        await loadScript('/src/editor/SpiritEditor.js'); // NEW: Spirit template editor (standardized)
-        await loadScript('/src/editor/ObjectPlacementPanel.js'); // NEW: Unified placement panel
-        await loadScript('/src/systems/EditorManager.js');
-        
-        // Load game engine
-        await loadScript('/src/GameEngine.js');
-        
-        // Initialize the game engine
-        window.game = new GameEngine();
-        console.log('🎮 Game initialized with Vite!');
-        
-    } catch (error) {
-        console.error('Failed to load game scripts:', error);
-    }
-}
+// Entity classes
+import './entities/Player.js';
+import './entities/NPC.js';
+import './entities/Spirit.js';
 
-// Start loading when page loads
-window.addEventListener('load', loadGameScripts);
+// Object classes
+import './objects/StaticObject.js';
+import './objects/InteractiveObject.js';
+import './objects/Chest.js';
+import './objects/Portal.js';
+
+// Data loader (before managers)
+import './systems/DataLoader.js';
+
+// Registries
+import './systems/StaticObjectRegistry.js';
+import './systems/SpiritRegistry.js';
+import './systems/NPCRegistry.js';
+import './systems/ChestRegistry.js';
+import './systems/PortalRegistry.js';
+
+// Light system
+import './systems/LightRegistry.js';
+import './systems/LightManager.js';
+
+// Manager systems
+import './systems/AudioManager.js';
+import './systems/InputManager.js';
+import './systems/TouchControlsUI.js';
+import './systems/LocaleManager.js';
+import './systems/DesignSystem.js';
+import './systems/MenuRenderer.js';
+import './systems/GameVariables.js';
+import './systems/ScriptEngine.js';
+import './systems/GameStateManager.js';
+import './systems/MapManager.js';
+import './systems/ObjectManager.js';
+import './systems/ItemManager.js';
+import './systems/InventoryManager.js';
+
+// Subsystems
+import './systems/LayerManager.js';
+import './systems/WebGLRenderer.js';
+import './systems/RenderSystem.js';
+import './systems/CollisionSystem.js';
+import './systems/InteractionSystem.js';
+import './systems/SettingsManager.js';
+import './systems/DayNightShader.js';
+import './systems/DayNightCycle.js';
+import './systems/WeatherSystem.js';
+import './systems/PerspectiveSystem.js';
+import './systems/SpawnManager.js';
+import './systems/PerformanceMonitor.js';
+import './systems/SaveGameManager.js';
+import './systems/TemplateManager.js';
+import './systems/HUDSystem.js';
+import './systems/CompressionUtils.js';
+import './systems/PartyManager.js';
+import './systems/BattleEffects.js';
+import './systems/BattleSystem.js';
+
+// Editor components
+import './editor/EditorStyles.js';
+import './editor/DropdownMenu.js';
+import './editor/VisualScriptEditor.js';
+import './editor/EditorUI.js';
+import './editor/ObjectPalette.js';
+import './editor/PropertyPanel.js';
+import './editor/LayerPanel.js';
+import './editor/TemplateEditor.js';
+import './editor/LightEditor.js';
+import './editor/NPCEditor.js';
+import './editor/ChestEditor.js';
+import './editor/PortalEditor.js';
+import './editor/DoodadEditor.js';
+import './editor/SpiritEditor.js';
+import './editor/ObjectPlacementPanel.js';
+import './systems/EditorManager.js';
+
+// Game engine
+import './GameEngine.js';
+
+// Initialize the game engine when page loads
+window.addEventListener('load', () => {
+    window.game = new GameEngine();
+    console.log('🎮 Game initialized with Vite!');
+});

@@ -358,3 +358,4 @@ class SaveGameManager {
         });
     }
 }
+window.SaveGameManager = SaveGameManager;

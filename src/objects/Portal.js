@@ -246,3 +246,4 @@ class Portal extends InteractiveObject {
         this.requiresActivation = state.requiresActivation || this.requiresActivation;
     }
 }
+window.Portal = Portal;

@@ -436,3 +436,4 @@ class NPC extends Actor {
         this.faction = state.faction || this.faction;
     }
 }
+window.NPC = NPC;

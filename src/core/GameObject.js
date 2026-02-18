@@ -580,3 +580,4 @@ class GameObject {
         }
     }
 }
+window.GameObject = GameObject;

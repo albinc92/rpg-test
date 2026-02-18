@@ -360,3 +360,4 @@ class DayNightShader {
         };
     }
 }
+window.DayNightShader = DayNightShader;

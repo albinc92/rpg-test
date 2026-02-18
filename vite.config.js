@@ -11,8 +11,8 @@ try {
 
 export default defineConfig({
   // Base public path when served in development or production.
-  // Setting this to './' allows the app to run from a file system path (Electron).
-  base: './',
+  // Use '/' for web hosting (Vercel), './' for Electron file system paths.
+  base: process.env.ELECTRON ? './' : '/',
 
   // Root directory where index.html is located
   root: '.',

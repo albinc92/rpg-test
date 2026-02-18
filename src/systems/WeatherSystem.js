@@ -915,3 +915,5 @@ class WeatherSystem {
         }
     }
 }
+window.MAP_TRANSITION_CONFIG = MAP_TRANSITION_CONFIG;
+window.WeatherSystem = WeatherSystem;

@@ -57,3 +57,4 @@ class InteractionSystem {
         return null;
     }
 }
+window.InteractionSystem = InteractionSystem;

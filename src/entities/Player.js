@@ -180,3 +180,4 @@ class Player extends Actor {
         this.gold = data.gold || this.gold;
     }
 }
+window.Player = Player;

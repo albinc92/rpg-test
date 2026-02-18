@@ -275,3 +275,4 @@ class PerspectiveSystem {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = PerspectiveSystem;
 }
+window.PerspectiveSystem = PerspectiveSystem;

@@ -157,3 +157,4 @@ class SpiritRegistry {
     }
 
 }
+window.SpiritRegistry = SpiritRegistry;

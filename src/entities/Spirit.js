@@ -638,3 +638,4 @@ class Spirit extends Actor {
         console.log(`[Spirit] ✅ Updated ${this.name} - scale: ${this.scale}, moveSpeed: ${moveSpeed}, stats: ${JSON.stringify(this.stats)}, HP: ${this.currentHp}/${this.stats.hp}`);
     }
 }
+window.Spirit = Spirit;

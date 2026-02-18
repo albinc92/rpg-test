@@ -1141,3 +1141,4 @@ class RenderSystem {
         };
     }
 }
+window.RenderSystem = RenderSystem;

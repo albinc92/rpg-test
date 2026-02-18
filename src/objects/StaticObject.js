@@ -231,3 +231,4 @@ class StaticObject extends GameObject {
         this.type = state.type || this.type;
     }
 }
+window.StaticObject = StaticObject;

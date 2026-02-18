@@ -134,3 +134,4 @@ class Actor extends GameObject {
     }
     
 }
+window.Actor = Actor;

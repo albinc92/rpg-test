@@ -92,3 +92,4 @@ class InteractiveObject extends GameObject {
         this.usageCount = state.usageCount || 0;
     }
 }
+window.InteractiveObject = InteractiveObject;
