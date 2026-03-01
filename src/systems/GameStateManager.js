@@ -4713,6 +4713,9 @@ class BattleState extends GameState {
         // Battle spirit entities (actual Spirit instances for WebGL rendering)
         this.battleSpiritEntities = [];
         
+        // Dynamic battle camera
+        this.battleCamera = new BattleCamera();
+        
         // Register callbacks with battle system
         if (this.battleSystem) {
             this.battleSystem.onLogEntry = (entry) => this.addLogEntry(entry);
@@ -4720,6 +4723,8 @@ class BattleState extends GameState {
             // Damage callback - spawns floating damage number on target
             this.battleSystem.onDamage = (target, meta) => {
                 this.spawnDamageNumber(target, meta);
+                // Notify battle camera of damage for screen shake
+                this.battleCamera.onDamage(meta.damage, meta.isCrit, meta.effectiveness);
             };
             
             // Heal callback - spawns green floating heal number and heal effect
@@ -4736,6 +4741,39 @@ class BattleState extends GameState {
             // Ability effect callback - spawns visual effects for abilities using effect library
             this.battleSystem.onAbilityEffect = (target, effectName, options) => {
                 this.spawnAbilityEffect(target, effectName, options);
+            };
+            
+            // Camera event callbacks for dynamic battle camera
+            this.battleSystem.onCameraActionStart = (user, target, isPhysical) => {
+                const userEntity = user?._entity;
+                const targetEntity = target?._entity;
+                if (userEntity && targetEntity) {
+                    // Pass positions relative to battle center so camera offsets work correctly
+                    const cx = this.battleCenterX || 0;
+                    const cy = this.battleCenterY || 0;
+                    this.battleCamera.onActionStart(
+                        userEntity.x - cx, userEntity.y - cy,
+                        targetEntity.x - cx, targetEntity.y - cy,
+                        isPhysical
+                    );
+                }
+            };
+            
+            this.battleSystem.onCameraActionImpact = () => {
+                this.battleCamera.onActionImpact();
+            };
+            
+            this.battleSystem.onCameraActionEnd = () => {
+                this.battleCamera.onActionEnd();
+            };
+            
+            this.battleSystem.onCameraKO = (target) => {
+                const entity = target?._entity;
+                if (entity) {
+                    const cx = this.battleCenterX || 0;
+                    const cy = this.battleCenterY || 0;
+                    this.battleCamera.onKO(entity.x - cx, entity.y - cy, !target.isPlayerOwned);
+                }
             };
         }
         
@@ -4778,8 +4816,8 @@ class BattleState extends GameState {
             centerY = (camera?.y || 0) + this.game.CANVAS_HEIGHT / 2;
         }
         
-        // 1v1 positioning - wider horizontal spread, vertically centered
-        const horizontalOffset = 350; // Distance from center (wider for 1v1)
+        // 1v1 positioning - tight horizontal spread, vertically centered
+        const horizontalOffset = 160; // Distance from center (compact for 1v1)
         
         // Create player spirit entity (left side, centered)
         this.battleSystem.playerParty.forEach((spirit, index) => {
@@ -4841,7 +4879,7 @@ class BattleState extends GameState {
             this.savedPlayerDirection = this.game.player.direction;
             
             // Position player behind their spirit
-            this.game.player.x = centerX - horizontalOffset - 80;
+            this.game.player.x = centerX - horizontalOffset - 60;
             this.game.player.y = centerY;
             this.game.player.direction = 'right'; // Face toward enemy
         }
@@ -4856,7 +4894,7 @@ class BattleState extends GameState {
      * Called every frame to ensure they stay centered regardless of camera
      */
     repositionBattleEntities(centerX, centerY) {
-        const horizontalOffset = 350; // Match createBattleSpiritEntities
+        const horizontalOffset = 160; // Match createBattleSpiritEntities
         
         for (const entity of this.battleSpiritEntities) {
             // Skip repositioning if this entity is currently animating
@@ -4875,7 +4913,7 @@ class BattleState extends GameState {
         
         // Reposition player character (behind their spirit)
         if (this.game.player) {
-            this.game.player.x = centerX - horizontalOffset - 200;
+            this.game.player.x = centerX - horizontalOffset - 60;
             this.game.player.y = centerY;
         }
     }
@@ -4910,7 +4948,20 @@ class BattleState extends GameState {
             this.battleSystem.onDamage = null;
             this.battleSystem.onHeal = null;
             this.battleSystem.onActionText = null;
+            this.battleSystem.onCameraActionStart = null;
+            this.battleSystem.onCameraActionImpact = null;
+            this.battleSystem.onCameraActionEnd = null;
+            this.battleSystem.onCameraKO = null;
             this.battleSystem.cleanup();
+        }
+        
+        // Deactivate battle camera and restore zoom
+        if (this.battleCamera) {
+            this.battleCamera.deactivate();
+        }
+        const camera = this.game.renderSystem?.camera;
+        if (camera) {
+            camera.zoom = 1.0;
         }
         
         // Clean up battle spirit entities
@@ -4928,7 +4979,6 @@ class BattleState extends GameState {
         }
         
         // Restore original camera position
-        const camera = this.game.renderSystem?.camera;
         if (camera && this.originalCameraX !== undefined) {
             camera.x = this.originalCameraX;
             camera.y = this.originalCameraY;
@@ -4950,6 +5000,10 @@ class BattleState extends GameState {
             this.transitionTimer += deltaTime;
             if (this.transitionTimer >= this.transitionDuration) {
                 this.phase = 'battle';
+                // Activate dynamic battle camera once transition is done
+                if (this.battleCamera) {
+                    this.battleCamera.activate();
+                }
             }
             return;
         }
@@ -5016,6 +5070,22 @@ class BattleState extends GameState {
                     this.showingResults = true;
                     this.phase = 'results';
                     this.resultsTimer = 0;
+                    
+                    // Notify battle camera of result
+                    if (this.battleCamera) {
+                        if (this.battleSystem.result === 'victory') {
+                            const winner = this.battleSystem.playerParty[0];
+                            const entity = winner?._entity;
+                            const cx = this.battleCenterX || 0;
+                            const cy = this.battleCenterY || 0;
+                            this.battleCamera.onVictory(
+                                entity ? entity.x - cx : -100,
+                                entity ? entity.y - cy : 0
+                            );
+                        } else if (this.battleSystem.result === 'defeat') {
+                            this.battleCamera.onDefeat();
+                        }
+                    }
                 }
             }
         }
@@ -5067,6 +5137,21 @@ class BattleState extends GameState {
                 this.phase = 'action_select';
                 this.selectedMenuOption = 0;
             }
+        }
+        
+        // Notify battle camera of the active spirit (for focus bias)
+        if (this.battleCamera) {
+            if (this.selectedPlayerSpirit && this.selectedPlayerSpirit._entity) {
+                const entity = this.selectedPlayerSpirit._entity;
+                const cx = this.battleCenterX || 0;
+                const cy = this.battleCenterY || 0;
+                this.battleCamera.onSpiritActive(entity.x - cx, entity.y - cy);
+            } else if (this.phase === 'battle' && !this.selectedPlayerSpirit) {
+                this.battleCamera.onSpiritDeselected();
+            }
+            
+            // Update camera every frame
+            this.battleCamera.update(deltaTime);
         }
         
         // Results timer
@@ -5404,18 +5489,36 @@ class BattleState extends GameState {
         const savedCameraY = camera?.y;
         const savedCameraTargetX = camera?.targetX;
         const savedCameraTargetY = camera?.targetY;
+        const savedCameraZoom = camera?.zoom;
         
-        // Set camera to battle position
+        // Set camera to battle position (with dynamic battle camera offsets)
         if (camera && this.battleMapId && this.battleMapData) {
             const worldScale = this.game.worldScale || 1;
-            const screenCenterX = this.battleCenterX * worldScale;
-            const screenCenterY = this.battleCenterY * worldScale;
-            const targetX = screenCenterX - width / 2;
-            const targetY = screenCenterY - height / 2;
+            
+            let targetX, targetY, battleZoom;
+            if (this.battleCamera && this.battleCamera.isActive) {
+                // Use dynamic battle camera for position + zoom
+                const camOut = this.battleCamera.computeCameraPosition(
+                    this.battleCenterX, this.battleCenterY,
+                    worldScale, width, height
+                );
+                targetX = camOut.cameraX;
+                targetY = camOut.cameraY;
+                battleZoom = camOut.zoom;
+            } else {
+                // Static center (during transition or if no battle camera)
+                const screenCenterX = this.battleCenterX * worldScale;
+                const screenCenterY = this.battleCenterY * worldScale;
+                targetX = screenCenterX - width / 2;
+                targetY = screenCenterY - height / 2;
+                battleZoom = 1.0;
+            }
+            
             camera.x = targetX;
             camera.y = targetY;
             camera.targetX = targetX;
             camera.targetY = targetY;
+            camera.zoom = battleZoom;
         }
         
         let battleObjects = [];
@@ -5498,6 +5601,15 @@ class BattleState extends GameState {
         // Draw results screen if battle ended
         if (this.phase === 'results') {
             this.renderResults(ctx, width, height);
+        }
+        
+        // Restore camera state so overworld camera isn't corrupted
+        if (camera) {
+            camera.x = savedCameraX;
+            camera.y = savedCameraY;
+            camera.targetX = savedCameraTargetX;
+            camera.targetY = savedCameraTargetY;
+            camera.zoom = savedCameraZoom;
         }
     }
     

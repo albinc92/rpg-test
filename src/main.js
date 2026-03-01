@@ -82,6 +82,7 @@ async function loadGameScripts() {
         await loadScript('/src/systems/PartyManager.js'); // NEW: Player spirit party management
         await loadScript('/src/systems/BattleEffects.js'); // NEW: Battle visual effects library
         await loadScript('/src/systems/BattleSystem.js'); // NEW: ATB battle system
+        await loadScript('/src/systems/BattleCamera.js'); // NEW: Dynamic cinematic battle camera
         
         // Load editor components
         await loadScript('/src/editor/EditorStyles.js'); // NEW: Standardized editor styling

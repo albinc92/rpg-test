@@ -53,6 +53,12 @@ class BattleSystem {
         this.onActionText = null; // (user, actionName) => {}
         this.onAbilityEffect = null; // (target, effectName, options) => {}
         
+        // Camera event callbacks (set by BattleState for dynamic battle camera)
+        this.onCameraActionStart = null;  // (user, target, isPhysical) => {}
+        this.onCameraActionImpact = null; // () => {}
+        this.onCameraActionEnd = null;    // () => {}
+        this.onCameraKO = null;           // (target) => {}
+        
         // Type effectiveness chart
         // Multipliers: 2.0 = super effective, 0.5 = not very effective, 1.0 = normal
         this.typeChart = {
@@ -592,6 +598,10 @@ class BattleSystem {
                 if (anim.timer >= anim.moveToTargetDuration) {
                     anim.phase = 'impact';
                     anim.timer = 0;
+                    // Notify camera: impact moment
+                    if (this.onCameraActionImpact) {
+                        this.onCameraActionImpact();
+                    }
                     // Apply the action effect at impact
                     this.executeAction(this.currentAction);
                 }
@@ -656,6 +666,12 @@ class BattleSystem {
         
         anim.phase = 'moving_to_target';
         anim.timer = 0;
+        
+        // Notify camera: action is starting
+        if (this.onCameraActionStart) {
+            const targetSingle = Array.isArray(target) ? target[0] : target;
+            this.onCameraActionStart(user, targetSingle, type === 'attack');
+        }
     }
     
     /**
@@ -679,6 +695,11 @@ class BattleSystem {
         
         // Clear current action
         this.currentAction = null;
+        
+        // Notify camera: action finished
+        if (this.onCameraActionEnd) {
+            this.onCameraActionEnd();
+        }
     }
     
     /**
@@ -1040,6 +1061,11 @@ class BattleSystem {
                 timer: 0,
                 duration: 1.2 // 1.2 seconds for death animation
             };
+            
+            // Notify camera: a spirit was KO'd
+            if (this.onCameraKO) {
+                this.onCameraKO(target);
+            }
             
             this.log(`${target.name} has been defeated!`);
             
