@@ -24,6 +24,7 @@ class BattleSystem {
         // ATB settings
         this.ATB_MAX = 100;
         this.ATB_SPEED_MULTIPLIER = 0.5; // How fast ATB fills based on speed
+        this.atbPaused = false; // Wait mode: pause ATB while player is selecting
         
         // Action queue (FIFO - first ready, first to act)
         this.actionQueue = [];
@@ -395,15 +396,17 @@ class BattleSystem {
         allCombatants.forEach(spirit => {
             if (!spirit.isAlive || spirit.isReady) return;
             
-            // Handle casting
+            // Wait mode: if ATB is paused, skip filling (but still allow casting to finish)
             if (spirit.isCasting) {
                 spirit.castTimer += deltaTime;
                 if (spirit.castTimer >= spirit.castDuration) {
-                    // Casting complete - execute the ability
                     this.completeCast(spirit);
                 }
-                return; // Don't fill ATB while casting
+                return;
             }
+            
+            // If paused (player selecting action), don't fill ATB gauges
+            if (this.atbPaused) return;
             
             // ATB fills based on speed stat
             const atbGain = spirit.speed * this.ATB_SPEED_MULTIPLIER * deltaTime;

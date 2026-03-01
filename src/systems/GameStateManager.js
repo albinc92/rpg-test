@@ -5042,6 +5042,10 @@ class BattleState extends GameState {
         
         // Update battle system
         if (this.battleSystem) {
+            // Wait mode: pause ATB while the player is making a selection
+            const isPlayerSelecting = (this.phase === 'action_select' || this.phase === 'ability_select' || this.phase === 'target_select' || this.phase === 'switch_select');
+            this.battleSystem.atbPaused = isPlayerSelecting;
+            
             this.battleSystem.update(deltaTime);
             
             // Check if a switch occurred (player or enemy) - need to recreate entities
@@ -6626,14 +6630,14 @@ class BattleState extends GameState {
             
             // Main damage number - LARGE and visible
             ctx.fillStyle = dn.isHeal ? '#4ade80' : (dn.isCrit ? '#ff4444' : '#fff');
-            const fontSize = dn.isCrit ? 42 : 32; // Larger sizes
+            const fontSize = dn.isCrit ? 56 : 42; // Big, punchy sizes
             ctx.font = `bold ${fontSize}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.shadowColor = 'rgba(0,0,0,0.9)';
             ctx.shadowBlur = 6;
             ctx.strokeStyle = dn.isHeal ? '#1a5a30' : '#000';
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 4;
             
             // Build display text
             let text = dn.isHeal ? `+${dn.value}` : `${dn.value}`;
@@ -6837,9 +6841,15 @@ class BattleState extends GameState {
         const pos = this.getSpiritScreenPosition(target);
         if (!pos) return;
         
-        // Random horizontal velocity for dramatic fountain arc effect
-        const vx = (Math.random() - 0.5) * 200; // More horizontal spread
-        const vy = -180 - Math.random() * 80; // Stronger upward burst
+        // Determine direction: damage arcs AWAY from screen center
+        // Player spirits are on the left, so their damage flies left (-1)
+        // Enemy spirits are on the right, so their damage flies right (+1)
+        const isPlayerOwned = target.isPlayerOwned;
+        const dirSign = isPlayerOwned ? -1 : 1;
+        
+        // Horizontal velocity: always arcs outward from center
+        const vx = dirSign * (120 + Math.random() * 100);
+        const vy = -220 - Math.random() * 100; // Strong upward burst
         
         this.damageNumbers.push({
             x: pos.x,
@@ -6864,9 +6874,11 @@ class BattleState extends GameState {
         const pos = this.getSpiritScreenPosition(target);
         if (!pos) return;
         
-        // Random horizontal velocity for fountain arc effect
-        const vx = (Math.random() - 0.5) * 60;
-        const vy = -80 - Math.random() * 40; // Initial upward velocity
+        // Heal numbers float upward, slightly outward
+        const isPlayerOwned = target.isPlayerOwned;
+        const dirSign = isPlayerOwned ? -1 : 1;
+        const vx = dirSign * (30 + Math.random() * 40);
+        const vy = -100 - Math.random() * 50;
         
         this.damageNumbers.push({
             x: pos.x,
