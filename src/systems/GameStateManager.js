@@ -4878,8 +4878,8 @@ class BattleState extends GameState {
             // Store original direction
             this.savedPlayerDirection = this.game.player.direction;
             
-            // Position player behind their spirit
-            this.game.player.x = centerX - horizontalOffset - 60;
+            // Position player behind their spirit (further left for visual clearance)
+            this.game.player.x = centerX - horizontalOffset - 160;
             this.game.player.y = centerY;
             this.game.player.direction = 'right'; // Face toward enemy
         }
@@ -4913,7 +4913,7 @@ class BattleState extends GameState {
         
         // Reposition player character (behind their spirit)
         if (this.game.player) {
-            this.game.player.x = centerX - horizontalOffset - 60;
+            this.game.player.x = centerX - horizontalOffset - 160;
             this.game.player.y = centerY;
         }
     }
@@ -6077,226 +6077,243 @@ class BattleState extends GameState {
     }
     
     renderCombatants(ctx, width, height) {
-        // Sprites are now rendered through WebGL via battleSpiritEntities
-        // This method only renders the UI overlay (names, HP bars, ATB, status indicators)
+        // Fixed-position battle UI panels: top-left for player, top-right for enemy
         if (!this.battleSystem) return;
         
         const ds = window.ds;
-        const camera = this.game.renderSystem?.camera;
-        const webglRenderer = this.game.renderSystem?.webglRenderer;
-        const worldScale = this.game.worldScale || 1;
-        const zoom = camera?.zoom || 1;
+        const menuRenderer = this.game.menuRenderer;
         
-        if (!camera) return;
+        // Find player and enemy spirits
+        let playerSpirit = null;
+        let enemySpirit = null;
         
-        // Render UI for each battle spirit entity
-        this.battleSpiritEntities.forEach(entity => {
+        for (const entity of this.battleSpiritEntities) {
             const spirit = entity._battleSpirit;
-            if (!spirit) return;
-            
-            // Get sprite dimensions
-            const finalScale = entity.getFinalScale(this.game);
-            const baseWidth = entity.spriteWidth || 64;
-            const baseHeight = entity.spriteHeight || 64;
-            const spriteWidth = baseWidth * finalScale;
-            const spriteHeight = baseHeight * finalScale;
-            
-            // Get entity world position (scaled for resolution)
-            const worldX = entity.x * worldScale;
-            const worldY = entity.y * worldScale;
-            
-            // Calculate where the BOTTOM of the sprite is (base/feet position)
-            // Sprites are rendered with origin at center, so bottom = worldY + spriteHeight/2
-            let bottomWorldX = worldX;
-            let bottomWorldY = worldY + spriteHeight / 2;
-            let scaledSpriteHeight = spriteHeight;
-            
-            // Handle perspective transformation (same as NPC talk bubble)
-            if (webglRenderer && webglRenderer.perspectiveStrength > 0 && webglRenderer.viewMatrix) {
-                const vm = webglRenderer.viewMatrix;
-                const pm = webglRenderer.projectionMatrix;
-                const zoomFactor = vm[0];
-                
-                // Sprite base position (bottom center)
-                const baseX = worldX;
-                const baseY = worldY + spriteHeight / 2;
-                
-                // Transform base to clip space
-                const viewX = baseX * vm[0] + baseY * vm[4] + vm[12];
-                const viewY = baseX * vm[1] + baseY * vm[5] + vm[13];
-                const clipX = viewX * pm[0] + viewY * pm[4] + pm[12];
-                const clipY = viewX * pm[1] + viewY * pm[5] + pm[13];
-                
-                // Calculate perspective factor
-                const depth = (clipY + 1.0) * 0.5;
-                const perspectiveW = 1.0 + (depth * webglRenderer.perspectiveStrength);
-                const scale = 1.0 / perspectiveW;
-                
-                // Scaled sprite height
-                scaledSpriteHeight = spriteHeight * scale;
-                
-                // Calculate base position delta
-                const screenX_noPerspective = (clipX + 1.0) * 0.5 * width;
-                const screenY_noPerspective = (1.0 - clipY) * 0.5 * height;
-                const clipX_persp = clipX / perspectiveW;
-                const clipY_persp = clipY / perspectiveW;
-                const screenX_withPerspective = (clipX_persp + 1.0) * 0.5 * width;
-                const screenY_withPerspective = (1.0 - clipY_persp) * 0.5 * height;
-                
-                const deltaScreenX = screenX_withPerspective - screenX_noPerspective;
-                const deltaScreenY = screenY_withPerspective - screenY_noPerspective;
-                const deltaWorldX = deltaScreenX / zoomFactor;
-                const deltaWorldY = deltaScreenY / zoomFactor;
-                
-                // Corrected base position
-                bottomWorldX = baseX + deltaWorldX;
-                bottomWorldY = baseY + deltaWorldY;
-            }
-            
-            // Convert to screen coordinates
-            const screenX = (bottomWorldX - camera.x) * zoom + width / 2 * (1 - zoom);
-            const screenY = (bottomWorldY - camera.y) * zoom + height / 2 * (1 - zoom);
-            
-            // Check selection/targeting state
-            const isSelected = spirit === this.selectedPlayerSpirit;
-            let isTargeted = false;
-            if (this.phase === 'target_select') {
-                const targets = this.getSelectableTargets();
-                isTargeted = targets[this.selectedTargetIndex] === spirit;
-            }
-            
-            // Render status UI below the sprite (screenX/Y is at sprite's feet)
-            this.renderSpiritUI(ctx, spirit, screenX, screenY, spriteWidth, scaledSpriteHeight, isSelected, isTargeted, entity._isPlayerOwned);
-        });
+            if (!spirit) continue;
+            if (entity._isPlayerOwned) playerSpirit = spirit;
+            else enemySpirit = spirit;
+        }
+        
+        // Render fixed UI panels
+        if (playerSpirit) {
+            this.renderSpiritPanel(ctx, playerSpirit, width, height, true);
+        }
+        if (enemySpirit) {
+            this.renderSpiritPanel(ctx, enemySpirit, width, height, false);
+        }
+        
+        // Render the target cursor on the sprite itself (in world space)
+        this.renderTargetCursorOnSprite(ctx, width, height);
     }
     
     /**
-     * Render just the UI elements for a battle spirit (name, HP/MP bars, ATB, status)
-     * The sprite itself is rendered through WebGL
+     * Render a target cursor arrow on the targeted sprite in world-space
      */
-    renderSpiritUI(ctx, spirit, screenX, screenY, spriteWidth, spriteHeight, isSelected, isTargeted, isPlayerOwned) {
+    renderTargetCursorOnSprite(ctx, width, height) {
+        if (this.phase !== 'target_select') return;
+        
+        const camera = this.game.renderSystem?.camera;
+        const worldScale = this.game.worldScale || 1;
+        const zoom = camera?.zoom || 1;
+        if (!camera) return;
+        
+        const targets = this.getSelectableTargets();
+        const targetSpirit = targets[this.selectedTargetIndex];
+        if (!targetSpirit) return;
+        
+        // Find the entity for this spirit
+        const entity = this.battleSpiritEntities.find(e => e._battleSpirit === targetSpirit);
+        if (!entity) return;
+        
+        const finalScale = entity.getFinalScale(this.game);
+        const baseWidth = entity.spriteWidth || 64;
+        const baseHeight = entity.spriteHeight || 64;
+        const spriteWidth = baseWidth * finalScale;
+        const spriteHeight = baseHeight * finalScale;
+        
+        const worldX = entity.x * worldScale;
+        const worldY = entity.y * worldScale;
+        
+        const screenX = (worldX - camera.x) * zoom + width / 2 * (1 - zoom);
+        const screenY = (worldY - camera.y) * zoom + height / 2 * (1 - zoom);
+        const spriteCenterY = screenY;
+        
+        const cursorBob = Math.sin(Date.now() / 200) * 6;
+        ctx.fillStyle = '#ff4444';
+        ctx.beginPath();
+        if (entity._isPlayerOwned) {
+            ctx.moveTo(screenX + spriteWidth / 2 + 24 - cursorBob, spriteCenterY);
+            ctx.lineTo(screenX + spriteWidth / 2 + 12 - cursorBob, spriteCenterY - 12);
+            ctx.lineTo(screenX + spriteWidth / 2 + 12 - cursorBob, spriteCenterY + 12);
+        } else {
+            ctx.moveTo(screenX - spriteWidth / 2 - 24 + cursorBob, spriteCenterY);
+            ctx.lineTo(screenX - spriteWidth / 2 - 12 + cursorBob, spriteCenterY - 12);
+            ctx.lineTo(screenX - spriteWidth / 2 - 12 + cursorBob, spriteCenterY + 12);
+        }
+        ctx.closePath();
+        ctx.fill();
+    }
+    
+    /**
+     * Render a fixed-position spirit status panel
+     * Player spirit: top-left | Enemy spirit: top-right
+     * Styled to match the main menu / settings menu (DesignSystem panels)
+     */
+    renderSpiritPanel(ctx, spirit, width, height, isPlayer) {
         const ds = window.ds;
+        const menuRenderer = this.game.menuRenderer;
         
-        // Death effect - dim the UI
-        if (!spirit.isAlive) {
-            ctx.globalAlpha = 0.5;
+        // --- Panel dimensions ---
+        const panelW = ds ? ds.spacing(55) : 230;
+        const panelH = ds ? ds.spacing(28) : 116;
+        const margin = ds ? ds.spacing(4) : 16;
+        const pad = ds ? ds.spacing(3) : 12;
+        
+        let panelX, panelY;
+        if (isPlayer) {
+            // Top-left
+            panelX = margin;
+            panelY = margin;
+        } else {
+            // Top-right
+            panelX = width - panelW - margin;
+            panelY = margin;
         }
         
-        // Target cursor animation (pointing at sprite center)
-        if (isTargeted) {
-            const cursorBob = Math.sin(Date.now() / 200) * 5;
-            const spriteCenterY = screenY - spriteHeight / 2; // Center of sprite (screenY is at feet)
-            ctx.fillStyle = '#ff4444';
-            ctx.beginPath();
-            if (isPlayerOwned) {
-                // Point from right side toward player spirits
-                ctx.moveTo(screenX + spriteWidth / 2 + 20 - cursorBob, spriteCenterY);
-                ctx.lineTo(screenX + spriteWidth / 2 + 10 - cursorBob, spriteCenterY - 10);
-                ctx.lineTo(screenX + spriteWidth / 2 + 10 - cursorBob, spriteCenterY + 10);
-            } else {
-                // Point from left side toward enemy spirits
-                ctx.moveTo(screenX - spriteWidth / 2 - 20 + cursorBob, spriteCenterY);
-                ctx.lineTo(screenX - spriteWidth / 2 - 10 + cursorBob, spriteCenterY - 10);
-                ctx.lineTo(screenX - spriteWidth / 2 - 10 + cursorBob, spriteCenterY + 10);
-            }
-            ctx.closePath();
-            ctx.fill();
+        // Death effect
+        if (!spirit.isAlive) ctx.globalAlpha = 0.6;
+        
+        // --- Draw panel background (matches other menus) ---
+        if (menuRenderer && menuRenderer.drawPanel) {
+            menuRenderer.drawPanel(ctx, panelX, panelY, panelW, panelH, 0.88);
+        } else {
+            ctx.save();
+            const gradient = ctx.createLinearGradient(panelX, panelY, panelX, panelY + panelH);
+            gradient.addColorStop(0, 'rgba(26, 26, 36, 0.88)');
+            gradient.addColorStop(1, 'rgba(10, 10, 15, 0.88)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(panelX, panelY, panelW, panelH);
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(panelX, panelY, panelW, panelH);
+            // Corner accents
+            const cs = 8;
+            ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
+            ctx.fillRect(panelX - 1, panelY - 1, cs, 2);
+            ctx.fillRect(panelX - 1, panelY - 1, 2, cs);
+            ctx.fillRect(panelX + panelW - cs + 1, panelY - 1, cs, 2);
+            ctx.fillRect(panelX + panelW - 1, panelY - 1, 2, cs);
+            ctx.fillRect(panelX - 1, panelY + panelH - 1, cs, 2);
+            ctx.fillRect(panelX - 1, panelY + panelH - cs + 1, 2, cs);
+            ctx.fillRect(panelX + panelW - cs + 1, panelY + panelH - 1, cs, 2);
+            ctx.fillRect(panelX + panelW - 1, panelY + panelH - cs + 1, 2, cs);
+            ctx.restore();
         }
         
-        // === STATS BELOW SPRITE ===
-        // Position UI below the sprite's feet (screenY is at sprite base/feet)
-        const uiStartY = screenY + 8; // Small gap below sprite base
-        const statsWidth = ds ? ds.spacing(22) : 88;
-        const barHeight = 14; // Bar height
-        const barSpacing = 2; // Gap between bars
-        const barFont = 'bold 11px \'Lato\', sans-serif';
+        // --- Layout inside panel ---
+        const contentX = panelX + pad;
+        const contentW = panelW - pad * 2;
+        let cursorY = panelY + pad;
         
-        // NOTE: Sprite outline (selection) and damage flash are now rendered in WebGL via Spirit.js
-        // The entity syncs _isSelected and _damageFlash properties for the shader effects
+        // Spirit name + level
+        const nameFont = ds ? ds.font('sm', 'bold') : "bold 16px 'Lato', sans-serif";
+        const labelFont = ds ? ds.font('xs', 'bold') : "bold 12px 'Lato', sans-serif";
+        const valueFont = ds ? ds.font('xs', 'normal') : "12px 'Lato', sans-serif";
         
-        // Name with text shadow for readability - ABOVE the bars with more space
+        ctx.font = nameFont;
         ctx.fillStyle = spirit.isAlive ? '#fff' : '#666';
-        ctx.font = ds ? ds.font('xs', 'bold') : 'bold 11px \'Lato\', sans-serif';
-        ctx.textAlign = 'center';
+        ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
-        ctx.shadowColor = 'rgba(0,0,0,0.8)';
-        ctx.shadowBlur = 3;
-        ctx.fillText(spirit.name, screenX, uiStartY);
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur = 2;
+        ctx.fillText(spirit.name, contentX, cursorY);
         ctx.shadowBlur = 0;
         
-        // HP Bar - starts after name with proper gap
-        const hpBarY = uiStartY + 18; // Name text is ~12px, plus 6px gap
-        const barWidth = statsWidth;
-        const barX = screenX - barWidth / 2;
-        
-        const hpPercent = spirit.maxHp > 0 ? spirit.currentHp / spirit.maxHp : 0;
-        const hpColor = hpPercent > 0.5 ? '#4ade80' : hpPercent > 0.25 ? '#fbbf24' : '#ef4444';
-        
-        // Bar background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-        ctx.fillRect(barX, hpBarY, barWidth, barHeight);
-        // Bar fill
-        ctx.fillStyle = hpColor;
-        ctx.fillRect(barX, hpBarY, barWidth * hpPercent, barHeight);
-        // Text inside bar
-        ctx.font = barFont;
-        ctx.fillStyle = '#fff';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(`${spirit.currentHp}`, screenX, hpBarY + barHeight / 2);
-        
-        // MP Bar
-        const mpBarY = hpBarY + barHeight + barSpacing;
-        const mpPercent = spirit.maxMp > 0 ? spirit.currentMp / spirit.maxMp : 0;
-        
-        // Bar background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-        ctx.fillRect(barX, mpBarY, barWidth, barHeight);
-        // Bar fill
-        ctx.fillStyle = ds ? ds.colors.primary : '#4da6ff';
-        ctx.fillRect(barX, mpBarY, barWidth * mpPercent, barHeight);
-        // Text inside bar
-        ctx.font = barFont;
-        ctx.fillStyle = '#fff';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(`${spirit.currentMp}`, screenX, mpBarY + barHeight / 2);
-        
-        // ATB Bar or Casting Bar
-        const atbY = mpBarY + barHeight + barSpacing;
-        const atbWidth = barWidth;
-        const atbX = barX;
-        
-        // Bar background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-        ctx.fillRect(atbX, atbY, atbWidth, barHeight);
-        
-        if (spirit.isCasting && spirit.castDuration > 0) {
-            const castPercent = spirit.castTimer / spirit.castDuration;
-            ctx.fillStyle = '#a855f7';
-            ctx.fillRect(atbX, atbY, atbWidth * castPercent, barHeight);
-            // Text inside bar
-            ctx.font = barFont;
-            ctx.fillStyle = '#fff';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('CAST', screenX, atbY + barHeight / 2);
-        } else {
-            const atbPercent = this.battleSystem ? spirit.atb / this.battleSystem.ATB_MAX : 0;
-            const atbFillColor = spirit.isReady ? '#ffd700' : '#666';
-            ctx.fillStyle = atbFillColor;
-            ctx.fillRect(atbX, atbY, atbWidth * atbPercent, barHeight);
-            // Text inside bar
-            ctx.font = barFont;
-            ctx.fillStyle = spirit.isReady ? '#000' : '#aaa';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(spirit.isReady ? 'READY' : 'ATB', screenX, atbY + barHeight / 2);
+        // Level badge on right side
+        if (spirit.level !== undefined) {
+            ctx.font = labelFont;
+            ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
+            ctx.textAlign = 'right';
+            ctx.fillText(`Lv ${spirit.level}`, panelX + panelW - pad, cursorY + 2);
         }
         
-        // Active indicator is now the pulsing border around the status UI
+        cursorY += ds ? ds.spacing(5) : 22;
+        
+        // --- Bar rendering helper ---
+        const barH = ds ? ds.spacing(4) : 18;
+        const barGap = ds ? ds.spacing(1.5) : 6;
+        const barRadius = 3;
+        
+        const drawBar = (y, percent, fillColor, label, valueText) => {
+            // Background track
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.beginPath();
+            ctx.roundRect(contentX, y, contentW, barH, barRadius);
+            ctx.fill();
+            
+            // Inner track border
+            ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(contentX, y, contentW, barH, barRadius);
+            ctx.stroke();
+            
+            // Fill
+            if (percent > 0) {
+                const fillW = Math.max(barRadius * 2, contentW * Math.min(1, percent));
+                ctx.fillStyle = fillColor;
+                ctx.beginPath();
+                ctx.roundRect(contentX, y, fillW, barH, barRadius);
+                ctx.fill();
+                
+                // Subtle gradient sheen on fill
+                const sheen = ctx.createLinearGradient(contentX, y, contentX, y + barH);
+                sheen.addColorStop(0, 'rgba(255,255,255,0.15)');
+                sheen.addColorStop(0.5, 'rgba(255,255,255,0)');
+                sheen.addColorStop(1, 'rgba(0,0,0,0.1)');
+                ctx.fillStyle = sheen;
+                ctx.beginPath();
+                ctx.roundRect(contentX, y, fillW, barH, barRadius);
+                ctx.fill();
+            }
+            
+            // Label on left
+            ctx.font = labelFont;
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, contentX + 6, y + barH / 2);
+            
+            // Value on right
+            ctx.font = valueFont;
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'right';
+            ctx.fillText(valueText, contentX + contentW - 6, y + barH / 2);
+        };
+        
+        // HP bar
+        const hpPercent = spirit.maxHp > 0 ? spirit.currentHp / spirit.maxHp : 0;
+        const hpColor = hpPercent > 0.5 ? '#4ade80' : hpPercent > 0.25 ? '#fbbf24' : '#ef4444';
+        drawBar(cursorY, hpPercent, hpColor, 'HP', `${spirit.currentHp} / ${spirit.maxHp}`);
+        cursorY += barH + barGap;
+        
+        // MP bar
+        const mpPercent = spirit.maxMp > 0 ? spirit.currentMp / spirit.maxMp : 0;
+        drawBar(cursorY, mpPercent, ds ? ds.colors.primary : '#4a9eff', 'MP', `${spirit.currentMp} / ${spirit.maxMp}`);
+        cursorY += barH + barGap;
+        
+        // ATB / Cast bar
+        if (spirit.isCasting && spirit.castDuration > 0) {
+            const castPercent = spirit.castTimer / spirit.castDuration;
+            drawBar(cursorY, castPercent, '#a855f7', 'CAST', `${Math.floor(castPercent * 100)}%`);
+        } else {
+            const atbPercent = this.battleSystem ? spirit.atb / this.battleSystem.ATB_MAX : 0;
+            const atbColor = spirit.isReady ? '#ffd700' : '#666';
+            drawBar(cursorY, atbPercent, atbColor, spirit.isReady ? 'READY' : 'ATB', `${Math.floor(atbPercent * 100)}%`);
+        }
         
         ctx.globalAlpha = 1;
+        ctx.textAlign = 'left';
     }
     
     // Stats are now rendered under each spirit in renderSpirit
