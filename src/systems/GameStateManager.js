@@ -4706,9 +4706,9 @@ class BattleState extends GameState {
         this.actionTexts = []; // Floating action names like "Attack", "Gust", etc.
         this.abilityEffects = []; // Visual effects for abilities (particles, swooshes, etc.)
         
-        // Action log (no longer rendered, but kept for debugging)
+        // Action log (rendered as battle log panel at top-center)
         this.actionLog = [];
-        this.maxLogEntries = 8;
+        this.maxLogEntries = 10;
         
         // Battle spirit entities (actual Spirit instances for WebGL rendering)
         this.battleSpiritEntities = [];
@@ -5221,16 +5221,38 @@ class BattleState extends GameState {
     }
     
     handleActionSelectInput(inputManager) {
-        // Navigate menu
+        const cols = 2;
+        const rows = Math.ceil(this.menuOptions.length / cols);
+        const col = this.selectedMenuOption % cols;
+        const row = Math.floor(this.selectedMenuOption / cols);
+
+        // Navigate menu — 2-column grid
         if (inputManager.isJustPressed('up')) {
-            this.selectedMenuOption = (this.selectedMenuOption - 1 + this.menuOptions.length) % this.menuOptions.length;
+            const newRow = (row - 1 + rows) % rows;
+            this.selectedMenuOption = newRow * cols + col;
             this.game.audioManager?.playEffect('menu-navigation.mp3');
             this.inputCooldown = 0.1;
         }
         if (inputManager.isJustPressed('down')) {
-            this.selectedMenuOption = (this.selectedMenuOption + 1) % this.menuOptions.length;
+            const newRow = (row + 1) % rows;
+            const newIdx = newRow * cols + col;
+            this.selectedMenuOption = newIdx < this.menuOptions.length ? newIdx : row * cols + col;
             this.game.audioManager?.playEffect('menu-navigation.mp3');
             this.inputCooldown = 0.1;
+        }
+        if (inputManager.isJustPressed('left')) {
+            if (col > 0) {
+                this.selectedMenuOption -= 1;
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+                this.inputCooldown = 0.1;
+            }
+        }
+        if (inputManager.isJustPressed('right')) {
+            if (col < cols - 1 && this.selectedMenuOption + 1 < this.menuOptions.length) {
+                this.selectedMenuOption += 1;
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+                this.inputCooldown = 0.1;
+            }
         }
         
         // Select option
@@ -5594,25 +5616,22 @@ class BattleState extends GameState {
         // Draw damage numbers and action texts
         this.renderDamageNumbers(ctx);
         
-        // Draw action menu if selecting
+        // Draw command panel (action / ability / switch all render in same centered panel)
         if (this.phase === 'action_select') {
             this.renderActionMenu(ctx, width, height);
-        }
-        
-        // Draw ability menu if selecting
-        if (this.phase === 'ability_select') {
+        } else if (this.phase === 'ability_select') {
             this.renderAbilityMenu(ctx, width, height);
+        } else if (this.phase === 'switch_select') {
+            this.renderSwitchMenu(ctx, width, height);
         }
         
         // Draw target cursor if selecting
         if (this.phase === 'target_select') {
             this.renderTargetCursor(ctx, width, height);
         }
-        
-        // Draw switch menu if selecting (1v1)
-        if (this.phase === 'switch_select') {
-            this.renderSwitchMenu(ctx, width, height);
-        }
+
+        // Draw battle log (top-center)
+        this.renderBattleLog(ctx, width, height);
         
         // Draw results screen if battle ended
         if (this.phase === 'results') {
@@ -6351,61 +6370,79 @@ class BattleState extends GameState {
         ctx.restore();
     }
     
-    renderActionMenu(ctx, width, height) {
+    /**
+     * Shared panel shell for the battle command area (centered bottom).
+     * Returns { menuX, menuY, menuW, menuH, pad, titleH, contentY } for content renderers.
+     */
+    _drawBattlePanel(ctx, width, height, title, rows, itemH) {
         const ds = window.ds;
         const menuRenderer = this.stateManager.menuRenderer;
-        
-        // Panel dimensions — anchored bottom-left with title header
+
         const pad = ds ? ds.spacing(4) : 16;
         const titleH = ds ? ds.spacing(8) : 34;
-        const itemH = ds ? ds.spacing(9) : 38;
-        const menuW = ds ? ds.spacing(38) : 160;
-        const menuH = titleH + this.menuOptions.length * itemH + pad * 2;
-        const menuX = ds ? ds.spacing(4) : 16;
+        const colW = ds ? ds.spacing(32) : 130;
+        const cols = 2;
+        const menuW = colW * cols + pad * 2;
+        const menuH = titleH + rows * itemH + pad * 2;
+        const menuX = Math.floor((width - menuW) / 2);
         const menuY = height - menuH - (ds ? ds.spacing(4) : 16);
-        
-        // Panel background (matches spirit panels / main menu)
+
+        // Panel background
         if (menuRenderer && menuRenderer.drawPanel) {
             menuRenderer.drawPanel(ctx, menuX, menuY, menuW, menuH, 0.92);
         } else {
             this._drawFallbackPanel(ctx, menuX, menuY, menuW, menuH, 0.92);
         }
-        
+
         // Title header
         ctx.fillStyle = '#fff';
         ctx.font = ds ? ds.font('sm', 'bold') : "bold 15px 'Lato', sans-serif";
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText('Command', menuX + pad, menuY + pad + titleH / 2);
-        
-        // Separator under title
+        ctx.fillText(title, menuX + pad, menuY + pad + titleH / 2);
+
+        // Separator
         ctx.strokeStyle = ds ? ds.colors.primaryAlpha(0.25) : 'rgba(74,158,255,0.25)';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(menuX + pad, menuY + pad + titleH);
         ctx.lineTo(menuX + menuW - pad, menuY + pad + titleH);
         ctx.stroke();
-        
-        // Menu items
+
+        const contentY = menuY + pad + titleH;
+        return { menuX, menuY, menuW, menuH, pad, titleH, contentY, colW, cols };
+    }
+
+    renderActionMenu(ctx, width, height) {
+        const ds = window.ds;
+        const itemH = ds ? ds.spacing(9) : 38;
+        const numRows = 3; // 2 cols × 3 rows = 6 items
+        const panel = this._drawBattlePanel(ctx, width, height, 'Command', numRows, itemH);
+        const { menuX, pad, contentY, colW } = panel;
+
+        // Layout: index 0-5 → col = index % 2, row = floor(index / 2)
         this.menuOptions.forEach((option, index) => {
-            const optY = menuY + pad + titleH + index * itemH;
+            const col = index % 2;
+            const row = Math.floor(index / 2);
+            const cellX = menuX + pad + col * colW;
+            const cellY = contentY + row * itemH;
             const isSel = index === this.selectedMenuOption;
             const isDis = (option === 'Flee' && !this.battleSystem?.canFlee) ||
                          (option === 'Seal' && !this.battleSystem?.canSeal);
-            
+
             // Selection highlight
             if (isSel && ds) {
-                ds.drawSelectionHighlight(ctx, menuX + 2, optY, menuW - 4, itemH);
+                ds.drawSelectionHighlight(ctx, cellX, cellY, colW, itemH);
             } else if (isSel) {
                 ctx.fillStyle = 'rgba(74, 158, 255, 0.2)';
-                ctx.fillRect(menuX + 4, optY, menuW - 8, itemH);
+                ctx.fillRect(cellX + 2, cellY, colW - 4, itemH);
             }
-            
+
             // Diamond cursor
             if (isSel) {
                 ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
-                const dX = menuX + pad;
-                const dY = optY + itemH / 2;
+                const dX = cellX + (ds ? ds.spacing(2) : 8);
+                const dY = cellY + itemH / 2;
                 const dS = ds ? ds.spacing(1.5) : 6;
                 ctx.beginPath();
                 ctx.moveTo(dX, dY - dS);
@@ -6415,7 +6452,7 @@ class BattleState extends GameState {
                 ctx.closePath();
                 ctx.fill();
             }
-            
+
             // Label
             ctx.fillStyle = isDis ? (ds ? ds.colors.text.disabled : '#555') :
                            (isSel ? '#fff' : (ds ? ds.colors.text.secondary : '#aaa'));
@@ -6423,63 +6460,43 @@ class BattleState extends GameState {
                       `${isSel ? 'bold ' : ''}16px 'Lato', sans-serif`;
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
-            ctx.fillText(option, menuX + pad + (ds ? ds.spacing(4) : 16), optY + itemH / 2);
+            ctx.fillText(option, cellX + (ds ? ds.spacing(5) : 20), cellY + itemH / 2);
         });
     }
     
     renderAbilityMenu(ctx, width, height) {
         if (!this.selectedPlayerSpirit) return;
-        
+
         const ds = window.ds;
-        const menuRenderer = this.stateManager.menuRenderer;
         const abilities = (this.selectedPlayerSpirit.abilities || []).filter(a => a.id !== 'attack');
         if (abilities.length === 0) return;
-        
-        // Panel dimensions — right of action menu, same vertical anchor
-        const pad = ds ? ds.spacing(4) : 16;
-        const titleH = ds ? ds.spacing(8) : 34;
+
         const itemH = ds ? ds.spacing(10) : 42;
-        const menuW = ds ? ds.spacing(55) : 230;
-        const menuH = titleH + abilities.length * itemH + pad * 2;
-        const menuX = (ds ? ds.spacing(4) : 16) + (ds ? ds.spacing(38) : 160) + (ds ? ds.spacing(2) : 8);
-        const menuY = height - menuH - (ds ? ds.spacing(4) : 16);
-        
-        // Panel background
-        if (menuRenderer && menuRenderer.drawPanel) {
-            menuRenderer.drawPanel(ctx, menuX, menuY, menuW, menuH, 0.92);
-        } else {
-            this._drawFallbackPanel(ctx, menuX, menuY, menuW, menuH, 0.9);
-        }
-        
-        // Title
-        ctx.fillStyle = '#fff';
-        ctx.font = ds ? ds.font('sm', 'bold') : "bold 15px 'Lato', sans-serif";
-        ctx.textAlign = 'left';
+        const rows = Math.min(abilities.length, 6);
+        const panel = this._drawBattlePanel(ctx, width, height, 'Abilities', rows, itemH);
+        const { menuX, menuW, pad, contentY } = panel;
+
+        // Back hint (bottom-right of title area)
+        ctx.fillStyle = ds ? ds.colors.text.muted : '#666';
+        ctx.font = ds ? ds.font('xs') : "11px 'Lato', sans-serif";
+        ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
-        ctx.fillText('Abilities', menuX + pad, menuY + pad + titleH / 2);
-        
-        // Separator line under title
-        ctx.strokeStyle = ds ? ds.colors.primaryAlpha(0.25) : 'rgba(74,158,255,0.25)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(menuX + pad, menuY + pad + titleH);
-        ctx.lineTo(menuX + menuW - pad, menuY + pad + titleH);
-        ctx.stroke();
-        
-        // Ability items
+        ctx.fillText('[ESC] Back', menuX + menuW - pad, panel.menuY + pad + panel.titleH / 2);
+
+        // Ability items — single column spanning full width
         abilities.forEach((ability, index) => {
-            const aY = menuY + pad + titleH + index * itemH;
+            const aY = contentY + index * itemH;
             const isSel = index === this.selectedAbilityIndex;
             const canUse = this.selectedPlayerSpirit.currentMp >= ability.mpCost;
-            
+
             // Selection highlight
             if (isSel && ds) {
-                ds.drawSelectionHighlight(ctx, menuX + 2, aY, menuW - 4, itemH);
+                ds.drawSelectionHighlight(ctx, menuX + 2, aY, menuW - pad, itemH);
             } else if (isSel) {
                 ctx.fillStyle = 'rgba(139, 92, 246, 0.2)';
                 ctx.fillRect(menuX + 4, aY, menuW - 8, itemH);
             }
-            
+
             // Diamond cursor
             if (isSel) {
                 ctx.fillStyle = '#8b5cf6';
@@ -6494,22 +6511,22 @@ class BattleState extends GameState {
                 ctx.closePath();
                 ctx.fill();
             }
-            
-            // Ability name — main line
+
+            // Ability name
             ctx.fillStyle = canUse ? (isSel ? '#fff' : (ds ? ds.colors.text.secondary : '#aaa'))
                                    : (ds ? ds.colors.text.disabled : '#555');
             ctx.font = ds ? ds.font('sm', isSel ? 'bold' : 'normal') : `${isSel ? 'bold ' : ''}15px 'Lato', sans-serif`;
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
             ctx.fillText(ability.name, menuX + pad + (ds ? ds.spacing(4) : 16), aY + itemH / 2 - 7);
-            
+
             // MP cost — right side
             ctx.fillStyle = canUse ? (ds ? ds.colors.primary : '#4a9eff') : (ds ? ds.colors.text.disabled : '#555');
             ctx.font = ds ? ds.font('xs', 'bold') : "bold 12px 'Lato', sans-serif";
             ctx.textAlign = 'right';
             ctx.fillText(`${ability.mpCost} MP`, menuX + menuW - pad, aY + itemH / 2 - 7);
-            
-            // Element tag — small, below name
+
+            // Element tag
             if (ability.element) {
                 const elColors = { fire: '#ff6b35', water: '#4da6ff', earth: '#8b7355', wind: '#98fb98', lightning: '#ffd700', ice: '#88ddff', dark: '#b388ff', light: '#fff9c4' };
                 ctx.fillStyle = elColors[ability.element] || '#888';
@@ -6529,56 +6546,36 @@ class BattleState extends GameState {
      */
     renderSwitchMenu(ctx, width, height) {
         if (!this.battleSystem) return;
-        
+
         const ds = window.ds;
-        const menuRenderer = this.stateManager.menuRenderer;
         const switchable = this.battleSystem.getSwitchableSpirits();
         if (switchable.length === 0) return;
-        
-        // Panel dimensions — right of action menu, same anchor
-        const pad = ds ? ds.spacing(4) : 16;
-        const titleH = ds ? ds.spacing(8) : 34;
+
         const itemH = ds ? ds.spacing(12) : 50;
-        const menuW = ds ? ds.spacing(55) : 230;
-        const menuH = titleH + switchable.length * itemH + pad * 2;
-        const menuX = (ds ? ds.spacing(4) : 16) + (ds ? ds.spacing(38) : 160) + (ds ? ds.spacing(2) : 8);
-        const menuY = height - menuH - (ds ? ds.spacing(4) : 16);
-        
-        // Panel background
-        if (menuRenderer && menuRenderer.drawPanel) {
-            menuRenderer.drawPanel(ctx, menuX, menuY, menuW, menuH, 0.92);
-        } else {
-            this._drawFallbackPanel(ctx, menuX, menuY, menuW, menuH, 0.9);
-        }
-        
-        // Title
-        ctx.fillStyle = '#fff';
-        ctx.font = ds ? ds.font('sm', 'bold') : "bold 15px 'Lato', sans-serif";
-        ctx.textAlign = 'left';
+        const rows = Math.min(switchable.length, 5);
+        const panel = this._drawBattlePanel(ctx, width, height, 'Switch To', rows, itemH);
+        const { menuX, menuW, pad, contentY } = panel;
+
+        // Back hint
+        ctx.fillStyle = ds ? ds.colors.text.muted : '#666';
+        ctx.font = ds ? ds.font('xs') : "11px 'Lato', sans-serif";
+        ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
-        ctx.fillText('Switch To', menuX + pad, menuY + pad + titleH / 2);
-        
-        // Separator
-        ctx.strokeStyle = ds ? ds.colors.alpha('#22c55e', 0.3) : 'rgba(34,197,94,0.3)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(menuX + pad, menuY + pad + titleH);
-        ctx.lineTo(menuX + menuW - pad, menuY + pad + titleH);
-        ctx.stroke();
-        
-        // Spirit items
+        ctx.fillText('[ESC] Back', menuX + menuW - pad, panel.menuY + pad + panel.titleH / 2);
+
+        // Spirit items — single column spanning full width
         switchable.forEach((spirit, index) => {
-            const sY = menuY + pad + titleH + index * itemH;
+            const sY = contentY + index * itemH;
             const isSel = index === this.selectedSwitchIndex;
-            
+
             // Selection highlight
             if (isSel && ds) {
-                ds.drawSelectionHighlight(ctx, menuX + 2, sY, menuW - 4, itemH);
+                ds.drawSelectionHighlight(ctx, menuX + 2, sY, menuW - pad, itemH);
             } else if (isSel) {
                 ctx.fillStyle = 'rgba(34, 197, 94, 0.2)';
                 ctx.fillRect(menuX + 4, sY, menuW - 8, itemH);
             }
-            
+
             // Diamond cursor
             if (isSel) {
                 ctx.fillStyle = '#22c55e';
@@ -6593,14 +6590,14 @@ class BattleState extends GameState {
                 ctx.closePath();
                 ctx.fill();
             }
-            
+
             // Spirit name
             ctx.fillStyle = isSel ? '#fff' : (ds ? ds.colors.text.secondary : '#aaa');
             ctx.font = ds ? ds.font('sm', isSel ? 'bold' : 'normal') : `${isSel ? 'bold ' : ''}15px 'Lato', sans-serif`;
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
             ctx.fillText(spirit.name, menuX + pad + (ds ? ds.spacing(4) : 16), sY + itemH / 2 - 9);
-            
+
             // HP bar (mini, inline)
             const barX = menuX + pad + (ds ? ds.spacing(4) : 16);
             const barW = menuW - pad * 2 - (ds ? ds.spacing(4) : 16);
@@ -6608,25 +6605,64 @@ class BattleState extends GameState {
             const barY = sY + itemH / 2 + 4;
             const hpPct = spirit.maxHp > 0 ? spirit.currentHp / spirit.maxHp : 0;
             const hpCol = hpPct > 0.5 ? '#4ade80' : hpPct > 0.25 ? '#fbbf24' : '#ef4444';
-            
+
             ctx.fillStyle = 'rgba(0,0,0,0.5)';
             ctx.beginPath(); ctx.roundRect(barX, barY, barW, barH, 2); ctx.fill();
             if (hpPct > 0) {
                 ctx.fillStyle = hpCol;
                 ctx.beginPath(); ctx.roundRect(barX, barY, barW * hpPct, barH, 2); ctx.fill();
             }
-            
+
             // HP text on bar
             ctx.font = ds ? ds.font('xs') : "11px 'Lato', sans-serif";
             ctx.fillStyle = '#fff';
             ctx.textAlign = 'right';
             ctx.fillText(`${spirit.currentHp}/${spirit.maxHp}`, barX + barW - 4, barY + barH / 2);
-            
+
             // Level badge
             ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
             ctx.textAlign = 'right';
             ctx.fillText(`Lv ${spirit.level}`, menuX + menuW - pad, sY + itemH / 2 - 9);
         });
+    }
+
+    /**
+     * Render battle log panel at top-center, showing recent battle messages
+     */
+    renderBattleLog(ctx, width, height) {
+        if (!this.actionLog || this.actionLog.length === 0) return;
+
+        const ds = window.ds;
+        const menuRenderer = this.stateManager.menuRenderer;
+
+        const pad = ds ? ds.spacing(3) : 12;
+        const lineH = ds ? ds.spacing(5) : 20;
+        const maxVisible = 5;
+        const visible = this.actionLog.slice(0, maxVisible);
+        const logW = ds ? ds.spacing(80) : 330;
+        const logH = visible.length * lineH + pad * 2;
+        const logX = Math.floor((width - logW) / 2);
+        const logY = ds ? ds.spacing(3) : 12;
+
+        // Panel background
+        if (menuRenderer && menuRenderer.drawPanel) {
+            menuRenderer.drawPanel(ctx, logX, logY, logW, logH, 0.75);
+        } else {
+            this._drawFallbackPanel(ctx, logX, logY, logW, logH, 0.75);
+        }
+
+        // Log entries (newest at top)
+        visible.forEach((entry, i) => {
+            const age = (Date.now() - entry.time) / 1000;
+            const fadeAlpha = Math.max(0.3, 1 - (i * 0.12) - Math.max(0, age - 4) * 0.15);
+            ctx.globalAlpha = fadeAlpha;
+            ctx.fillStyle = i === 0 ? '#fff' : (ds ? ds.colors.text.secondary : '#aaa');
+            ctx.font = ds ? ds.font('xs', i === 0 ? 'bold' : 'normal') : `${i === 0 ? 'bold ' : ''}12px 'Lato', sans-serif`;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(entry.text, logX + pad, logY + pad + i * lineH + lineH / 2);
+        });
+        ctx.globalAlpha = 1;
     }
     
     renderDamageNumbers(ctx) {
