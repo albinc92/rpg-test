@@ -21,14 +21,14 @@ class BattleCamera {
         // --- Output values (read by BattleState.render) ---
         this.offsetX = 0;       // World-space X offset from battle center
         this.offsetY = 0;       // World-space Y offset from battle center
-        this.zoom = 1.4;        // Zoom multiplier (1.4 = default battle zoom)
+        this.zoom = 1.6;        // Zoom multiplier (1.6 = default battle zoom)
         this.shakeX = 0;        // Shake offset X (screen-space pixels)
         this.shakeY = 0;        // Shake offset Y (screen-space pixels)
 
         // --- Targets (what we're easing toward) ---
         this.targetOffsetX = 0;
         this.targetOffsetY = 0;
-        this.targetZoom = 1.4;
+        this.targetZoom = 1.6;
 
         // --- Easing speeds ---
         this.panSpeed = 3.0;        // How fast the offset lerps (per second, exponential)
@@ -66,11 +66,11 @@ class BattleCamera {
         this.actionFocusBias = 0.25; // Stronger bias during action execution
 
         // --- Zoom presets (base zoom is already tight) ---
-        this.idleZoom = 1.4;
-        this.actionZoomIn = 1.46;   // Subtle zoom during action
-        this.impactZoomIn = 1.50;   // Slightly more on impact
-        this.koZoomIn = 1.54;       // Dramatic on KO
-        this.victoryZoom = 1.46;
+        this.idleZoom = 1.6;
+        this.actionZoomIn = 1.66;   // Subtle zoom during action
+        this.impactZoomIn = 1.70;   // Slightly more on impact
+        this.koZoomIn = 1.74;       // Dramatic on KO
+        this.victoryZoom = 1.66;
 
         // --- Stored positions (world coords of current points of interest) ---
         this.attackerPos = null;    // { x, y }

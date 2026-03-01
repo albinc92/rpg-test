@@ -4879,7 +4879,7 @@ class BattleState extends GameState {
             this.savedPlayerDirection = this.game.player.direction;
             
             // Position player behind their spirit (further left for visual clearance)
-            this.game.player.x = centerX - horizontalOffset - 160;
+            this.game.player.x = centerX - horizontalOffset - 220;
             this.game.player.y = centerY;
             this.game.player.direction = 'right'; // Face toward enemy
         }
@@ -4896,25 +4896,37 @@ class BattleState extends GameState {
     repositionBattleEntities(centerX, centerY) {
         const horizontalOffset = 160; // Match createBattleSpiritEntities
         
+        // Player character is placed with its center at centerY.
+        // We derive the ground line (foot Y) from the player's sprite:
+        //   groundY = centerY + playerHalfH
+        // Then spirits are positioned so their feet match that ground line:
+        //   spirit.y = groundY - spiritHalfH
+        
+        const player = this.game.player;
+        const playerHalfH = player ? ((player.spriteHeight || 0) * (player.scale || 1)) / 2 : 0;
+        const groundY = centerY + playerHalfH; // player feet Y in world coords
+        
         for (const entity of this.battleSpiritEntities) {
             // Skip repositioning if this entity is currently animating
             if (this.battleSystem?.getAnimatedPosition(entity)) {
                 continue;
             }
             
+            const halfH = ((entity.spriteHeight || 0) * (entity.scale || 1)) / 2;
+            
             if (entity._isPlayerOwned) {
                 entity.x = centerX - horizontalOffset;
-                entity.y = centerY;
+                entity.y = groundY - halfH;
             } else {
                 entity.x = centerX + horizontalOffset;
-                entity.y = centerY;
+                entity.y = groundY - halfH;
             }
         }
         
-        // Reposition player character (behind their spirit)
-        if (this.game.player) {
-            this.game.player.x = centerX - horizontalOffset - 160;
-            this.game.player.y = centerY;
+        // Player character — center at centerY (feet at groundY)
+        if (player) {
+            player.x = centerX - horizontalOffset - 220;
+            player.y = centerY;
         }
     }
     
