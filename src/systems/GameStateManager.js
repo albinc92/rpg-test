@@ -4614,7 +4614,7 @@ class BattleState extends GameState {
         this.selectedPlayerSpirit = null;
         this.inputCooldown = 0;
         
-        // Menu options for action selection
+        // Menu options for action selection (1v1)
         this.menuOptions = ['Attack', 'Ability', 'Item', 'Seal', 'Switch', 'Flee'];
         
         // Store original map info to return to after battle
@@ -4759,7 +4759,7 @@ class BattleState extends GameState {
     }
     
     /**
-     * Create actual Spirit entity instances for battle combatants
+     * Create actual Spirit entity instances for battle combatants (1v1)
      * These get rendered through the normal WebGL pipeline with shadows
      */
     createBattleSpiritEntities() {
@@ -4778,23 +4778,13 @@ class BattleState extends GameState {
             centerY = (camera?.y || 0) + this.game.CANVAS_HEIGHT / 2;
         }
         
-        // Calculate vertical centering based on number of spirits
-        const playerCount = this.battleSystem.playerParty.length;
-        const enemyCount = this.battleSystem.enemyParty.length;
+        // 1v1 positioning - wider horizontal spread, vertically centered
+        const horizontalOffset = 350; // Distance from center (wider for 1v1)
         
-        // Spacing in world units - loose formation to fit UI elements
-        const verticalSpacing = 220; // World units between spirits (needs room for HP/MP/ATB bars)
-        
-        // Horizontal spread
-        const horizontalOffset = 280; // Distance from center
-        
-        // Create player spirit entities (left side)
-        const playerTotalHeight = (playerCount - 1) * verticalSpacing;
-        const playerStartY = centerY - playerTotalHeight / 2;
-        
+        // Create player spirit entity (left side, centered)
         this.battleSystem.playerParty.forEach((spirit, index) => {
             const worldX = centerX - horizontalOffset;
-            const worldY = playerStartY + index * verticalSpacing;
+            const worldY = centerY;
             
             const spiritEntity = new Spirit(this.game, worldX, worldY, this.battleMapId || this.game.currentMapId, {
                 id: `battle_player_${spirit.id}`,
@@ -4805,7 +4795,7 @@ class BattleState extends GameState {
                 floatingSpeed: spirit.floatingSpeed || 0.002,
                 floatingRange: spirit.floatingRange || 15,
                 spawnEffect: false, // No spawn effect in battle
-                direction: 'right' // Face right (toward enemies)
+                direction: 'right' // Face right (toward enemy)
             });
             
             // Link to battle spirit data for UI
@@ -4817,13 +4807,10 @@ class BattleState extends GameState {
             this.battleSpiritEntities.push(spiritEntity);
         });
         
-        // Create enemy spirit entities (right side)
-        const enemyTotalHeight = (enemyCount - 1) * verticalSpacing;
-        const enemyStartY = centerY - enemyTotalHeight / 2;
-        
+        // Create enemy spirit entity (right side, centered)
         this.battleSystem.enemyParty.forEach((spirit, index) => {
             const worldX = centerX + horizontalOffset;
-            const worldY = enemyStartY + index * verticalSpacing;
+            const worldY = centerY;
             
             const spiritEntity = new Spirit(this.game, worldX, worldY, this.battleMapId || this.game.currentMapId, {
                 id: `battle_enemy_${spirit.id}`,
@@ -4848,66 +4835,45 @@ class BattleState extends GameState {
         console.log(`[BattleState] Created ${this.battleSpiritEntities.length} battle spirit entities at (${centerX}, ${centerY})`);
         
         // Position the player (commander) on the battle field
-        // They stand behind their spirits, facing right
+        // They stand behind their spirit, facing right
         if (this.game.player) {
             // Store original direction
             this.savedPlayerDirection = this.game.player.direction;
             
-            // Position player behind their spirits
+            // Position player behind their spirit
             this.game.player.x = centerX - horizontalOffset - 80;
             this.game.player.y = centerY;
-            this.game.player.direction = 'right'; // Face toward enemies
+            this.game.player.direction = 'right'; // Face toward enemy
         }
         
-        // Store the battle center for camera (same as player's original position)
+        // Store the battle center for camera
         this.battleCenterX = centerX;
         this.battleCenterY = centerY;
     }
     
     /**
-     * Reposition all battle entities so they're centered on screen
+     * Reposition all battle entities so they're centered on screen (1v1)
      * Called every frame to ensure they stay centered regardless of camera
      */
     repositionBattleEntities(centerX, centerY) {
-        const verticalSpacing = 220;
-        const horizontalOffset = 280;
-        
-        const playerCount = this.battleSystem?.playerParty?.length || 0;
-        const enemyCount = this.battleSystem?.enemyParty?.length || 0;
-        
-        // Reposition player spirits (left side)
-        const playerTotalHeight = (playerCount - 1) * verticalSpacing;
-        const playerStartY = centerY - playerTotalHeight / 2;
-        
-        let playerIndex = 0;
-        let enemyIndex = 0;
+        const horizontalOffset = 350; // Match createBattleSpiritEntities
         
         for (const entity of this.battleSpiritEntities) {
             // Skip repositioning if this entity is currently animating
             if (this.battleSystem?.getAnimatedPosition(entity)) {
-                // Still need to increment indices to keep formation consistent
-                if (entity._isPlayerOwned) {
-                    playerIndex++;
-                } else {
-                    enemyIndex++;
-                }
                 continue;
             }
             
             if (entity._isPlayerOwned) {
                 entity.x = centerX - horizontalOffset;
-                entity.y = playerStartY + playerIndex * verticalSpacing;
-                playerIndex++;
+                entity.y = centerY;
             } else {
-                const enemyTotalHeight = (enemyCount - 1) * verticalSpacing;
-                const enemyStartY = centerY - enemyTotalHeight / 2;
                 entity.x = centerX + horizontalOffset;
-                entity.y = enemyStartY + enemyIndex * verticalSpacing;
-                enemyIndex++;
+                entity.y = centerY;
             }
         }
         
-        // Reposition player character (behind their spirits)
+        // Reposition player character (behind their spirit)
         if (this.game.player) {
             this.game.player.x = centerX - horizontalOffset - 200;
             this.game.player.y = centerY;
@@ -5024,6 +4990,12 @@ class BattleState extends GameState {
         if (this.battleSystem) {
             this.battleSystem.update(deltaTime);
             
+            // Check if a switch occurred (player or enemy) - need to recreate entities
+            if (this.battleSystem._switchOccurred) {
+                this.battleSystem._switchOccurred = false;
+                this.createBattleSpiritEntities();
+            }
+            
             // Update action animation positions AFTER battle system update
             // (so animation state is current)
             this.battleSpiritEntities.forEach(entity => {
@@ -5139,6 +5111,12 @@ class BattleState extends GameState {
             this.handleTargetSelectInput(inputManager);
             return;
         }
+        
+        // Switch selection (1v1)
+        if (this.phase === 'switch_select') {
+            this.handleSwitchSelectInput(inputManager);
+            return;
+        }
     }
     
     handleActionSelectInput(inputManager) {
@@ -5238,6 +5216,50 @@ class BattleState extends GameState {
         }
     }
     
+    /**
+     * Handle switch selection input (1v1 - pick a reserve spirit to switch to)
+     */
+    handleSwitchSelectInput(inputManager) {
+        const switchable = this.battleSystem?.getSwitchableSpirits() || [];
+        if (switchable.length === 0) {
+            this.phase = 'action_select';
+            return;
+        }
+        
+        if (inputManager.isJustPressed('up')) {
+            this.selectedSwitchIndex = (this.selectedSwitchIndex - 1 + switchable.length) % switchable.length;
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.inputCooldown = 0.1;
+        }
+        if (inputManager.isJustPressed('down')) {
+            this.selectedSwitchIndex = (this.selectedSwitchIndex + 1) % switchable.length;
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.inputCooldown = 0.1;
+        }
+        
+        if (inputManager.isJustPressed('confirm')) {
+            const newSpirit = switchable[this.selectedSwitchIndex];
+            if (newSpirit && this.selectedPlayerSpirit) {
+                // Queue the switch as an action (uses the turn)
+                const action = {
+                    type: 'switch',
+                    user: this.selectedPlayerSpirit,
+                    switchTarget: newSpirit
+                };
+                this.battleSystem.queuePlayerAction(action);
+                this.selectedPlayerSpirit = null;
+                this.pendingAction = null;
+                this.phase = 'battle';
+            }
+            this.inputCooldown = 0.15;
+        }
+        
+        if (inputManager.isJustPressed('cancel')) {
+            this.phase = 'action_select';
+            this.inputCooldown = 0.15;
+        }
+    }
+    
     selectAction(action) {
         switch (action) {
             case 'Attack':
@@ -5262,10 +5284,17 @@ class BattleState extends GameState {
                     this.game.audioManager?.playEffect('error.mp3');
                 }
                 break;
-            case 'Switch':
-                // TODO: Switch menu
-                console.log('[BattleState] Switch menu not implemented yet');
+            case 'Switch': {
+                // 1v1 switch: show available spirits to switch to
+                const switchable = this.battleSystem?.getSwitchableSpirits() || [];
+                if (switchable.length > 0) {
+                    this.phase = 'switch_select';
+                    this.selectedSwitchIndex = 0;
+                } else {
+                    this.game.audioManager?.playEffect('error.mp3');
+                }
                 break;
+            }
             case 'Flee':
                 this.attemptFlee();
                 break;
@@ -5459,6 +5488,11 @@ class BattleState extends GameState {
         // Draw target cursor if selecting
         if (this.phase === 'target_select') {
             this.renderTargetCursor(ctx, width, height);
+        }
+        
+        // Draw switch menu if selecting (1v1)
+        if (this.phase === 'switch_select') {
+            this.renderSwitchMenu(ctx, width, height);
         }
         
         // Draw results screen if battle ended
@@ -6326,6 +6360,96 @@ class BattleState extends GameState {
     
     renderTargetCursor(ctx, width, height) {
         // Target cursor is rendered in renderCombatants
+    }
+    
+    /**
+     * Render switch menu for 1v1 battles - shows reserve spirits to switch to
+     */
+    renderSwitchMenu(ctx, width, height) {
+        if (!this.battleSystem) return;
+        
+        const ds = window.ds;
+        const menuRenderer = this.game.menuRenderer;
+        const switchable = this.battleSystem.getSwitchableSpirits();
+        
+        if (switchable.length === 0) return;
+        
+        // Menu dimensions - positioned to the right of action menu
+        const padding = ds ? ds.spacing(4) : 16;
+        const titleHeight = ds ? ds.spacing(7) : 28;
+        const itemHeight = ds ? ds.spacing(10) : 40;
+        const menuWidth = ds ? ds.spacing(50) : 200;
+        const menuHeight = titleHeight + switchable.length * itemHeight + padding * 2;
+        const menuX = ds ? ds.spacing(64) : 256;
+        const menuY = height - menuHeight - (ds ? ds.spacing(28) : 112);
+        
+        // Draw panel background
+        if (menuRenderer && menuRenderer.drawPanel) {
+            menuRenderer.drawPanel(ctx, menuX, menuY, menuWidth, menuHeight, 0.9);
+        } else {
+            ctx.fillStyle = 'rgba(10, 10, 20, 0.92)';
+            ctx.strokeStyle = '#22c55e';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(menuX, menuY, menuWidth, menuHeight, 4);
+            ctx.fill();
+            ctx.stroke();
+        }
+        
+        // Title
+        ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
+        ctx.font = ds ? ds.font('sm', 'bold') : 'bold 14px \'Lato\', sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Switch To', menuX + padding, menuY + padding + titleHeight / 2);
+        
+        // Switchable spirits
+        switchable.forEach((spirit, index) => {
+            const spiritY = menuY + padding + titleHeight + index * itemHeight;
+            const isSelected = index === this.selectedSwitchIndex;
+            
+            // Selection highlight
+            if (isSelected && ds) {
+                ds.drawSelectionHighlight(ctx, menuX + 2, spiritY, menuWidth - 4, itemHeight);
+            } else if (isSelected) {
+                ctx.fillStyle = 'rgba(34, 197, 94, 0.2)';
+                ctx.fillRect(menuX + 4, spiritY, menuWidth - 8, itemHeight);
+            }
+            
+            // Spirit name
+            ctx.fillStyle = isSelected ? (ds ? ds.colors.text.primary : '#fff') : (ds ? ds.colors.text.secondary : '#aaa');
+            ctx.font = ds ? ds.font('sm', isSelected ? 'bold' : 'normal') : `${isSelected ? 'bold ' : ''}14px 'Lato', sans-serif`;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(spirit.name, menuX + padding + (ds ? ds.spacing(4) : 16), spiritY + itemHeight / 2 - 8);
+            
+            // HP info
+            const hpPercent = spirit.maxHp > 0 ? Math.floor((spirit.currentHp / spirit.maxHp) * 100) : 0;
+            const hpColor = hpPercent > 50 ? '#4ade80' : hpPercent > 25 ? '#fbbf24' : '#ef4444';
+            ctx.fillStyle = hpColor;
+            ctx.font = ds ? ds.font('xs') : '11px \'Lato\', sans-serif';
+            ctx.fillText(`HP: ${spirit.currentHp}/${spirit.maxHp}`, menuX + padding + (ds ? ds.spacing(4) : 16), spiritY + itemHeight / 2 + 6);
+            
+            // Level
+            ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
+            ctx.textAlign = 'right';
+            ctx.fillText(`Lv.${spirit.level}`, menuX + menuWidth - padding, spiritY + itemHeight / 2);
+            
+            // Selection diamond cursor
+            if (isSelected) {
+                ctx.fillStyle = '#22c55e';
+                const diamondX = menuX + padding;
+                const diamondY = spiritY + itemHeight / 2;
+                const diamondSize = ds ? ds.spacing(1.5) : 6;
+                ctx.beginPath();
+                ctx.moveTo(diamondX, diamondY - diamondSize);
+                ctx.lineTo(diamondX + diamondSize, diamondY);
+                ctx.lineTo(diamondX, diamondY + diamondSize);
+                ctx.lineTo(diamondX - diamondSize, diamondY);
+                ctx.closePath();
+                ctx.fill();
+            }
+        });
     }
     
     renderDamageNumbers(ctx) {

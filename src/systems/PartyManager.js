@@ -1,16 +1,16 @@
 /**
  * PartyManager.js
  * Manages the player's spirit party and spirit box
- * Supports 4 active battlers + 2 bench spirits
+ * 1v1 battles: only 1 spirit is active at a time, rest are reserves
  */
 
 class PartyManager {
     constructor(game) {
         this.game = game;
         
-        // Active party (up to 4 spirits in battle, 2 on bench)
-        this.MAX_ACTIVE = 4;
-        this.MAX_BENCH = 2;
+        // 1v1 party: 1 active spirit in battle, up to 5 reserves
+        this.MAX_ACTIVE = 1;
+        this.MAX_BENCH = 5;
         this.MAX_PARTY = this.MAX_ACTIVE + this.MAX_BENCH; // 6 total
         
         this.party = [];      // Active + bench spirits
@@ -82,7 +82,7 @@ class PartyManager {
     }
     
     /**
-     * Add default starter spirits (4 Sylphies)
+     * Add default starter spirit (1 Sylphie for 1v1 battles)
      */
     addDefaultSpirit() {
         const createSylphie = (index) => ({
@@ -113,10 +113,8 @@ class PartyManager {
             floatingRange: 15
         });
         
-        // Add 4 Sylphies to the party
-        for (let i = 0; i < 4; i++) {
-            this.party.push(createSylphie(i));
-        }
+        // Add 1 Sylphie to the party (1v1 - lead spirit)
+        this.party.push(createSylphie(0));
         this.savePartyData();
     }
     

@@ -1,7 +1,8 @@
 /**
  * BattleSystem.js
- * Final Fantasy-style ATB Battle System
+ * 1v1 ATB Battle System
  * Handles battle logic, turn order, damage calculations, and state management
+ * Only 1 spirit per side fights at a time; player can switch from their party
  */
 
 class BattleSystem {
@@ -12,9 +13,13 @@ class BattleSystem {
         this.isActive = false;
         this.battleConfig = null;
         
-        // Combatants
-        this.playerParty = [];      // Player's spirits (up to 4 active + 2 bench)
-        this.enemyParty = [];       // Enemy spirits
+        // Combatants (1v1 - only 1 active per side)
+        this.playerParty = [];      // Active player spirit (array with 1 entry)
+        this.enemyParty = [];       // Active enemy spirit (array with 1 entry)
+        
+        // Full party reserves for switching
+        this.fullPlayerParty = [];  // All player spirits (for switching)
+        this.fullEnemyParty = [];   // All enemy spirits (for multi-enemy encounters)
         
         // ATB settings
         this.ATB_MAX = 100;
@@ -130,38 +135,45 @@ class BattleSystem {
     }
     
     /**
-     * Initialize player's party for battle
+     * Initialize player's party for battle (1v1 - only lead spirit enters)
      */
     initializePlayerParty() {
         this.playerParty = [];
+        this.fullPlayerParty = [];
         
-        // Get player's spirits from party manager
-        const partySpirits = this.game.partyManager?.getActiveParty() || [];
+        // Get ALL player's spirits from party manager
+        const allSpirits = this.game.partyManager?.getFullParty() || [];
         
-        if (partySpirits.length === 0) {
+        if (allSpirits.length === 0) {
             // Create a default spirit if player has none
             console.warn('[BattleSystem] No spirits in party, creating default');
-            this.playerParty.push(this.createBattleSpirit({
+            const defaultSpirit = this.createBattleSpirit({
                 id: 'default_spirit',
                 name: 'Spirit',
                 level: 1,
                 type1: 'fire',
                 type2: null,
                 baseStats: { hp: 100, mp: 50, attack: 20, defense: 15, magicAttack: 18, magicDefense: 12, speed: 25 }
-            }, true));
+            }, true);
+            this.playerParty.push(defaultSpirit);
+            this.fullPlayerParty.push(defaultSpirit);
         } else {
-            partySpirits.forEach(spirit => {
-                this.playerParty.push(this.createBattleSpirit(spirit, true));
+            // Create battle spirits for all party members
+            allSpirits.forEach(spirit => {
+                this.fullPlayerParty.push(this.createBattleSpirit(spirit, true));
             });
+            // Only the lead spirit enters the active battle slot
+            this.playerParty.push(this.fullPlayerParty[0]);
         }
     }
     
     /**
-     * Initialize enemy party for battle
+     * Initialize enemy party for battle (1v1 - only first enemy enters)
      * @param {Array} enemies - Array of enemy spirit configs
      */
     initializeEnemyParty(enemies) {
         this.enemyParty = [];
+        this.fullEnemyParty = [];
         
         if (!enemies || enemies.length === 0) {
             console.warn('[BattleSystem] No enemies specified, creating default');
@@ -201,8 +213,13 @@ class BattleSystem {
             const battleSpirit = this.createBattleSpirit(spiritData, false);
             battleSpirit.expYield = spiritData.expYield || Math.floor(spiritData.level * 10);
             battleSpirit.goldYield = spiritData.goldYield || Math.floor(spiritData.level * 5);
-            this.enemyParty.push(battleSpirit);
+            this.fullEnemyParty.push(battleSpirit);
         });
+        
+        // Only the first enemy enters the active battle slot
+        if (this.fullEnemyParty.length > 0) {
+            this.enemyParty.push(this.fullEnemyParty[0]);
+        }
     }
     
     /**
@@ -543,6 +560,8 @@ class BattleSystem {
                 this.onActionText(user, 'Seal');
             } else if (action.type === 'flee') {
                 this.onActionText(user, 'Flee');
+            } else if (action.type === 'switch') {
+                this.onActionText(user, 'Switch');
             }
         }
         
@@ -1098,35 +1117,103 @@ class BattleSystem {
     }
     
     /**
-     * Switch a party member
+     * Switch the active player spirit with another from the full party (1v1)
      */
     executeSwitch(currentSpirit, newSpirit) {
-        // Find indices
-        const currentIndex = this.playerParty.findIndex(s => s.id === currentSpirit.id);
-        const benchSpirits = this.game.partyManager?.getBenchSpirits() || [];
+        if (!newSpirit || !newSpirit.isAlive) {
+            this.log('Cannot switch to that spirit!');
+            return;
+        }
         
-        // TODO: Implement proper switching
+        // Remove current from active slot
+        this.playerParty = [];
+        
+        // Reset ATB on switched-out spirit
+        currentSpirit.atb = 0;
+        currentSpirit.isReady = false;
+        
+        // Put new spirit into active slot
+        this.playerParty.push(newSpirit);
+        
+        // Give the incoming spirit a small ATB boost (so they're not completely at 0)
+        newSpirit.atb = Math.min(this.ATB_MAX * 0.3, newSpirit.atb);
+        newSpirit.isReady = false;
+        
+        this.log(`${currentSpirit.name} switches out! ${newSpirit.name} enters the battle!`);
         console.log(`[BattleSystem] ${currentSpirit.name} switches out for ${newSpirit.name}`);
+        
+        // Notify UI to recreate entities
+        this._switchOccurred = true;
     }
     
     /**
-     * Check if battle should end
+     * Get available spirits to switch to (alive, not currently active)
      */
-    checkBattleEnd() {
-        // Check for victory
-        const enemiesAlive = this.enemyParty.filter(s => s.isAlive).length;
-        if (enemiesAlive === 0) {
-            this.result = 'victory';
-            this.endBattle();
+    getSwitchableSpirits() {
+        const activeSpirit = this.playerParty[0];
+        return this.fullPlayerParty.filter(s => s.isAlive && s !== activeSpirit);
+    }
+    
+    /**
+     * Auto-switch to next available spirit when active one faints (1v1)
+     * Returns true if a switch was made, false if no spirits left
+     */
+    autoSwitchOnKO() {
+        const nextSpirit = this.fullPlayerParty.find(s => s.isAlive && !this.playerParty.includes(s));
+        if (nextSpirit) {
+            this.playerParty = [nextSpirit];
+            nextSpirit.atb = 0;
+            nextSpirit.isReady = false;
+            this.log(`${nextSpirit.name} enters the battle!`);
+            this._switchOccurred = true;
             return true;
         }
-        
-        // Check for defeat
-        const playersAlive = this.playerParty.filter(s => s.isAlive).length;
-        if (playersAlive === 0) {
-            this.result = 'defeat';
-            this.endBattle();
+        return false;
+    }
+    
+    /**
+     * Auto-switch to next enemy spirit when active one faints (1v1)
+     * Returns true if a switch was made, false if no enemies left
+     */
+    autoSwitchEnemyOnKO() {
+        const nextEnemy = this.fullEnemyParty.find(s => s.isAlive && !this.enemyParty.includes(s));
+        if (nextEnemy) {
+            this.enemyParty = [nextEnemy];
+            nextEnemy.atb = 0;
+            nextEnemy.isReady = false;
+            this.log(`Enemy ${nextEnemy.name} enters the battle!`);
+            this._switchOccurred = true;
             return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Check if battle should end (1v1 with reserves)
+     */
+    checkBattleEnd() {
+        // Check if active enemy is KO'd - try to send in next
+        const activeEnemyAlive = this.enemyParty.some(s => s.isAlive);
+        if (!activeEnemyAlive) {
+            // Try auto-switching to next enemy
+            if (!this.autoSwitchEnemyOnKO()) {
+                // No more enemies - victory!
+                this.result = 'victory';
+                this.endBattle();
+                return true;
+            }
+        }
+        
+        // Check if active player spirit is KO'd - try to send in next
+        const activePlayerAlive = this.playerParty.some(s => s.isAlive);
+        if (!activePlayerAlive) {
+            // Try auto-switching to next player spirit
+            if (!this.autoSwitchOnKO()) {
+                // No more spirits - defeat!
+                this.result = 'defeat';
+                this.endBattle();
+                return true;
+            }
         }
         
         // Check for fled
@@ -1162,10 +1249,13 @@ class BattleSystem {
         this.isActive = false;
         this.playerParty = [];
         this.enemyParty = [];
+        this.fullPlayerParty = [];
+        this.fullEnemyParty = [];
         this.actionQueue = [];
         this.currentAction = null;
         this.battleConfig = null;
         this.triggeringSpirit = null;
+        this._switchOccurred = false;
         
         // Resume normal BGM
         this.game.audioManager?.playBGM('bgm-field.mp3');
