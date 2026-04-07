@@ -28,27 +28,100 @@ function neighbors(x, y) {
 
 // ───── Region name generator ─────
 const REGION_NAMES = {
-    'snow':         ['Frozen Wastes', 'Crystal Expanse', 'Pale Reaches', 'Frost Hollows', 'Winter Fields', 'Silent Tundra', 'Icewind Flats', 'Snowdrift Plains', 'Glacial Plateau', 'White Veil'],
-    'tundra':       ['Bitter Steppe', 'Wind-swept Heath', 'Grey Barrens', 'Cold Moor', 'Northern Reach', 'Frostbite Flats', 'Ashen Tundra', 'Bleakwind Steppe', 'Barren Moor', 'Pale Heath'],
-    'frozen-peak':  ['Ice Crown Peaks', 'Frozen Spires', 'Crystal Summit', 'Howling Pinnacles', 'Shattered Ridge'],
-    'mountain':     ['Ironstone Mountains', 'Grey Crags', 'Storm Peaks', 'Craggy Heights', 'Stone Ridge', 'Granite Reach', 'Windshear Cliffs', 'Basalt Spires'],
-    'high-mountain':['Cloud Peaks', 'Towering Spires', 'Ancient Summit', 'Sky Ridge', 'Thundercrest Heights', 'Eagle Peaks', 'Titan Ridge'],
-    'volcanic':     ['Burning Caldera', 'Ashen Wastes', 'Emberfall Crater', 'Black Furnace'],
-    'desert':       ['Golden Sands', 'Sunbaked Expanse', 'Shifting Dunes', 'Amber Wastes', 'Scorching Flats', 'Mirage Desert', 'Dust Devil Sands', 'Sandstorm Reach'],
-    'arid-desert':  ['Red Badlands', 'Cracked Mesa', 'Dusty Barrens', 'Parched Flats', 'Dry Gulch', 'Ochre Wastes', 'Sunscorch Barrens', 'Rust Flats', 'Bone Dry Mesa', 'Withered Expanse'],
-    'oasis':        ['Hidden Oasis', 'Emerald Springs', 'Blessed Pool', 'Verdant Haven'],
-    'plains':       ['Rolling Plains', 'Golden Prairie', 'Open Steppe', 'Amber Fields', 'Wide Grassland', 'Gentle Flatland', 'Windswept Prairie', 'Harvest Fields', 'Sunlit Steppe', 'Horizon Plains', 'Tall Grass Prairie', 'Settler Plains', 'Wanderer Flats', 'Dusty Trail', 'Wheatfield Run', 'Barley Reach', 'Dawn Meadow', 'Iron Steppe', 'Silver Grass Basin', 'Great Expanse'],
-    'grassland':    ['Green Meadows', 'Verdant Fields', 'Sunlit Pasture', 'Wild Glen', 'Bright Vale', 'Lush Grassland', 'Spring Meadows', 'Emerald Dale', 'Grazing Lands', 'Clover Fields'],
-    'meadow':       ['Flower Meadow', 'Spring Dale', 'Sunny Glade', 'Gentle Lea', 'Soft Garden', 'Blossom Fields', 'Dewdrop Meadow', 'Wildflower Glen', 'Honeybee Meadow', 'Morning Mist Lea', 'Petal Hollow', 'Daisy Drift', 'Primrose Way', 'Lily Path'],
-    'woodland':     ['Whispering Woods', 'Old Forest', 'Shady Grove', 'Quiet Thicket', 'Mossy Timberland', 'Amber Woods', 'Rustling Forest', 'Dappled Grove', 'Birchwood Forest', 'Oakshade Woods', 'Thornbriar Thicket', 'Elm Hollow', 'Pinewood Trail', 'Cedar Canopy', 'Willowmere Woods'],
-    'dense-forest': ['Dark Forest', 'Ancient Wilds', 'Deep Thicket', 'Shadow Woodland', 'Primeval Depths', 'Tanglewood', 'Nightshade Forest', 'Ironbark Wilds'],
-    'jungle':       ['Twisted Jungle', 'Steaming Rainforest', 'Wild Canopy', 'Overgrown Tangle', 'Emerald Jungle'],
-    'swamp':        ['Murky Swamp', 'Foggy Marsh', 'Dank Mire', 'Misty Fen', 'Rotting Bog', 'Gloom Marsh'],
-    'tropical':     ['Warm Coast', 'Balmy Shore', 'Exotic Lagoon', 'Vibrant Isle', 'Palm Bay'],
-    'coast':        ['Salty Shore', 'Rocky Coast', 'Sandy Cove', 'Calm Bay', 'Breezy Beach'],
-    'lake':         ['Crystal Lake', 'Mirror Waters', 'Deep Mere', 'Still Shallows', 'Blue Pool'],
-    'river-valley': ['Winding Valley', 'Rushing Banks', 'Fertile Basin', 'River Bend', 'Gentle Crossing'],
-    'village':      ['Quiet Village', 'Small Hamlet', 'Rustic Settlement', 'Cozy Homestead']
+    'snow':         [
+        'Kelvarn\'s Summit', 'The Bleached Fangs', 'Hrothgar\'s Crown', 'The Shivering Expanse',
+        'Dredmere Glacier', 'Ivellion Snowfields', 'The Pale Teeth', 'Whitecrest Range',
+        'Sunderglass Peaks', 'Frosthollow Basin', 'Yeva\'s Lament', 'The Everfrost',
+    ],
+    'tundra':       [
+        'The Windscour', 'Brennick\'s Folly', 'Ashenmoor Flats', 'The Grey Waste',
+        'Haldr\'s Crossing', 'Wraithfen Tundra', 'Bleakwater Moor', 'The Scoured Reach',
+        'Tormund\'s End', 'Duskmere Barrens',
+    ],
+    'frozen-peak':  [
+        'The Shattered Spine', 'Algrimm\'s Spire', 'Frostfall Pinnacle', 'The Howling Crests',
+        'Drakentooth Summit',
+    ],
+    'mountain':     [
+        'Karstholm Ridge', 'The Iron Scarps', 'Torbreck Crags', 'Greymane Cliffs',
+        'Aelric\'s Watch', 'Stonecutter Pass', 'Windshear Bluff', 'The Basalt Ramparts',
+    ],
+    'high-mountain':[
+        'Drakenfall Heights', 'The Stormspear', 'Theron\'s Pinnacle', 'The Cloudbreak',
+        'Titan\'s Jaw', 'Eaglerest Peaks', 'The Sundercrags',
+    ],
+    'volcanic':     [
+        'The Ember Caldera', 'Ashenvault', 'Cinder Maw', 'Varakk\'s Furnace',
+    ],
+    'desert':       [
+        'The Amber Desolation', 'Solarius Dunes', 'Kharad\'s Anvil', 'The Shimmersand',
+        'Dust Veil Expanse', 'Orath\'s Crucible', 'Sandwhisper Flats', 'The Mirage Fields',
+        'Cindergold Dunes', 'Thasseri Wastes',
+    ],
+    'arid-desert':  [
+        'Redvein Badlands', 'The Cracked Maw', 'Dusthollow Mesa', 'Sable Flats',
+        'Korrath\'s Blight', 'Ochrebane Wastes', 'The Scorchmark', 'Bleachbone Barrens',
+        'Wrathwind Mesa', 'Carrack\'s Reach',
+    ],
+    'oasis':        [
+        'Mistveil Springs', 'Lirien\'s Rest', 'The Jade Pool', 'Oasis of Selûn',
+    ],
+    'plains':       [
+        'The Hearthlands', 'Aldenmere Fields', 'Tarven\'s Expanse', 'Goldbriar Prairie',
+        'The Wayward Flats', 'Thornfield Basin', 'Harrowdale Plains', 'Longstride Prairie',
+        'Millhaven Pastures', 'Brannock\'s Claim', 'The Rustgrass', 'Sunderfields',
+        'Galsworth Run', 'Pennworth Downs', 'Duskwheat Reach', 'Calder\'s Prospect',
+        'Ashford Grasslands', 'Ironwell Flats', 'The Heathermarch', 'Corwin\'s Pasture',
+    ],
+    'grassland':    [
+        'Verdanthollow', 'Thistledown Vale', 'Briarcliff Meadows', 'Summerleigh Fields',
+        'Fairhaven Pasture', 'Greenholme Dale', 'Harlowe Glen', 'Elowen\'s Lea',
+        'The Dawngrass', 'Cloverwatch Downs',
+    ],
+    'meadow':       [
+        'Willowbend Meadow', 'Petalwing Dale', 'Sorrel Glade', 'Honeyfield Lea',
+        'Dewcrest Garden', 'Maren\'s Blush', 'Larkspur Hollow', 'Primeveil Meadow',
+        'Goldpetal Clearing', 'Heather\'s Crown', 'Dawnpetal Drift', 'Fennwick Glade',
+        'Silkwater Lea', 'Butterblossom Way',
+    ],
+    'woodland':     [
+        'Evergloom Forest', 'The Tanglewood', 'Verdara\'s Canopy', 'Fernhollow Timberland',
+        'Briarshadow Woods', 'The Mossweald', 'Ashenmere Forest', 'Thornwatch Thicket',
+        'Elkrun Timberland', 'Grimshaw Woods', 'Larkhollow Grove', 'Cedarveil Reaches',
+        'The Dapplewood', 'Ravenwild Forest', 'Dunmere Thicket', 'Corbin\'s Stand',
+        'Harthwood', 'Mirewood', 'Silvbark Expanse', 'Wickerfen Woods',
+    ],
+    'dense-forest': [
+        'The Blackthorn Depths', 'Gloomshroud Forest', 'Ironbark Wilds', 'Mordaunt\'s Hollow',
+        'The Rotwood', 'Wraithveil Thicket', 'Nightfall Canopy', 'The Sunless Groves',
+    ],
+    'jungle':       [
+        'The Verdant Maw', 'Serpentcoil Jungle', 'Mugava Wilds', 'The Steaming Tangle',
+        'Thornvine Canopy',
+    ],
+    'swamp':        [
+        'Brackenmire', 'Gaelwynn\'s Bog', 'The Rotmarsh', 'Gloomfen', 'Moldwater Fen',
+        'Sorrowmere Marsh',
+    ],
+    'tropical':     [
+        'Sunwrack Coast', 'The Cerulean Shallows', 'Palmhaven', 'Lanivar Bay',
+        'Driftwood Strand',
+    ],
+    'coast':        [
+        'Saltmere Shore', 'Gaelcrest Bay', 'Breakwater Cove', 'Driftwood Point',
+        'Marren\'s Strand', 'Tidewatch Beach', 'Windbreak Shallows',
+    ],
+    'lake':         [
+        'Lake Aethermere', 'The Stillwater', 'Crystalveil Mere', 'Sigren\'s Pool',
+        'Moonhollow Lake', 'Lake Vyrendale', 'The Deepmirror', 'Ashwater Lake',
+    ],
+    'river-valley': [
+        'The Serpent\'s Bend', 'Rivendale Crossing', 'Narrowbrook Valley', 'Galwyn\'s Ford',
+        'Mistwater Banks', 'The Greenrun', 'Stonebridge Basin', 'Thornwater Gorge',
+    ],
+    'village':      [
+        'Millhaven', 'Thornbury', 'Wycliffe Settlement', 'Brannock\'s Rest',
+    ]
 };
 
 // ───── Main ─────
@@ -134,12 +207,37 @@ function main() {
 
             if (neighborRegions.size === 0) continue;
 
-            // Merge into largest neighbor
+            // Merge into best neighbor — prefer same biome category
+            const WATER_BIOMES = new Set(['lake', 'coast', 'river-valley']);
+            const isWater = WATER_BIOMES.has(region.biome);
+
+            // First pass: try same biome
             let bestRegion = -1, bestSize = 0;
             for (const [ri] of neighborRegions) {
-                if (regions[ri].cells.length > bestSize) {
+                if (regions[ri].biome === region.biome && regions[ri].cells.length > bestSize) {
                     bestSize = regions[ri].cells.length;
                     bestRegion = ri;
+                }
+            }
+            // Second pass: try same category (water↔water, land↔land)
+            if (bestRegion < 0) {
+                bestSize = 0;
+                for (const [ri] of neighborRegions) {
+                    const nWater = WATER_BIOMES.has(regions[ri].biome);
+                    if (nWater === isWater && regions[ri].cells.length > bestSize) {
+                        bestSize = regions[ri].cells.length;
+                        bestRegion = ri;
+                    }
+                }
+            }
+            // Last resort: any neighbor
+            if (bestRegion < 0) {
+                bestSize = 0;
+                for (const [ri] of neighborRegions) {
+                    if (regions[ri].cells.length > bestSize) {
+                        bestSize = regions[ri].cells.length;
+                        bestRegion = ri;
+                    }
                 }
             }
 

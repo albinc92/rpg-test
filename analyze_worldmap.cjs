@@ -1,62 +1,126 @@
 /**
- * Analyze worldmap.png texture — break into 30×30 grid, classify biome per cell,
- * generate region names, and update maps.json accordingly.
+ * Analyze worldmap.png texture — break into 30×30 grid, classify biome per cell
+ * using sub-cell sampling with majority vote, then update maps.json.
+ *
+ * Each grid cell is divided into SUB_DIVISIONS × SUB_DIVISIONS sub-cells.
+ * Each sub-cell is classified independently, then the cell's biome is decided
+ * by majority vote.  Water sub-cells get a boost: if ≥ WATER_THRESHOLD of
+ * sub-cells are water, the whole cell is classified as water (river-valley).
  */
 const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
 
-// ───── Biome classifier based on average RGB ─────
+const SUB_DIVISIONS = 6;        // 6×6 = 36 sub-cells per grid cell
+const WATER_THRESHOLD = 0.20;   // 20% water sub-cells → cell is river/water
+
+// ───── Biome classifier for a small patch (average RGB) ─────
 
 function classifyBiome(r, g, b) {
     const brightness = (r + g + b) / 3;
     const saturation = Math.max(r, g, b) - Math.min(r, g, b);
-    
-    // Very bright / white → snow / frozen
+
+    // ── Water (check FIRST — critical for rivers/lakes) ──
+    // Strong blue dominance
+    if (b > r + 25 && b > g + 5) return 'water';
+    // Blue-teal (river color on this map): b ≈ g, both clearly > r
+    if (b > r + 10 && b >= g - 5 && brightness < 160) return 'water';
+    // Muted teal in shadow
+    if (g > r + 5 && b > r + 5 && b >= g - 10 && brightness < 130) return 'water';
+
+    // ── Snow / Frozen ──
     if (brightness > 210 && saturation < 40) return 'snow';
     if (brightness > 195 && saturation < 50) return 'tundra';
-    
-    // Very bright warm tones → desert / arid
+
+    // ── Desert / Arid (warm, bright, r > g > b) ──
     if (brightness > 180 && r > g && g > b && saturation > 30) return 'desert';
     if (brightness > 160 && r > g && g > b && saturation > 40) return 'arid-desert';
-    
-    // Sandy / beige tones
     if (brightness > 150 && r > g - 10 && g > b && saturation > 25 && saturation < 80) return 'plains';
-    
-    // Blue-ish → water
-    if (b > r + 30 && b > g + 10) return 'lake';
-    if (b > r + 15 && b > g) return 'coast';
-    
-    // Dark green → dense forest / jungle
+
+    // ── Dark green ──
     if (g > r && g > b && brightness < 80) return 'dense-forest';
     if (g > r && g > b && brightness < 100 && saturation > 40) return 'jungle';
-    
-    // Medium green → woodland / forest
+
+    // ── Medium green → woodland ──
     if (g > r && g > b && brightness < 120 && saturation > 35) return 'woodland';
     if (g >= r - 5 && g > b && brightness < 135 && saturation > 30) return 'woodland';
-    
-    // Light green → grassland / meadow
+
+    // ── Light green → grassland / meadow ──
     if (g > r && g > b && brightness < 160) return 'grassland';
     if (g >= r - 10 && g > b && brightness < 170 && saturation > 20) return 'meadow';
-    
-    // Grey-green tones → swamp
+
+    // ── Grey-green → swamp ──
     if (brightness < 120 && saturation < 30 && g >= r && g >= b) return 'swamp';
-    
-    // Grey tones → mountain
+
+    // ── Grey → mountain ──
     if (saturation < 25 && brightness < 140) return 'mountain';
     if (saturation < 30 && brightness < 170 && brightness > 120) return 'high-mountain';
-    
-    // Brown / tan tones
+
+    // ── Brown / tan ──
     if (r > g && g > b && brightness < 130 && saturation > 40) return 'woodland';
     if (r > g && g > b && brightness < 160) return 'plains';
-    
-    // Warm medium brightness → village / settlement feel
     if (brightness > 140 && brightness < 180 && saturation < 50) return 'plains';
-    
-    // Fallback
+
+    // ── Fallback ──
     if (brightness > 160) return 'plains';
     if (brightness > 120) return 'grassland';
     return 'woodland';
+}
+
+/**
+ * Classify a grid cell using sub-cell majority vote.
+ * Returns the final biome string (water sub-cells mapped to lake/coast/river-valley).
+ */
+function classifyCellByVoting(raw, imgW, channels, cellX0, cellY0, cellW, cellH, imgH) {
+    const subW = Math.floor(cellW / SUB_DIVISIONS);
+    const subH = Math.floor(cellH / SUB_DIVISIONS);
+    const votes = {};  // biome → count
+    let waterCount = 0;
+    const totalSubs = SUB_DIVISIONS * SUB_DIVISIONS;
+
+    for (let sy = 0; sy < SUB_DIVISIONS; sy++) {
+        for (let sx = 0; sx < SUB_DIVISIONS; sx++) {
+            const x0 = cellX0 + sx * subW;
+            const y0 = cellY0 + sy * subH;
+            let r = 0, g = 0, b = 0, cnt = 0;
+
+            for (let py = y0; py < y0 + subH && py < imgH; py++) {
+                for (let px = x0; px < x0 + subW && px < imgW; px++) {
+                    const i = (py * imgW + px) * channels;
+                    r += raw[i]; g += raw[i + 1]; b += raw[i + 2]; cnt++;
+                }
+            }
+            if (cnt === 0) continue;
+            r = Math.round(r / cnt);
+            g = Math.round(g / cnt);
+            b = Math.round(b / cnt);
+
+            const biome = classifyBiome(r, g, b);
+            if (biome === 'water') {
+                waterCount++;
+            }
+            votes[biome] = (votes[biome] || 0) + 1;
+        }
+    }
+
+    // Water boost: if enough sub-cells are water, the cell is water
+    const waterRatio = waterCount / totalSubs;
+    if (waterRatio >= WATER_THRESHOLD) {
+        // Decide lake vs river-valley based on how much water
+        if (waterRatio >= 0.6) return 'lake';
+        return 'river-valley';
+    }
+
+    // Otherwise, majority vote (exclude 'water' since it didn't hit threshold)
+    delete votes['water'];
+    let bestBiome = 'grassland', bestCount = 0;
+    for (const [biome, count] of Object.entries(votes)) {
+        if (count > bestCount) {
+            bestCount = count;
+            bestBiome = biome;
+        }
+    }
+    return bestBiome;
 }
 
 // ───── Region name generator ─────
@@ -124,30 +188,22 @@ async function main() {
     const gridMinX = -14, gridMaxX = 15;
     const gridMinY = -14, gridMaxY = 15;
     
-    // Analyze each cell
+    // Analyze each cell using sub-cell majority vote
     const cellBiomes = {};
     const biomeCounts = {};
     
     for (let gy = 0; gy < 30; gy++) {
         for (let gx = 0; gx < 30; gx++) {
-            let r = 0, g = 0, b = 0, count = 0;
-            for (let py = gy * cellH; py < (gy + 1) * cellH && py < meta.height; py++) {
-                for (let px = gx * cellW; px < (gx + 1) * cellW && px < meta.width; px++) {
-                    const idx = (py * meta.width + px) * channels;
-                    r += raw[idx]; g += raw[idx + 1]; b += raw[idx + 2];
-                    count++;
-                }
-            }
-            r = Math.round(r / count);
-            g = Math.round(g / count);
-            b = Math.round(b / count);
+            const cellX0 = gx * cellW;
+            const cellY0 = gy * cellH;
+            
+            const biome = classifyCellByVoting(raw, meta.width, channels, cellX0, cellY0, cellW, cellH, meta.height);
             
             const mapX = gridMinX + gx;
             const mapY = gridMinY + gy;
-            const biome = classifyBiome(r, g, b);
             const mapId = `${mapX}-${mapY}`;
             
-            cellBiomes[mapId] = { biome, r, g, b };
+            cellBiomes[mapId] = { biome };
             biomeCounts[biome] = (biomeCounts[biome] || 0) + 1;
         }
     }
