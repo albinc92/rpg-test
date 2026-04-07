@@ -224,7 +224,7 @@ class RenderSystem {
         }
         
         // Render weather effects in world space (BEFORE restoring camera transform)
-        if (game?.currentMap?.weather && game?.weatherSystem) {
+        if (game?.weatherSystem) {
             game.weatherSystem.render();
         }
         

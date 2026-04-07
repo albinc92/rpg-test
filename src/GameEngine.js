@@ -137,6 +137,9 @@ class GameEngine {
         // Weather system
         this.weatherSystem = new WeatherSystem(this);
         
+        // Biome-driven dynamic weather system (initialized after maps load)
+        this.biomeWeatherSystem = null;
+        
         // Connect weather system to WebGL renderer (if available)
         if (this.renderSystem.webglRenderer) {
             this.weatherSystem.setWebGLRenderer(this.renderSystem.webglRenderer);
@@ -290,6 +293,13 @@ class GameEngine {
             await this.templateManager.initialize();
             
             this.maps = this.mapManager.maps;
+            
+            // Initialize biome-driven dynamic weather after maps are loaded
+            if (typeof BiomeWeatherSystem !== 'undefined') {
+                this.biomeWeatherSystem = new BiomeWeatherSystem(this);
+                this.biomeWeatherSystem.initialize(this.maps);
+                console.log('[GameEngine] ✅ BiomeWeatherSystem initialized');
+            }
             
             // Load paint layers from map data (if any)
             await this.editorManager.importAllPaintLayers(this.mapManager.maps);
@@ -974,7 +984,16 @@ class GameEngine {
         }
         
         // Update weather system if enabled for this map
-        if (this.currentMap.weather && this.weatherSystem) {
+        if (this.weatherSystem) {
+            // Update biome weather system (global clock + region lerps)
+            if (this.biomeWeatherSystem) {
+                this.biomeWeatherSystem.update(deltaTime);
+                
+                // Get effective weather channels for current cell (with border blending)
+                const channels = this.biomeWeatherSystem.getWeatherForCell(this.currentMapId);
+                this.weatherSystem.applyChannels(channels);
+            }
+            
             this.weatherSystem.update(deltaTime);
         }
         
@@ -1298,13 +1317,20 @@ class GameEngine {
             }
             
             let ambienceFilename = null;
-            if (newMapData.ambience) ambienceFilename = newMapData.ambience.split('/').pop();
+            if (this.biomeWeatherSystem) {
+                // Use biome-driven ambience
+                ambienceFilename = this.biomeWeatherSystem.getBiomeAmbience(mapId);
+            } else if (newMapData.ambience) {
+                ambienceFilename = newMapData.ambience.split('/').pop();
+            }
             this.audioManager.playAmbience(ambienceFilename);
             
-            // Weather
-            if (this.weatherSystem) {
+            // Weather — only use static weather if BiomeWeatherSystem is not active
+            if (this.weatherSystem && !this.biomeWeatherSystem) {
                 this.weatherSystem.setWeather(newMapData.weather || null);
             }
+            // When biomeWeatherSystem is active, weather is handled continuously 
+            // in updateGameplay() via applyChannels() — no per-transition call needed
             
             // Spawns
             if (this.spawnManager) {
@@ -1573,9 +1599,11 @@ class GameEngine {
             this.audioManager.playBGM(bgmFilename);
         }
         
-        // Handle Ambience - extract just the filename from the full path
+        // Handle Ambience - use biome-driven ambience when available
         let ambienceFilename = null;
-        if (mapData.ambience) {
+        if (this.biomeWeatherSystem) {
+            ambienceFilename = this.biomeWeatherSystem.getBiomeAmbience(mapId);
+        } else if (mapData.ambience) {
             ambienceFilename = mapData.ambience.split('/').pop(); // Get just the filename like 'forest-0.mp3'
         }
         
@@ -1583,20 +1611,20 @@ class GameEngine {
         this.audioManager.playAmbience(ambienceFilename); // AudioManager handles duplicate detection
         
         // Initialize weather system for this map
-        if (this.weatherSystem) {
+        // Only use static weather if BiomeWeatherSystem is not active
+        if (this.weatherSystem && !this.biomeWeatherSystem) {
             // Check if weather is different to avoid restarting same weather
             const currentPrecip = this.weatherSystem.precipitation;
             const newPrecip = mapData.weather ? mapData.weather.precipitation : 'none';
             
             if (currentPrecip !== newPrecip) {
-                // TODO: Implement smooth weather transition in WeatherSystem
                 this.weatherSystem.setWeather(mapData.weather || null);
             } else {
-                // Even if precipitation is same, update other params like wind/particles
-                // But maybe don't restart the system completely
                 this.weatherSystem.setWeather(mapData.weather || null);
             }
         }
+        // When biomeWeatherSystem is active, weather channels are applied 
+        // continuously in updateGameplay() via applyChannels()
         
         // Initialize spawn system for this map
         if (this.spawnManager) {

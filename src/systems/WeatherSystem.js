@@ -9,6 +9,10 @@ const MAP_TRANSITION_CONFIG = {
 
 /**
  * WeatherSystem - Manages weather effects (precipitation, wind, particles)
+ * 
+ * Supports two modes:
+ *   1. Legacy string-based: setWeather({ precipitation: 'rain-medium', wind: 'light', particles: 'leaf-green' })
+ *   2. Channel-based (from BiomeWeatherSystem): applyChannels({ rain: 0.6, snow: 0, wind: 0.4, fog: 0, cloud: 0.8 })
  */
 class WeatherSystem {
     constructor(game) {
@@ -17,7 +21,7 @@ class WeatherSystem {
         this.ctx = game.ctx;
         this.webglRenderer = null; // Will be set when available
         
-        // Current weather state
+        // Current weather state (legacy string mode)
         this.precipitation = 'none'; // none, dynamic, sun, rain-light, rain-medium, rain-heavy, snow-light, snow-medium, snow-heavy
         this.wind = 'none'; // none, dynamic, light, medium, heavy
         this.particles = 'none'; // none, leaf-green, leaf-orange, leaf-red, leaf-brown, sakura
@@ -80,6 +84,15 @@ class WeatherSystem {
         
         // Track if this is first weather set (no transition on first load)
         this.hasInitialWeather = false;
+        
+        // ─── Channel-based weather state (from BiomeWeatherSystem) ───
+        this.channelMode = false;  // true when driven by BiomeWeatherSystem
+        this.weatherChannels = { rain: 0, snow: 0, wind: 0, fog: 0, cloud: 0 };
+        this.prevWeatherChannels = { rain: 0, snow: 0, wind: 0, fog: 0, cloud: 0 };
+        this._lastAudioTier = { rain: 'none', wind: 'none' };  // track to avoid redundant audio calls
+        
+        // Fog overlay alpha (driven by channel)
+        this.fogAlpha = 0;
     }
     
     /**
@@ -282,6 +295,173 @@ class WeatherSystem {
         }
     }
     
+    // ─── Channel-Based Weather API (from BiomeWeatherSystem) ────────────────
+    
+    /**
+     * Apply weather from continuous 0-1 channel intensities.
+     * Called by GameEngine when BiomeWeatherSystem is active.
+     * Smoothly adjusts particles, lighting, shadows, fog, and audio.
+     * 
+     * @param {{ rain: number, snow: number, wind: number, fog: number, cloud: number }} channels
+     */
+    applyChannels(channels) {
+        this.channelMode = true;
+        this.weatherChannels = { ...channels };
+        
+        // ── Map channels to legacy particle system ──
+        // Determine dominant precipitation type
+        const rain = channels.rain || 0;
+        const snow = channels.snow || 0;
+        const wind = channels.wind || 0;
+        const fog  = channels.fog  || 0;
+        const cloud = channels.cloud || 0;
+        
+        // Determine precipitation string for particle system
+        let newPrecip = 'none';
+        if (rain > 0.05 && rain >= snow) {
+            if (rain < 0.35) newPrecip = 'rain-light';
+            else if (rain < 0.7) newPrecip = 'rain-medium';
+            else newPrecip = 'rain-heavy';
+        } else if (snow > 0.05) {
+            if (snow < 0.35) newPrecip = 'snow-light';
+            else if (snow < 0.7) newPrecip = 'snow-medium';
+            else newPrecip = 'snow-heavy';
+        }
+        
+        // Determine wind string
+        let newWind = 'none';
+        if (wind > 0.05) {
+            if (wind < 0.35) newWind = 'light';
+            else if (wind < 0.7) newWind = 'medium';
+            else newWind = 'heavy';
+        }
+        
+        // ── Smoothly adjust wind strength (continuous, no need for string) ──
+        this.windStrength = wind;
+        
+        // ── Update fog overlay ──
+        this.fogAlpha = fog;
+        
+        // ── Update lighting from channel intensity ──
+        // Cloud cover and precipitation darken the scene
+        const precipIntensity = Math.max(rain, snow);
+        const darkening = Math.max(precipIntensity, cloud * 0.5);
+        
+        this.currentLightingParams.brightness = 1.0 - darkening * 0.5;  // 1.0 → 0.5
+        this.currentLightingParams.saturation = 1.0 - darkening * 0.5;  // 1.0 → 0.5
+        this.currentLightingParams.darknessColor = [
+            1.0 - darkening * 0.24,
+            1.0 - darkening * 0.24,
+            1.0 - darkening * 0.20,
+        ];
+        
+        // ── Update shadow multiplier ──
+        this.shadowMultiplier = 1.0 - precipIntensity * 0.75;   // 1.0 → 0.25
+        
+        // ── Only change particles if type actually changed ──
+        if (newPrecip !== this.precipitation) {
+            const isFirstSet = !this.hasInitialWeather;
+            this.precipitation = newPrecip;
+            this.targetPrecipitation = newPrecip;
+            this.wind = newWind;
+            this.targetWind = newWind;
+            this.particleIntensity = 1.0;
+            this.hasInitialWeather = true;
+            
+            // Reinitialize particles for new type
+            this.initializeParticles();
+            
+            if (!isFirstSet) {
+                console.log(`🌤️ Channel weather → particles: ${newPrecip}, wind: ${newWind}`);
+            }
+        } else {
+            // Just update wind string for consistency
+            this.wind = newWind;
+        }
+        
+        // ── Scale particle count to match continuous intensity ──
+        this._scaleParticlesToIntensity(rain, snow);
+        
+        // ── Update audio tiers ──
+        this._updateAudioFromChannels(rain, snow, wind);
+    }
+    
+    /**
+     * Scale particle pool size to match continuous channel intensity.
+     * E.g. rain=0.45 (rain-medium tier) but fewer particles than rain=0.65 (also medium).
+     */
+    _scaleParticlesToIntensity(rain, snow) {
+        if (rain > 0.05 && rain >= snow) {
+            // Map rain 0-1 to particle count 50-1200
+            const targetCount = Math.floor(50 + rain * 1150);
+            this._adjustParticlePool(this.rainParticles, targetCount, 'rain');
+        }
+        if (snow > 0.05 && snow > rain) {
+            // Map snow 0-1 to particle count 20-400
+            const targetCount = Math.floor(20 + snow * 380);
+            this._adjustParticlePool(this.snowParticles, targetCount, 'snow');
+        }
+    }
+    
+    /**
+     * Grow or shrink a particle pool toward a target count.
+     */
+    _adjustParticlePool(pool, targetCount, type) {
+        const viewport = this.getCameraViewport();
+        const diff = targetCount - pool.length;
+        
+        if (diff > 0) {
+            // Add particles gradually (max 20 per frame to avoid spikes)
+            const toAdd = Math.min(diff, 20);
+            for (let i = 0; i < toAdd; i++) {
+                pool.push(
+                    type === 'rain' 
+                        ? this.createRainParticle(viewport)
+                        : this.createSnowParticle(viewport)
+                );
+            }
+        } else if (diff < -5) {
+            // Remove particles gradually
+            const toRemove = Math.min(-diff, 20);
+            pool.splice(pool.length - toRemove, toRemove);
+        }
+    }
+    
+    /**
+     * Map channel intensities to rain/wind audio tiers.
+     * Only triggers AudioManager calls when the tier actually changes.
+     */
+    _updateAudioFromChannels(rain, snow, wind) {
+        if (!this.game.audioManager) return;
+        
+        // Determine rain audio tier
+        let rainTier = 'none';
+        if (rain > 0.05) {
+            if (rain < 0.35) rainTier = 'rain-light';
+            else if (rain < 0.7) rainTier = 'rain-medium';
+            else rainTier = 'rain-heavy';
+        }
+        
+        // Determine wind audio tier (snow also drives wind audio)
+        let windTier = 'none';
+        const effectiveWind = Math.max(wind, snow * 0.5);  // snow adds some wind
+        if (effectiveWind > 0.05) {
+            if (effectiveWind < 0.35) windTier = 'wind-light';
+            else if (effectiveWind < 0.7) windTier = 'wind-medium';
+            else windTier = 'wind-heavy';
+        }
+        
+        // Only update if tier changed
+        if (rainTier !== this._lastAudioTier.rain) {
+            this._lastAudioTier.rain = rainTier;
+            this.game.audioManager.playWeatherSound(rainTier);
+        }
+        if (windTier !== this._lastAudioTier.wind) {
+            this._lastAudioTier.wind = windTier;
+            this.game.audioManager.playWindSound(windTier);
+        }
+    }
+    
     /**
      * Initialize particle pools based on current settings
      * Now particles are positioned in world space around the camera
@@ -437,6 +617,17 @@ class WeatherSystem {
      */
     update(deltaTime) {
         this.time += deltaTime;
+        
+        // In channel mode, BiomeWeatherSystem drives everything via applyChannels()
+        // We only need to update particles (movement physics) — no string transitions or dynamic rolling
+        if (this.channelMode) {
+            this.updateRainParticles(deltaTime);
+            this.updateSnowParticles(deltaTime);
+            this.updateLeafParticles(deltaTime);
+            return;
+        }
+        
+        // ── Legacy string-based mode below ──
         
         // Update transition
         if (this.isTransitioning) {
@@ -723,6 +914,46 @@ class WeatherSystem {
         if (this.particles !== 'none') {
             this.renderLeaves(useWebGL);
         }
+        
+        // Render fog overlay (screen-space)
+        if (this.fogAlpha > 0.01) {
+            this.renderFog();
+        }
+    }
+    
+    /**
+     * Render fog overlay (screen-space semi-transparent layer)
+     */
+    renderFog() {
+        const ctx = this.ctx;
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+        
+        ctx.save();
+        
+        // Base fog — white-ish translucent overlay
+        const alpha = this.fogAlpha * 0.35; // Max ~35% opacity for heavy fog
+        ctx.fillStyle = `rgba(220, 225, 230, ${alpha})`;
+        ctx.fillRect(0, 0, width, height);
+        
+        // Layered fog wisps for depth
+        if (this.fogAlpha > 0.2) {
+            const wispAlpha = (this.fogAlpha - 0.2) * 0.15;
+            const time = this.time;
+            
+            // Slow-moving gradient wisps
+            for (let i = 0; i < 3; i++) {
+                const yCenter = height * (0.3 + i * 0.25) + Math.sin(time * 0.1 + i * 2) * 40;
+                const gradient = ctx.createLinearGradient(0, yCenter - 80, 0, yCenter + 80);
+                gradient.addColorStop(0, `rgba(200, 210, 220, 0)`);
+                gradient.addColorStop(0.5, `rgba(200, 210, 220, ${wispAlpha})`);
+                gradient.addColorStop(1, `rgba(200, 210, 220, 0)`);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, yCenter - 80, width, 160);
+            }
+        }
+        
+        ctx.restore();
     }
     
     /**
