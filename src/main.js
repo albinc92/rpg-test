@@ -85,6 +85,7 @@ async function loadGameScripts() {
         await loadScript('/src/systems/BattleSystem.js'); // NEW: ATB battle system
         await loadScript('/src/systems/CameraEffects.js'); // NEW: Overworld camera sway + shake
         await loadScript('/src/systems/BattleCamera.js'); // NEW: Dynamic cinematic battle camera
+        await loadScript('/src/systems/MinimapSystem.js'); // NEW: Corner minimap overlay
         
         // Load editor components
         await loadScript('/src/editor/EditorStyles.js'); // NEW: Standardized editor styling

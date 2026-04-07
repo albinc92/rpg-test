@@ -36,6 +36,7 @@ class InputManager {
             'toggleRun': ['KeyR'],  // Toggle always run mode
             'menu': ['Escape', 'Tab', 'KeyM'],
             'inventory': ['KeyI'],
+            'minimap': ['KeyN'],
             
             // UI Navigation
             'confirm': ['Enter', 'Space'],
@@ -569,6 +570,7 @@ class InputManager {
             'run': ['ShiftLeft', 'ShiftRight'],
             'menu': ['Escape', 'Tab', 'KeyM'],
             'inventory': ['KeyI'],
+            'minimap': ['KeyN'],
             
             // UI Navigation
             'confirm': ['Enter', 'Space'],

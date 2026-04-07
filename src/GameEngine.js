@@ -148,6 +148,9 @@ class GameEngine {
         // Camera effects (overworld sway + shake)
         this.cameraEffects = new CameraEffects();
 
+        // Minimap overlay
+        this.minimapSystem = new MinimapSystem(this);
+
         // Perspective system for fake 3D depth effect (Diablo 2 style)
         this.perspectiveSystem = new PerspectiveSystem();
         // Can be toggled: this.perspectiveSystem.setEnabled(true/false)
@@ -1068,6 +1071,11 @@ class GameEngine {
             this.cameraEffects.update(deltaTime);
         }
 
+        // Update minimap animation
+        if (this.minimapSystem) {
+            this.minimapSystem.update(deltaTime);
+        }
+
         // Update camera
         this.updateCamera();
         
@@ -1467,6 +1475,13 @@ class GameEngine {
         if (inputManager.isJustPressed('inventory')) {
             this.stateManager.pushState('INVENTORY');
         }
+
+        // Toggle minimap
+        if (inputManager.isJustPressed('minimap')) {
+            if (this.minimapSystem) {
+                this.minimapSystem.toggle();
+            }
+        }
     }
     
     /**
@@ -1565,6 +1580,11 @@ class GameEngine {
         
         this.currentMapId = mapId;
         this.currentMap = mapData;
+
+        // Mark cell as visited for minimap fog of war
+        if (this.minimapSystem) {
+            this.minimapSystem.markVisited(mapId);
+        }
         
         // Set player position immediately if provided (prevents camera glitching during transition)
         if (spawnPosition && this.player) {
@@ -1729,6 +1749,11 @@ class GameEngine {
         if (this.player && this.hudSystem) {
             // Don't hide HUD in editor mode, it's useful to see
             this.hudSystem.render(ctx, this.player);
+        }
+
+        // Render minimap overlay (only during gameplay, not in editor)
+        if (this.minimapSystem && this.minimapSystem.visible && !this.editorManager?.isActive) {
+            this.minimapSystem.render(ctx);
         }
         
         // Debug info is handled separately and can be toggled with F1

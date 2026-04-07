@@ -83,6 +83,9 @@ class SaveGameManager {
                 // Global game variables (quest progress, NPC dialogue flags, etc.)
                 gameVariables: game.gameVariables ? game.gameVariables.serialize() : {},
                 
+                // Minimap state (visited cells for fog of war)
+                minimap: game.minimapSystem ? game.minimapSystem.serialize() : null,
+                
                 // Settings
                 settings: game.settings
             };
@@ -167,6 +170,12 @@ class SaveGameManager {
             if (saveData.gameVariables && game.gameVariables) {
                 game.gameVariables.deserialize(saveData.gameVariables);
                 console.log('📝 Restored game variables:', Object.keys(saveData.gameVariables).length, 'entries');
+            }
+
+            // Restore minimap state (visited cells)
+            if (saveData.minimap && game.minimapSystem) {
+                game.minimapSystem.deserialize(saveData.minimap);
+                console.log('🗺️ Restored minimap:', game.minimapSystem.visitedCells.size, 'visited cells');
             }
 
             // Restore settings
