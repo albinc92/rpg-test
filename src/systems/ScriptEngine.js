@@ -107,7 +107,8 @@ class ScriptEngine {
             'shop': this.cmdShop.bind(this),  // Open shop interface
             'addgold': this.cmdAddGold.bind(this),  // Shorthand for adding gold
             'delgold': this.cmdDelGold.bind(this),   // Shorthand for removing gold
-            'battle': this.cmdBattle.bind(this)      // Start a battle
+            'battle': this.cmdBattle.bind(this),      // Start a battle
+            'camerashake': this.cmdCameraShake.bind(this)  // Trigger camera shake
         };
     }
     
@@ -1070,6 +1071,33 @@ class ScriptEngine {
             if (this.game.battleSystem.result) {
                 this.game.gameVariables?.set('last_battle_result', this.game.battleSystem.result);
             }
+        }
+    }
+    
+    /**
+     * camerashake intensity, [duration];
+     * 
+     * Triggers a camera shake effect on the overworld camera.
+     * 
+     * Examples:
+     *   camerashake 8;            // Medium shake, default decay
+     *   camerashake 15, 0.5;      // Strong shake lasting ~0.5 seconds
+     *   camerashake 25, 1.5;      // Earthquake for 1.5 seconds
+     */
+    async cmdCameraShake() {
+        const intensity = this.consume()?.value || 8;
+        this.consumeIf('PUNCTUATION', ',');
+        
+        let duration = null;
+        const nextToken = this.peek();
+        if (nextToken && nextToken.type === 'NUMBER') {
+            duration = this.consume()?.value;
+        }
+        
+        console.log(`[ScriptEngine] Camera shake: intensity=${intensity}, duration=${duration || 'default'}`);
+        
+        if (this.game.cameraEffects) {
+            this.game.cameraEffects.triggerShake(intensity, duration);
         }
     }
     

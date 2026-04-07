@@ -145,6 +145,9 @@ class GameEngine {
             this.weatherSystem.setWebGLRenderer(this.renderSystem.webglRenderer);
         }
         
+        // Camera effects (overworld sway + shake)
+        this.cameraEffects = new CameraEffects();
+
         // Perspective system for fake 3D depth effect (Diablo 2 style)
         this.perspectiveSystem = new PerspectiveSystem();
         // Can be toggled: this.perspectiveSystem.setEnabled(true/false)
@@ -1060,6 +1063,11 @@ class GameEngine {
             });
         }
         
+        // Update camera effects (sway + shake)
+        if (this.cameraEffects) {
+            this.cameraEffects.update(deltaTime);
+        }
+
         // Update camera
         this.updateCamera();
         

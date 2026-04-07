@@ -227,6 +227,22 @@ class VisualScriptEditor {
                     script += ';';
                     return script;
                 }
+            },
+            cameraShake: {
+                name: 'Camera Shake',
+                icon: '📳',
+                color: '#e67e22',
+                fields: [
+                    { name: 'intensity', type: 'number', label: 'Intensity (3=subtle, 8=medium, 15=strong, 25=earthquake)', default: 8 },
+                    { name: 'duration', type: 'number', label: 'Duration (seconds, 0=default decay)', default: 0 }
+                ],
+                toScript: (data) => {
+                    const dur = parseFloat(data.duration);
+                    if (dur > 0) {
+                        return `camerashake ${data.intensity}, ${dur};`;
+                    }
+                    return `camerashake ${data.intensity};`;
+                }
             }
         };
     }

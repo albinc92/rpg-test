@@ -205,6 +205,27 @@ class RenderSystem {
         
         this.ctx.translate(-this.camera.x, -this.camera.y);
 
+        // Apply camera effects (sway + shake) if available and not in editor
+        const editorActive = game.editorManager && game.editorManager.isActive;
+        if (game.cameraEffects && !editorActive) {
+            const fx = game.cameraEffects;
+            const offsetX = fx.swayX + fx.shakeX;
+            const offsetY = fx.swayY + fx.shakeY;
+            if (offsetX !== 0 || offsetY !== 0) {
+                this.ctx.translate(-offsetX, -offsetY);
+            }
+            // Also offset WebGL camera
+            if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+                this.webglRenderer.setCamera(
+                    this.camera.x + offsetX,
+                    this.camera.y + offsetY,
+                    this.camera.zoom,
+                    game.CANVAS_WIDTH,
+                    game.CANVAS_HEIGHT
+                );
+            }
+        }
+
         // Render Adjacent Maps (Backgrounds only)
         this.renderAdjacentBackgrounds(adjacentMapsData, map, game);
         
@@ -218,8 +239,7 @@ class RenderSystem {
         restoreAdjacentObjects();
 
         // Render vector zones if debug mode is enabled (but NOT if editor is active - editor renders them itself)
-        const editorIsActive = game.editorManager && game.editorManager.isActive;
-        if (game.settings && game.settings.showDebugInfo && !editorIsActive) {
+        if (game.settings && game.settings.showDebugInfo && !editorActive) {
             this.renderVectorZones(game);
         }
         
