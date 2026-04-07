@@ -177,6 +177,8 @@ class RenderSystem {
             }
             
             this.webglRenderer.beginFrame([0, 0, 0, 0]); // Clear to transparent
+            // Advance shader animation time
+            this.webglRenderer.shaderTime = (this.webglRenderer.shaderTime || 0) + 0.016;
             // Pass canvas dimensions for zoom-around-center support
             this.webglRenderer.setCamera(
                 this.camera.x, 
@@ -359,6 +361,9 @@ class RenderSystem {
                         params.bloomIntensity = (game.settings.bloomIntensity || 0) / 1000; // 100% slider = 0.1 actual
                     }
                     
+                    // Apply biome visual profile overrides (temperature, tint, haze, etc.)
+                    this._applyBiomeOverrides(params, game);
+                    
                     this.webglRenderer.setDayNightParams(params);
                 } else {
                     // Day/night cycle disabled for this map, but weather can still darken
@@ -398,6 +403,8 @@ class RenderSystem {
                         sharpenIntensity: game.settings ? (game.settings.sharpenIntensity || 0) / 1000 : 0,
                         bloomIntensity: game.settings ? (game.settings.bloomIntensity || 0) / 1000 : 0
                     });
+                    // Apply biome overrides on top
+                    this._applyBiomeOverridesToCurrent(game);
                 }
             } else {
                 // No day/night cycle system, but still check for weather darkening
@@ -444,6 +451,8 @@ class RenderSystem {
                     sharpenIntensity: game.settings ? (game.settings.sharpenIntensity || 0) / 1000 : 0,
                     bloomIntensity: game.settings ? (game.settings.bloomIntensity || 0) / 1000 : 0
                 });
+                // Apply biome overrides on top
+                this._applyBiomeOverridesToCurrent(game);
             }
             
             // Update light mask
@@ -1159,5 +1168,59 @@ class RenderSystem {
                 });
             }
         };
+    }
+
+    /**
+     * Apply biome visual profile overrides to a params object (before setDayNightParams).
+     * temperature = additive, saturation = multiplicative, bloom/vignette = additive, haze = direct set, tint = blend.
+     */
+    _applyBiomeOverrides(params, game) {
+        const bfx = game.biomeEffectsSystem;
+        if (!bfx) return;
+        const o = bfx.getShaderOverrides();
+        if (!o) return;
+
+        // Additive temperature
+        params.temperature = (params.temperature || 0) + (o.temperature || 0);
+        // Multiplicative saturation
+        params.saturation = (params.saturation || 1) * (o.saturationMult || 1);
+        // Additive bloom
+        params.bloomIntensity = (params.bloomIntensity || 0) + (o.bloomOffset || 0);
+        // Additive vignette
+        params.vignetteIntensity = (params.vignetteIntensity || 0.5) + (o.vignetteOffset || 0);
+        // Heat haze
+        params.hazeIntensity = o.hazeIntensity || 0;
+        params.hazeSpeed = 1.0;
+
+        // Biome tint blended on top of existing tint
+        if (o.tint && o.tint[3] > 0.001) {
+            const bt = o.tint;
+            if (!params.tint || params.tint[3] < 0.001) {
+                params.tint = [...bt];
+            } else {
+                // Additive alpha blend
+                const existing = params.tint;
+                const totalA = Math.min(1, existing[3] + bt[3]);
+                const w1 = existing[3] / (totalA || 1);
+                const w2 = bt[3] / (totalA || 1);
+                params.tint = [
+                    existing[0] * w1 + bt[0] * w2,
+                    existing[1] * w1 + bt[1] * w2,
+                    existing[2] * w1 + bt[2] * w2,
+                    totalA
+                ];
+            }
+        }
+    }
+
+    /**
+     * Apply biome overrides directly to the current webglRenderer.dayNightParams.
+     * Used when the params were already set via setDayNightParams (no-daynight paths).
+     */
+    _applyBiomeOverridesToCurrent(game) {
+        if (!this.webglRenderer) return;
+        const params = { ...this.webglRenderer.dayNightParams };
+        this._applyBiomeOverrides(params, game);
+        this.webglRenderer.setDayNightParams(params);
     }
 }

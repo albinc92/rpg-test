@@ -86,6 +86,7 @@ async function loadGameScripts() {
         await loadScript('/src/systems/CameraEffects.js'); // NEW: Overworld camera sway + shake
         await loadScript('/src/systems/BattleCamera.js'); // NEW: Dynamic cinematic battle camera
         await loadScript('/src/systems/MinimapSystem.js'); // NEW: Corner minimap overlay
+        await loadScript('/src/systems/BiomeEffectsSystem.js'); // NEW: Biome shader effects + particles
         
         // Load editor components
         await loadScript('/src/editor/EditorStyles.js'); // NEW: Standardized editor styling

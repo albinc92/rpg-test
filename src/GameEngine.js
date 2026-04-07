@@ -151,6 +151,9 @@ class GameEngine {
         // Minimap overlay
         this.minimapSystem = new MinimapSystem(this);
 
+        // Biome visual effects (shader profiles + environmental particles)
+        this.biomeEffectsSystem = new BiomeEffectsSystem(this);
+
         // Perspective system for fake 3D depth effect (Diablo 2 style)
         this.perspectiveSystem = new PerspectiveSystem();
         // Can be toggled: this.perspectiveSystem.setEnabled(true/false)
@@ -1076,6 +1079,11 @@ class GameEngine {
             this.minimapSystem.update(deltaTime);
         }
 
+        // Update biome effects (shader profiles + environmental particles)
+        if (this.biomeEffectsSystem) {
+            this.biomeEffectsSystem.update(deltaTime);
+        }
+
         // Update camera
         this.updateCamera();
         
@@ -1749,6 +1757,11 @@ class GameEngine {
         if (this.player && this.hudSystem) {
             // Don't hide HUD in editor mode, it's useful to see
             this.hudSystem.render(ctx, this.player);
+        }
+
+        // Render biome environmental particles (fireflies, dust, etc.)
+        if (this.biomeEffectsSystem && !this.editorManager?.isActive) {
+            this.biomeEffectsSystem.render(ctx);
         }
 
         // Render minimap overlay (only during gameplay, not in editor)

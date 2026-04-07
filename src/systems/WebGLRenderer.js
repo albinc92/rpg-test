@@ -48,8 +48,11 @@ class WebGLRenderer {
             vignetteIntensity: 0.5, // Default vignette
             aberrationIntensity: 0.5, // Default chromatic aberration
             sharpenIntensity: 0.0, // Default sharpening (0 = off)
-            bloomIntensity: 0.0 // Default bloom (0 = off)
+            bloomIntensity: 0.0, // Default bloom (0 = off)
+            hazeIntensity: 0.0, // Heat haze distortion (0 = off)
+            hazeSpeed: 1.0 // Heat haze animation speed
         };
+        this.shaderTime = 0.0; // Running time for animated shader effects
         
         this.circleTexture = null;
         this.glowTexture = null;
@@ -662,13 +665,25 @@ class WebGLRenderer {
             uniform float u_aberrationIntensity;
             uniform float u_sharpenIntensity;
             uniform float u_bloomIntensity;
+            uniform float u_hazeIntensity;
+            uniform float u_hazeSpeed;
+            uniform float u_time;
             uniform vec2 u_resolution;
             
             varying vec2 v_texCoord;
             
             void main() {
-                // Chromatic Aberration
+                // Heat haze UV distortion (applied early so all effects see distorted image)
                 vec2 uv = v_texCoord;
+                if (u_hazeIntensity > 0.0) {
+                    float hazeWave = sin(uv.y * 60.0 + u_time * u_hazeSpeed * 3.0) * 0.5
+                                   + sin(uv.y * 30.0 - u_time * u_hazeSpeed * 1.7) * 0.3
+                                   + sin(uv.x * 40.0 + u_time * u_hazeSpeed * 2.1) * 0.2;
+                    uv.x += hazeWave * u_hazeIntensity * 0.003;
+                    uv.y += cos(uv.x * 50.0 + u_time * u_hazeSpeed * 2.5) * u_hazeIntensity * 0.001;
+                }
+                
+                // Chromatic Aberration
                 vec2 center = vec2(0.5, 0.5);
                 vec2 dir = uv - center;
                 float dist = length(dir);
@@ -837,6 +852,9 @@ class WebGLRenderer {
             aberrationIntensity: this.gl.getUniformLocation(this.postProcessProgram, 'u_aberrationIntensity'),
             sharpenIntensity: this.gl.getUniformLocation(this.postProcessProgram, 'u_sharpenIntensity'),
             bloomIntensity: this.gl.getUniformLocation(this.postProcessProgram, 'u_bloomIntensity'),
+            hazeIntensity: this.gl.getUniformLocation(this.postProcessProgram, 'u_hazeIntensity'),
+            hazeSpeed: this.gl.getUniformLocation(this.postProcessProgram, 'u_hazeSpeed'),
+            time: this.gl.getUniformLocation(this.postProcessProgram, 'u_time'),
             resolution: this.gl.getUniformLocation(this.postProcessProgram, 'u_resolution')
         };
         
@@ -1509,6 +1527,9 @@ class WebGLRenderer {
         this.gl.uniform1f(this.postProcessProgram.locations.aberrationIntensity, p.aberrationIntensity !== undefined ? p.aberrationIntensity : 0.5);
         this.gl.uniform1f(this.postProcessProgram.locations.sharpenIntensity, p.sharpenIntensity !== undefined ? p.sharpenIntensity : 0.0);
         this.gl.uniform1f(this.postProcessProgram.locations.bloomIntensity, p.bloomIntensity !== undefined ? p.bloomIntensity : 0.0);
+        this.gl.uniform1f(this.postProcessProgram.locations.hazeIntensity, p.hazeIntensity !== undefined ? p.hazeIntensity : 0.0);
+        this.gl.uniform1f(this.postProcessProgram.locations.hazeSpeed, p.hazeSpeed !== undefined ? p.hazeSpeed : 1.0);
+        this.gl.uniform1f(this.postProcessProgram.locations.time, this.shaderTime || 0.0);
         this.gl.uniform2f(this.postProcessProgram.locations.resolution, this.canvas.width, this.canvas.height);
         
         // Set up vertex buffers for post-process quad
