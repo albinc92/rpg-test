@@ -50,6 +50,9 @@ class MinimapSystem {
         // Derived
         this.gridDiameter = this.viewRadius * 2 + 1; // 9
         this.mapSize = this.gridDiameter * this.cellSize; // 144
+        // Cache is 2 cells wider/taller for smooth sub-cell scrolling
+        this.cacheGridDiameter = this.gridDiameter + 2; // 11
+        this.cacheSize = this.cacheGridDiameter * this.cellSize; // 176
 
         // Player dot animation
         this.pulseTimer = 0;
@@ -115,8 +118,8 @@ class MinimapSystem {
     ensureCache() {
         if (!this.cacheCanvas) {
             this.cacheCanvas = document.createElement('canvas');
-            this.cacheCanvas.width = this.mapSize;
-            this.cacheCanvas.height = this.mapSize;
+            this.cacheCanvas.width = this.cacheSize;
+            this.cacheCanvas.height = this.cacheSize;
             this.cacheCtx = this.cacheCanvas.getContext('2d');
         }
     }
@@ -128,15 +131,16 @@ class MinimapSystem {
         this.ensureCache();
         const ctx = this.cacheCtx;
         const cs = this.cellSize;
-        const r = this.viewRadius;
+        const r = this.viewRadius + 1; // +1 extra cell on each side for scrolling
 
         // Clear
-        ctx.clearRect(0, 0, this.mapSize, this.mapSize);
+        ctx.clearRect(0, 0, this.cacheSize, this.cacheSize);
 
         for (let dy = -r; dy <= r; dy++) {
             for (let dx = -r; dx <= r; dx++) {
                 const gx = centerX + dx;
-                const gy = centerY + dy;
+                // Flip Y: negative dy = top of screen = north = higher grid Y
+                const gy = centerY - dy;
                 const mapId = this.buildMapId(gx, gy);
                 const px = (dx + r) * cs;
                 const py = (dy + r) * cs;
@@ -227,28 +231,41 @@ class MinimapSystem {
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        // ── Draw cached tile grid ──
-        const mapX = frameX + this.padding;
-        const mapY = frameY + this.padding;
-        ctx.drawImage(this.cacheCanvas, mapX, mapY);
-
-        // ── Player position dot ──
-        // Player is always at center cell, but offset within cell based on world position
-        const playerCellPx = mapX + r * cs;
-        const playerCellPy = mapY + r * cs;
-
-        // Sub-cell position (player position within the map tile, 0..WORLD_WIDTH → 0..1)
+        // ── Sub-cell position for grid scrolling ──
         let subX = 0.5, subY = 0.5;
         if (this.game.player) {
             subX = this.game.player.x / this.game.WORLD_WIDTH;
-            subY = this.game.player.y / this.game.WORLD_HEIGHT;
-            // Clamp
+            // Flip Y: higher game Y = north = up on minimap
+            subY = 1.0 - (this.game.player.y / this.game.WORLD_HEIGHT);
             subX = Math.max(0, Math.min(1, subX));
             subY = Math.max(0, Math.min(1, subY));
         }
 
-        const dotX = playerCellPx + subX * cs;
-        const dotY = playerCellPy + subY * cs;
+        // ── Draw cached tile grid with sub-cell scrolling ──
+        // Offset grid so player is always at exact center of the minimap.
+        // The cache has 1 extra cell on each side to fill gaps during scrolling.
+        const mapX = frameX + this.padding;
+        const mapY = frameY + this.padding;
+
+        // Sub-cell offset: at subX=0.5 player is cell-center → no shift
+        const scrollOffsetX = -(subX - 0.5) * cs;
+        const scrollOffsetY = -(subY - 0.5) * cs;
+
+        // The cache is 1 cell larger on each side, so its origin is shifted by -1 cell relative to display
+        const cacheDrawX = mapX + scrollOffsetX - cs; // -cs to account for extra cell
+        const cacheDrawY = mapY + scrollOffsetY - cs;
+
+        // Clip to the minimap frame so the extra cache cells don't overflow
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(mapX, mapY, this.mapSize, this.mapSize);
+        ctx.clip();
+        ctx.drawImage(this.cacheCanvas, cacheDrawX, cacheDrawY);
+        ctx.restore();
+
+        // ── Player position dot — always at exact center ──
+        const dotX = mapX + this.mapSize / 2;
+        const dotY = mapY + this.mapSize / 2;
 
         // Pulsing glow
         const pulse = 0.5 + 0.5 * Math.sin(this.pulseTimer * this.pulseSpeed * Math.PI * 2);
@@ -266,10 +283,17 @@ class MinimapSystem {
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
 
-        // ── Current cell highlight border ──
+        // ── Current cell highlight border (scrolls with grid) ──
+        const cellHighlightX = mapX + r * cs + scrollOffsetX;
+        const cellHighlightY = mapY + r * cs + scrollOffsetY;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(mapX, mapY, this.mapSize, this.mapSize);
+        ctx.clip();
         ctx.strokeStyle = `rgba(255, 255, 255, ${0.3 + pulse * 0.2})`;
         ctx.lineWidth = 1.5;
-        ctx.strokeRect(playerCellPx + 0.5, playerCellPy + 0.5, cs - 1, cs - 1);
+        ctx.strokeRect(cellHighlightX + 0.5, cellHighlightY + 0.5, cs - 1, cs - 1);
+        ctx.restore();
 
         // ── Compass labels ──
         ctx.font = 'bold 9px Arial';
