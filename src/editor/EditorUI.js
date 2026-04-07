@@ -674,13 +674,6 @@ class EditorUI {
             mapData.music = value === 'none' ? null : value;
         }));
 
-        // Ambience - normalize path (remove leading slash if present)
-        const ambienceOptions = ['none', 'assets/audio/ambience/forest-0.mp3'];
-        const normalizedAmbience = mapData.ambience ? mapData.ambience.replace(/^\//, '') : 'none';
-        form.appendChild(this.createConfigSelect('Ambience', normalizedAmbience, ambienceOptions, (value) => {
-            mapData.ambience = value === 'none' ? null : value;
-        }));
-
         // Day/Night Cycle
         const dayNightCheckbox = document.createElement('div');
         dayNightCheckbox.style.cssText = `display: flex; align-items: center; gap: ${this.scaledPx(8)};`;
@@ -698,54 +691,6 @@ class EditorUI {
         dayNightCheckbox.appendChild(dayNightInput);
         dayNightCheckbox.appendChild(dayNightLabel);
         form.appendChild(dayNightCheckbox);
-
-        // Weather Section Header
-        const weatherHeader = document.createElement('div');
-        weatherHeader.textContent = '🌤️ Weather Configuration';
-        weatherHeader.style.cssText = 'font-size: 16px; font-weight: bold; color: #4a9eff; margin-top: 20px; margin-bottom: 12px; border-top: 1px solid #444; padding-top: 12px;';
-        form.appendChild(weatherHeader);
-
-        // Initialize weather object if it doesn't exist
-        if (!mapData.weather) {
-            mapData.weather = {
-                precipitation: 'none',
-                wind: 'none',
-                particles: 'none'
-            };
-        }
-
-        // Precipitation
-        const precipitationOptions = [
-            'none',
-            'rain-light',
-            'rain-medium',
-            'rain-heavy',
-            'snow-light',
-            'snow-medium',
-            'snow-heavy'
-        ];
-        form.appendChild(this.createConfigSelect('Precipitation', mapData.weather.precipitation || 'none', precipitationOptions, (value) => {
-            mapData.weather.precipitation = value;
-        }));
-
-        // Wind
-        const windOptions = ['none', 'light', 'medium', 'heavy'];
-        form.appendChild(this.createConfigSelect('Wind', mapData.weather.wind || 'none', windOptions, (value) => {
-            mapData.weather.wind = value;
-        }));
-
-        // Falling Particles
-        const particleOptions = [
-            'none',
-            'leaf-green',
-            'leaf-orange',
-            'leaf-red',
-            'leaf-brown',
-            'sakura'
-        ];
-        form.appendChild(this.createConfigSelect('Falling Particles', mapData.weather.particles || 'none', particleOptions, (value) => {
-            mapData.weather.particles = value;
-        }));
 
         // Spawn Configuration Section
         const spawnHeader = document.createElement('div');
@@ -958,44 +903,15 @@ class EditorUI {
         spawnTableContainer.appendChild(addEntryForm);
         form.appendChild(spawnTableContainer);
 
-        // Adjacent Maps Section Header
-        const adjacentHeader = document.createElement('div');
-        adjacentHeader.textContent = '🔗 Adjacent Maps (Zelda-style Transition)';
-        adjacentHeader.style.cssText = 'font-size: 16px; font-weight: bold; color: #4a9eff; margin-top: 20px; margin-bottom: 12px; border-top: 1px solid #444; padding-top: 12px;';
-        form.appendChild(adjacentHeader);
-
-        // Initialize adjacentMaps object if it doesn't exist
-        if (!mapData.adjacentMaps) {
-            mapData.adjacentMaps = {
-                north: null,
-                south: null,
-                east: null,
-                west: null
-            };
-        }
-
-        // Get all map IDs for dropdowns
-        const allMapIds = Object.keys(this.editor.game.mapManager.maps);
-        const mapOptions = ['none', ...allMapIds];
-
-        // Helper to create map selector
-        const createMapSelector = (direction, label) => {
-            const currentValue = mapData.adjacentMaps[direction] || 'none';
-            return this.createConfigSelect(label, currentValue, mapOptions, (value) => {
-                mapData.adjacentMaps[direction] = value === 'none' ? null : value;
-            });
-        };
-
-        form.appendChild(createMapSelector('north', '⬆️ North Map'));
-        form.appendChild(createMapSelector('south', '⬇️ South Map'));
-        form.appendChild(createMapSelector('east', '➡️ East Map'));
-        form.appendChild(createMapSelector('west', '⬅️ West Map'));
-
         // Battle Map Section
         const battleHeader = document.createElement('div');
         battleHeader.textContent = '⚔️ Battle Settings';
         battleHeader.style.cssText = 'font-size: 16px; font-weight: bold; color: #ff6b6b; margin-top: 20px; margin-bottom: 12px; border-top: 1px solid #444; padding-top: 12px;';
         form.appendChild(battleHeader);
+
+        // Get all map IDs for dropdowns
+        const allMapIds = Object.keys(this.editor.game.mapManager.maps);
+        const mapOptions = ['none', ...allMapIds];
 
         // Battle map selector - which map to use as battle background
         const battleMapValue = mapData.battleMap || 'none';
@@ -1030,20 +946,10 @@ class EditorUI {
             font-size: 14px;
         `;
         saveBtn.onclick = () => {
-            // Reinitialize weather system with new settings
-            if (this.editor.game.weatherSystem) {
-                this.editor.game.weatherSystem.setWeather(mapData.weather || null);
-            }
-            
             // Reinitialize spawn system with new spawn configuration
             if (this.editor.game.spawnManager) {
                 console.log('[EditorUI] Reinitializing spawn system with new configuration');
                 this.editor.game.spawnManager.refreshMap(this.editor.game.currentMapId);
-            }
-            
-            // Reload adjacent maps to ensure they are visible immediately
-            if (this.editor.game.loadAdjacentMaps) {
-                this.editor.game.loadAdjacentMaps();
             }
 
             this.showNotification('✅ Map configuration saved!');
@@ -1184,8 +1090,7 @@ class EditorUI {
             mapDetails.style.cssText = 'font-size: 12px; color: #aaa;';
             mapDetails.innerHTML = `
                 ID: <code style="color: #4a9eff">${mapId}</code> | 
-                Music: ${mapData.music ? '🎵' : '🔇'} | 
-                Ambience: ${mapData.ambience ? '🌊' : '-'}
+                Music: ${mapData.music ? '🎵' : '🔇'}
             `;
 
             info.appendChild(mapName);
@@ -1371,13 +1276,7 @@ class EditorUI {
             imageSrc: 'assets/maps/',
             scale: 3.0,
             music: null,
-            ambience: null,
-            dayNightCycle: false,
-            weather: {
-                precipitation: 'none',
-                wind: 'none',
-                particles: 'none'
-            }
+            dayNightCycle: false
         };
 
         // Create form
@@ -1410,12 +1309,6 @@ class EditorUI {
             formData.music = value === 'none' ? null : value;
         }));
 
-        // Ambience
-        const ambienceOptions = ['none', 'assets/audio/ambience/forest-0.mp3'];
-        form.appendChild(this.createConfigSelect('Ambience', 'none', ambienceOptions, (value) => {
-            formData.ambience = value === 'none' ? null : value;
-        }));
-
         // Day/Night Cycle checkbox
         const checkboxContainer = document.createElement('div');
         checkboxContainer.style.cssText = 'display: flex; align-items: center; gap: 8px;';
@@ -1436,45 +1329,6 @@ class EditorUI {
         checkboxContainer.appendChild(checkbox);
         checkboxContainer.appendChild(checkboxLabel);
         form.appendChild(checkboxContainer);
-
-        // Weather Section Header
-        const weatherHeader = document.createElement('div');
-        weatherHeader.textContent = '🌤️ Weather Configuration';
-        weatherHeader.style.cssText = 'font-size: 16px; font-weight: bold; color: #4a9eff; margin-top: 20px; margin-bottom: 12px; border-top: 1px solid #444; padding-top: 12px;';
-        form.appendChild(weatherHeader);
-
-        // Precipitation
-        const precipitationOptions = [
-            'none',
-            'rain-light',
-            'rain-medium',
-            'rain-heavy',
-            'snow-light',
-            'snow-medium',
-            'snow-heavy'
-        ];
-        form.appendChild(this.createConfigSelect('Precipitation', 'none', precipitationOptions, (value) => {
-            formData.weather.precipitation = value;
-        }));
-
-        // Wind
-        const windOptions = ['none', 'light', 'medium', 'heavy'];
-        form.appendChild(this.createConfigSelect('Wind', 'none', windOptions, (value) => {
-            formData.weather.wind = value;
-        }));
-
-        // Falling Particles
-        const particleOptions = [
-            'none',
-            'leaf-green',
-            'leaf-orange',
-            'leaf-red',
-            'leaf-brown',
-            'sakura'
-        ];
-        form.appendChild(this.createConfigSelect('Falling Particles', 'none', particleOptions, (value) => {
-            formData.weather.particles = value;
-        }));
 
         modal.appendChild(form);
 
@@ -1514,9 +1368,7 @@ class EditorUI {
                 imageSrc: formData.imageSrc,
                 scale: formData.scale,
                 music: formData.music,
-                ambience: formData.ambience,
-                dayNightCycle: formData.dayNightCycle,
-                weather: formData.weather
+                dayNightCycle: formData.dayNightCycle
             };
 
             this.showNotification(`✅ Map "${formData.name}" created!`);

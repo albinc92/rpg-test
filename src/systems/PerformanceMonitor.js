@@ -80,7 +80,7 @@ class PerformanceMonitor {
         }
 
         // Full Debug Info Panel (includes FPS)
-        const panelWidth = s(280);
+        const panelWidth = s(320);
         const lineHeight = s(16);
         const padding = s(12);
         
@@ -88,6 +88,9 @@ class PerformanceMonitor {
         let contentLines = 6; // FPS, Min/Max, State, Map, Player, Collision
         if (window.game?.dayNightCycle && window.game?.currentMap?.dayNightCycle) {
             contentLines += 6; // Title, Time, Speed, Shader, hint1, hint2
+        }
+        if (window.game?.biomeWeatherSystem?._initialized) {
+            contentLines += 6; // Title, Region, Biome, Channels, Channels2, Reroll timer
         }
         contentLines += 1; // F1 hint
         
@@ -173,6 +176,42 @@ class PerformanceMonitor {
             ctx.fillText('Shift+F6: Dawn  Shift+F7: Noon  Shift+F8: Dusk  Shift+F9: Night', s(20), y);
             y += s(14);
             ctx.fillText('F6: Speed +10x  F7: Speed -10x', s(20), y);
+            y += lineHeight;
+        }
+        
+        // Dynamic Weather info (if BiomeWeatherSystem is active)
+        if (window.game?.biomeWeatherSystem?._initialized) {
+            const bws = window.game.biomeWeatherSystem;
+            const mapId = currentMapId;
+            
+            y += s(4); // Extra spacing
+            ctx.fillStyle = '#ffaa00';
+            ctx.font = `${s(14)}px Courier New, monospace`;
+            ctx.fillText('─── Dynamic Weather ───', s(20), y);
+            y += lineHeight;
+            
+            const region = bws.cellRegion.get(mapId) || '—';
+            const biome = bws.cellBiome.get(mapId) || '—';
+            
+            ctx.fillStyle = '#00ff00';
+            ctx.fillText(`Region: ${region}`, s(20), y);
+            y += lineHeight;
+            ctx.fillText(`Biome: ${biome}`, s(20), y);
+            y += lineHeight;
+            
+            // Weather channels
+            const ch = bws.getWeatherForCell(mapId);
+            ctx.fillText(`Rain:${ch.rain.toFixed(2)} Snow:${ch.snow.toFixed(2)} Wind:${ch.wind.toFixed(2)}`, s(20), y);
+            y += lineHeight;
+            ctx.fillText(`Fog:${ch.fog.toFixed(2)}  Cloud:${ch.cloud.toFixed(2)}`, s(20), y);
+            y += lineHeight;
+            
+            // Reroll timer
+            const remaining = Math.max(0, bws.nextRollInterval - bws.timeSinceLastRoll);
+            const mins = Math.floor(remaining / 60);
+            const secs = Math.floor(remaining % 60);
+            ctx.fillStyle = '#888888';
+            ctx.fillText(`Next reroll: ${mins}m ${secs.toString().padStart(2, '0')}s`, s(20), y);
             y += lineHeight;
         }
         
