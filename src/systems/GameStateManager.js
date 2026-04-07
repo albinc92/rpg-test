@@ -3940,9 +3940,11 @@ class DialogueState extends GameState {
                 topWorldY = correctedBaseY - scaledSpriteHeight;
             }
             
-            // Convert to screen coordinates
-            bubbleX = (topWorldX - camera.x) * zoom + canvasWidth / 2 * (1 - zoom);
-            bubbleY = (topWorldY - camera.y) * zoom + canvasHeight / 2 * (1 - zoom);
+            // Convert to screen coordinates (include camera effects offset)
+            const fxOffX = this.game.cameraEffects ? (this.game.cameraEffects.swayX + this.game.cameraEffects.shakeX) : 0;
+            const fxOffY = this.game.cameraEffects ? (this.game.cameraEffects.swayY + this.game.cameraEffects.shakeY) : 0;
+            bubbleX = (topWorldX - camera.x - fxOffX) * zoom + canvasWidth / 2 * (1 - zoom);
+            bubbleY = (topWorldY - camera.y - fxOffY) * zoom + canvasHeight / 2 * (1 - zoom);
             
             // Position bubble above sprite top
             bubbleY -= 20;

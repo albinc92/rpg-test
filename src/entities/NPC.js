@@ -194,9 +194,11 @@ class NPC extends Actor {
             topWorldY = correctedBaseY - scaledSpriteHeight;
         }
         
-        // Convert to screen coordinates
-        const screenX = (topWorldX - camera.x) * zoom + canvasWidth / 2 * (1 - zoom);
-        const screenY = (topWorldY - camera.y) * zoom + canvasHeight / 2 * (1 - zoom);
+        // Convert to screen coordinates (include camera effects offset so bubble tracks world)
+        const fxOffX = game.cameraEffects ? (game.cameraEffects.swayX + game.cameraEffects.shakeX) : 0;
+        const fxOffY = game.cameraEffects ? (game.cameraEffects.swayY + game.cameraEffects.shakeY) : 0;
+        const screenX = (topWorldX - camera.x - fxOffX) * zoom + canvasWidth / 2 * (1 - zoom);
+        const screenY = (topWorldY - camera.y - fxOffY) * zoom + canvasHeight / 2 * (1 - zoom);
         
         // Position bubble above sprite top
         const bubbleY = screenY - 30;
