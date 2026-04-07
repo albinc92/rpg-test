@@ -44,7 +44,11 @@ class InputManager {
             'up': ['ArrowUp', 'KeyW'],
             'down': ['ArrowDown', 'KeyS'],
             'left': ['ArrowLeft', 'KeyA'],
-            'right': ['ArrowRight', 'KeyD']
+            'right': ['ArrowRight', 'KeyD'],
+            
+            // Map zoom
+            'zoomIn': ['Equal', 'NumpadAdd'],
+            'zoomOut': ['Minus', 'NumpadSubtract']
         };
         
         // Button mapping for mobile/gamepad (maps virtual buttons to actions)
@@ -70,6 +74,8 @@ class InputManager {
             1: ['cancel', 'run'],       // B / Circle
             2: ['delete'],              // X / Square
             3: ['inventory'],           // Y / Triangle
+            4: ['zoomOut'],             // LB / L1
+            5: ['zoomIn'],              // RB / R1
             8: ['menu'],                // Select / Share
             9: ['menu'],                // Start / Options
             12: ['up', 'moveUp'],       // D-Pad Up
@@ -571,7 +577,11 @@ class InputManager {
             'up': ['ArrowUp', 'KeyW'],
             'down': ['ArrowDown', 'KeyS'],
             'left': ['ArrowLeft', 'KeyA'],
-            'right': ['ArrowRight', 'KeyD']
+            'right': ['ArrowRight', 'KeyD'],
+            
+            // Map zoom
+            'zoomIn': ['Equal', 'NumpadAdd'],
+            'zoomOut': ['Minus', 'NumpadSubtract']
         };
         console.log('[InputManager] Key bindings reset to defaults');
     }

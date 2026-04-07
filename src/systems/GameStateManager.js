@@ -20,6 +20,7 @@ class GameStateManager {
             'PAUSED': new PausedState(this),
             'SAVE_LOAD': new SaveLoadState(this),
             'INVENTORY': new InventoryState(this),
+            'WORLD_MAP': new WorldMapState(this),
             'DIALOGUE': new DialogueState(this),
             'SHOP': new ShopState(this),
             'LOOT_WINDOW': new LootWindowState(this),
@@ -3047,31 +3048,35 @@ class SettingsState extends GameState {
 }
 
 /**
- * Inventory State
+ * Inventory State - Menu shell with Map / Pack / Gourd tabs
  */
 class InventoryState extends GameState {
     enter() {
         this.selectedOption = 0;
-        this.scrollOffset = 0;
-        this.maxVisibleItems = 8;
-        this.inputCooldown = 0.2; // Add cooldown to prevent immediate closing
-        
-        // Get items from inventory manager
-        this.items = this.game.inventoryManager.getAllSlots();
-        
+        this.inputCooldown = 0.2;
+        this.options = ['Map', 'Pack', 'Gourd'];
+        this.placeholderMessage = null;
+        this.placeholderTimer = 0;
+
         // Show touch controls if on mobile
         if (this.game.touchControlsUI) {
             this.game.touchControlsUI.show();
             this.game.touchControlsUI.updateButtonLabels('menu');
         }
     }
-    
+
     update(deltaTime) {
         if (this.inputCooldown > 0) {
             this.inputCooldown -= deltaTime;
         }
+        if (this.placeholderTimer > 0) {
+            this.placeholderTimer -= deltaTime;
+            if (this.placeholderTimer <= 0) {
+                this.placeholderMessage = null;
+            }
+        }
     }
-    
+
     handleInput(inputManager) {
         if (this.inputCooldown > 0) return;
 
@@ -3080,197 +3085,388 @@ class InventoryState extends GameState {
             this.stateManager.popState();
             return;
         }
-        
-        if (this.items.length === 0) return;
-        
+
         if (inputManager.isJustPressed('up')) {
             this.selectedOption = Math.max(0, this.selectedOption - 1);
-            this.updateScrollOffset();
             this.game.audioManager?.playEffect('menu-navigation.mp3');
         }
-        
+
         if (inputManager.isJustPressed('down')) {
-            this.selectedOption = Math.min(this.items.length - 1, this.selectedOption + 1);
-            this.updateScrollOffset();
+            this.selectedOption = Math.min(this.options.length - 1, this.selectedOption + 1);
             this.game.audioManager?.playEffect('menu-navigation.mp3');
         }
-        
+
         if (inputManager.isJustPressed('confirm')) {
             this.game.audioManager?.playEffect('click.mp3');
-            this.useItem();
+            this.selectOption();
         }
     }
-    
-    updateScrollOffset() {
-        if (this.items.length > this.maxVisibleItems) {
-            if (this.selectedOption < this.scrollOffset) {
-                this.scrollOffset = this.selectedOption;
-            } else if (this.selectedOption >= this.scrollOffset + this.maxVisibleItems) {
-                this.scrollOffset = this.selectedOption - this.maxVisibleItems + 1;
-            }
+
+    selectOption() {
+        switch (this.selectedOption) {
+            case 0: // Map
+                this.stateManager.pushState('WORLD_MAP');
+                break;
+            case 1: // Pack
+                this.placeholderMessage = 'Pack — Coming Soon';
+                this.placeholderTimer = 2.0;
+                break;
+            case 2: // Gourd
+                this.placeholderMessage = 'Gourd — Coming Soon';
+                this.placeholderTimer = 2.0;
+                break;
         }
     }
-    
-    useItem() {
-        const item = this.items[this.selectedOption];
-        if (item) {
-            // Use item via inventory manager
-            const used = this.game.inventoryManager.useItem(this.selectedOption, this.game.player);
-            if (used) {
-                this.game.audioManager?.playEffect('powerup.mp3'); // Placeholder sound
-                // Refresh list
-                this.items = this.game.inventoryManager.getAllSlots();
-                // Adjust selection if list shrank
-                if (this.selectedOption >= this.items.length) {
-                    this.selectedOption = Math.max(0, this.items.length - 1);
-                }
-            } else {
-                this.game.audioManager?.playEffect('error.mp3'); // Placeholder sound
-            }
-        }
-    }
-    
+
     render(ctx) {
         const canvasWidth = this.game.CANVAS_WIDTH;
         const canvasHeight = this.game.CANVAS_HEIGHT;
         const menuRenderer = this.stateManager.menuRenderer;
-        
-        // Render game world behind inventory (PLAYING is on stack)
+
+        // Render game world behind
         if (this.stateManager.isStateInStack('PLAYING')) {
             this.game.renderGameplay(ctx);
         }
-        
+
         // Draw overlay
         menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.85);
-        
-        // Draw title (localized)
-        menuRenderer.drawTitle(ctx, this.game.t('gameplay.inventory.title'), canvasWidth, canvasHeight, 0.15);
-        
-        if (this.items.length === 0) {
-            menuRenderer.drawInstruction(ctx, this.game.t('gameplay.inventory.empty'), canvasWidth, canvasHeight, 0.5);
-            menuRenderer.drawHint(ctx, this.game.t('hints.pressEscToClose'), canvasWidth, canvasHeight);
-            return;
-        }
-        
-        // Draw item list (Left side)
-        const listX = canvasWidth * 0.1;
-        const listY = canvasHeight * 0.25;
-        const listWidth = canvasWidth * 0.4;
-        const listHeight = canvasHeight * 0.6;
-        
-        // Draw item details (Right side)
-        const detailsX = canvasWidth * 0.55;
-        const detailsY = listY;
-        const detailsWidth = canvasWidth * 0.35;
-        const detailsHeight = listHeight;
-        
-        // Draw list background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.fillRect(listX, listY, listWidth, listHeight);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.strokeRect(listX, listY, listWidth, listHeight);
-        
-        // Draw items
-        const visibleItems = this.items.slice(this.scrollOffset, this.scrollOffset + this.maxVisibleItems);
-        const itemHeight = listHeight / this.maxVisibleItems;
-        
-        visibleItems.forEach((item, index) => {
-            const actualIndex = this.scrollOffset + index;
-            const isSelected = actualIndex === this.selectedOption;
-            const y = listY + index * itemHeight;
-            
-            if (isSelected) {
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-                ctx.fillRect(listX, y, listWidth, itemHeight);
-            }
-            
-            // Use rarity color for item name
-            const ds = this.stateManager.designSystem;
-            ctx.fillStyle = ds ? ds.colors.getRarityColor(item.rarity) : '#ffffff';
-            
-            ctx.font = '20px "Lato", sans-serif';
-            ctx.textAlign = 'left';
-                       ctx.textBaseline = 'middle';
-            ctx.fillText(item.name, listX + 20, y + itemHeight / 2);
-            
-            // Quantity
-            if (item.quantity > 1) {
-                ctx.textAlign = 'right';
-                ctx.fillText(`x${item.quantity}`, listX + listWidth - 20, y + itemHeight / 2);
-            }
-        });
-        
-        // Draw details of selected item
-        const selectedItem = this.items[this.selectedOption];
-        if (selectedItem) {
-            // Details background
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-            ctx.fillRect(detailsX, detailsY, detailsWidth, detailsHeight);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-            ctx.strokeRect(detailsX, detailsY, detailsWidth, detailsHeight);
-            
-            // Item Name
-            ctx.fillStyle = '#ffff00';
-            ctx.font = 'bold 28px "Cinzel", serif';
+
+        // Draw title
+        menuRenderer.drawTitle(ctx, 'Inventory', canvasWidth, canvasHeight, 0.20);
+
+        // Draw menu options (Map / Pack / Gourd)
+        menuRenderer.drawMenuOptions(ctx, this.options, this.selectedOption, canvasWidth, canvasHeight, 0.42, 0.10);
+
+        // Draw placeholder toast if active
+        if (this.placeholderMessage) {
+            ctx.save();
             ctx.textAlign = 'center';
-            ctx.fillText(selectedItem.name, detailsX + detailsWidth / 2, detailsY + 50);
-            
-            // Item Type/Rarity
-            const ds = this.stateManager.designSystem;
-            ctx.fillStyle = ds ? ds.colors.getRarityColor(selectedItem.rarity) : '#aaa';
-            ctx.font = 'italic 18px "Lato", sans-serif';
-            const rarityText = (selectedItem.rarity || 'common').charAt(0).toUpperCase() + (selectedItem.rarity || 'common').slice(1);
-            const typeText = (selectedItem.type || 'item').toLowerCase();
-            ctx.fillText(`${rarityText} ${typeText}`, detailsX + detailsWidth / 2, detailsY + 80);
-            
-            // Description (wrapped)
-            ctx.fillStyle = '#fff';
-            ctx.font = '20px "Lato", sans-serif';
-            this.wrapText(ctx, selectedItem.description, detailsX + detailsWidth / 2, detailsY + 140, detailsWidth - 40, 30);
-            
-            // Use hint
-            if (selectedItem.type === 'consumable') {
-                ctx.fillStyle = '#0f0';
-                ctx.font = 'bold 20px "Lato", sans-serif';
-                ctx.fillText('Press ENTER to use', detailsX + detailsWidth / 2, detailsY + detailsHeight - 40);
-            }
+            ctx.textBaseline = 'middle';
+            ctx.font = '22px "Lato", sans-serif';
+            const alpha = Math.min(1, this.placeholderTimer / 0.3); // fade out
+            ctx.fillStyle = `rgba(255, 200, 60, ${alpha})`;
+            ctx.fillText(this.placeholderMessage, canvasWidth / 2, canvasHeight * 0.78);
+            ctx.restore();
         }
-        
-        // Scroll indicators
-        menuRenderer.drawScrollIndicators(
-            ctx, 
-            canvasWidth, 
-            canvasHeight, 
-            this.scrollOffset > 0,
-            this.scrollOffset + this.maxVisibleItems < this.items.length,
-            listY,
-            listHeight
-        );
-        
+
         // Controls hint
-        const hintText = this.game.inputManager.isMobile ? 'A: Use | B: Close' : 'Enter: Use | ESC: Close';
+        const hintText = this.game.inputManager?.isMobile
+            ? 'A: Select | B: Close'
+            : 'Enter: Select | ESC: Close';
         menuRenderer.drawHint(ctx, hintText, canvasWidth, canvasHeight);
     }
-    
-    wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-        const words = text.split(' ');
-        let line = '';
-        let currentY = y;
-        
-        for (let n = 0; n < words.length; n++) {
-            const testLine = line + words[n] + ' ';
-            const metrics = ctx.measureText(testLine);
-            const testWidth = metrics.width;
-            
-            if (testWidth > maxWidth && n > 0) {
-                ctx.fillText(line, x, currentY);
-                line = words[n] + ' ';
-                currentY += lineHeight;
-            } else {
-                line = testLine;
+}
+
+/**
+ * World Map State - Full-screen interactive grid map
+ * Shows the 30×30 world grid with biome colors and player position
+ */
+class WorldMapState extends GameState {
+    // Biome colour palette
+    static BIOME_COLORS = {
+        'village':        '#A0805A',
+        'grassland':      '#7CCD7C',
+        'woodland':       '#3CB371',
+        'dense-forest':   '#1E6B1E',
+        'meadow':         '#A8E6A0',
+        'plains':         '#C8B560',
+        'desert':         '#E0C890',
+        'arid-desert':    '#C8A860',
+        'oasis':          '#40B0A0',
+        'mountain':       '#9E9E9E',
+        'high-mountain':  '#787878',
+        'volcanic':       '#C03030',
+        'snow':           '#E8F0F8',
+        'tundra':         '#A0B8D0',
+        'frozen-peak':    '#D0E8F0',
+        'tropical':       '#50C050',
+        'jungle':         '#207820',
+        'swamp':          '#556B2F',
+        'coast':          '#70B8E0',
+        'lake':           '#4070C0',
+        'river-valley':   '#508888'
+    };
+
+    enter() {
+        this.inputCooldown = 0.15;
+
+        // Grid range (matches generate_world.cjs: x -14..15, y -14..15)
+        this.gridMinX = -14;
+        this.gridMaxX = 15;
+        this.gridMinY = -14;
+        this.gridMaxY = 15;
+        this.gridCols = this.gridMaxX - this.gridMinX + 1; // 30
+        this.gridRows = this.gridMaxY - this.gridMinY + 1; // 30
+
+        // Parse player position from currentMapId (e.g. "3--5" → x=3, y=-5)
+        this.playerGridX = 0;
+        this.playerGridY = 0;
+        this._parsePlayerPosition();
+
+        // Camera offset (in grid-cell units, fractional allowed)
+        this.camX = this.playerGridX;
+        this.camY = this.playerGridY;
+
+        // Zoom (cells visible across the smallest canvas dimension)
+        this.zoom = 18;       // default: show 18 cells across
+        this.minZoom = 6;
+        this.maxZoom = 30;
+
+        // Build cell lookup  { "x-y": biome }
+        this.cellData = {};
+        this._buildCellData();
+
+        // Animation
+        this.pulseTime = 0;
+
+        // Show touch controls if on mobile
+        if (this.game.touchControlsUI) {
+            this.game.touchControlsUI.updateButtonLabels('menu');
+        }
+    }
+
+    /* ------- helpers ------- */
+
+    _parsePlayerPosition() {
+        const mapId = this.game.currentMapId || '0-0';
+        // Map IDs like "5-3", "-2-7", "-3--4"
+        const match = mapId.match(/^(-?\d+)-(-?\d+)$/);
+        if (match) {
+            this.playerGridX = parseInt(match[1], 10);
+            this.playerGridY = parseInt(match[2], 10);
+        }
+    }
+
+    _buildCellData() {
+        const mapManager = this.game.mapManager;
+        if (!mapManager) return;
+        for (let y = this.gridMinY; y <= this.gridMaxY; y++) {
+            for (let x = this.gridMinX; x <= this.gridMaxX; x++) {
+                const id = `${x}-${y}`;
+                const data = mapManager.getMapData(id);
+                if (data) {
+                    this.cellData[id] = {
+                        biome: data.biome || 'grassland',
+                        name: data.name || id,
+                        weather: data.weather || null
+                    };
+                }
             }
         }
-        ctx.fillText(line, x, currentY);
+    }
+
+    _biomeColor(biome) {
+        return WorldMapState.BIOME_COLORS[biome] || '#555555';
+    }
+
+    /* ------- update / input ------- */
+
+    update(deltaTime) {
+        if (this.inputCooldown > 0) this.inputCooldown -= deltaTime;
+        this.pulseTime += deltaTime;
+    }
+
+    handleInput(inputManager) {
+        if (this.inputCooldown > 0) return;
+
+        // Close map
+        if (inputManager.isJustPressed('cancel') || inputManager.isJustPressed('inventory') || inputManager.isJustPressed('menu')) {
+            this.game.audioManager?.playEffect('cancel.mp3');
+            this.stateManager.popState();
+            return;
+        }
+
+        // Pan camera
+        if (inputManager.isJustPressed('up'))    this.camY -= 1;
+        if (inputManager.isJustPressed('down'))  this.camY += 1;
+        if (inputManager.isJustPressed('left'))  this.camX -= 1;
+        if (inputManager.isJustPressed('right')) this.camX += 1;
+
+        // Clamp camera to grid bounds
+        this.camX = Math.max(this.gridMinX, Math.min(this.gridMaxX, this.camX));
+        this.camY = Math.max(this.gridMinY, Math.min(this.gridMaxY, this.camY));
+
+        // Zoom in/out (keyboard +/- or shoulder buttons)
+        if (inputManager.isJustPressed('zoomIn') || inputManager.isJustPressed('shoulderRight')) {
+            this.zoom = Math.max(this.minZoom, this.zoom - 2);
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        }
+        if (inputManager.isJustPressed('zoomOut') || inputManager.isJustPressed('shoulderLeft')) {
+            this.zoom = Math.min(this.maxZoom, this.zoom + 2);
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        }
+
+        // Recenter on player with confirm
+        if (inputManager.isJustPressed('confirm')) {
+            this.camX = this.playerGridX;
+            this.camY = this.playerGridY;
+            this.game.audioManager?.playEffect('click.mp3');
+        }
+    }
+
+    /* ------- render ------- */
+
+    render(ctx) {
+        const W = this.game.CANVAS_WIDTH;
+        const H = this.game.CANVAS_HEIGHT;
+        const menuRenderer = this.stateManager.menuRenderer;
+
+        // Render gameplay behind
+        if (this.stateManager.isStateInStack('PLAYING')) {
+            this.game.renderGameplay(ctx);
+        }
+
+        // Dark overlay
+        menuRenderer.drawOverlay(ctx, W, H, 0.92);
+
+        ctx.save();
+
+        // Compute cell size so that `this.zoom` cells fit the smaller axis
+        const mapAreaX = W * 0.05;
+        const mapAreaY = H * 0.08;
+        const mapAreaW = W * 0.90;
+        const mapAreaH = H * 0.80;
+        const cellSize = Math.min(mapAreaW, mapAreaH) / this.zoom;
+
+        // Center of drawing area
+        const centerX = mapAreaX + mapAreaW / 2;
+        const centerY = mapAreaY + mapAreaH / 2;
+
+        // Clip to map area
+        ctx.beginPath();
+        ctx.rect(mapAreaX, mapAreaY, mapAreaW, mapAreaH);
+        ctx.clip();
+
+        // Draw cells
+        for (let gy = this.gridMinY; gy <= this.gridMaxY; gy++) {
+            for (let gx = this.gridMinX; gx <= this.gridMaxX; gx++) {
+                const screenX = centerX + (gx - this.camX) * cellSize - cellSize / 2;
+                const screenY = centerY + (gy - this.camY) * cellSize - cellSize / 2;
+
+                // Frustum cull
+                if (screenX + cellSize < mapAreaX || screenX > mapAreaX + mapAreaW) continue;
+                if (screenY + cellSize < mapAreaY || screenY > mapAreaY + mapAreaH) continue;
+
+                const id = `${gx}-${gy}`;
+                const cell = this.cellData[id];
+                const biome = cell ? cell.biome : null;
+
+                // Fill with biome colour (or dim if no data)
+                ctx.fillStyle = biome ? this._biomeColor(biome) : '#222';
+                ctx.fillRect(screenX, screenY, cellSize, cellSize);
+
+                // Grid line
+                ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(screenX, screenY, cellSize, cellSize);
+
+                // Draw biome label when zoomed in enough
+                if (cellSize > 28 && cell) {
+                    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+                    const fontSize = Math.max(8, Math.min(12, cellSize * 0.22));
+                    ctx.font = `${fontSize}px "Lato", sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    // Truncate name to fit
+                    let label = cell.name;
+                    if (label.length > 14) label = label.slice(0, 12) + '…';
+                    ctx.fillText(label, screenX + cellSize / 2, screenY + cellSize / 2);
+                }
+            }
+        }
+
+        // Draw player marker (pulsing diamond)
+        {
+            const px = centerX + (this.playerGridX - this.camX) * cellSize;
+            const py = centerY + (this.playerGridY - this.camY) * cellSize;
+            const pulse = 0.8 + 0.4 * Math.sin(this.pulseTime * 4);
+            const markerSize = cellSize * 0.35 * pulse;
+
+            ctx.save();
+            ctx.translate(px, py);
+
+            // Glow
+            ctx.shadowColor = '#4af';
+            ctx.shadowBlur = 12;
+
+            // Diamond shape
+            ctx.beginPath();
+            ctx.moveTo(0, -markerSize);
+            ctx.lineTo(markerSize, 0);
+            ctx.lineTo(0, markerSize);
+            ctx.lineTo(-markerSize, 0);
+            ctx.closePath();
+
+            ctx.fillStyle = '#4af';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
+
+        ctx.restore(); // end clip
+
+        // Title
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = 'bold 28px "Cinzel", serif';
+        ctx.fillStyle = '#fff';
+        ctx.shadowColor = '#000';
+        ctx.shadowBlur = 6;
+        ctx.fillText('World Map', W / 2, H * 0.04 + 14);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+
+        // Current location label
+        {
+            const cell = this.cellData[`${this.playerGridX}-${this.playerGridY}`];
+            const locName = cell ? cell.name : this.game.currentMapId;
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = '18px "Lato", sans-serif';
+            ctx.fillStyle = 'rgba(200,220,255,0.8)';
+            ctx.fillText(`Current: ${locName}`, W / 2, H * 0.93);
+            ctx.restore();
+        }
+
+        // Legend (bottom-left)
+        this._drawLegend(ctx, mapAreaX + 8, mapAreaY + mapAreaH + 8, W);
+
+        // Controls hint
+        const hintText = this.game.inputManager?.isMobile
+            ? 'D-Pad: Pan | A: Center | B: Close'
+            : 'Arrows: Pan | +/-: Zoom | Enter: Center | ESC: Close';
+        menuRenderer.drawHint(ctx, hintText, W, H);
+    }
+
+    _drawLegend(ctx, x, y, canvasWidth) {
+        const biomes = [
+            ['village', 'Village'], ['grassland', 'Grass'], ['woodland', 'Wood'],
+            ['dense-forest', 'Forest'], ['mountain', 'Mtn'], ['snow', 'Snow'],
+            ['desert', 'Desert'], ['tropical', 'Tropical'], ['swamp', 'Swamp'],
+            ['lake', 'Lake'], ['volcanic', 'Volcanic']
+        ];
+        const swatchSize = 10;
+        const spacing = 4;
+        ctx.save();
+        ctx.font = '10px "Lato", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        let cx = x;
+        for (const [biome, label] of biomes) {
+            ctx.fillStyle = this._biomeColor(biome);
+            ctx.fillRect(cx, y, swatchSize, swatchSize);
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.fillText(label, cx + swatchSize + 2, y + swatchSize / 2);
+            cx += ctx.measureText(label).width + swatchSize + spacing + 8;
+            if (cx > canvasWidth * 0.9) break; // prevent overflow
+        }
+        ctx.restore();
     }
 }
 
