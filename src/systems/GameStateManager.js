@@ -3216,6 +3216,14 @@ class WorldMapState extends GameState {
         this.cellData = {};
         this._buildCellData();
 
+        // Background texture (loaded once, shared across enter/exit)
+        if (!WorldMapState._bgImage) {
+            WorldMapState._bgImage = new Image();
+            WorldMapState._bgImage.src = 'assets/bg/worldmap.webp';
+            WorldMapState._bgLoaded = false;
+            WorldMapState._bgImage.onload = () => { WorldMapState._bgLoaded = true; };
+        }
+
         // Animation
         this.pulseTime = 0;
 
@@ -3341,7 +3349,16 @@ class WorldMapState extends GameState {
         ctx.rect(mapAreaX, mapAreaY, mapAreaW, mapAreaH);
         ctx.clip();
 
-        // Draw cells
+        // Draw background texture spanning the full grid
+        if (WorldMapState._bgLoaded && WorldMapState._bgImage) {
+            const gridPixelW = this.gridCols * cellW;
+            const gridPixelH = this.gridRows * cellH;
+            const bgX = centerX + (this.gridMinX - this.camX) * cellW - cellW / 2;
+            const bgY = centerY + (this.gridMinY - this.camY) * cellH - cellH / 2;
+            ctx.drawImage(WorldMapState._bgImage, bgX, bgY, gridPixelW, gridPixelH);
+        }
+
+        // Draw grid lines and labels over the texture
         for (let gy = this.gridMinY; gy <= this.gridMaxY; gy++) {
             for (let gx = this.gridMinX; gx <= this.gridMaxX; gx++) {
                 const screenX = centerX + (gx - this.camX) * cellW - cellW / 2;
@@ -3353,14 +3370,9 @@ class WorldMapState extends GameState {
 
                 const id = `${gx}-${gy}`;
                 const cell = this.cellData[id];
-                const biome = cell ? cell.biome : null;
-
-                // Fill with biome colour (or dim if no data)
-                ctx.fillStyle = biome ? this._biomeColor(biome) : '#222';
-                ctx.fillRect(screenX, screenY, cellW, cellH);
 
                 // Grid line
-                ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+                ctx.strokeStyle = 'rgba(255,255,255,0.12)';
                 ctx.lineWidth = 1;
                 ctx.strokeRect(screenX, screenY, cellW, cellH);
 
