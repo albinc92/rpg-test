@@ -3208,9 +3208,9 @@ class WorldMapState extends GameState {
         this.camY = this.playerGridY;
 
         // Zoom (cells visible across the smallest canvas dimension)
-        this.zoom = 18;       // default: show 18 cells across
-        this.minZoom = 6;
-        this.maxZoom = 30;
+        this.zoom = 10;       // default: show 10 cells across
+        this.minZoom = 7;
+        this.maxZoom = 14;
 
         // Build cell lookup  { "x-y": biome }
         this.cellData = {};
@@ -3226,6 +3226,10 @@ class WorldMapState extends GameState {
 
         // Animation
         this.pulseTime = 0;
+
+        // Enforce zoom & camera constraints on entry
+        this.zoom = Math.min(this.zoom, this._maxZoomForViewport());
+        this._clampCamera();
 
         // Show touch controls if on mobile
         if (this.game.touchControlsUI) {
@@ -3267,6 +3271,49 @@ class WorldMapState extends GameState {
         return WorldMapState.BIOME_COLORS[biome] || '#555555';
     }
 
+    /** Max zoom-out so the grid always fills the viewport on both axes
+     *  AND there is always room to pan in both directions */
+    _maxZoomForViewport() {
+        const W = this.game.CANVAS_WIDTH;
+        const H = this.game.CANVAS_HEIGHT;
+        const mapAreaW = W * 0.90;
+        const mapAreaH = H * 0.80;
+        const smaller = Math.min(mapAreaW, mapAreaH);
+        // Grid must fill both axes
+        const maxByW = this.gridCols * smaller / mapAreaW;
+        const maxByH = this.gridRows * smaller / mapAreaH;
+        // Ensure at least 8 cells of panning room on each axis
+        const panMargin = 8;
+        const maxPanW = (this.gridCols - panMargin) * smaller / mapAreaW;
+        const maxPanH = (this.gridRows - panMargin) * smaller / mapAreaH;
+        return Math.min(maxByW, maxByH, maxPanW, maxPanH, this.maxZoom);
+    }
+
+    /** Clamp camera so the grid edges never pull inside the visible area */
+    _clampCamera() {
+        const W = this.game.CANVAS_WIDTH;
+        const H = this.game.CANVAS_HEIGHT;
+        const mapAreaW = W * 0.90;
+        const mapAreaH = H * 0.80;
+        const cellSize = Math.min(mapAreaW, mapAreaH) / this.zoom;
+
+        // How many cells are visible in each axis
+        const visibleW = mapAreaW / cellSize;
+        const visibleH = mapAreaH / cellSize;
+
+        // Camera center must stay far enough from grid edges
+        // Grid spans gridMinX-0.5 .. gridMaxX+0.5 (cell centers ± half)
+        const halfVisW = visibleW / 2;
+        const halfVisH = visibleH / 2;
+        const worldLeft  = this.gridMinX - 0.5;
+        const worldRight = this.gridMaxX + 0.5;
+        const worldTop   = this.gridMinY - 0.5;
+        const worldBot   = this.gridMaxY + 0.5;
+
+        this.camX = Math.max(worldLeft + halfVisW, Math.min(worldRight - halfVisW, this.camX));
+        this.camY = Math.max(worldTop + halfVisH, Math.min(worldBot - halfVisH, this.camY));
+    }
+
     /* ------- update / input ------- */
 
     update(deltaTime) {
@@ -3290,19 +3337,21 @@ class WorldMapState extends GameState {
         if (inputManager.isJustPressed('left'))  this.camX -= 1;
         if (inputManager.isJustPressed('right')) this.camX += 1;
 
-        // Clamp camera to grid bounds
-        this.camX = Math.max(this.gridMinX, Math.min(this.gridMaxX, this.camX));
-        this.camY = Math.max(this.gridMinY, Math.min(this.gridMaxY, this.camY));
+        // Clamp camera so the grid edge never enters the visible area
+        this._clampCamera();
 
         // Zoom in/out (keyboard +/- or shoulder buttons)
         if (inputManager.isJustPressed('zoomIn') || inputManager.isJustPressed('shoulderRight')) {
-            this.zoom = Math.max(this.minZoom, this.zoom - 2);
+            this.zoom = Math.max(this.minZoom, this.zoom - 1);
             this.game.audioManager?.playEffect('menu-navigation.mp3');
         }
         if (inputManager.isJustPressed('zoomOut') || inputManager.isJustPressed('shoulderLeft')) {
-            this.zoom = Math.min(this.maxZoom, this.zoom + 2);
+            this.zoom = Math.min(this._maxZoomForViewport(), this.zoom + 1);
             this.game.audioManager?.playEffect('menu-navigation.mp3');
         }
+
+        // Re-clamp after zoom change
+        this._clampCamera();
 
         // Recenter on player with confirm
         if (inputManager.isJustPressed('confirm')) {
