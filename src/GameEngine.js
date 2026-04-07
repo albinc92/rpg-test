@@ -23,20 +23,19 @@ class GameEngine {
         
         // MAXIMUM CANVAS RESOLUTION - Up to 4K supported for crisp rendering
         this.BASE_WIDTH = 3840;
-        this.BASE_HEIGHT = 2160;
+        this.BASE_HEIGHT = 3840;
         
         // WORLD COORDINATE SYSTEM - All game positions use these units
         // Objects, maps, and coordinates are stored in world units
         // This is independent of screen resolution
         this.WORLD_WIDTH = 3840;
-        this.WORLD_HEIGHT = 2160;
+        this.WORLD_HEIGHT = 3840;
         
         // BASELINE ZOOM - Developer-controlled zoom for the default "100%" view
         // Higher = more zoomed in (see less world), Lower = more zoomed out (see more world)
         // Tuned so player character is ~1/8 to 1/10 of screen height (Pokémon-style)
-        // At 1.0: You'd see 3840x2160 world units on a 1920x1080 screen (tiny sprites)
-        // At 2.0: You see ~1920x1080 world units on a 1920x1080 screen (1:1 feel)
-        this.BASELINE_ZOOM = 2.2;
+        // Compensated for square maps: 2.2 * (3840/2160) ≈ 3.91
+        this.BASELINE_ZOOM = 3.91;
         
         // USER ZOOM - From settings, allows 85%-115% adjustment
         this.userZoom = 1.0; // Will be loaded from settings
@@ -60,7 +59,7 @@ class GameEngine {
         console.log(`[GameEngine] Visible area: ${this.visibleWorldWidth.toFixed(0)}x${this.visibleWorldHeight.toFixed(0)} world units`);
         
         // STANDARD MAP SIZE - All maps use world coordinate system
-        // Maps are designed at world resolution (3840×2160 world units)
+        // Maps are square at world resolution (3840×3840 world units)
         this.MAP_WIDTH = this.WORLD_WIDTH;
         this.MAP_HEIGHT = this.WORLD_HEIGHT;
 

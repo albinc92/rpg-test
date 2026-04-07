@@ -3321,12 +3321,16 @@ class WorldMapState extends GameState {
 
         ctx.save();
 
-        // Compute cell size so that `this.zoom` cells fit the smaller axis
+        // Each map is square (3840×3840) — cells are squares
         const mapAreaX = W * 0.05;
         const mapAreaY = H * 0.08;
         const mapAreaW = W * 0.90;
         const mapAreaH = H * 0.80;
+
+        // Fit `this.zoom` cells into the smaller axis
         const cellSize = Math.min(mapAreaW, mapAreaH) / this.zoom;
+        const cellW = cellSize;
+        const cellH = cellSize;
 
         // Center of drawing area
         const centerX = mapAreaX + mapAreaW / 2;
@@ -3340,12 +3344,12 @@ class WorldMapState extends GameState {
         // Draw cells
         for (let gy = this.gridMinY; gy <= this.gridMaxY; gy++) {
             for (let gx = this.gridMinX; gx <= this.gridMaxX; gx++) {
-                const screenX = centerX + (gx - this.camX) * cellSize - cellSize / 2;
-                const screenY = centerY + (gy - this.camY) * cellSize - cellSize / 2;
+                const screenX = centerX + (gx - this.camX) * cellW - cellW / 2;
+                const screenY = centerY + (gy - this.camY) * cellH - cellH / 2;
 
                 // Frustum cull
-                if (screenX + cellSize < mapAreaX || screenX > mapAreaX + mapAreaW) continue;
-                if (screenY + cellSize < mapAreaY || screenY > mapAreaY + mapAreaH) continue;
+                if (screenX + cellW < mapAreaX || screenX > mapAreaX + mapAreaW) continue;
+                if (screenY + cellH < mapAreaY || screenY > mapAreaY + mapAreaH) continue;
 
                 const id = `${gx}-${gy}`;
                 const cell = this.cellData[id];
@@ -3353,34 +3357,34 @@ class WorldMapState extends GameState {
 
                 // Fill with biome colour (or dim if no data)
                 ctx.fillStyle = biome ? this._biomeColor(biome) : '#222';
-                ctx.fillRect(screenX, screenY, cellSize, cellSize);
+                ctx.fillRect(screenX, screenY, cellW, cellH);
 
                 // Grid line
                 ctx.strokeStyle = 'rgba(255,255,255,0.08)';
                 ctx.lineWidth = 1;
-                ctx.strokeRect(screenX, screenY, cellSize, cellSize);
+                ctx.strokeRect(screenX, screenY, cellW, cellH);
 
                 // Draw biome label when zoomed in enough
-                if (cellSize > 28 && cell) {
+                if (cellW > 50 && cell) {
                     ctx.fillStyle = 'rgba(255,255,255,0.55)';
-                    const fontSize = Math.max(8, Math.min(12, cellSize * 0.22));
+                    const fontSize = Math.max(8, Math.min(12, cellH * 0.35));
                     ctx.font = `${fontSize}px "Lato", sans-serif`;
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     // Truncate name to fit
                     let label = cell.name;
                     if (label.length > 14) label = label.slice(0, 12) + '…';
-                    ctx.fillText(label, screenX + cellSize / 2, screenY + cellSize / 2);
+                    ctx.fillText(label, screenX + cellW / 2, screenY + cellH / 2);
                 }
             }
         }
 
         // Draw player marker (pulsing diamond)
         {
-            const px = centerX + (this.playerGridX - this.camX) * cellSize;
-            const py = centerY + (this.playerGridY - this.camY) * cellSize;
+            const px = centerX + (this.playerGridX - this.camX) * cellW;
+            const py = centerY + (this.playerGridY - this.camY) * cellH;
             const pulse = 0.8 + 0.4 * Math.sin(this.pulseTime * 4);
-            const markerSize = cellSize * 0.35 * pulse;
+            const markerSize = Math.min(cellW, cellH) * 0.35 * pulse;
 
             ctx.save();
             ctx.translate(px, py);
