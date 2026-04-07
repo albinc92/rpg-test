@@ -3252,16 +3252,29 @@ class WorldMapState extends GameState {
     _buildCellData() {
         const mapManager = this.game.mapManager;
         if (!mapManager) return;
+        // Collect per-cell data and build region center lookup
+        this.regionCenters = {}; // regionName → {sumX, sumY, count}
         for (let y = this.gridMinY; y <= this.gridMaxY; y++) {
             for (let x = this.gridMinX; x <= this.gridMaxX; x++) {
                 const id = `${x}-${y}`;
                 const data = mapManager.getMapData(id);
                 if (data) {
+                    const region = data.region || '';
                     this.cellData[id] = {
                         biome: data.biome || 'grassland',
                         name: data.name || id,
+                        region: region,
                         weather: data.weather || null
                     };
+                    // Accumulate region centroid
+                    if (region) {
+                        if (!this.regionCenters[region]) {
+                            this.regionCenters[region] = { sumX: 0, sumY: 0, count: 0, biome: data.biome };
+                        }
+                        this.regionCenters[region].sumX += x;
+                        this.regionCenters[region].sumY += y;
+                        this.regionCenters[region].count++;
+                    }
                 }
             }
         }
@@ -3425,18 +3438,47 @@ class WorldMapState extends GameState {
                 ctx.lineWidth = 1;
                 ctx.strokeRect(screenX, screenY, cellW, cellH);
 
-                // Draw biome label when zoomed in enough
-                if (cellW > 50 && cell) {
-                    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-                    const fontSize = Math.max(8, Math.min(12, cellH * 0.35));
+                // Show coordinate when zoomed in enough
+                if (cellW > 60 && cell) {
+                    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+                    const fontSize = Math.max(7, Math.min(10, cellH * 0.2));
                     ctx.font = `${fontSize}px "Lato", sans-serif`;
                     ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    // Truncate name to fit
-                    let label = cell.name;
-                    if (label.length > 14) label = label.slice(0, 12) + '…';
-                    ctx.fillText(label, screenX + cellW / 2, screenY + cellH / 2);
+                    ctx.textBaseline = 'bottom';
+                    const displayX = gx - this.gridMinX;
+                    const displayY = gy - this.gridMinY;
+                    ctx.fillText(`${displayX},${displayY}`, screenX + cellW / 2, screenY + cellH - 2);
                 }
+            }
+        }
+
+        // Draw region name labels at region centroids
+        if (this.regionCenters) {
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            for (const [regionName, rc] of Object.entries(this.regionCenters)) {
+                const avgX = rc.sumX / rc.count;
+                const avgY = rc.sumY / rc.count;
+                const rx = centerX + (avgX - this.camX) * cellW;
+                const ry = centerY + (avgY - this.camY) * cellH;
+
+                // Skip if off-screen
+                if (rx < mapAreaX - 100 || rx > mapAreaX + mapAreaW + 100) continue;
+                if (ry < mapAreaY - 50 || ry > mapAreaY + mapAreaH + 50) continue;
+
+                // Scale font by region size and zoom
+                const regionScale = Math.min(1.5, Math.sqrt(rc.count) / 3);
+                const baseFontSize = Math.max(9, Math.min(16, cellW * 0.28));
+                const fontSize = Math.round(baseFontSize * regionScale);
+
+                ctx.save();
+                ctx.font = `bold ${fontSize}px "Cinzel", serif`;
+                ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                ctx.shadowBlur = 4;
+                ctx.fillText(regionName, rx, ry);
+                ctx.shadowBlur = 0;
+                ctx.restore();
             }
         }
 
@@ -3486,21 +3528,23 @@ class WorldMapState extends GameState {
         ctx.shadowBlur = 0;
         ctx.restore();
 
-        // Current location label
+        // Current location label — region + coordinate
         {
             const cell = this.cellData[`${this.playerGridX}-${this.playerGridY}`];
-            const locName = cell ? cell.name : this.game.currentMapId;
+            const region = cell?.region || 'Unknown';
+            const displayX = this.playerGridX - this.gridMinX;
+            const displayY = this.playerGridY - this.gridMinY;
             ctx.save();
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.font = '18px "Lato", sans-serif';
-            ctx.fillStyle = 'rgba(200,220,255,0.8)';
-            ctx.fillText(`Current: ${locName}`, W / 2, H * 0.93);
+            ctx.font = 'bold 18px "Cinzel", serif';
+            ctx.fillStyle = 'rgba(200,220,255,0.9)';
+            ctx.fillText(region, W / 2, H * 0.91);
+            ctx.font = '14px "Lato", sans-serif';
+            ctx.fillStyle = 'rgba(200,220,255,0.55)';
+            ctx.fillText(`${displayX}, ${displayY}`, W / 2, H * 0.94);
             ctx.restore();
         }
-
-        // Legend (bottom-left)
-        this._drawLegend(ctx, mapAreaX + 8, mapAreaY + mapAreaH + 8, W);
 
         // Controls hint
         const hintText = this.game.inputManager?.isMobile
@@ -3509,30 +3553,7 @@ class WorldMapState extends GameState {
         menuRenderer.drawHint(ctx, hintText, W, H);
     }
 
-    _drawLegend(ctx, x, y, canvasWidth) {
-        const biomes = [
-            ['village', 'Village'], ['grassland', 'Grass'], ['woodland', 'Wood'],
-            ['dense-forest', 'Forest'], ['mountain', 'Mtn'], ['snow', 'Snow'],
-            ['desert', 'Desert'], ['tropical', 'Tropical'], ['swamp', 'Swamp'],
-            ['lake', 'Lake'], ['volcanic', 'Volcanic']
-        ];
-        const swatchSize = 10;
-        const spacing = 4;
-        ctx.save();
-        ctx.font = '10px "Lato", sans-serif';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        let cx = x;
-        for (const [biome, label] of biomes) {
-            ctx.fillStyle = this._biomeColor(biome);
-            ctx.fillRect(cx, y, swatchSize, swatchSize);
-            ctx.fillStyle = 'rgba(255,255,255,0.6)';
-            ctx.fillText(label, cx + swatchSize + 2, y + swatchSize / 2);
-            cx += ctx.measureText(label).width + swatchSize + spacing + 8;
-            if (cx > canvasWidth * 0.9) break; // prevent overflow
-        }
-        ctx.restore();
-    }
+
 }
 
 /**
