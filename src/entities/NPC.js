@@ -215,47 +215,67 @@ class NPC extends Actor {
      */
     renderTalkBubble(ctx, screenX, screenY, unused = 0) {
         if (!this.showTalkBubble || !this.hasDialogue()) return;
-        
+
+        const ds = window.ds;
+
         // Bobbing animation
         const bobOffset = Math.sin(this.talkBubbleAnimation) * 4;
         const finalY = screenY + bobOffset;
-        
-        // Draw speech bubble icon
+
+        const bw = 44;  // bubble width
+        const bh = 30;  // bubble height
+        const bx = screenX - bw / 2;
+        const by = finalY - bh / 2;
+
         ctx.save();
-        
-        // Bubble background
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.lineWidth = 2;
-        
-        // Main bubble ellipse
+
+        // ── Dark gradient panel (matches DesignSystem) ──
+        if (ds) {
+            const grad = ds.verticalGradient(ctx, by, bh, [
+                [0, ds.colors.alpha(ds.colors.background.panel, 0.9)],
+                [1, ds.colors.alpha(ds.colors.background.dark, 0.9)]
+            ]);
+            ctx.fillStyle = grad;
+        } else {
+            ctx.fillStyle = 'rgba(26, 26, 36, 0.9)';
+        }
+        ctx.fillRect(bx, by, bw, bh);
+
+        // Border
+        ctx.strokeStyle = ds ? ds.colors.alpha(ds.colors.text.primary, 0.1)
+                             : 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(bx, by, bw, bh);
+
+        // Corner accents
+        if (ds) {
+            ds.drawCornerAccents(ctx, bx, by, bw, bh);
+        }
+
+        // ── Sharp triangle pointer ──
+        ctx.fillStyle = ds ? ds.colors.alpha(ds.colors.background.dark, 0.9)
+                           : 'rgba(10, 10, 15, 0.9)';
         ctx.beginPath();
-        ctx.ellipse(screenX, finalY, 22, 16, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        
-        // Triangle pointer
-        ctx.beginPath();
-        ctx.moveTo(screenX - 5, finalY + 14);
-        ctx.lineTo(screenX + 5, finalY + 14);
-        ctx.lineTo(screenX, finalY + 22);
+        ctx.moveTo(screenX - 5, by + bh);
+        ctx.lineTo(screenX + 5, by + bh);
+        ctx.lineTo(screenX, by + bh + 10);
         ctx.closePath();
         ctx.fill();
-        
-        // Three dots
-        ctx.fillStyle = '#555555';
-        const dotSpacing = 9;
-        
-        // Animate dots
+
+        // ── Three dots (cyan, animated) ──
+        const dotColor = ds ? ds.colors.primary : '#4a9eff';
+        const mutedDot  = ds ? ds.colors.text.muted : '#888888';
+        const dotSpacing = 10;
         const dotPhase = (this.talkBubbleAnimation * 2) % 3;
+
         for (let i = 0; i < 3; i++) {
             const dotX = screenX + (i - 1) * dotSpacing;
-            const dotScale = (Math.floor(dotPhase) === i) ? 1.6 : 1;
-            ctx.beginPath();
-            ctx.arc(dotX, finalY, 3 * dotScale, 0, Math.PI * 2);
-            ctx.fill();
+            const isActive = Math.floor(dotPhase) === i;
+            const sz = isActive ? 3.5 : 2;
+            ctx.fillStyle = isActive ? dotColor : mutedDot;
+            ctx.fillRect(dotX - sz / 2, finalY - sz / 2, sz, sz);
         }
-        
+
         ctx.restore();
     }
     

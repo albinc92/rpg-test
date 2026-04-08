@@ -1,17 +1,20 @@
 /**
  * PartyHUD — top-left overlay showing the player's spirit party.
  *
- * Displays each spirit's portrait/icon, name, level, and HP bar.
- * The lead (active) spirit is shown larger; bench spirits are compact.
+ * Uses the global DesignSystem for consistent styling:
+ *   - Sharp corners (no border-radius)
+ *   - Gradient panel backgrounds (#1a1a24 → #0a0a0f)
+ *   - Cyan corner accents (#4a9eff)
+ *   - Cinzel (display) / Lato (body) fonts
+ *   - Semantic colors: success #4ade80, warning #fbbf24, danger #ef4444
  *
  * Layout (top-left, vertical):
- *   ┌─────────────────────┐
- *   │ [sprite] Sylphie  5 │  ← lead spirit (bigger)
- *   │ ████████░░  68/80   │  ← HP bar
- *   ├─────────────────────┤
- *   │ [s] Spirit2  Lv.4   │  ← bench (compact)
- *   │ [s] Spirit3  Lv.3   │
- *   └─────────────────────┘
+ *   ┌───────────────────────┐
+ *   │ [sprite] Sylphie Lv.5 │  ← lead spirit
+ *   │ ██████████░░░  68/80  │  ← HP bar
+ *   ├───────────────────────┤
+ *   │ [s] Spirit2     Lv.4  │  ← bench (compact)
+ *   └───────────────────────┘
  */
 class PartyHUD {
 
@@ -32,18 +35,15 @@ class PartyHUD {
 
         // HP bar
         this.hpBarW = 110;
-        this.hpBarH = 6;
+        this.hpBarH = 5;
 
         // Sprite cache  { spriteKey → Image }
         this._spriteCache = {};
 
         // Animation
-        this.hpFlashTimers = {}; // spiritId → remaining
+        this.hpFlashTimers = {};
     }
 
-    /**
-     * Get the cached sprite image or start loading it
-     */
     _getSprite(src) {
         if (!src) return null;
         if (this._spriteCache[src]) {
@@ -66,6 +66,9 @@ class PartyHUD {
         }
     }
 
+    /** @returns {DesignSystem|null} */
+    get ds() { return window.ds; }
+
     render(ctx) {
         const pm = this.game.partyManager;
         if (!pm) return;
@@ -73,100 +76,89 @@ class PartyHUD {
         const party = pm.getFullParty();
         if (!party || party.length === 0) return;
 
+        const ds = this.ds;
+        if (!ds) return;
+
         const x = this.margin;
         let y = this.margin;
+        const pw = this.panelWidth;
 
         ctx.save();
 
         // ── Lead spirit (index 0) ──
         const lead = party[0];
         const leadH = this.leadRowH;
-        const pw = this.panelWidth;
 
-        // Panel background
-        ctx.beginPath();
-        this._roundRect(ctx, x, y, pw, leadH, 8);
-        ctx.fillStyle = 'rgba(12, 15, 24, 0.4)';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(160, 170, 200, 0.25)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
+        // Panel via DesignSystem
+        ds.drawPanel(ctx, x, y, pw, leadH, { alpha: 0.45, showCorners: true });
 
         // Portrait
         const ps = this.leadPortraitSize;
-        const portraitX = x + 6;
+        const portraitX = x + 8;
         const portraitY = y + (leadH - ps) / 2;
         this._drawPortrait(ctx, lead, portraitX, portraitY, ps);
 
-        // Name + level
+        // Name (Cinzel display font)
         const textX = portraitX + ps + 8;
-        ctx.font = 'bold 13px "Cinzel", serif';
+        ctx.font = ds.font('xxs', 'bold', 'display');
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
-        ctx.fillStyle = 'rgba(230, 235, 245, 0.85)';
-        ctx.fillText(lead.name || '???', textX, y + 6);
+        ctx.fillStyle = ds.colors.text.primary;
+        ctx.fillText(lead.name || '???', textX, y + 7);
 
-        ctx.font = '10px "Lato", Arial, sans-serif';
-        ctx.fillStyle = 'rgba(180, 190, 210, 0.7)';
-        ctx.fillText(`Lv. ${lead.level || 1}`, textX, y + 22);
+        // Level (Lato body font, muted)
+        ctx.font = ds.font('tiny', 'normal', 'body');
+        ctx.fillStyle = ds.colors.text.muted;
+        ctx.fillText(`Lv. ${lead.level || 1}`, textX, y + 23);
 
         // HP bar
         const currentHP = lead.currentHP ?? lead.baseStats?.hp ?? 1;
         const maxHP = lead.baseStats?.hp ?? 1;
         const hpRatio = Math.max(0, Math.min(1, currentHP / maxHP));
-        this._drawHPBar(ctx, textX, y + 36, this.hpBarW, this.hpBarH, hpRatio, currentHP, maxHP);
+        this._drawHPBar(ctx, textX, y + 38, this.hpBarW, this.hpBarH, hpRatio, currentHP, maxHP);
 
-        y += leadH + 3;
+        y += leadH + 2;
 
         // ── Bench spirits (index 1+) ──
         if (party.length > 1) {
             const benchCount = party.length - 1;
             const benchH = benchCount * this.benchRowH + 6;
 
-            // Bench panel background
-            ctx.beginPath();
-            this._roundRect(ctx, x, y, pw, benchH, 6);
-            ctx.fillStyle = 'rgba(12, 15, 24, 0.3)';
-            ctx.fill();
-            ctx.strokeStyle = 'rgba(140, 150, 175, 0.18)';
-            ctx.lineWidth = 1;
-            ctx.stroke();
+            // Bench panel — slightly dimmer, no corner accents
+            ds.drawPanel(ctx, x, y, pw, benchH, { alpha: 0.3, showCorners: false });
 
             let by = y + 3;
             for (let i = 1; i < party.length; i++) {
                 const spirit = party[i];
                 const bps = this.benchPortraitSize;
-                const bpx = x + 6;
+                const bpx = x + 8;
                 const bpy = by + (this.benchRowH - bps) / 2;
 
                 // Mini portrait
                 this._drawPortrait(ctx, spirit, bpx, bpy, bps);
 
-                // Name
-                ctx.font = '11px "Lato", Arial, sans-serif';
+                // Name (Lato body)
+                ctx.font = ds.font('tiny', 'normal', 'body');
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'middle';
-                ctx.fillStyle = 'rgba(210, 215, 230, 0.7)';
-                const nameStr = spirit.name || '???';
-                ctx.fillText(nameStr, bpx + bps + 6, by + this.benchRowH / 2 - 1);
+                ctx.fillStyle = ds.colors.text.secondary;
+                ctx.fillText(spirit.name || '???', bpx + bps + 6, by + this.benchRowH / 2);
 
-                // Level — right-aligned
-                ctx.font = '9px "Lato", Arial, sans-serif';
+                // Level — right-aligned (muted)
+                ctx.font = ds.font('micro', 'normal', 'body');
                 ctx.textAlign = 'right';
-                ctx.fillStyle = 'rgba(160, 170, 190, 0.55)';
-                ctx.fillText(`Lv.${spirit.level || 1}`, x + pw - 8, by + this.benchRowH / 2 - 1);
+                ctx.fillStyle = ds.colors.text.muted;
+                ctx.fillText(`Lv.${spirit.level || 1}`, x + pw - 8, by + this.benchRowH / 2);
 
-                // Mini HP pip (colored dot showing health status)
+                // HP pip — small square with semantic color
                 const sHP = spirit.currentHP ?? spirit.baseStats?.hp ?? 1;
                 const sMaxHP = spirit.baseStats?.hp ?? 1;
                 const sRatio = Math.max(0, Math.min(1, sHP / sMaxHP));
-                const dotColor = sRatio > 0.5 ? 'rgba(80, 200, 120, 0.7)'
-                               : sRatio > 0.2 ? 'rgba(220, 180, 60, 0.7)'
-                               : 'rgba(220, 60, 60, 0.7)';
-                ctx.beginPath();
-                ctx.arc(x + pw - 30, by + this.benchRowH / 2, 3, 0, Math.PI * 2);
-                ctx.fillStyle = dotColor;
-                ctx.fill();
+                const pipColor = sRatio > 0.5 ? ds.colors.success
+                               : sRatio > 0.2 ? ds.colors.warning
+                               : ds.colors.danger;
+                ctx.fillStyle = pipColor;
+                ctx.fillRect(x + pw - 32, by + this.benchRowH / 2 - 2, 4, 4);
 
                 by += this.benchRowH;
             }
@@ -175,25 +167,24 @@ class PartyHUD {
         ctx.restore();
     }
 
-    /**
-     * Draw a spirit's portrait (sprite thumbnail or fallback circle)
-     */
+    // ── Portrait (sharp rect, DS tokens) ──
+
     _drawPortrait(ctx, spirit, x, y, size) {
+        const ds = this.ds;
         const img = this._getSprite(spirit.sprite || spirit.spriteSrc);
 
         ctx.save();
 
-        // Clip to rounded rect
+        // Clip to sharp rect
         ctx.beginPath();
-        this._roundRect(ctx, x, y, size, size, 4);
+        ctx.rect(x, y, size, size);
         ctx.clip();
 
-        // Background
-        ctx.fillStyle = 'rgba(30, 35, 50, 0.6)';
+        // Dark background
+        ctx.fillStyle = ds.colors.alpha(ds.colors.background.elevated, 0.8);
         ctx.fillRect(x, y, size, size);
 
         if (img) {
-            // Draw sprite centered and scaled to fill
             const aspect = img.width / img.height;
             let dw, dh;
             if (aspect >= 1) {
@@ -203,84 +194,66 @@ class PartyHUD {
                 dw = size;
                 dh = size / aspect;
             }
-            const dx = x + (size - dw) / 2;
-            const dy = y + (size - dh) / 2;
-            ctx.drawImage(img, dx, dy, dw, dh);
+            ctx.drawImage(img, x + (size - dw) / 2, y + (size - dh) / 2, dw, dh);
         } else {
-            // Fallback — type-colored circle with first letter
+            // Fallback — element-colored initial
             const typeColors = {
-                fire: '#e85d3a', water: '#4a90d9', wind: '#7ec87e',
-                earth: '#c4a950', light: '#f0e060', dark: '#8060c0',
-                ice: '#80d0e8', electric: '#e8d040'
+                fire: ds.colors.danger,
+                water: ds.colors.primary,
+                wind: ds.colors.success,
+                earth: ds.colors.warning,
+                light: '#f0e060',
+                dark: ds.colors.rarity.epic,
+                ice: ds.colors.primaryLight,
+                electric: ds.colors.warning
             };
-            const color = typeColors[spirit.type1] || '#888';
+            const color = typeColors[spirit.type1] || ds.colors.text.muted;
             ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.arc(x + size / 2, y + size / 2, size * 0.35, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.font = `bold ${Math.round(size * 0.4)}px Arial`;
+            ctx.font = `${ds.typography.weights.bold} ${Math.round(size * 0.45)}px ${ds.typography.families.display}`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillStyle = '#fff';
             ctx.fillText((spirit.name || '?')[0], x + size / 2, y + size / 2 + 1);
         }
 
         ctx.restore();
 
-        // Border
-        ctx.beginPath();
-        this._roundRect(ctx, x, y, size, size, 4);
-        ctx.strokeStyle = 'rgba(140, 150, 180, 0.35)';
+        // Sharp border
+        ctx.strokeStyle = ds.colors.alpha(ds.colors.text.primary, 0.15);
         ctx.lineWidth = 1;
-        ctx.stroke();
+        ctx.strokeRect(x, y, size, size);
     }
 
-    /**
-     * Draw a horizontal HP bar with numeric label
-     */
-    _drawHPBar(ctx, x, y, w, h, ratio, current, max) {
-        // Background track
-        ctx.beginPath();
-        this._roundRect(ctx, x, y, w, h, 3);
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-        ctx.fill();
+    // ── HP Bar (sharp rect, DS semantic colors) ──
 
-        // Filled portion — color shifts with HP
+    _drawHPBar(ctx, x, y, w, h, ratio, current, max) {
+        const ds = this.ds;
+
+        // Track
+        ctx.fillStyle = ds.colors.alpha(ds.colors.background.overlay, 0.5);
+        ctx.fillRect(x, y, w, h);
+
+        // Fill
         const fillW = Math.max(0, w * ratio);
         if (fillW > 0) {
-            const color = ratio > 0.5 ? 'rgba(80, 200, 120, 0.85)'
-                        : ratio > 0.2 ? 'rgba(220, 180, 60, 0.85)'
-                        : 'rgba(220, 60, 60, 0.85)';
-            ctx.beginPath();
-            this._roundRect(ctx, x, y, fillW, h, 3);
+            const color = ratio > 0.5 ? ds.colors.success
+                        : ratio > 0.2 ? ds.colors.warning
+                        : ds.colors.danger;
             ctx.fillStyle = color;
-            ctx.fill();
+            ctx.fillRect(x, y, fillW, h);
         }
 
-        // Numeric label
-        ctx.font = '9px "Lato", Arial, sans-serif';
+        // Track border
+        ctx.strokeStyle = ds.colors.alpha(ds.colors.text.primary, 0.08);
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(x, y, w, h);
+
+        // Numeric label (muted)
+        ctx.font = ds.font('micro', 'normal', 'body');
         ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = 'rgba(200, 210, 225, 0.6)';
+        ctx.fillStyle = ds.colors.text.muted;
         ctx.fillText(`${current}/${max}`, x + w + 30, y + h / 2);
-    }
-
-    // ── Utility ──
-
-    _roundRect(ctx, x, y, w, h, r) {
-        ctx.moveTo(x + r, y);
-        ctx.lineTo(x + w - r, y);
-        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-        ctx.lineTo(x + w, y + h - r);
-        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-        ctx.lineTo(x + r, y + h);
-        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-        ctx.lineTo(x, y + r);
-        ctx.quadraticCurveTo(x, y, x + r, y);
-        ctx.closePath();
     }
 }
 
-// Export
 window.PartyHUD = PartyHUD;

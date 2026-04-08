@@ -599,10 +599,23 @@ class MainMenuState extends GameState {
     }
     
     exit() {
-        // Stop main menu BGM to ensure it doesn't continue playing
         console.log('🚪 MAIN MENU EXITED');
-        // REMOVED stopBGM() - Let the next state handle BGM changes via playBGM()
-        // This prevents crossfade conflicts where stopBGM() fades out the NEW track
+        
+        // Stop main menu BGM immediately (not crossfade) so it doesn't bleed into gameplay
+        if (this.game.audioManager) {
+            const am = this.game.audioManager;
+            am.clearAllCrossfades();
+            if (am.bgmAudio) {
+                am.bgmAudio.pause();
+                am.bgmAudio.currentTime = 0;
+            }
+            am.currentBGM = null;
+        }
+        
+        // Reset BiomeBGMSystem so it evaluates fresh for the new map
+        if (this.game.biomeBGMSystem) {
+            this.game.biomeBGMSystem.reset();
+        }
         
         // Pause video
         if (this.backgroundVideo) {
@@ -4019,6 +4032,11 @@ class DialogueState extends GameState {
     }
     
     render(ctx) {
+        // Render the gameplay scene behind the dialogue overlay
+        if (this.stateManager.isStateInStack('PLAYING')) {
+            this.game.renderGameplay(ctx);
+        }
+
         // Don't render anything if dialogue is hidden or no message to show
         if (this.isHidden) return;
         if (!this.currentMessage && !this.isShowingChoices) return;
@@ -4027,7 +4045,8 @@ class DialogueState extends GameState {
         const canvasHeight = ctx.canvas.height;
         
         // Light overlay to focus on dialogue
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        const ds = window.ds;
+        ctx.fillStyle = ds ? ds.colors.alpha(ds.colors.background.overlay, 0.2) : 'rgba(0, 0, 0, 0.2)';
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
         // Get NPC screen position for chat bubble
@@ -4113,9 +4132,12 @@ class DialogueState extends GameState {
         const padding = 20;
         const maxBubbleWidth = Math.min(400, canvasWidth * 0.7);
         const minBubbleWidth = 150;
-        
+
         // Measure FULL text to determine bubble size (so it doesn't grow as text appears)
-        ctx.font = '15px Arial';
+        const bodyFont = ds ? ds.typography.families.body : "'Lato', sans-serif";
+        const displayFont = ds ? ds.typography.families.display : "'Cinzel', serif";
+        const fontSize = 15;
+        ctx.font = `${fontSize}px ${bodyFont}`;
         const fullText = this.currentMessage || '';
         const fullPlainText = fullText.replace(/<[^>]*>/g, '');
         
@@ -4154,59 +4176,66 @@ class DialogueState extends GameState {
         
         const boxX = bubbleX - bubbleWidth / 2;
         const boxY = bubbleY - bubbleHeight;
-        const cornerRadius = 16;
-        
-        // Draw chat bubble shadow
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-        this.roundRect(ctx, boxX + 4, boxY + 4, bubbleWidth, bubbleHeight, cornerRadius);
-        ctx.fill();
-        
-        // Draw chat bubble background
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.97)';
-        this.roundRect(ctx, boxX, boxY, bubbleWidth, bubbleHeight, cornerRadius);
-        ctx.fill();
-        
-        // Border
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
-        ctx.lineWidth = 2;
-        this.roundRect(ctx, boxX, boxY, bubbleWidth, bubbleHeight, cornerRadius);
-        ctx.stroke();
-        
-        // Chat bubble pointer (triangle pointing down to NPC)
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.97)';
+
+        // ── Draw chat bubble panel (dark gradient, sharp corners, corner accents) ──
+        if (ds) {
+            ds.drawPanel(ctx, boxX, boxY, bubbleWidth, bubbleHeight, {
+                alpha: 0.92,
+                showCorners: true
+            });
+        } else {
+            ctx.fillStyle = 'rgba(26, 26, 36, 0.92)';
+            ctx.fillRect(boxX, boxY, bubbleWidth, bubbleHeight);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(boxX, boxY, bubbleWidth, bubbleHeight);
+        }
+
+        // ── Sharp triangle pointer ──
+        const pointerColor = ds ? ds.colors.alpha(ds.colors.background.dark, 0.92)
+                                : 'rgba(10, 10, 15, 0.92)';
+        ctx.fillStyle = pointerColor;
         ctx.beginPath();
-        ctx.moveTo(bubbleX - 12, boxY + bubbleHeight - 1);
-        ctx.lineTo(bubbleX + 12, boxY + bubbleHeight - 1);
-        ctx.lineTo(bubbleX, boxY + bubbleHeight + 18);
+        ctx.moveTo(bubbleX - 10, boxY + bubbleHeight);
+        ctx.lineTo(bubbleX + 10, boxY + bubbleHeight);
+        ctx.lineTo(bubbleX, boxY + bubbleHeight + 16);
         ctx.closePath();
         ctx.fill();
-        
-        // Pointer border
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+        // Pointer border edges
+        ctx.strokeStyle = ds ? ds.colors.alpha(ds.colors.text.primary, 0.1)
+                             : 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(bubbleX - 12, boxY + bubbleHeight);
-        ctx.lineTo(bubbleX, boxY + bubbleHeight + 18);
-        ctx.lineTo(bubbleX + 12, boxY + bubbleHeight);
+        ctx.moveTo(bubbleX - 10, boxY + bubbleHeight);
+        ctx.lineTo(bubbleX, boxY + bubbleHeight + 16);
+        ctx.lineTo(bubbleX + 10, boxY + bubbleHeight);
         ctx.stroke();
         
-        // NPC name (if available)
+        // NPC name (if available) — Cinzel display font, primary cyan
         let textStartY = boxY + padding;
         if (this.npc?.name) {
-            ctx.fillStyle = '#4a7dbd';
-            ctx.font = 'bold 14px Arial';
+            ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
+            ctx.font = `700 14px ${displayFont}`;
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
             ctx.fillText(this.npc.name, boxX + padding, textStartY);
+
+            // Underline accent
+            const nameW = ctx.measureText(this.npc.name).width;
+            ctx.fillStyle = ds ? ds.colors.primaryAlpha(0.3) : 'rgba(74, 158, 255, 0.3)';
+            ctx.fillRect(boxX + padding, textStartY + 18, nameW, 1);
+
             textStartY += 24;
         }
         
-        // Message text with HTML rendering
+        // Message text with HTML rendering — light text on dark panel
         const textX = boxX + padding;
         const maxWidth = bubbleWidth - padding * 2;
+        const textColor = ds ? ds.colors.text.secondary : '#cccccc';
         
         // Get the partially revealed text for display (typewriter effect)
         const displayText = this.getDisplayedText();
-        this.renderHtmlText(ctx, displayText, textX, textStartY, maxWidth, '#333333');
+        this.renderHtmlText(ctx, displayText, textX, textStartY, maxWidth, textColor);
         
         // Choices (if showing)
         if (this.isShowingChoices && this.choices.length > 0) {
@@ -4218,25 +4247,31 @@ class DialogueState extends GameState {
                 const choiceY = choiceStartY + index * choiceHeight;
                 
                 if (isSelected) {
-                    ctx.fillStyle = 'rgba(74, 125, 189, 0.2)';
-                    this.roundRect(ctx, textX - 5, choiceY - 3, maxWidth + 10, choiceHeight, 6);
-                    ctx.fill();
+                    // Selection highlight — horizontal gradient bar
+                    if (ds) {
+                        ds.drawSelectionHighlight(ctx, textX - 5, choiceY - 3, maxWidth + 10, choiceHeight);
+                    } else {
+                        ctx.fillStyle = 'rgba(74, 158, 255, 0.15)';
+                        ctx.fillRect(textX - 5, choiceY - 3, maxWidth + 10, choiceHeight);
+                    }
                 }
                 
-                ctx.fillStyle = isSelected ? '#2a5d9d' : '#666666';
-                ctx.font = isSelected ? 'bold 14px Arial' : '14px Arial';
+                ctx.fillStyle = isSelected
+                    ? (ds ? ds.colors.primary : '#4a9eff')
+                    : (ds ? ds.colors.text.muted : '#888888');
+                ctx.font = isSelected ? `700 14px ${bodyFont}` : `400 14px ${bodyFont}`;
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'top';
                 ctx.fillText((isSelected ? '▸ ' : '   ') + choice, textX, choiceY);
             });
         }
         
-        // Continue prompt (blinking) - inside bubble
+        // Continue prompt (blinking) - inside bubble, cyan accent
         if (!this.isTyping && !this.isShowingChoices) {
             const blink = Math.floor(Date.now() / 500) % 2 === 0;
             if (blink) {
-                ctx.fillStyle = '#999999';
-                ctx.font = '12px Arial';
+                ctx.fillStyle = ds ? ds.colors.primaryAlpha(0.6) : 'rgba(74, 158, 255, 0.6)';
+                ctx.font = `12px ${bodyFont}`;
                 ctx.textAlign = 'right';
                 ctx.textBaseline = 'bottom';
                 ctx.fillText('▼', boxX + bubbleWidth - padding, boxY + bubbleHeight - 10);
@@ -4245,8 +4280,8 @@ class DialogueState extends GameState {
         
         // Controls hint at bottom of screen
         const hintText = this.game.inputManager?.isMobile ? 'Tap to continue' : 'Enter: Continue | ESC: Close';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        ctx.font = '11px Arial';
+        ctx.fillStyle = ds ? ds.colors.text.muted : '#888888';
+        ctx.font = `11px ${bodyFont}`;
         ctx.textAlign = 'center';
         ctx.fillText(hintText, canvasWidth / 2, canvasHeight - 12);
     }
@@ -4289,10 +4324,12 @@ class DialogueState extends GameState {
                 }
             } else {
                 // Render text
+                const ds = window.ds;
+                const bodyFont = ds ? ds.typography.families.body : "'Lato', sans-serif";
                 let fontStyle = '';
                 if (isBold) fontStyle += 'bold ';
                 if (isItalic) fontStyle += 'italic ';
-                ctx.font = `${fontStyle}${fontSize}px Arial`;
+                ctx.font = `${fontStyle}${fontSize}px ${bodyFont}`;
                 ctx.fillStyle = currentColor;
                 
                 // Word wrap

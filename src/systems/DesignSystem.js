@@ -76,6 +76,15 @@ class DesignSystem {
                 legendary: '#ff8000'
             },
             
+            // Debug / performance monitor colors
+            debug: {
+                text: '#00ff00',
+                info: '#00ffff',
+                warn: '#ffaa00',
+                highlight: '#ff0000',
+                dim: '#666666'
+            },
+
             // Utility function for alpha variants
             alpha: (color, alpha) => {
                 // Convert hex to rgba
@@ -131,6 +140,9 @@ class DesignSystem {
             
             // Font sizes as % of canvas height
             sizes: {
+                micro: 0.85, // ~9px at 1080p  (HUD compact labels, badges)
+                tiny: 1.0,   // ~11px at 1080p (HUD secondary text)
+                xxs: 1.2,    // ~13px at 1080p (HUD primary text)
                 xs: 2,      // ~14px at 720p
                 sm: 2.5,    // ~18px
                 md: 3.5,    // ~25px (base menu text)

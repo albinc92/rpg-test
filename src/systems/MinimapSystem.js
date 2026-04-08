@@ -127,6 +127,7 @@ class MinimapSystem {
         const pos = this.parseMapId(this.game.currentMapId);
         if (!pos) return;
 
+        const ds = window.ds;
         const centerX = pos.x;
         const centerY = pos.y;
 
@@ -143,17 +144,19 @@ class MinimapSystem {
 
         ctx.save();
 
-        // ── Frame background ──
-        const cornerRadius = 8;
-        ctx.beginPath();
-        this.roundRect(ctx, frameX, frameY, frameW, frameH, cornerRadius);
-        ctx.fillStyle = 'rgba(10, 12, 18, 0.75)';
-        ctx.fill();
-
-        // Frame border
-        ctx.strokeStyle = 'rgba(180, 190, 210, 0.4)';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
+        // ── Frame panel via DesignSystem (sharp corners, gradient, corner accents) ──
+        if (ds) {
+            ds.drawPanel(ctx, frameX, frameY, frameW, frameH, {
+                alpha: 0.75,
+                showCorners: true
+            });
+        } else {
+            ctx.fillStyle = 'rgba(10, 12, 18, 0.75)';
+            ctx.fillRect(frameX, frameY, frameW, frameH);
+            ctx.strokeStyle = 'rgba(180, 190, 210, 0.4)';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(frameX, frameY, frameW, frameH);
+        }
 
         // ── Sub-cell position for smooth scrolling ──
         let subX = 0.5, subY = 0.5;
@@ -205,20 +208,23 @@ class MinimapSystem {
 
                 if (!mapData) {
                     // Out of bounds — dark void
-                    ctx.fillStyle = 'rgba(10, 10, 15, 0.95)';
+                    ctx.fillStyle = ds ? ds.colors.alpha(ds.colors.background.dark, 0.95)
+                                       : 'rgba(10, 10, 15, 0.95)';
                     ctx.fillRect(px, py, cs, cs);
                     continue;
                 }
 
                 // Fog of war — unvisited cells
                 if (!this.visitedCells.has(mapId)) {
-                    ctx.fillStyle = 'rgba(15, 15, 25, 0.55)';
+                    ctx.fillStyle = ds ? ds.colors.alpha(ds.colors.background.dark, 0.55)
+                                       : 'rgba(15, 15, 25, 0.55)';
                     ctx.fillRect(px, py, cs, cs);
                     continue;
                 }
 
                 // Grid line for visited cells
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.10)';
+                ctx.strokeStyle = ds ? ds.colors.alpha(ds.colors.text.primary, 0.10)
+                                     : 'rgba(255, 255, 255, 0.10)';
                 ctx.lineWidth = 0.5;
                 ctx.strokeRect(px + 0.5, py + 0.5, cs - 1, cs - 1);
             }
@@ -236,13 +242,14 @@ class MinimapSystem {
         // Outer glow
         ctx.beginPath();
         ctx.arc(dotX, dotY, glowRadius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(100, 200, 255, ${0.15 + pulse * 0.15})`;
+        ctx.fillStyle = ds ? ds.colors.primaryAlpha(0.15 + pulse * 0.15)
+                           : `rgba(100, 200, 255, ${0.15 + pulse * 0.15})`;
         ctx.fill();
 
         // Inner dot
         ctx.beginPath();
         ctx.arc(dotX, dotY, 2.5, 0, Math.PI * 2);
-        ctx.fillStyle = '#FFFFFF';
+        ctx.fillStyle = ds ? ds.colors.text.primary : '#FFFFFF';
         ctx.fill();
 
         // ── Current cell highlight border ──
@@ -252,16 +259,18 @@ class MinimapSystem {
         ctx.beginPath();
         ctx.rect(mapX, mapY, this.mapSize, this.mapSize);
         ctx.clip();
-        ctx.strokeStyle = `rgba(255, 255, 255, ${0.3 + pulse * 0.2})`;
+        ctx.strokeStyle = ds ? ds.colors.alpha(ds.colors.text.primary, 0.3 + pulse * 0.2)
+                             : `rgba(255, 255, 255, ${0.3 + pulse * 0.2})`;
         ctx.lineWidth = 1.5;
         ctx.strokeRect(cellHighlightX + 0.5, cellHighlightY + 0.5, cs - 1, cs - 1);
         ctx.restore();
 
         // ── Compass labels ──
-        ctx.font = 'bold 9px Arial';
+        ctx.font = ds ? ds.font('micro', 'bold', 'body') : 'bold 9px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = 'rgba(200, 210, 230, 0.6)';
+        ctx.fillStyle = ds ? ds.colors.alpha(ds.colors.text.muted, 0.7)
+                           : 'rgba(200, 210, 230, 0.6)';
 
         const midX = mapX + this.mapSize / 2;
         const midY = mapY + this.mapSize / 2;
@@ -279,8 +288,9 @@ class MinimapSystem {
 
         // Top line (below frame): Super-region
         if (currentMapData?.superRegion) {
-            ctx.font = 'bold 10px "Cinzel", serif';
-            ctx.fillStyle = 'rgba(210, 218, 235, 0.65)';
+            ctx.font = ds ? ds.font('tiny', 'bold', 'display') : 'bold 10px "Cinzel", serif';
+            ctx.fillStyle = ds ? ds.colors.alpha(ds.colors.text.secondary, 0.65)
+                               : 'rgba(210, 218, 235, 0.65)';
             ctx.fillText(currentMapData.superRegion, labelX, frameY + frameH + 5);
         }
 
@@ -288,27 +298,12 @@ class MinimapSystem {
         const regionCoord = currentMapData?.region
             ? `${currentMapData.region} ${coordStr}`
             : coordStr;
-        ctx.font = 'bold 11px Arial';
-        ctx.fillStyle = 'rgba(220, 225, 240, 0.75)';
+        ctx.font = ds ? ds.font('tiny', 'bold', 'body') : 'bold 11px Arial';
+        ctx.fillStyle = ds ? ds.colors.alpha(ds.colors.text.secondary, 0.75)
+                           : 'rgba(220, 225, 240, 0.75)';
         ctx.fillText(regionCoord, labelX, frameY + frameH + 19);
 
         ctx.restore();
-    }
-
-    /**
-     * Draw a rounded rectangle path
-     */
-    roundRect(ctx, x, y, w, h, r) {
-        ctx.moveTo(x + r, y);
-        ctx.lineTo(x + w - r, y);
-        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-        ctx.lineTo(x + w, y + h - r);
-        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-        ctx.lineTo(x + r, y + h);
-        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-        ctx.lineTo(x, y + r);
-        ctx.quadraticCurveTo(x, y, x + r, y);
-        ctx.closePath();
     }
 
     /**

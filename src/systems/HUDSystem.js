@@ -288,13 +288,19 @@ class HUDSystem {
      * Helper to render emoji icons with shadow
      */
     renderIcon(ctx, icon, x, y) {
+        const ds = window.ds;
         ctx.save();
-        ctx.font = '20px Arial'; // Emoji font
+        ctx.font = '20px Arial'; // Emoji font - keep Arial for emoji rendering
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 5;
+        if (ds) {
+            ds.applyShadow(ctx, 'sm');
+        } else {
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            ctx.shadowBlur = 5;
+        }
         ctx.fillText(icon, x, y);
+        if (ds) ds.clearShadow(ctx);
         ctx.restore();
     }
 }

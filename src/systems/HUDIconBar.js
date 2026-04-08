@@ -1,9 +1,11 @@
 /**
  * HUDIconBar — bottom-center icon strip showing available hotkeys.
  *
- * Each icon is a canvas-drawn glyph inside a rounded rectangle
- * with a hotkey badge below the icon box.
- * Icons pulse briefly on press for feedback.
+ * Uses the global DesignSystem for consistent styling:
+ *   - Sharp corners (no border-radius)
+ *   - Gradient panel backgrounds (#1a1a24 → #0a0a0f)
+ *   - Cyan corner accents (#4a9eff)
+ *   - Cinzel / Lato fonts
  *
  * Layout (bottom-center):  [🎒]  [⚙]  [🗺]  [👁]
  *                            I     M    Tab    N
@@ -21,19 +23,21 @@ class HUDIconBar {
             { id: 'minimap',   glyph: 'eye',   key: 'N',   action: 'minimap',   tooltip: 'Minimap' },
         ];
 
-        // Layout — larger icons, hotkey badge BELOW the box
-        this.iconSize = 44;        // icon box size (was 28)
-        this.iconGap  = 10;        // gap between boxes
-        this.bottomMargin = 18;    // distance from canvas bottom to hotkey text bottom
-        this.badgeGap = 4;         // gap between icon box bottom and hotkey text
+        // Layout
+        this.iconSize = 44;
+        this.iconGap  = 6;
+        this.bottomMargin = 20;
+        this.badgeGap = 4;
 
         // Animation
-        this.pressTimers = {}; // id → remaining flash time
+        this.pressTimers = {};
     }
 
-    /** Call when an action fires so the icon flashes */
+    /** @returns {DesignSystem|null} */
+    get ds() { return window.ds; }
+
     flash(actionId) {
-        this.pressTimers[actionId] = 0.25; // seconds
+        this.pressTimers[actionId] = 0.25;
     }
 
     update(deltaTime) {
@@ -44,51 +48,51 @@ class HUDIconBar {
     }
 
     render(ctx) {
-        const canvasW = this.game.CANVAS_WIDTH;
-        const canvasH = this.game.CANVAS_HEIGHT;
+        const ds = this.ds;
+        if (!ds) return;
+
+        const W = this.game.CANVAS_WIDTH;
+        const H = this.game.CANVAS_HEIGHT;
         const s = this.iconSize;
         const totalW = this.icons.length * s + (this.icons.length - 1) * this.iconGap;
-
-        // Center horizontally, anchor to bottom
-        const badgeH = 12; // approx height of hotkey text
-        const startX = (canvasW - totalW) / 2;
-        const boxY = canvasH - this.bottomMargin - badgeH - this.badgeGap - s;
+        const badgeH = 14;
+        const startX = (W - totalW) / 2;
+        const boxY = H - this.bottomMargin - badgeH - this.badgeGap - s;
 
         ctx.save();
 
         let x = startX;
         for (const icon of this.icons) {
-            const isFlashing = this.pressTimers[icon.action] > 0;
-            const bgAlpha = isFlashing ? 0.55 : 0.28;
-            const borderAlpha = isFlashing ? 0.7 : 0.3;
-
-            // Background box
-            ctx.beginPath();
-            this._roundRect(ctx, x, boxY, s, s, 8);
-            ctx.fillStyle = `rgba(15, 18, 28, ${bgAlpha})`;
-            ctx.fill();
-            ctx.strokeStyle = `rgba(180, 190, 215, ${borderAlpha})`;
-            ctx.lineWidth = 1.2;
-            ctx.stroke();
-
-            // Glyph — centered in the box, no overlap with key
-            ctx.save();
+            const active = this.pressTimers[icon.action] > 0;
             const cx = x + s / 2;
-            const cy = boxY + s / 2;
-            const glyphAlpha = isFlashing ? 0.95 : 0.65;
-            ctx.fillStyle = `rgba(220, 225, 240, ${glyphAlpha})`;
-            ctx.strokeStyle = `rgba(220, 225, 240, ${glyphAlpha})`;
+
+            // ── Panel via DesignSystem ──
+            ds.drawPanel(ctx, x, boxY, s, s, {
+                alpha: active ? 0.6 : 0.35,
+                showCorners: active,
+                borderColor: active ? ds.colors.primaryAlpha(0.5) : null
+            });
+
+            // ── Glyph ──
+            ctx.save();
+            const glyphColor = active
+                ? ds.colors.primary
+                : ds.colors.alpha(ds.colors.text.secondary, 0.6);
+            ctx.fillStyle = glyphColor;
+            ctx.strokeStyle = glyphColor;
             ctx.lineWidth = 2;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
-            this._drawGlyph(ctx, icon.glyph, cx, cy, s * 0.36);
+            this._drawGlyph(ctx, icon.glyph, cx, boxY + s / 2, s * 0.34);
             ctx.restore();
 
-            // Hotkey badge — BELOW the box, separate from glyph
-            ctx.font = 'bold 11px "Lato", Arial, sans-serif';
+            // ── Hotkey badge (below box) ──
+            ctx.font = ds.font('xxs', 'semibold', 'body');
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
-            ctx.fillStyle = `rgba(170, 180, 200, ${isFlashing ? 0.9 : 0.5})`;
+            ctx.fillStyle = active
+                ? ds.colors.primary
+                : ds.colors.alpha(ds.colors.text.muted, 0.7);
             ctx.fillText(icon.key, cx, boxY + s + this.badgeGap);
 
             x += s + this.iconGap;
@@ -108,20 +112,17 @@ class HUDIconBar {
         }
     }
 
-    /** Backpack / bag icon */
     _drawBag(ctx, cx, cy, r) {
-        // Bag body (trapezoid-ish rounded rect)
         const w = r * 1.5, h = r * 1.6;
         const bx = cx - w / 2, by = cy - h / 2 + r * 0.2;
-        ctx.beginPath();
-        this._roundRect(ctx, bx, by, w, h, 3);
-        ctx.stroke();
-        // Flap
+        // Body
+        ctx.strokeRect(bx, by, w, h);
+        // Flap line
         ctx.beginPath();
         ctx.moveTo(bx + 2, by);
         ctx.lineTo(bx + w - 2, by);
         ctx.stroke();
-        // Handle (arc on top)
+        // Handle
         ctx.beginPath();
         ctx.arc(cx, by - 1, w * 0.28, Math.PI, 0);
         ctx.stroke();
@@ -131,7 +132,6 @@ class HUDIconBar {
         ctx.fill();
     }
 
-    /** Gear / cog icon */
     _drawGear(ctx, cx, cy, r) {
         const inner = r * 0.45;
         const outer = r * 0.85;
@@ -149,17 +149,14 @@ class HUDIconBar {
         }
         ctx.closePath();
         ctx.stroke();
-        // Center dot
         ctx.beginPath();
         ctx.arc(cx, cy, inner * 0.5, 0, Math.PI * 2);
         ctx.fill();
     }
 
-    /** Folded map icon */
     _drawMap(ctx, cx, cy, r) {
         const w = r * 1.7, h = r * 1.4;
         const lx = cx - w / 2, ly = cy - h / 2;
-        // Three panels (folded map)
         const thirdW = w / 3;
         ctx.beginPath();
         ctx.moveTo(lx, ly + 2);
@@ -172,7 +169,6 @@ class HUDIconBar {
         ctx.lineTo(lx, ly + h - 2);
         ctx.closePath();
         ctx.stroke();
-        // Fold lines
         ctx.beginPath();
         ctx.moveTo(lx + thirdW, ly);
         ctx.lineTo(lx + thirdW, ly + h);
@@ -182,16 +178,12 @@ class HUDIconBar {
         // X marker
         const mx = cx + r * 0.15, my = cy - r * 0.05;
         ctx.beginPath();
-        ctx.moveTo(mx - 2, my - 2);
-        ctx.lineTo(mx + 2, my + 2);
-        ctx.moveTo(mx + 2, my - 2);
-        ctx.lineTo(mx - 2, my + 2);
+        ctx.moveTo(mx - 2, my - 2); ctx.lineTo(mx + 2, my + 2);
+        ctx.moveTo(mx + 2, my - 2); ctx.lineTo(mx - 2, my + 2);
         ctx.stroke();
     }
 
-    /** Eye icon (minimap toggle) */
     _drawEye(ctx, cx, cy, r) {
-        // Eye outline
         ctx.beginPath();
         ctx.moveTo(cx - r, cy);
         ctx.quadraticCurveTo(cx - r * 0.5, cy - r * 0.7, cx, cy - r * 0.55);
@@ -200,27 +192,10 @@ class HUDIconBar {
         ctx.quadraticCurveTo(cx - r * 0.5, cy + r * 0.7, cx - r, cy);
         ctx.closePath();
         ctx.stroke();
-        // Iris
         ctx.beginPath();
         ctx.arc(cx, cy, r * 0.28, 0, Math.PI * 2);
         ctx.fill();
     }
-
-    // ── Utility ──
-
-    _roundRect(ctx, x, y, w, h, r) {
-        ctx.moveTo(x + r, y);
-        ctx.lineTo(x + w - r, y);
-        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-        ctx.lineTo(x + w, y + h - r);
-        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-        ctx.lineTo(x + r, y + h);
-        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-        ctx.lineTo(x, y + r);
-        ctx.quadraticCurveTo(x, y, x + r, y);
-        ctx.closePath();
-    }
 }
 
-// Export
 window.HUDIconBar = HUDIconBar;
