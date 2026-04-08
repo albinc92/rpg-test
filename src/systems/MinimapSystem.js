@@ -1,8 +1,9 @@
 /**
- * MinimapSystem - Renders a small corner minimap showing the world grid
+ * MinimapSystem - Renders a small corner minimap showing the world map image
  * 
  * Features:
- * - Shows nearby world cells color-coded by biome
+ * - Shows the actual worldmap.webp image cropped to nearby area
+ * - Grid overlay on top of the map image
  * - Blinking player dot at current position
  * - Fog of war (only visited cells revealed)
  * - Toggle with N key
@@ -10,30 +11,6 @@
  * - Semi-transparent, non-intrusive overlay
  */
 class MinimapSystem {
-    // Biome colors matching WorldMapState
-    static BIOME_COLORS = {
-        'village':        '#A0805A',
-        'grassland':      '#7CCD7C',
-        'woodland':       '#3CB371',
-        'dense-forest':   '#1E6B1E',
-        'meadow':         '#A8E6A0',
-        'plains':         '#C8B560',
-        'desert':         '#E0C890',
-        'arid-desert':    '#C8A860',
-        'oasis':          '#40B0A0',
-        'mountain':       '#9E9E9E',
-        'high-mountain':  '#787878',
-        'volcanic':       '#C03030',
-        'snow':           '#E8F0F8',
-        'tundra':         '#A0B8D0',
-        'frozen-peak':    '#D0E8F0',
-        'tropical':       '#50C050',
-        'jungle':         '#207820',
-        'swamp':          '#556B2F',
-        'coast':          '#70B8E0',
-        'lake':           '#4070C0',
-        'river-valley':   '#508888'
-    };
 
     constructor(game) {
         this.game = game;
@@ -50,9 +27,14 @@ class MinimapSystem {
         // Derived
         this.gridDiameter = this.viewRadius * 2 + 1; // 9
         this.mapSize = this.gridDiameter * this.cellSize; // 144
-        // Cache is 2 cells wider/taller for smooth sub-cell scrolling
-        this.cacheGridDiameter = this.gridDiameter + 2; // 11
-        this.cacheSize = this.cacheGridDiameter * this.cellSize; // 176
+
+        // World grid bounds (must match WorldMapState)
+        this.gridMinX = -14;
+        this.gridMaxX = 15;
+        this.gridMinY = -14;
+        this.gridMaxY = 15;
+        this.gridCols = this.gridMaxX - this.gridMinX + 1; // 30
+        this.gridRows = this.gridMaxY - this.gridMinY + 1; // 30
 
         // Player dot animation
         this.pulseTimer = 0;
@@ -61,12 +43,13 @@ class MinimapSystem {
         // Fog of war: Set of visited map IDs
         this.visitedCells = new Set();
 
-        // Offscreen canvas for caching the minimap tiles
-        this.cacheCanvas = null;
-        this.cacheCtx = null;
-        this.cachedCenterX = null;
-        this.cachedCenterY = null;
-        this.cacheValid = false;
+        // World map background image (shared static — loaded once)
+        if (!MinimapSystem._bgImage) {
+            MinimapSystem._bgImage = new Image();
+            MinimapSystem._bgImage.src = 'assets/bg/worldmap.webp';
+            MinimapSystem._bgLoaded = false;
+            MinimapSystem._bgImage.onload = () => { MinimapSystem._bgLoaded = true; };
+        }
 
         // Compass labels
         this.compassLabels = ['N', 'E', 'S', 'W'];
@@ -84,8 +67,6 @@ class MinimapSystem {
      */
     markVisited(mapId) {
         this.visitedCells.add(mapId);
-        // Invalidate cache since fog of war changed
-        this.cacheValid = false;
     }
 
     /**
@@ -113,81 +94,6 @@ class MinimapSystem {
     }
 
     /**
-     * Ensure offscreen canvas exists and is correctly sized
-     */
-    ensureCache() {
-        if (!this.cacheCanvas) {
-            this.cacheCanvas = document.createElement('canvas');
-            this.cacheCanvas.width = this.cacheSize;
-            this.cacheCanvas.height = this.cacheSize;
-            this.cacheCtx = this.cacheCanvas.getContext('2d');
-        }
-    }
-
-    /**
-     * Rebuild the cached tile grid
-     */
-    rebuildCache(centerX, centerY) {
-        this.ensureCache();
-        const ctx = this.cacheCtx;
-        const cs = this.cellSize;
-        const r = this.viewRadius + 1; // +1 extra cell on each side for scrolling
-
-        // Clear
-        ctx.clearRect(0, 0, this.cacheSize, this.cacheSize);
-
-        for (let dy = -r; dy <= r; dy++) {
-            for (let dx = -r; dx <= r; dx++) {
-                const gx = centerX + dx;
-                // Flip Y: negative dy = top of screen = north = higher grid Y
-                const gy = centerY - dy;
-                const mapId = this.buildMapId(gx, gy);
-                const px = (dx + r) * cs;
-                const py = (dy + r) * cs;
-
-                // Check if cell exists in map data
-                const mapData = this.game.mapManager?.getMapData(mapId);
-                if (!mapData) {
-                    // Out of bounds — dark void
-                    ctx.fillStyle = 'rgba(10, 10, 15, 0.9)';
-                    ctx.fillRect(px, py, cs, cs);
-                    continue;
-                }
-
-                // Check fog of war
-                if (!this.visitedCells.has(mapId)) {
-                    // Unvisited — dark with subtle hint
-                    ctx.fillStyle = 'rgba(20, 20, 30, 0.85)';
-                    ctx.fillRect(px, py, cs, cs);
-
-                    // Subtle question mark
-                    ctx.fillStyle = 'rgba(100, 100, 120, 0.3)';
-                    ctx.font = `${Math.floor(cs * 0.5)}px Arial`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText('?', px + cs / 2, py + cs / 2);
-                    continue;
-                }
-
-                // Visited — draw biome color
-                const biome = mapData.biome || 'grassland';
-                const color = MinimapSystem.BIOME_COLORS[biome] || '#666666';
-                ctx.fillStyle = color;
-                ctx.fillRect(px, py, cs, cs);
-
-                // Subtle cell border
-                ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
-                ctx.lineWidth = 0.5;
-                ctx.strokeRect(px + 0.5, py + 0.5, cs - 1, cs - 1);
-            }
-        }
-
-        this.cachedCenterX = centerX;
-        this.cachedCenterY = centerY;
-        this.cacheValid = true;
-    }
-
-    /**
      * Main render — draws the minimap on the HUD canvas
      */
     render(ctx) {
@@ -199,11 +105,6 @@ class MinimapSystem {
 
         const centerX = pos.x;
         const centerY = pos.y;
-
-        // Rebuild cache if player moved to a different cell
-        if (!this.cacheValid || this.cachedCenterX !== centerX || this.cachedCenterY !== centerY) {
-            this.rebuildCache(centerX, centerY);
-        }
 
         const canvasW = this.game.CANVAS_WIDTH;
         const canvasH = this.game.CANVAS_HEIGHT;
@@ -219,7 +120,6 @@ class MinimapSystem {
         ctx.save();
 
         // ── Frame background ──
-        // Rounded rect with semi-transparent dark background
         const cornerRadius = 8;
         ctx.beginPath();
         this.roundRect(ctx, frameX, frameY, frameW, frameH, cornerRadius);
@@ -231,43 +131,83 @@ class MinimapSystem {
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        // ── Sub-cell position for grid scrolling ──
+        // ── Sub-cell position for smooth scrolling ──
         let subX = 0.5, subY = 0.5;
         if (this.game.player) {
             subX = this.game.player.x / this.game.WORLD_WIDTH;
-            // Flip Y: higher game Y = north = up on minimap
             subY = 1.0 - (this.game.player.y / this.game.WORLD_HEIGHT);
             subX = Math.max(0, Math.min(1, subX));
             subY = Math.max(0, Math.min(1, subY));
         }
 
-        // ── Draw cached tile grid with sub-cell scrolling ──
-        // Offset grid so player is always at exact center of the minimap.
-        // The cache has 1 extra cell on each side to fill gaps during scrolling.
         const mapX = frameX + this.padding;
         const mapY = frameY + this.padding;
 
-        // Sub-cell offset: at subX=0.5 player is cell-center → no shift
+        // Sub-cell scroll offset
         const scrollOffsetX = -(subX - 0.5) * cs;
         const scrollOffsetY = -(subY - 0.5) * cs;
 
-        // The cache is 1 cell larger on each side, so its origin is shifted by -1 cell relative to display
-        const cacheDrawX = mapX + scrollOffsetX - cs; // -cs to account for extra cell
-        const cacheDrawY = mapY + scrollOffsetY - cs;
-
-        // Clip to the minimap frame so the extra cache cells don't overflow
+        // Clip to minimap area
         ctx.save();
         ctx.beginPath();
         ctx.rect(mapX, mapY, this.mapSize, this.mapSize);
         ctx.clip();
-        ctx.drawImage(this.cacheCanvas, cacheDrawX, cacheDrawY);
-        ctx.restore();
+
+        // ── Draw worldmap image ──
+        if (MinimapSystem._bgLoaded && MinimapSystem._bgImage) {
+            const img = MinimapSystem._bgImage;
+
+            // The full grid in minimap pixels
+            const fullGridW = this.gridCols * cs;
+            const fullGridH = this.gridRows * cs;
+
+            // Position of gridMinX, gridMinY cell in minimap space
+            // (how far the top-left of the full grid is from the viewport center)
+            const gridOriginX = mapX + this.mapSize / 2 + (this.gridMinX - centerX) * cs + scrollOffsetX - cs / 2;
+            const gridOriginY = mapY + this.mapSize / 2 + (this.gridMinY - centerY) * cs + scrollOffsetY - cs / 2;
+
+            ctx.drawImage(img, gridOriginX, gridOriginY, fullGridW, fullGridH);
+        }
+
+        // ── Draw grid lines + fog of war ──
+        for (let dy = -r - 1; dy <= r + 1; dy++) {
+            for (let dx = -r - 1; dx <= r + 1; dx++) {
+                const gx = centerX + dx;
+                const gy = centerY - dy; // flip Y
+                const mapId = this.buildMapId(gx, gy);
+                const px = mapX + (dx + r) * cs + scrollOffsetX;
+                const py = mapY + (dy + r) * cs + scrollOffsetY;
+
+                // Check if cell exists
+                const mapData = this.game.mapManager?.getMapData(mapId);
+
+                if (!mapData) {
+                    // Out of bounds — dark void
+                    ctx.fillStyle = 'rgba(10, 10, 15, 0.95)';
+                    ctx.fillRect(px, py, cs, cs);
+                    continue;
+                }
+
+                // Fog of war — unvisited cells
+                if (!this.visitedCells.has(mapId)) {
+                    ctx.fillStyle = 'rgba(15, 15, 25, 0.88)';
+                    ctx.fillRect(px, py, cs, cs);
+                    continue;
+                }
+
+                // Grid line for visited cells
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.10)';
+                ctx.lineWidth = 0.5;
+                ctx.strokeRect(px + 0.5, py + 0.5, cs - 1, cs - 1);
+            }
+        }
+
+        ctx.restore(); // unclip
 
         // ── Player position dot — always at exact center ──
         const dotX = mapX + this.mapSize / 2;
         const dotY = mapY + this.mapSize / 2;
 
-        // Pulsing glow
         const pulse = 0.5 + 0.5 * Math.sin(this.pulseTimer * this.pulseSpeed * Math.PI * 2);
         const glowRadius = 4 + pulse * 2;
 
@@ -283,7 +223,7 @@ class MinimapSystem {
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
 
-        // ── Current cell highlight border (scrolls with grid) ──
+        // ── Current cell highlight border ──
         const cellHighlightX = mapX + r * cs + scrollOffsetX;
         const cellHighlightY = mapY + r * cs + scrollOffsetY;
         ctx.save();
@@ -303,27 +243,24 @@ class MinimapSystem {
 
         const midX = mapX + this.mapSize / 2;
         const midY = mapY + this.mapSize / 2;
-
-        // N (top)
         ctx.fillText('N', midX, mapY - 5);
-        // S (bottom)
         ctx.fillText('S', midX, mapY + this.mapSize + 7);
-        // W (left)
         ctx.fillText('W', mapX - 7, midY);
-        // E (right)
         ctx.fillText('E', mapX + this.mapSize + 7, midY);
 
-        // ── Region name label ──
-        const mapData = this.game.mapManager?.getMapData(this.game.currentMapId);
-        if (mapData?.region) {
-            ctx.font = 'bold 10px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.fillStyle = 'rgba(220, 225, 240, 0.7)';
-            const labelX = frameX + frameW / 2;
-            const labelY = frameY - 4;
-            ctx.fillText(mapData.region, labelX, labelY);
-        }
+        // ── Region name + coordinates label ──
+        const currentMapData = this.game.mapManager?.getMapData(this.game.currentMapId);
+        const coordStr = `(${centerX}, ${centerY})`;
+        const labelText = currentMapData?.region
+            ? `${currentMapData.region} ${coordStr}`
+            : coordStr;
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillStyle = 'rgba(220, 225, 240, 0.7)';
+        const labelX = frameX + frameW / 2;
+        const labelY = frameY - 4;
+        ctx.fillText(labelText, labelX, labelY);
 
         ctx.restore();
     }

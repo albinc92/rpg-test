@@ -46,16 +46,16 @@ WHAT WE HAVE:
   - Player position tracked in real-time
 
 WHAT TO ADD:
-  [ ] MinimapSystem.js — renders a small corner overlay (bottom-right or top-right)
-  [ ] Shows nearby cells from the world grid (e.g. 5×5 or 7×7 around player)
-  [ ] Color-coded by biome (reuse world map colors)
-  [ ] Blinking player dot at current position within the cell
-  [ ] Fog of war — only show visited cells
-  [ ] Toggle with a key (e.g. Tab or N)
-  [ ] Optional: show NPC/portal/chest dots on current map
-  [ ] Optional: compass rose or cardinal direction labels
-  [ ] Semi-transparent background so it doesn't obscure gameplay
-  [ ] Hide during battles, menus, cutscenes
+  [x] MinimapSystem.js — renders a small corner overlay (bottom-right or top-right)
+  [x] Shows nearby cells from the world grid (e.g. 5×5 or 7×7 around player)
+  [x] Color-coded by biome (reuse world map colors)
+  [x] Blinking player dot at current position within the cell
+  [x] Fog of war — only show visited cells
+  [x] Toggle with a key (e.g. Tab or N)
+  [x] Optional: show NPC/portal/chest dots on current map
+  [x] Optional: compass rose or cardinal direction labels
+  [x] Semi-transparent background so it doesn't obscure gameplay
+  [x] Hide during battles, menus, cutscenes
 
 ────────────────────────────────────────────────────────────────────────────────
 3. DYNAMIC BGM SYSTEM
@@ -130,26 +130,26 @@ WHAT WE HAVE:
   - WeatherSystem drives weather-based darkening/desaturation
 
 WHAT TO ADD — new shader uniforms + biome profiles:
-  [ ] Heat haze / distortion (desert biomes):
+  [x] Heat haze / distortion (desert biomes):
       - New uniform: u_hazeIntensity, u_hazeSpeed
       - UV displacement using sin wave, subtle ripple near ground
       - Intensity driven by biome + time of day (stronger at midday)
-  [ ] Underwater tint (water/lake biomes or submerged areas):
+  [x] Underwater tint (water/lake biomes or submerged areas):
       - New uniform: u_underwaterTint vec3 (blue-green)
       - Slightly increased bloom + reduced saturation
       - Optional: wavy UV distortion (gentle)
-  [ ] Cold desaturation (snow/tundra biomes):
+  [x] Cold desaturation (snow/tundra biomes):
       - Slight blue tint via u_temperature
       - Lower saturation baseline
       - Higher vignette
-  [ ] Warm tint (desert biomes):
+  [x] Warm tint (desert biomes):
       - Slight warm temperature shift
       - Slightly increased brightness
-  [ ] Forest mood (woodland biomes):
+  [x] Forest mood (woodland biomes):
       - Slightly green-tinted darknessColor
       - Standard vignette
       - Subtle bloom increase (dappled light feel)
-  [ ] Biome shader profile table:
+  [x] Biome shader profile table:
       - Each biome maps to { temperature, saturation, vignette, bloom,
         hazeIntensity, underwaterTint, etc. }
       - Smoothly interpolate between profiles on biome change

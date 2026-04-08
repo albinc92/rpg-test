@@ -1309,6 +1309,11 @@ class GameEngine {
             const previousMapId = this.currentMapId;
             this.currentMapId = mapId;
             this.currentMap = newMapData;
+
+            // Mark cell as visited for minimap fog of war
+            if (this.minimapSystem) {
+                this.minimapSystem.markVisited(mapId);
+            }
             
             // 3. Apply Coordinate Shift to Player
             this.player.x += shiftX;
