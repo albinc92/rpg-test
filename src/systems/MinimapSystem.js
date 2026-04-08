@@ -135,7 +135,7 @@ class MinimapSystem {
         let subX = 0.5, subY = 0.5;
         if (this.game.player) {
             subX = this.game.player.x / this.game.WORLD_WIDTH;
-            subY = 1.0 - (this.game.player.y / this.game.WORLD_HEIGHT);
+            subY = this.game.player.y / this.game.WORLD_HEIGHT;
             subX = Math.max(0, Math.min(1, subX));
             subY = Math.max(0, Math.min(1, subY));
         }
@@ -161,12 +161,16 @@ class MinimapSystem {
             const fullGridW = this.gridCols * cs;
             const fullGridH = this.gridRows * cs;
 
-            // Position of gridMinX, gridMinY cell in minimap space
-            // (how far the top-left of the full grid is from the viewport center)
             const gridOriginX = mapX + this.mapSize / 2 + (this.gridMinX - centerX) * cs + scrollOffsetX - cs / 2;
-            const gridOriginY = mapY + this.mapSize / 2 + (this.gridMinY - centerY) * cs + scrollOffsetY - cs / 2;
+            // Flip Y so north (+Y in map IDs) renders at the top of the minimap
+            const gridOriginY = mapY + this.mapSize / 2 + (centerY - this.gridMaxY) * cs + scrollOffsetY - cs / 2;
 
+            // Draw image flipped vertically (image has south at top, minimap needs north at top)
+            ctx.save();
+            ctx.translate(0, 2 * gridOriginY + fullGridH);
+            ctx.scale(1, -1);
             ctx.drawImage(img, gridOriginX, gridOriginY, fullGridW, fullGridH);
+            ctx.restore();
         }
 
         // ── Draw grid lines + fog of war ──
