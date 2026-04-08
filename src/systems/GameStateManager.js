@@ -4515,9 +4515,11 @@ class DialogueState extends GameState {
         }
         
         // Controls hint at bottom of screen
-        const hintText = this.game.inputManager?.isMobile ? 'Tap to continue' : 'Enter: Continue | ESC: Close';
-        ctx.fillStyle = ds ? ds.colors.text.muted : '#888888';
-        ctx.font = `11px ${bodyFont}`;
+        const hintText = this.game.inputManager?.isMobile 
+            ? this.game.t('instructions.dialogueMobile') 
+            : this.game.t('instructions.dialogueMenu');
+        ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : `14px ${bodyFont}`;
         ctx.textAlign = 'center';
         ctx.fillText(hintText, canvasWidth / 2, canvasHeight - 12);
     }
@@ -5273,8 +5275,8 @@ class ShopState extends GameState {
         ctx.fillText(`${this.game.t('shop.total')}: ${total} 💰`, centerX, boxY + boxHeight - padding - 35);
         
         // Instructions - at very bottom
-        ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
-        ctx.font = ds ? ds.font('xs', 'normal', 'body') : '14px "Lato", sans-serif';
+        ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
         ctx.textBaseline = 'bottom';
         ctx.fillText(this.game.t('shop.quantityHints'), centerX, boxY + boxHeight - padding);
     }
@@ -7227,11 +7229,14 @@ class BattleState extends GameState {
         const { menuX, menuW, pad, contentY } = panel;
 
         // Back hint (bottom-right of title area)
-        ctx.fillStyle = ds ? ds.colors.text.muted : '#666';
-        ctx.font = ds ? ds.font('xs') : "11px 'Lato', sans-serif";
+        const backHint = this.game.inputManager?.isMobile 
+            ? this.game.t('instructions.battleBackMobile') 
+            : this.game.t('instructions.battleBack');
+        ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : "14px 'Lato', sans-serif";
         ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
-        ctx.fillText('[ESC] Back', menuX + menuW - pad, panel.menuY + pad + panel.titleH / 2);
+        ctx.fillText(backHint, menuX + menuW - pad, panel.menuY + pad + panel.titleH / 2);
 
         // Ability items — single column spanning full width
         abilities.forEach((ability, index) => {
@@ -7307,11 +7312,14 @@ class BattleState extends GameState {
         const { menuX, menuW, pad, contentY } = panel;
 
         // Back hint
-        ctx.fillStyle = ds ? ds.colors.text.muted : '#666';
-        ctx.font = ds ? ds.font('xs') : "11px 'Lato', sans-serif";
+        const switchBackHint = this.game.inputManager?.isMobile 
+            ? this.game.t('instructions.battleBackMobile') 
+            : this.game.t('instructions.battleBack');
+        ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : "14px 'Lato', sans-serif";
         ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
-        ctx.fillText('[ESC] Back', menuX + menuW - pad, panel.menuY + pad + panel.titleH / 2);
+        ctx.fillText(switchBackHint, menuX + menuW - pad, panel.menuY + pad + panel.titleH / 2);
 
         // Spirit items — single column spanning full width
         switchable.forEach((spirit, index) => {
@@ -7590,10 +7598,13 @@ class BattleState extends GameState {
         
         // Continue prompt
         if (this.resultsTimer > 1.0) {
-            ctx.fillStyle = ds ? ds.colors.text.muted : '#666';
-            ctx.font = ds ? ds.font('xs') : '12px Lato, sans-serif';
+            const continueHint = this.game.inputManager?.isMobile 
+                ? this.game.t('instructions.battleContinueMobile') 
+                : this.game.t('instructions.battleContinue');
+            ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
+            ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px Lato, sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('Press CONFIRM to continue', width / 2, boxY + boxHeight - padding);
+            ctx.fillText(continueHint, width / 2, boxY + boxHeight - padding);
         }
     }
     
@@ -8137,11 +8148,14 @@ class CreditsState extends GameState {
         ctx.fillRect(0, H - fadeH, W, fadeH);
 
         // ── Back hint ──
-        ctx.fillStyle = textMuted;
-        ctx.font = ds ? ds.font('xs', 'normal', 'body') : '12px "Lato", sans-serif';
+        const creditsHint = this.game.inputManager?.isMobile 
+            ? this.game.t('instructions.creditsMobile') 
+            : this.game.t('instructions.creditsBack');
+        ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
-        ctx.fillText('Press ESC to return', W / 2, H - H * 0.02);
+        ctx.fillText(creditsHint, W / 2, H - H * 0.02);
     }
 }
 

@@ -236,7 +236,15 @@
     "saveMenu": "Enter: Save • ESC: Back",
     "saveMenuMobile": "Tap to Select • Back to Cancel",
     "loadMenu": "Enter: Load • DEL: Delete • ESC: Back",
-    "loadMenuMobile": "Tap to Load • Long Press to Delete"
+    "loadMenuMobile": "Tap to Load • Long Press to Delete",
+    "dialogueMenu": "Enter: Continue • ESC: Close",
+    "dialogueMobile": "Tap to Continue",
+    "battleBack": "[ESC] Back",
+    "battleBackMobile": "[B] Back",
+    "battleContinue": "Press CONFIRM to continue",
+    "battleContinueMobile": "Tap to continue",
+    "creditsBack": "Press ESC to return",
+    "creditsMobile": "Tap to return"
   },
   
   "errors": {
