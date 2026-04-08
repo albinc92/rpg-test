@@ -69,23 +69,23 @@ WHAT WE HAVE:
   - 5 audio channels: BGM, ambience, weather, wind, effects
 
 WHAT TO ADD:
-  [ ] BiomeBGMSystem.js — selects BGM track based on:
-      - Current biome (primary driver)
-      - Time of day (night variants, dawn/dusk mood)
-      - Weather intensity (stormy variants)
-      - Battle proximity (tension layer — future)
-  [ ] Biome → BGM mapping table:
-      - woodland / dense-forest → forest theme
-      - grassland / plains / meadow → field/pastoral theme
-      - desert / arid-desert → arid/mysterious theme
-      - snow / tundra → cold/solemn theme
-      - mountain / high-mountain → epic/adventurous theme
-      - lake / river-valley → calm/serene theme
-  [ ] Time-of-day variants (e.g. forest-day.mp3, forest-night.mp3)
-  [ ] Crossfade on biome change (reuse existing AudioManager crossfade)
-  [ ] Don't interrupt during battle (BattleSystem already plays its own BGM)
-  [ ] Region continuity — same biome = same track, no restart on map transition
-  [ ] Placeholder: define the table now, swap in real music assets later
+  [x] BiomeBGMSystem.js — selects BGM track based on:
+      - Current biome (primary driver) ✓
+      - Time of day (night variants) ✓
+      - Weather intensity (stormy variants) — future enhancement
+      - Battle proximity (tension layer) — future enhancement
+  [x] Biome → BGM mapping table:
+      - woodland / dense-forest → bgm-forest-{day|night}.mp3
+      - grassland / plains / meadow → bgm-field-{day|night}.mp3
+      - desert / arid-desert → bgm-desert-{day|night}.mp3
+      - snow / tundra → bgm-snow-{day|night}.mp3
+      - mountain / high-mountain → bgm-mountain-{day|night}.mp3
+      - lake / river-valley → bgm-water-{day|night}.mp3
+  [x] Time-of-day variants (day/night tracks per biome group)
+  [x] Crossfade on biome change (6s) and day↔night (8s) via AudioManager
+  [x] Don't interrupt during battle (disabled on BattleState.enter, re-enabled on exit)
+  [x] Region continuity — same biome = same track, no restart on map transition
+  [x] Placeholder: 12 silent MP3 placeholders created, swap in real music later
 
 ────────────────────────────────────────────────────────────────────────────────
 4. FOOTPRINT / TRAIL SYSTEM

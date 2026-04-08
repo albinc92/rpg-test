@@ -154,6 +154,9 @@ class GameEngine {
         // Biome visual effects (shader profiles + environmental particles)
         this.biomeEffectsSystem = new BiomeEffectsSystem(this);
 
+        // Biome-driven dynamic BGM selection
+        this.biomeBGMSystem = new BiomeBGMSystem(this);
+
         // Biome ground renderer (textured biome backgrounds replacing flat gray)
         this.biomeGroundRenderer = new BiomeGroundRenderer();
         this.biomeGroundRenderer.loadTextures();
@@ -1088,6 +1091,11 @@ class GameEngine {
             this.biomeEffectsSystem.update(deltaTime);
         }
 
+        // Update biome-driven BGM (checks biome + time of day, crossfades as needed)
+        if (this.biomeBGMSystem) {
+            this.biomeBGMSystem.update(deltaTime);
+        }
+
         // Update camera
         this.updateCamera();
         
@@ -1337,11 +1345,17 @@ class GameEngine {
                 }
             }
             
-            // Audio (Seamless crossfade)
-            let bgmFilename = null;
-            if (newMapData.music) bgmFilename = newMapData.music.split('/').pop();
-            if (this.audioManager.currentBGM !== bgmFilename) {
-                this.audioManager.playBGM(bgmFilename);
+            // Audio — BGM is now driven by BiomeBGMSystem (biome + time of day).
+            // Only fall back to static map music if BiomeBGMSystem is not active.
+            if (!this.biomeBGMSystem) {
+                let bgmFilename = null;
+                if (newMapData.music) bgmFilename = newMapData.music.split('/').pop();
+                if (this.audioManager.currentBGM !== bgmFilename) {
+                    this.audioManager.playBGM(bgmFilename);
+                }
+            } else {
+                // BiomeBGMSystem will pick up the biome change on next update tick
+                this.biomeBGMSystem.forceUpdate();
             }
             
             let ambienceFilename = null;
@@ -1622,21 +1636,18 @@ class GameEngine {
             this.lightManager.clearLights();
         }
         
-        // Handle BGM - extract just the filename from the full path
-        let bgmFilename = null;
-        if (mapData.music) {
-            bgmFilename = mapData.music.split('/').pop(); // Get just the filename like '01.mp3'
-        }
-        
-        console.log('🎵 Requesting BGM:', bgmFilename);
-        // Use crossfade if switching maps (and not initial load)
-        if (this.audioManager.currentBGM && this.audioManager.currentBGM !== bgmFilename) {
-            // AudioManager.playBGM handles crossfade internally if implemented, 
-            // but let's check if we need to explicitly call a crossfade method
-            // Looking at AudioManager, playBGM calls crossfadeBGM if something is playing.
-            this.audioManager.playBGM(bgmFilename); 
-        } else {
+        // Handle BGM — BiomeBGMSystem selects track by biome + time of day.
+        // Fall back to static map music only if BiomeBGMSystem is not active.
+        if (!this.biomeBGMSystem) {
+            let bgmFilename = null;
+            if (mapData.music) {
+                bgmFilename = mapData.music.split('/').pop();
+            }
+            console.log('🎵 Requesting BGM:', bgmFilename);
             this.audioManager.playBGM(bgmFilename);
+        } else {
+            // Force immediate evaluation so BGM starts on map load
+            this.biomeBGMSystem.forceUpdate();
         }
         
         // Handle Ambience - use biome-driven ambience when available

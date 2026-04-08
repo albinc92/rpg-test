@@ -5078,6 +5078,11 @@ class BattleState extends GameState {
         this.transitionTimer = 0;
         this.transitionDuration = 1.0;
         
+        // Disable BiomeBGM during battle (battle has its own BGM)
+        if (this.game.biomeBGMSystem) {
+            this.game.biomeBGMSystem.setEnabled(false);
+        }
+        
         // Play transition sound effect
         this.game.audioManager?.playEffect('transition.mp3');
         
@@ -5383,8 +5388,15 @@ class BattleState extends GameState {
             camera.targetY = this.originalCameraY;
         }
         
-        // Resume world BGM
-        this.game.audioManager?.resumeBGM();
+        // Re-enable BiomeBGM and force it to pick the right track
+        if (this.game.biomeBGMSystem) {
+            this.game.biomeBGMSystem.setEnabled(true);
+            this.game.biomeBGMSystem.reset();      // clear stale state
+            this.game.biomeBGMSystem.forceUpdate(); // crossfade to world BGM
+        } else {
+            // Legacy fallback: resume whatever was playing
+            this.game.audioManager?.resumeBGM();
+        }
     }
     
     update(deltaTime) {

@@ -88,6 +88,7 @@ async function loadGameScripts() {
         await loadScript('/src/systems/MinimapSystem.js'); // NEW: Corner minimap overlay
         await loadScript('/src/systems/BiomeEffectsSystem.js'); // NEW: Biome shader effects + particles
         await loadScript('/src/systems/BiomeGroundRenderer.js'); // NEW: Biome-textured ground backgrounds
+        await loadScript('/src/systems/BiomeBGMSystem.js'); // NEW: Biome-driven dynamic BGM selection
         
         // Load editor components
         await loadScript('/src/editor/EditorStyles.js'); // NEW: Standardized editor styling
