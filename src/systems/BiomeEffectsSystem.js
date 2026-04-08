@@ -30,7 +30,7 @@ const BIOME_PROFILES = {
         vignetteOffset: 0.08,
         hazeIntensity: 0.0,
         tint: [0.02, 0.06, 0.0, 0.06], // soft green
-        particles: ['firefly'],
+        particles: ['firefly', 'leaf'],
     },
     'dense-forest': {
         temperature: -0.05,
@@ -39,7 +39,7 @@ const BIOME_PROFILES = {
         vignetteOffset: 0.15,
         hazeIntensity: 0.0,
         tint: [0.0, 0.04, 0.02, 0.08], // dark green tint
-        particles: ['firefly'],
+        particles: ['firefly', 'leaf'],
     },
 
     // ── Grasslands ──
@@ -68,7 +68,7 @@ const BIOME_PROFILES = {
         vignetteOffset: 0.0,
         hazeIntensity: 0.0,
         tint: [0.02, 0.01, 0.0, 0.03], // faint warm
-        particles: ['pollen', 'firefly'],
+        particles: ['pollen', 'firefly', 'dragonfly'],
     },
 
     // ── Desert / Arid ──
@@ -79,7 +79,7 @@ const BIOME_PROFILES = {
         vignetteOffset: 0.05,
         hazeIntensity: 0.6,
         tint: [0.08, 0.04, 0.0, 0.06], // warm orange
-        particles: ['dust'],
+        particles: ['dust', 'sand_wisp'],
     },
     'arid-desert': {
         temperature: 0.35,
@@ -88,7 +88,7 @@ const BIOME_PROFILES = {
         vignetteOffset: 0.08,
         hazeIntensity: 0.8,
         tint: [0.10, 0.05, 0.0, 0.08], // hotter orange
-        particles: ['dust'],
+        particles: ['dust', 'sand_wisp'],
     },
 
     // ── Cold / Snow ──
@@ -119,7 +119,7 @@ const BIOME_PROFILES = {
         vignetteOffset: 0.12,
         hazeIntensity: 0.0,
         tint: [0.0, 0.0, 0.02, 0.03],
-        particles: [],
+        particles: ['dust'],
     },
     'high-mountain': {
         temperature: -0.15,
@@ -139,7 +139,7 @@ const BIOME_PROFILES = {
         vignetteOffset: 0.0,
         hazeIntensity: 0.0,
         tint: [0.0, 0.04, 0.06, 0.05], // blue-green
-        particles: ['mist'],
+        particles: ['mist', 'dragonfly'],
     },
     'river-valley': {
         temperature: 0.0,
@@ -148,7 +148,7 @@ const BIOME_PROFILES = {
         vignetteOffset: 0.0,
         hazeIntensity: 0.0,
         tint: [0.0, 0.03, 0.04, 0.04],
-        particles: ['mist'],
+        particles: ['mist', 'dragonfly'],
     },
 };
 
@@ -233,6 +233,51 @@ const PARTICLE_CONFIGS = {
             [200, 230, 255],   // light blue ice
             [180, 220, 255],   // ice blue
             [220, 240, 255],   // near white-blue
+        ],
+    },
+    dragonfly: {
+        maxCount: 8,
+        spawnRate: 0.8,        // slow spawn — they're large and noticeable
+        timeOfDay: 'dawn_dusk', // dawn (5-7) and dusk (18-20) only
+        size: { min: 3, max: 5 },
+        speed: { min: 0.8, max: 1.8 },
+        lifetime: { min: 6, max: 14 },
+        glow: true,
+        colors: [
+            [80, 200, 220],    // iridescent teal
+            [100, 180, 255],   // blue shimmer
+            [120, 220, 160],   // green shimmer
+            [160, 140, 255],   // purple-blue
+        ],
+    },
+    sand_wisp: {
+        maxCount: 12,
+        spawnRate: 1.5,
+        timeOfDay: 'any',
+        size: { min: 4, max: 10 },
+        speed: { min: 0.6, max: 1.5 },
+        lifetime: { min: 4, max: 9 },
+        glow: false,
+        colors: [
+            [210, 190, 140],   // tan
+            [194, 178, 128],   // sand
+            [220, 200, 155],   // light sand
+        ],
+    },
+    leaf: {
+        maxCount: 18,
+        spawnRate: 2.5,
+        timeOfDay: 'any',
+        size: { min: 2, max: 4 },
+        speed: { min: 0.2, max: 0.6 },
+        lifetime: { min: 5, max: 12 },
+        glow: false,
+        colors: [
+            [80, 140, 50],     // green
+            [120, 160, 60],    // light green
+            [160, 130, 40],    // yellow-brown
+            [180, 100, 30],    // orange
+            [140, 70, 30],     // brown
         ],
     },
 };
@@ -344,6 +389,42 @@ class BiomeEffectsSystem {
                 ctx.restore();
                 ctx.globalAlpha = alpha * 0.25;
                 ctx.fill();
+            } else if (p.type === 'sand_wisp') {
+                // Sand wisp: elongated translucent wisp
+                ctx.save();
+                ctx.translate(screenX, screenY);
+                const angle = Math.atan2(p.vy, p.vx);
+                ctx.rotate(angle);
+                ctx.scale(2.5, 0.4);
+                ctx.arc(0, 0, p.size * zoom, 0, Math.PI * 2);
+                ctx.restore();
+                ctx.globalAlpha = alpha;
+                ctx.fill();
+            } else if (p.type === 'dragonfly') {
+                // Dragonfly: body + two wing lines
+                const sz = p.size * zoom;
+                // Body
+                ctx.arc(screenX, screenY, sz * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+                // Wings (two thin lines)
+                ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.5})`;
+                ctx.lineWidth = 1;
+                const wingSpread = sz * 1.5;
+                const wingAngle = Math.sin(p.age * 15 + p.phase) * 0.4; // rapid flutter
+                ctx.beginPath();
+                ctx.moveTo(screenX - wingSpread * Math.cos(wingAngle), screenY - wingSpread * Math.sin(wingAngle) * 0.5);
+                ctx.lineTo(screenX, screenY);
+                ctx.lineTo(screenX + wingSpread * Math.cos(wingAngle), screenY - wingSpread * Math.sin(wingAngle) * 0.5);
+                ctx.stroke();
+            } else if (p.type === 'leaf') {
+                // Leaf: small rotated ellipse
+                ctx.save();
+                ctx.translate(screenX, screenY);
+                ctx.rotate(p.rotation || 0);
+                ctx.scale(1, 0.5);
+                ctx.arc(0, 0, p.size * zoom, 0, Math.PI * 2);
+                ctx.restore();
+                ctx.fill();
             } else {
                 ctx.arc(screenX, screenY, p.size * zoom, 0, Math.PI * 2);
                 ctx.fill();
@@ -391,7 +472,7 @@ class BiomeEffectsSystem {
     _getTimeOfDay() {
         const dnc = this.game.dayNightCycle;
         if (!dnc) return 'day';
-        const hour = dnc.time; // 0-24 float
+        const hour = dnc.timeOfDay; // 0-24 float
         if (hour >= 20 || hour < 5) return 'night';
         if (hour >= 5 && hour < 7) return 'dawn';
         if (hour >= 18 && hour < 20) return 'dusk';
@@ -403,6 +484,7 @@ class BiomeEffectsSystem {
         const current = this._getTimeOfDay();
         if (requiredTime === 'night') return current === 'night' || current === 'dusk';
         if (requiredTime === 'day') return current === 'day' || current === 'dawn';
+        if (requiredTime === 'dawn_dusk') return current === 'dawn' || current === 'dusk';
         return current === requiredTime;
     }
 
@@ -460,6 +542,41 @@ class BiomeEffectsSystem {
                 p.vy += 0.003;
                 p.vx = Math.sin(p.age * 1.5 + p.phase) * 0.1;
                 p.alpha = 0.4 + 0.4 * Math.sin(p.age * 4 + p.phase);
+            } else if (p.type === 'dragonfly') {
+                // Dragonflies: fast zigzag darting, hover then dash
+                const dashCycle = Math.sin(p.age * 1.2 + p.phase);
+                if (Math.abs(dashCycle) > 0.7) {
+                    // Dash phase — quick direction change
+                    p.vx += (Math.random() - 0.5) * 0.25;
+                    p.vy += (Math.random() - 0.5) * 0.2;
+                } else {
+                    // Hover phase — slow down and drift
+                    p.vx *= 0.95;
+                    p.vy *= 0.95;
+                }
+                // Clamp speed
+                const spd = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+                if (spd > 2.5) { p.vx *= 2.5 / spd; p.vy *= 2.5 / spd; }
+                // Subtle wing shimmer
+                p.alpha = 0.6 + 0.3 * Math.sin(p.age * 8 + p.phase);
+            } else if (p.type === 'sand_wisp') {
+                // Sand wisps: spiraling wind-driven tendrils
+                const wind = this.game.weatherSystem?.windStrength || 0.3;
+                const spiralT = p.age * 0.6 + p.phase;
+                p.vx += wind * 0.2 + Math.cos(spiralT) * 0.06;
+                p.vy += Math.sin(spiralT) * 0.04 - 0.01; // slight lift
+                p.vx *= 0.97;
+                p.vy *= 0.97;
+                // Grow and fade as it dissipates
+                p.size = p.baseSize * (1 + p.age * 0.08);
+                p.alpha = 0.2 * (1 - p.age / p.lifetime); // fade out gradually
+            } else if (p.type === 'leaf') {
+                // Falling leaves: sway side-to-side while drifting down
+                p.vy += 0.005; // gravity
+                p.vx = Math.sin(p.age * 1.0 + p.phase) * 0.25; // sway
+                p.vy *= 0.995;
+                // Store rotation for rendering
+                p.rotation = (p.rotation || 0) + dt * (1.5 + Math.sin(p.phase) * 0.8);
             }
 
             // Remove if far outside viewport
@@ -522,6 +639,17 @@ class BiomeEffectsSystem {
         } else if (type === 'ice') {
             vy = speed * 0.3; // gentle fall
             vx = (Math.random() - 0.5) * speed * 0.5;
+        } else if (type === 'dragonfly') {
+            // Start with a random dash direction
+            const angle = Math.random() * Math.PI * 2;
+            vx = Math.cos(angle) * speed;
+            vy = Math.sin(angle) * speed;
+        } else if (type === 'sand_wisp') {
+            vx = speed * 0.7 + Math.random() * speed * 0.5; // wind-driven
+            vy = (Math.random() - 0.5) * speed * 0.2;
+        } else if (type === 'leaf') {
+            vy = speed * 0.4; // fall
+            vx = (Math.random() - 0.5) * speed * 0.6; // lateral drift
         }
 
         this.biomeParticles.push({

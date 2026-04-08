@@ -16,22 +16,25 @@ WHAT WE HAVE:
   - Fog is rendered as a flat screen-space overlay with wispy gradient animation
 
 WHAT TO ADD:
-  [ ] Biome ambient particle table in BiomeWeatherSystem:
+  [x] Biome ambient particle table in BiomeEffectsSystem:
       - woodland / dense-forest → falling leaves (green/brown), fireflies at night
-      - grassland / plains / meadow → pollen/dandelion seeds, fireflies at dusk/night
+      - grassland / plains / meadow → pollen/dandelion seeds, fireflies at dusk/night, dragonflies
       - desert / arid-desert → dust motes, sand wisps (wind-driven)
       - snow / tundra → ice crystals / diamond dust (subtle, separate from snow weather)
-      - mountain / high-mountain → dust motes, occasional eagle silhouette?
+      - mountain / high-mountain → dust motes
       - lake / river-valley → mist wisps, dragonflies at dawn/dusk
-  [ ] New particle types in WeatherSystem:
+  [x] New particle types in BiomeEffectsSystem:
       - Fireflies: glowing dots with random fade-in/fade-out, slow drift, night-only
       - Dust/sand: small tan/brown dots, wind-driven direction, faster in sandstorms
       - Pollen/seeds: tiny white/yellow floaters, gentle random drift
       - Mist wisps: semi-transparent cloud puffs near water, slow horizontal movement
       - Ice crystals: tiny sparkling points, subtle shimmer effect
-  [ ] BiomeWeatherSystem outputs a "biomeParticles" channel alongside weather channels
-  [ ] WeatherSystem.applyChannels() reads biomeParticles and spawns/despawns accordingly
-  [ ] Time-of-day gating (fireflies only at night, dragonflies at dawn/dusk, etc.)
+      - Dragonflies: iridescent darting insects, hover+dash, dawn/dusk only (NEW)
+      - Sand wisps: spiraling wind-driven tendrils, elongated rendering (NEW)
+      - Falling leaves: swaying rotating ellipses, gravity drift (NEW)
+  [x] BiomeEffectsSystem handles biome particles independently (reads biome from cellBiome)
+  [x] Time-of-day gating (fireflies night, dragonflies dawn/dusk, pollen day)
+      - Fixed dnc.time → dnc.timeOfDay bug that broke all time gating
 
 ────────────────────────────────────────────────────────────────────────────────
 2. MINIMAP
