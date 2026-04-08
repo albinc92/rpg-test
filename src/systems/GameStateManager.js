@@ -3420,8 +3420,8 @@ class WorldMapState extends GameState {
                          inputManager.isPressed('left') || inputManager.isPressed('right');
         if (panning) this._centerTarget = null; // cancel auto-center if user pans
 
-        if (inputManager.isPressed('up'))    this.camVelY -= this.camAccel * dt;
-        if (inputManager.isPressed('down'))  this.camVelY += this.camAccel * dt;
+        if (inputManager.isPressed('up'))    this.camVelY += this.camAccel * dt;
+        if (inputManager.isPressed('down'))  this.camVelY -= this.camAccel * dt;
         if (inputManager.isPressed('left'))  this.camVelX -= this.camAccel * dt;
         if (inputManager.isPressed('right')) this.camVelX += this.camAccel * dt;
 
@@ -3495,7 +3495,7 @@ class WorldMapState extends GameState {
             const gridPixelW = this.gridCols * cellW;
             const gridPixelH = this.gridRows * cellH;
             const bgX = centerX + (this.gridMinX - this.camX) * cellW - cellW / 2;
-            const bgY = centerY + (this.gridMinY - this.camY) * cellH - cellH / 2;
+            const bgY = centerY + (this.camY - this.gridMaxY) * cellH - cellH / 2;
             ctx.drawImage(WorldMapState._bgImage, bgX, bgY, gridPixelW, gridPixelH);
         }
 
@@ -3503,7 +3503,7 @@ class WorldMapState extends GameState {
         for (let gy = this.gridMinY; gy <= this.gridMaxY; gy++) {
             for (let gx = this.gridMinX; gx <= this.gridMaxX; gx++) {
                 const screenX = centerX + (gx - this.camX) * cellW - cellW / 2;
-                const screenY = centerY + (gy - this.camY) * cellH - cellH / 2;
+                const screenY = centerY + (this.camY - gy) * cellH - cellH / 2;
 
                 // Frustum cull
                 if (screenX + cellW < mapAreaX || screenX > mapAreaX + mapAreaW) continue;
@@ -3537,7 +3537,7 @@ class WorldMapState extends GameState {
             for (let gy = this.gridMinY; gy <= this.gridMaxY; gy++) {
                 for (let gx = this.gridMinX; gx <= this.gridMaxX; gx++) {
                     const screenX = centerX + (gx - this.camX) * cellW - cellW / 2;
-                    const screenY = centerY + (gy - this.camY) * cellH - cellH / 2;
+                    const screenY = centerY + (this.camY - gy) * cellH - cellH / 2;
 
                     // Frustum cull
                     if (screenX + cellW < mapAreaX || screenX > mapAreaX + mapAreaW) continue;
@@ -3560,7 +3560,7 @@ class WorldMapState extends GameState {
                 const avgX = rc.sumX / rc.count;
                 const avgY = rc.sumY / rc.count;
                 const rx = centerX + (avgX - this.camX) * cellW;
-                const ry = centerY + (avgY - this.camY) * cellH;
+                const ry = centerY + (this.camY - avgY) * cellH;
 
                 // Skip if off-screen
                 if (rx < mapAreaX - 100 || rx > mapAreaX + mapAreaW + 100) continue;
@@ -3585,7 +3585,7 @@ class WorldMapState extends GameState {
         // Draw player marker (pulsing diamond)
         {
             const px = centerX + (this.playerGridX - this.camX) * cellW;
-            const py = centerY + (this.playerGridY - this.camY) * cellH;
+            const py = centerY + (this.camY - this.playerGridY) * cellH;
             const pulse = 0.8 + 0.4 * Math.sin(this.pulseTime * 4);
             const markerSize = Math.min(cellW, cellH) * 0.35 * pulse;
 

@@ -162,15 +162,9 @@ class MinimapSystem {
             const fullGridH = this.gridRows * cs;
 
             const gridOriginX = mapX + this.mapSize / 2 + (this.gridMinX - centerX) * cs + scrollOffsetX - cs / 2;
-            // Flip Y so north (+Y in map IDs) renders at the top of the minimap
             const gridOriginY = mapY + this.mapSize / 2 + (centerY - this.gridMaxY) * cs + scrollOffsetY - cs / 2;
 
-            // Draw image flipped vertically (image has south at top, minimap needs north at top)
-            ctx.save();
-            ctx.translate(0, 2 * gridOriginY + fullGridH);
-            ctx.scale(1, -1);
             ctx.drawImage(img, gridOriginX, gridOriginY, fullGridW, fullGridH);
-            ctx.restore();
         }
 
         // ── Draw grid lines + fog of war ──
