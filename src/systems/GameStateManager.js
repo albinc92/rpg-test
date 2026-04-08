@@ -3207,10 +3207,19 @@ class WorldMapState extends GameState {
         this.camX = this.playerGridX;
         this.camY = this.playerGridY;
 
+        // Smooth camera velocity & acceleration
+        this.camVelX = 0;
+        this.camVelY = 0;
+        this.camAccel = 18;    // cells/sec² acceleration when key held
+        this.camMaxSpeed = 12; // cells/sec max pan speed
+        this.camFriction = 8;  // deceleration multiplier when no key held
+
         // Zoom (cells visible across the smallest canvas dimension)
         this.zoom = 10;       // default: show 10 cells across
         this.minZoom = 7;
         this.maxZoom = 14;
+        this.targetZoom = 10;
+        this.zoomSpeed = 6;   // zoom interpolation speed
 
         // Build cell lookup  { "x-y": biome }
         this.cellData = {};
@@ -3332,6 +3341,67 @@ class WorldMapState extends GameState {
     update(deltaTime) {
         if (this.inputCooldown > 0) this.inputCooldown -= deltaTime;
         this.pulseTime += deltaTime;
+
+        // Smooth camera panning with velocity
+        const dt = Math.min(deltaTime, 0.05); // cap to prevent jumps
+
+        // Apply velocity to camera position
+        this.camX += this.camVelX * dt;
+        this.camY += this.camVelY * dt;
+
+        // Apply friction when no directional input is held
+        const im = this.game.inputManager;
+        const holdingX = im?.isPressed?.('left') || im?.isPressed?.('right');
+        const holdingY = im?.isPressed?.('up') || im?.isPressed?.('down');
+
+        if (!holdingX) {
+            // Decelerate X — smooth ease-out
+            const frictionX = this.camFriction * dt;
+            if (Math.abs(this.camVelX) < 0.1) {
+                this.camVelX = 0;
+            } else {
+                this.camVelX *= Math.max(0, 1 - frictionX);
+            }
+        }
+        if (!holdingY) {
+            const frictionY = this.camFriction * dt;
+            if (Math.abs(this.camVelY) < 0.1) {
+                this.camVelY = 0;
+            } else {
+                this.camVelY *= Math.max(0, 1 - frictionY);
+            }
+        }
+
+        // Smooth zoom interpolation
+        if (Math.abs(this.zoom - this.targetZoom) > 0.01) {
+            this.zoom += (this.targetZoom - this.zoom) * this.zoomSpeed * dt;
+        } else {
+            this.zoom = this.targetZoom;
+        }
+
+        // Smooth glide to center target (from confirm/recenter)
+        if (this._centerTarget) {
+            const dx = this._centerTarget.x - this.camX;
+            const dy = this._centerTarget.y - this.camY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 0.05) {
+                this.camX = this._centerTarget.x;
+                this.camY = this._centerTarget.y;
+                this.camVelX = 0;
+                this.camVelY = 0;
+                this._centerTarget = null;
+            } else {
+                // Lerp toward target — fast approach that decelerates smoothly
+                const lerpRate = 1 - Math.pow(0.001, dt); // ~99.9% per second
+                this.camX += dx * lerpRate;
+                this.camY += dy * lerpRate;
+                this.camVelX = 0;
+                this.camVelY = 0;
+            }
+        }
+
+        // Clamp camera
+        this._clampCamera();
     }
 
     handleInput(inputManager) {
@@ -3344,32 +3414,41 @@ class WorldMapState extends GameState {
             return;
         }
 
-        // Pan camera
-        if (inputManager.isJustPressed('up'))    this.camY -= 1;
-        if (inputManager.isJustPressed('down'))  this.camY += 1;
-        if (inputManager.isJustPressed('left'))  this.camX -= 1;
-        if (inputManager.isJustPressed('right')) this.camX += 1;
+        // Accelerate camera in held direction
+        const dt = 1 / 60; // handleInput runs per-frame
+        const panning = inputManager.isPressed('up') || inputManager.isPressed('down') ||
+                         inputManager.isPressed('left') || inputManager.isPressed('right');
+        if (panning) this._centerTarget = null; // cancel auto-center if user pans
 
-        // Clamp camera so the grid edge never enters the visible area
-        this._clampCamera();
+        if (inputManager.isPressed('up'))    this.camVelY -= this.camAccel * dt;
+        if (inputManager.isPressed('down'))  this.camVelY += this.camAccel * dt;
+        if (inputManager.isPressed('left'))  this.camVelX -= this.camAccel * dt;
+        if (inputManager.isPressed('right')) this.camVelX += this.camAccel * dt;
+
+        // Clamp velocity to max speed
+        const speed = Math.sqrt(this.camVelX * this.camVelX + this.camVelY * this.camVelY);
+        if (speed > this.camMaxSpeed) {
+            const scale = this.camMaxSpeed / speed;
+            this.camVelX *= scale;
+            this.camVelY *= scale;
+        }
 
         // Zoom in/out (keyboard +/- or shoulder buttons)
         if (inputManager.isJustPressed('zoomIn') || inputManager.isJustPressed('shoulderRight')) {
-            this.zoom = Math.max(this.minZoom, this.zoom - 1);
+            this.targetZoom = Math.max(this.minZoom, this.targetZoom - 1);
             this.game.audioManager?.playEffect('menu-navigation.mp3');
         }
         if (inputManager.isJustPressed('zoomOut') || inputManager.isJustPressed('shoulderLeft')) {
-            this.zoom = Math.min(this._maxZoomForViewport(), this.zoom + 1);
+            this.targetZoom = Math.min(this._maxZoomForViewport(), this.targetZoom + 1);
             this.game.audioManager?.playEffect('menu-navigation.mp3');
         }
 
         // Re-clamp after zoom change
         this._clampCamera();
 
-        // Recenter on player with confirm
+        // Recenter on player with confirm (smooth glide)
         if (inputManager.isJustPressed('confirm')) {
-            this.camX = this.playerGridX;
-            this.camY = this.playerGridY;
+            this._centerTarget = { x: this.playerGridX, y: this.playerGridY };
             this.game.audioManager?.playEffect('click.mp3');
         }
     }
