@@ -332,29 +332,39 @@ class LoadingState extends GameState {
         this.loadingText = 'Loading map…';
         await this._frame();
 
-        // Temporarily shorten the biome crossfade so the menu→map BGM
-        // transition is a quick 1.5 s crossfade instead of the usual 6 s.
-        // No hard kill — the old track fades out while the new one fades in.
+        const am = this.game.audioManager;
         const bbs = this.game.biomeBGMSystem;
-        const origBiomeFade = bbs?.biomeCrossfadeDuration;
-        if (bbs) bbs.biomeCrossfadeDuration = 1500;
 
-        // Pre-load the starting map.
-        // biomeBGMSystem.forceUpdate() inside loadMap will crossfade
-        // from menu BGM ('00.mp3') → map BGM ('01.mp3') over 1.5 s.
+        // 1. Kill any in-flight BGM crossfades (e.g. the menu music's own
+        //    5-second fade-in that may still be running). Without this,
+        //    the old fade-in's setInterval competes with our new crossfade,
+        //    causing the menu BGM to jump back to full volume.
+        if (am) {
+            for (const id of [...am.activeCrossfades]) {
+                if (id.startsWith('bgm')) am.activeCrossfades.delete(id);
+            }
+        }
+
+        // 2. Disable BiomeBGMSystem so loadMap's internal forceUpdate()
+        //    doesn't start ANOTHER crossfade that would compete with ours.
+        if (bbs) bbs.enabled = false;
+
+        // 3. Load the starting map (objects, collisions, lights, spawns…).
+        //    BGM is NOT touched because we disabled BiomeBGMSystem above.
         await this.game.loadMap(this.game.currentMapId);
 
-        // Restore original crossfade duration
-        if (bbs && origBiomeFade !== undefined) bbs.biomeCrossfadeDuration = origBiomeFade;
-
-        // Safety: if BiomeBGMSystem didn't start map BGM (e.g. missing biome
-        // data AND missing static music), force-start it from the map's
-        // static music field so there is never silence.
-        const am = this.game.audioManager;
+        // 4. Start a clean crossfade: menu BGM → map BGM (1.5 s).
         const mapData = this.game.mapManager?.getMapData(this.game.currentMapId);
-        const expectedBGM = mapData?.music?.split('/').pop();
-        if (am && expectedBGM && am.currentBGM !== this.game.audioManager.ensureMp3Extension(expectedBGM)) {
-            am.playBGM(expectedBGM, 1500);
+        const mapBGM = mapData?.music?.split('/').pop(); // e.g. '01.mp3'
+        if (am && mapBGM) {
+            am.playBGM(mapBGM, 1500);
+        }
+
+        // 5. Re-enable BiomeBGMSystem and sync its state so the periodic
+        //    update() call inside PlayingState doesn't re-trigger a duplicate.
+        if (bbs) {
+            bbs.enabled = true;
+            bbs.currentTrack = am?.currentBGM || mapBGM;
         }
 
         this.loadingProgress = 0.9;
