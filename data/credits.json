@@ -1,0 +1,50 @@
+{
+  "sections": [
+    {
+      "role": "lead",
+      "title": "Game Director & Lead Developer",
+      "names": []
+    },
+    {
+      "role": "lead",
+      "title": "Lead Writer & Narrative Designer",
+      "names": []
+    },
+    {
+      "role": "standard",
+      "title": "Art & Visual Design",
+      "names": []
+    },
+    {
+      "role": "standard",
+      "title": "Music & Sound Design",
+      "names": []
+    },
+    {
+      "role": "standard",
+      "title": "Programming",
+      "names": []
+    },
+    {
+      "role": "standard",
+      "title": "Level Design",
+      "names": []
+    },
+    {
+      "role": "minor",
+      "title": "Quality Assurance & Testing",
+      "names": []
+    },
+    {
+      "role": "minor",
+      "title": "Localization",
+      "names": []
+    },
+    {
+      "role": "special",
+      "title": "Special Thanks",
+      "names": []
+    }
+  ],
+  "footer": "Thank you for playing."
+}

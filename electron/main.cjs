@@ -48,16 +48,52 @@ if (!settings.vsync) {
 }
 
 const createWindow = () => {
-  // Create the browser window.
+  // ── Determine initial window size from saved settings ──
+  let initWidth = 1280;
+  let initHeight = 720;
+  let initFullscreen = false;
+  let shouldMaximize = false;
+
+  if (settings.resolution) {
+    const m = settings.resolution.match(/(\d+)x(\d+)/);
+    if (m) {
+      initWidth = parseInt(m[1]);
+      initHeight = parseInt(m[2]);
+    }
+  }
+  if (settings.fullscreen === true) {
+    initFullscreen = true;
+  }
+
+  // Check if requested size matches/exceeds screen — maximize instead of setting exact size
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const screenSize = primaryDisplay.size;
+  if (!initFullscreen && initWidth >= screenSize.width && initHeight >= screenSize.height) {
+    shouldMaximize = true;
+  }
+
+  // Create the browser window with correct initial size
   const mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 720,
+    width: initWidth,
+    height: initHeight,
+    fullscreen: initFullscreen,
+    show: false, // Don't show until ready to prevent flash
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false, // Security best practice
       contextIsolation: true, // Security best practice
       backgroundThrottling: false, // Prevent FPS drop when window is not focused
     },
+  });
+
+  // Center & show window once ready (prevents white/small flash)
+  mainWindow.once('ready-to-show', () => {
+    if (shouldMaximize) {
+      mainWindow.maximize();
+    } else if (!initFullscreen) {
+      mainWindow.center();
+    }
+    mainWindow.show();
   });
 
   // Open DevTools automatically for debugging - but undock them so they don't affect window size

@@ -13,6 +13,7 @@
       "loadGame": "读取存档",
       "newGame": "新游戏",
       "settings": "设置",
+      "credits": "制作人员",
       "exit": "退出"
     },
     "pause": {

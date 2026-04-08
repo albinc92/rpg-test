@@ -249,38 +249,11 @@ class GameEngine {
         }
         
         // Apply loaded graphics settings (Resolution/Fullscreen)
-        // We need to do this after a short delay to ensure Electron window is ready
+        // Electron main process now reads settings.json and applies resolution/fullscreen
+        // at window creation, so no delayed resize is needed on boot.
+        // Just sync the internal state flags.
         if (window.electronAPI) {
-            setTimeout(() => {
-                // Apply fullscreen and track state
-                if (this.settings.fullscreen) {
-                    this.isFullscreen = true;
-                    window.electronAPI.setFullscreen(true);
-                } else {
-                    this.isFullscreen = false;
-                }
-                
-                // Apply resolution - in fullscreen this affects rendering resolution
-                // In windowed mode this affects window size
-                if (this.settings.resolution) {
-                    const match = this.settings.resolution.match(/(\d+)x(\d+)/);
-                    if (match) {
-                        const width = parseInt(match[1]);
-                        const height = parseInt(match[2]);
-                        console.log(`[GameEngine] Applying saved resolution: ${width}x${height}`);
-                        
-                        if (this.isFullscreen) {
-                            // In fullscreen, trigger resize to apply rendering resolution
-                            if (this.handleResize) {
-                                this.handleResize();
-                            }
-                        } else {
-                            // In windowed mode, set window size
-                            window.electronAPI.setResolution(width, height);
-                        }
-                    }
-                }
-            }, 100);
+            this.isFullscreen = !!this.settings.fullscreen;
         }
 
         // Initialize

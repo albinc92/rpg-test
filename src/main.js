@@ -1,5 +1,18 @@
 // Main entry point for the game - load scripts in order
 
+// ── Boot loading screen helpers ──
+function updateSplashStatus(text) {
+    const el = document.getElementById('bootSplash')?.querySelector('.status-text');
+    if (el) el.textContent = text;
+}
+
+function dismissSplash() {
+    const splash = document.getElementById('bootSplash');
+    if (!splash) return;
+    splash.classList.add('fade-out');
+    setTimeout(() => splash.remove(), 700);
+}
+
 // Function to dynamically load scripts
 function loadScript(src) {
     return new Promise((resolve, reject) => {
@@ -14,6 +27,8 @@ function loadScript(src) {
 // Load all scripts in the correct order
 async function loadGameScripts() {
     try {
+        updateSplashStatus('Loading core...');
+
         // Load core classes first
         await loadScript('/src/core/GameObject.js');
         await loadScript('/src/core/Actor.js');
@@ -28,6 +43,8 @@ async function loadGameScripts() {
         await loadScript('/src/objects/InteractiveObject.js');
         await loadScript('/src/objects/Chest.js');
         await loadScript('/src/objects/Portal.js');
+
+        updateSplashStatus('Loading systems...');
         
         // Load data loader FIRST (before managers)
         await loadScript('/src/systems/DataLoader.js');
@@ -91,6 +108,8 @@ async function loadGameScripts() {
         await loadScript('/src/systems/BiomeBGMSystem.js'); // NEW: Biome-driven dynamic BGM selection
         await loadScript('/src/systems/HUDIconBar.js'); // NEW: Bottom-center HUD icon bar with hotkey badges
         await loadScript('/src/systems/PartyHUD.js'); // NEW: Top-left party spirit display
+
+        updateSplashStatus('Loading editor...');
         
         // Load editor components
         await loadScript('/src/editor/EditorStyles.js'); // NEW: Standardized editor styling
@@ -109,12 +128,19 @@ async function loadGameScripts() {
         await loadScript('/src/editor/SpiritEditor.js'); // NEW: Spirit template editor (standardized)
         await loadScript('/src/editor/ObjectPlacementPanel.js'); // NEW: Unified placement panel
         await loadScript('/src/systems/EditorManager.js');
+
+        updateSplashStatus('Initializing engine...');
         
         // Load game engine
         await loadScript('/src/GameEngine.js');
         
         // Initialize the game engine
         window.game = new GameEngine();
+
+        // Dismiss the HTML boot cover now that the canvas engine is running.
+        // This is done here to avoid race conditions with the game state system.
+        dismissSplash();
+
         console.log('🎮 Game initialized with Vite!');
         
     } catch (error) {

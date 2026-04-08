@@ -15,6 +15,7 @@ class GameStateManager {
         // Define game states
         this.states = {
             'LOADING': new LoadingState(this),
+            'SPLASH': new SplashState(this),
             'MAIN_MENU': new MainMenuState(this),
             'PLAYING': new PlayingState(this),
             'PAUSED': new PausedState(this),
@@ -25,6 +26,7 @@ class GameStateManager {
             'SHOP': new ShopState(this),
             'LOOT_WINDOW': new LootWindowState(this),
             'SETTINGS': new SettingsState(this),
+            'CREDITS': new CreditsState(this),
             'BATTLE': new BattleState(this)
         };
         
@@ -224,248 +226,433 @@ class GameState {
 }
 
 /**
- * Loading State
+ * Loading State — logo splash + animated spinner
+ *
+ * Used for:
+ *  1. Initial boot  (no data  → shows logo + loads data → MAIN_MENU)
+ *  2. New game       (isNewGame: true → shows "Entering world…" → PLAYING)
+ *  3. Load save      (loadSaveId → shows "Loading…" → PLAYING)
  */
 class LoadingState extends GameState {
+    constructor(stateManager) {
+        super(stateManager);
+
+        // Pool of gameplay hints shown on loading screens
+        this.hints = [
+            'Hold Shift to sprint — or toggle Always Run in Settings.',
+            'Press E near NPCs to talk — they may have quests or useful info.',
+            'Explore every corner — hidden treasure chests are scattered across the world.',
+            'Watch for weather changes — some spirits only appear during storms.',
+            'Day and night bring different encounters. Try exploring after dark.',
+            'Use the minimap to keep track of your surroundings.',
+            'Open your inventory with I to manage items and equipment.',
+            'Save often! Use the pause menu to access Save & Load.',
+            'Some areas are only accessible through hidden portals.',
+            'Different biomes are home to different types of spirits.',
+            'Check the world map to see regions you\'ve discovered.',
+            'Night-time music changes as the sun sets — listen carefully.',
+            'Stronger spirits lurk in deeper parts of the forest.',
+            'Talk to every NPC — some offer unique items you can\'t find elsewhere.',
+            'Your party grows as you befriend more spirits on your journey.',
+        ];
+    }
+
     enter(data = {}) {
-        this.loadingProgress = 0;
-        this.loadingText = this.game.t('loading.loading');
         this.loadSaveId = data.loadSaveId || null;
         this.isLoadedGame = data.isLoadedGame || false;
+        this.isNewGame = data.isNewGame || false;
         this.fromPauseMenu = data.fromPauseMenu || false;
-        
+
+        this.loadingProgress = 0;
+        this.loadingText = '';
+        this.waitingForAudio = false;
+
+        // Pick a random hint for this loading screen
+        this.currentHint = this.hints[Math.floor(Math.random() * this.hints.length)];
+
+        // Spinner animation
+        this.spinnerAngle = 0;
+        this.dotPhase = 0;
+
+        // Fade-in envelope (canvas alpha 0→1)
+        this.fadeIn = 0;
+
         // Hide touch controls during loading
         if (this.game.touchControlsUI) {
             this.game.touchControlsUI.hide();
         }
-        
+
         this.startLoading();
     }
-    
+
+    /* ------------------------------------------------------------------ */
+    /*  Loading orchestration                                              */
+    /* ------------------------------------------------------------------ */
+
     async startLoading() {
-        // Check if we're loading a saved game
+        // ── Loading a saved game ──
         if (this.loadSaveId) {
-            await this.loadSavedGame();
+            await this._loadSavedGame();
             return;
         }
-        
-        // Normal game initialization (first time load)
-        this.loadingText = this.game.t('loading.audio');
-        await this.waitForAudio();
-        this.loadingProgress = 0.4;
-        
-        this.loadingText = this.game.t('loading.maps');
-        // Load maps here
-        this.loadingProgress = 0.7;
-        
-        this.loadingText = this.game.t('loading.initializing');
-        // Initialize game systems
-        this.loadingProgress = 1.0;
-        
-        // Transition to main menu
-        setTimeout(() => {
-            this.stateManager.changeState('MAIN_MENU');
-        }, 500);
+
+        // ── Starting a new game (from main menu) ──
+        if (this.isNewGame) {
+            await this._loadNewGame();
+            return;
+        }
+
+        // ── Initial boot (first time) ──
+        await this._initialBoot();
     }
-    
-    async loadSavedGame() {
+
+    async _initialBoot() {
+        // The heavy script/data loading already happened in main.js
+        // (the HTML loading screen was visible during that phase).
+        // Now we just need audio context and then move to the splash.
+
+        // Wait for audio context (may require user click)
+        this.loadingText = this.game.t('loading.audio');
+        this.loadingProgress = 0.5;
+        await this.waitForAudio();
+        this.loadingProgress = 1.0;
+
+        // Hand off to the studio splash screen
+        this.stateManager.changeState('SPLASH');
+    }
+
+    async _loadNewGame() {
+        this.loadingText = 'Preparing world…';
+        this.loadingProgress = 0.2;
+        await this._frame();
+
+        // Reset game state
+        this.game.resetGame();
+        this.loadingProgress = 0.5;
+        this.loadingText = 'Loading map…';
+        await this._frame();
+
+        // Pre-load the starting map
+        await this.game.loadMap(this.game.currentMapId);
+
+        // Safety: if menu BGM is STILL the active track (biome system didn't
+        // trigger a crossfade), fall back to the map's static music or stop.
+        const am = this.game.audioManager;
+        if (am && am.currentBGM === '00.mp3') {
+            const mapData = this.game.mapManager?.getMapData(this.game.currentMapId);
+            const fallback = mapData?.music?.split('/').pop();
+            if (fallback && fallback !== '00.mp3') {
+                am.playBGM(fallback);  // crossfades menu → map music
+            } else {
+                am.stopBGM();          // graceful 1s fade-out
+            }
+        }
+
+        this.loadingProgress = 0.9;
+        this.loadingText = 'Almost there…';
+        await this._delay(200);
+
+        this.loadingProgress = 1.0;
+        await this._delay(300);
+
+        this.stateManager.changeState('PLAYING', { isNewGame: true, mapPreloaded: true });
+    }
+
+    async _loadSavedGame() {
         this.loadingText = this.game.t('loading.saveData');
         this.loadingProgress = 0.2;
-        
-        await new Promise(resolve => setTimeout(resolve, 100)); // Brief pause
-        
+        await this._frame();
+
         this.loadingText = this.game.t('loading.map');
         this.loadingProgress = 0.4;
-        
-        // Load the saved game
+
         const success = await this.game.saveGameManager.loadGame(this.loadSaveId, this.game);
-        
+
         if (success) {
             this.loadingText = this.game.t('loading.restoring');
             this.loadingProgress = 0.8;
-            
-            await new Promise(resolve => setTimeout(resolve, 200)); // Let objects spawn
-            
+            await this._delay(200);
+
             this.loadingText = this.game.t('loading.ready');
             this.loadingProgress = 1.0;
-            
-            // Transition to playing state
-            setTimeout(() => {
-                this.stateManager.changeState('PLAYING', { 
-                    isLoadedGame: this.isLoadedGame 
-                });
-            }, 300);
+            await this._delay(300);
+
+            this.stateManager.changeState('PLAYING', {
+                isLoadedGame: this.isLoadedGame
+            });
         } else {
-            // Failed to load - go back to main menu
             this.loadingText = this.game.t('loading.failed');
-            setTimeout(() => {
-                this.stateManager.changeState('MAIN_MENU');
-            }, 1000);
+            await this._delay(1200);
+            this.stateManager.changeState('MAIN_MENU');
         }
     }
 
-    // Wait for audio to be ready (either immediately or after user interaction)
+    /* ------------------------------------------------------------------ */
+    /*  Audio wait                                                         */
+    /* ------------------------------------------------------------------ */
+
     waitForAudio() {
         return new Promise((resolve) => {
-            // If audio is already ready, resolve immediately
             if (window.audioReady || this.game.audioManager?.audioEnabled) {
-                console.log('[LoadingState] Audio already ready');
                 resolve();
                 return;
             }
-
-            // Update loading text to indicate waiting for user interaction
             this.loadingText = this.game.t('loading.clickToStart');
             this.waitingForAudio = true;
 
-            // Wait for audioReady event
-            const handleAudioReady = () => {
-                console.log('[LoadingState] Audio ready event received');
-                document.removeEventListener('audioReady', handleAudioReady);
+            const handler = () => {
+                document.removeEventListener('audioReady', handler);
                 this.waitingForAudio = false;
                 resolve();
             };
-
-            document.addEventListener('audioReady', handleAudioReady);
-            console.log('[LoadingState] Waiting for audio to be ready...');
+            document.addEventListener('audioReady', handler);
         });
     }
-    
+
+    /* ------------------------------------------------------------------ */
+    /*  Update (animation)                                                 */
+    /* ------------------------------------------------------------------ */
+
+    update(deltaTime) {
+        this.spinnerAngle += deltaTime * 4;
+        this.dotPhase += deltaTime * 2.5;
+        if (this.fadeIn < 1) this.fadeIn = Math.min(1, this.fadeIn + deltaTime * 2);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  Render                                                             */
+    /* ------------------------------------------------------------------ */
+
     render(ctx) {
-        // Use the game's logical canvas dimensions
-        const canvasWidth = this.game.CANVAS_WIDTH;
-        const canvasHeight = this.game.CANVAS_HEIGHT;
-        
-        // Initialize design system
+        const W = this.game.CANVAS_WIDTH;
+        const H = this.game.CANVAS_HEIGHT;
         const ds = window.ds;
-        if (ds) ds.setDimensions(canvasWidth, canvasHeight);
-        
-        // Use MenuRenderer for consistent styling
-        const menuRenderer = this.stateManager.menuRenderer;
-        const sizes = menuRenderer.getFontSizes(canvasHeight);
-        
-        // Dark background with subtle gradient
-        const bgGradient = ctx.createRadialGradient(
-            canvasWidth / 2, canvasHeight / 2, 0,
-            canvasWidth / 2, canvasHeight / 2, canvasWidth * 0.8
-        );
-        bgGradient.addColorStop(0, ds?.colors?.background?.panel || '#1a1a24');
-        bgGradient.addColorStop(1, ds?.colors?.background?.dark || '#0a0a0f');
-        ctx.fillStyle = bgGradient;
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-        
-        // Add subtle vignette
-        const vignetteGradient = ctx.createRadialGradient(
-            canvasWidth / 2, canvasHeight / 2, canvasHeight * 0.3,
-            canvasWidth / 2, canvasHeight / 2, canvasWidth * 0.9
-        );
-        vignetteGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
-        vignetteGradient.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
-        ctx.fillStyle = vignetteGradient;
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-        
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        
+        if (ds) ds.setDimensions(W, H);
+
+        ctx.save();
+        ctx.globalAlpha = this.fadeIn;
+
+        // ── Background ──
+        const bgGrad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.85);
+        bgGrad.addColorStop(0, ds?.colors?.background?.panel || '#1a1a24');
+        bgGrad.addColorStop(1, ds?.colors?.background?.dark || '#0a0a0f');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, W, H);
+
+        // Vignette
+        const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, W * 0.9);
+        vig.addColorStop(0, 'rgba(0,0,0,0)');
+        vig.addColorStop(1, 'rgba(0,0,0,0.6)');
+        ctx.fillStyle = vig;
+        ctx.fillRect(0, 0, W, H);
+
         const primaryColor = ds?.colors?.primary || '#4a9eff';
         const textPrimary = ds?.colors?.text?.primary || '#ffffff';
         const textSecondary = ds?.colors?.text?.secondary || '#cccccc';
-        
+        const textMuted = ds?.colors?.text?.muted || '#888888';
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
         if (this.waitingForAudio) {
-            // Show "Click to Start" screen with styled design
-            
-            // Decorative corner accents
+            // ── "Click to start" splash ──
             if (ds) {
-                const accentSize = ds.spacing(8);
                 const margin = ds.spacing(6);
-                ds.drawCornerAccents(ctx, margin, margin, canvasWidth - margin * 2, canvasHeight - margin * 2, accentSize);
+                ds.drawCornerAccents(ctx, margin, margin, W - margin * 2, H - margin * 2, ds.spacing(8));
             }
-            
-            // Main title with glow effect
+
             ctx.save();
-            if (ds) ds.applyShadow(ctx, 'glow');
+            ctx.shadowColor = 'rgba(74,158,255,0.5)';
+            ctx.shadowBlur = 24;
             ctx.fillStyle = primaryColor;
-            ctx.font = ds ? ds.font('xxl', 'bold', 'display') : `bold ${sizes.title}px Arial`;
-            ctx.fillText(this.game.t('loading.clickToStart'), canvasWidth / 2, canvasHeight / 2 - canvasHeight * 0.05);
+            ctx.font = ds ? ds.font('xxl', 'bold', 'display') : 'bold 48px "Cinzel", serif';
+            ctx.fillText(this.game.t('loading.clickToStart'), W / 2, H / 2 - H * 0.05);
             ctx.restore();
-            
-            // Subtitle
+
             ctx.fillStyle = textSecondary;
-            ctx.font = ds ? ds.font('md', 'normal', 'body') : `${sizes.menu}px Arial`;
-            ctx.fillText(this.game.t('loading.clickToStartHint'), canvasWidth / 2, canvasHeight / 2 + canvasHeight * 0.05);
-            
-            // Animated pulse hint (using simple sine wave based on time)
-            const pulseAlpha = 0.5 + Math.sin(Date.now() / 500) * 0.3;
-            ctx.fillStyle = ds ? ds.colors.alpha(primaryColor, pulseAlpha) : `rgba(74, 158, 255, ${pulseAlpha})`;
-            ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${sizes.instruction}px Arial`;
-            ctx.fillText('◆ ◆ ◆', canvasWidth / 2, canvasHeight * 0.75);
-            
+            ctx.font = ds ? ds.font('md', 'normal', 'body') : '18px "Lato", sans-serif';
+            ctx.fillText(this.game.t('loading.clickToStartHint'), W / 2, H / 2 + H * 0.05);
+
+            // Pulsing diamonds
+            const pa = 0.5 + Math.sin(Date.now() / 500) * 0.3;
+            ctx.fillStyle = ds ? ds.colors.alpha(primaryColor, pa) : `rgba(74,158,255,${pa})`;
+            ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
+            ctx.fillText('◆  ◆  ◆', W / 2, H * 0.75);
         } else {
-            // Show normal loading screen with styled progress bar
-            
-            // Loading text with subtle animation
-            ctx.fillStyle = textPrimary;
-            ctx.font = ds ? ds.font('lg', 'normal', 'body') : `${sizes.subtitle}px Arial`;
-            ctx.fillText(this.loadingText, canvasWidth / 2, canvasHeight / 2 - canvasHeight * 0.08);
-            
-            // Loading bar container
-            const barWidth = Math.min(400, canvasWidth * 0.5);
-            const barHeight = ds ? ds.spacing(2) : Math.max(12, canvasHeight * 0.018);
-            const barX = canvasWidth / 2 - barWidth / 2;
-            const barY = canvasHeight / 2 + canvasHeight * 0.02;
-            const borderRadius = barHeight / 2;
-            
-            // Bar background (dark)
-            ctx.fillStyle = ds?.colors?.background?.dark || '#0a0a0f';
-            if (ds) {
-                ds.fillRoundRect(ctx, barX - 2, barY - 2, barWidth + 4, barHeight + 4, borderRadius + 2);
-            } else {
-                ctx.fillRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
+            // ── Normal loading screen ──
+
+            // ── Spinner (three pulsing dots) — centered ──
+            const dotCount = 3;
+            const dotSpacing = 18;
+            const centerY = H * 0.45;
+            for (let i = 0; i < dotCount; i++) {
+                const phase = (this.dotPhase - i * 0.35);
+                const scale = 0.6 + 0.4 * Math.max(0, Math.sin(phase * Math.PI));
+                const alpha = 0.3 + 0.7 * Math.max(0, Math.sin(phase * Math.PI));
+                const r = 5 * scale;
+                const dx = (i - 1) * dotSpacing;
+                ctx.fillStyle = ds ? ds.colors.alpha(primaryColor, alpha) : `rgba(74,158,255,${alpha})`;
+                ctx.beginPath();
+                ctx.arc(W / 2 + dx, centerY, r, 0, Math.PI * 2);
+                ctx.fill();
             }
-            
-            // Bar border
-            ctx.strokeStyle = ds ? ds.colors.alpha(primaryColor, 0.4) : 'rgba(74, 158, 255, 0.4)';
-            ctx.lineWidth = 1;
-            if (ds) {
-                ds.strokeRoundRect(ctx, barX - 2, barY - 2, barWidth + 4, barHeight + 4, borderRadius + 2);
-            } else {
-                ctx.strokeRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
-            }
-            
-            // Progress fill with gradient
-            if (this.loadingProgress > 0) {
-                const progressWidth = barWidth * this.loadingProgress;
-                const progressGradient = ctx.createLinearGradient(barX, barY, barX + progressWidth, barY);
-                progressGradient.addColorStop(0, ds?.colors?.primaryDark || '#3a7ecc');
-                progressGradient.addColorStop(0.5, primaryColor);
-                progressGradient.addColorStop(1, ds?.colors?.primaryLight || '#6ab4ff');
-                
-                ctx.fillStyle = progressGradient;
-                if (ds) {
-                    ds.fillRoundRect(ctx, barX, barY, progressWidth, barHeight, borderRadius);
-                } else {
-                    ctx.fillRect(barX, barY, progressWidth, barHeight);
-                }
-                
-                // Shine effect on progress bar
-                const shineGradient = ctx.createLinearGradient(barX, barY, barX, barY + barHeight);
-                shineGradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
-                shineGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.1)');
-                shineGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-                ctx.fillStyle = shineGradient;
-                if (ds) {
-                    ds.fillRoundRect(ctx, barX, barY, progressWidth, barHeight / 2, [borderRadius, borderRadius, 0, 0]);
-                } else {
-                    ctx.fillRect(barX, barY, progressWidth, barHeight / 2);
-                }
-            }
-            
-            // Progress percentage
-            const percentage = Math.round(this.loadingProgress * 100);
+
+            // Loading text (status message)
             ctx.fillStyle = textSecondary;
-            ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${sizes.instruction}px Arial`;
-            ctx.fillText(`${percentage}%`, canvasWidth / 2, barY + barHeight + canvasHeight * 0.04);
+            ctx.font = ds ? ds.font('md', 'normal', 'body') : '18px "Lato", sans-serif';
+            ctx.fillText(this.loadingText, W / 2, H * 0.52);
+
+            // Progress bar (thin, subtle)
+            const barW = Math.min(300, W * 0.35);
+            const barH = 4;
+            const barX = W / 2 - barW / 2;
+            const barY = H * 0.58;
+
+            // Track
+            ctx.fillStyle = ds?.colors?.background?.dark || '#0a0a0f';
+            ctx.fillRect(barX, barY, barW, barH);
+
+            // Fill
+            if (this.loadingProgress > 0) {
+                const fillW = barW * this.loadingProgress;
+                const grad = ctx.createLinearGradient(barX, barY, barX + fillW, barY);
+                grad.addColorStop(0, ds?.colors?.primaryDark || '#3a7ecc');
+                grad.addColorStop(1, primaryColor);
+                ctx.fillStyle = grad;
+                ctx.fillRect(barX, barY, fillW, barH);
+            }
+
+            // Percentage
+            const pct = Math.round(this.loadingProgress * 100);
+            ctx.fillStyle = textMuted;
+            ctx.font = ds ? ds.font('xs', 'normal', 'body') : '12px "Lato", sans-serif';
+            ctx.fillText(`${pct}%`, W / 2, barY + 22);
+
+            // ── Hint / Tooltip (bottom area) ──
+            if (this.currentHint) {
+                // "HINT" label
+                ctx.fillStyle = ds ? ds.colors.alpha(primaryColor, 0.6) : 'rgba(74,158,255,0.6)';
+                ctx.font = ds ? ds.font('xs', 'bold', 'body') : 'bold 12px "Lato", sans-serif';
+                ctx.fillText('HINT', W / 2, H * 0.82);
+
+                // Hint text
+                ctx.fillStyle = textMuted;
+                ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
+                ctx.fillText(this.currentHint, W / 2, H * 0.86);
+            }
         }
+
+        ctx.restore();
+    }
+
+    /* ── tiny helpers ── */
+    _frame() { return new Promise(r => requestAnimationFrame(r)); }
+    _delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+}
+
+/**
+ * Splash State — Studio logo on black, shown after loading, before main menu.
+ * Flow: fade in logo → hold → fade out → transition to MAIN_MENU.
+ */
+class SplashState extends GameState {
+    constructor(stateManager) {
+        super(stateManager);
+
+        // Pre-load the studio logo
+        this.logo = new Image();
+        this.logo.src = '/assets/bg/studio-logo.png';
+        this.logoLoaded = false;
+        this.logo.onload = () => { this.logoLoaded = true; };
+
+        // Timing (seconds)
+        this.fadeInDuration = 1.2;   // logo fades in
+        this.holdDuration = 2.5;     // logo stays fully visible
+        this.fadeOutDuration = 1.0;  // logo + screen fades to black
+        this.totalDuration = this.fadeInDuration + this.holdDuration + this.fadeOutDuration;
+    }
+
+    enter() {
+        this.elapsed = 0;
+        this.done = false;
+    }
+
+    update(deltaTime) {
+        this.elapsed += deltaTime;
+
+        // Transition to main menu once the full sequence is done
+        if (!this.done && this.elapsed >= this.totalDuration) {
+            this.done = true;
+            this.stateManager.changeState('MAIN_MENU');
+        }
+    }
+
+    handleInput(inputManager) {
+        // Allow skipping the splash with confirm/cancel
+        if (inputManager.isJustPressed('confirm') || inputManager.isJustPressed('cancel')) {
+            if (!this.done) {
+                this.done = true;
+                this.stateManager.changeState('MAIN_MENU');
+            }
+        }
+    }
+
+    render(ctx) {
+        const W = this.game.CANVAS_WIDTH;
+        const H = this.game.CANVAS_HEIGHT;
+
+        // Black background
+        ctx.fillStyle = '#0a0a0f';
+        ctx.fillRect(0, 0, W, H);
+
+        if (!this.logoLoaded) return;
+
+        // Calculate alpha based on phase
+        let alpha = 0;
+        const t = this.elapsed;
+
+        if (t < this.fadeInDuration) {
+            // Phase 1: fade in
+            alpha = t / this.fadeInDuration;
+        } else if (t < this.fadeInDuration + this.holdDuration) {
+            // Phase 2: hold
+            alpha = 1;
+        } else {
+            // Phase 3: fade out
+            const fadeProgress = (t - this.fadeInDuration - this.holdDuration) / this.fadeOutDuration;
+            alpha = 1 - Math.min(1, fadeProgress);
+        }
+
+        // Ease the alpha for smoother feel
+        alpha = Math.max(0, Math.min(1, alpha));
+
+        // Draw logo centered, large
+        const maxW = W * 0.5;
+        const maxH = H * 0.4;
+        const aspect = this.logo.naturalWidth / this.logo.naturalHeight;
+        let logoW, logoH;
+        if (aspect > maxW / maxH) {
+            logoW = maxW;
+            logoH = maxW / aspect;
+        } else {
+            logoH = maxH;
+            logoW = maxH * aspect;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+
+        // Subtle glow behind logo
+        ctx.shadowColor = 'rgba(74, 158, 255, 0.35)';
+        ctx.shadowBlur = 40;
+
+        ctx.drawImage(
+            this.logo,
+            (W - logoW) / 2,
+            (H - logoH) / 2,
+            logoW,
+            logoH
+        );
+        ctx.restore();
     }
 }
 
@@ -476,6 +663,12 @@ class MainMenuState extends GameState {
     constructor(stateManager) {
         super(stateManager);
         this.backgroundImage = null;
+
+        // Studio logo (shown in bottom-right corner)
+        this.studioLogo = new Image();
+        this.studioLogo.src = '/assets/bg/studio-logo.png';
+        this.studioLogoLoaded = false;
+        this.studioLogo.onload = () => { this.studioLogoLoaded = true; };
         this.backgroundVideo = null;
         this.isVideoReady = false;
         this.loadBackgrounds();
@@ -542,15 +735,22 @@ class MainMenuState extends GameState {
             { key: 'menu.main.loadGame', text: this.game.t('menu.main.loadGame'), disabled: !this.hasSaveFiles },
             { key: 'menu.main.newGame', text: this.game.t('menu.main.newGame'), disabled: false },
             { key: 'menu.main.settings', text: this.game.t('menu.main.settings'), disabled: false },
+            { key: 'menu.main.credits', text: this.game.t('menu.main.credits'), disabled: false },
             { key: 'menu.main.exit', text: this.game.t('menu.main.exit'), disabled: false }
         ];
         
         console.log('🎮 MainMenuState options:', this.options);
         
         // Ensure selected option is valid (not disabled)
+        // Skip to first enabled option WITHOUT playing SFX
         this.selectedOption = 0;
         if (this.options[this.selectedOption].disabled) {
-            this.navigate(1); // Find first enabled option
+            for (let i = 1; i < this.options.length; i++) {
+                if (!this.options[i].disabled) {
+                    this.selectedOption = i;
+                    break;
+                }
+            }
         }
         
         // Check what state we're coming from
@@ -601,18 +801,12 @@ class MainMenuState extends GameState {
     exit() {
         console.log('🚪 MAIN MENU EXITED');
         
-        // Stop main menu BGM immediately (not crossfade) so it doesn't bleed into gameplay
-        if (this.game.audioManager) {
-            const am = this.game.audioManager;
-            am.clearAllCrossfades();
-            if (am.bgmAudio) {
-                am.bgmAudio.pause();
-                am.bgmAudio.currentTime = 0;
-            }
-            am.currentBGM = null;
-        }
+        // DON'T kill BGM here — let the next state's playBGM() naturally crossfade
+        // from the menu music to the map BGM, just like map-to-map transitions.
+        // The AudioManager's crossfade infrastructure handles this automatically.
         
         // Reset BiomeBGMSystem so it evaluates fresh for the new map
+        // (currentBiome/currentTrack = null → guarantees forceUpdate triggers playBGM)
         if (this.game.biomeBGMSystem) {
             this.game.biomeBGMSystem.reset();
         }
@@ -682,9 +876,8 @@ class MainMenuState extends GameState {
                 }
                 break;
             case 'menu.main.newGame':
-                // Start new game - reset everything
-                this.game.resetGame();
-                this.stateManager.changeState('PLAYING', { isNewGame: true });
+                // Route through loading screen for smooth transition
+                this.stateManager.changeState('LOADING', { isNewGame: true });
                 break;
             case 'menu.main.loadGame':
                 // Open save/load menu in load mode from main menu
@@ -692,6 +885,9 @@ class MainMenuState extends GameState {
                 break;
             case 'menu.main.settings':
                 this.stateManager.pushState('SETTINGS');
+                break;
+            case 'menu.main.credits':
+                this.stateManager.pushState('CREDITS');
                 break;
             case 'menu.main.exit':
                 // Exit game
@@ -793,8 +989,8 @@ class MainMenuState extends GameState {
             this.selectedOption, 
             canvasWidth, 
             canvasHeight,
-            0.45,  // Start Y position
-            0.10   // Spacing
+            0.43,  // Start Y position
+            0.08   // Spacing (tighter to fit all options)
         );
         
         // Show subtle audio hint if audio isn't enabled yet
@@ -812,6 +1008,24 @@ class MainMenuState extends GameState {
         const padding = canvasHeight * 0.02;
         ctx.fillText(`Version: ${commitSha}`, padding, canvasHeight - padding);
         ctx.restore();
+
+        // Draw studio logo in bottom-right corner
+        if (this.studioLogoLoaded) {
+            const logoPad = canvasHeight * 0.03;
+            const logoMaxH = canvasHeight * 0.10;
+            const aspect = this.studioLogo.naturalWidth / this.studioLogo.naturalHeight;
+            const logoH = logoMaxH;
+            const logoW = logoH * aspect;
+            ctx.save();
+            ctx.globalAlpha = 0.6;
+            ctx.drawImage(
+                this.studioLogo,
+                canvasWidth - logoW - logoPad,
+                canvasHeight - logoH - logoPad,
+                logoW, logoH
+            );
+            ctx.restore();
+        }
     }
 }
 
@@ -830,6 +1044,10 @@ class PlayingState extends GameState {
         this.fadeInAlpha = 1; // 1 = fully visible (no fade by default)
         this.fadeInDuration = 1.5; // seconds - long enough for camera to settle
         this.fadeInTimer = 0;
+
+        // Resume overlay fade (smooth transition from pause menu overlay)
+        this.resumeOverlayAlpha = 0;
+        this.resumeOverlayDuration = 0.25; // seconds — quick fade-out of the dark overlay
     }
     
     async enter(data = {}) {
@@ -853,10 +1071,19 @@ class PlayingState extends GameState {
         const isResumingFromPause = data.isResumingFromPause === true;
         const isLoadedGame = data.isLoadedGame === true;
         const isNewGame = data.isNewGame === true;
+        const mapPreloaded = data.mapPreloaded === true;
         
         if (isLoadedGame) {
             console.log('💾 Loaded game - player position already restored, map already loaded');
             // Everything is already loaded by SaveGameManager, don't do anything
+        } else if (mapPreloaded) {
+            console.log('💾 Map already pre-loaded by LoadingState');
+            // Map was loaded during the loading screen — just set up camera
+            if (isNewGame) {
+                this.game.camera.snapToTarget = true;
+                this.fadeInAlpha = 0;
+                this.fadeInTimer = 0;
+            }
         } else if (!isResumingFromPause) {
             // For new games, set camera BEFORE loading map to prevent panning
             if (isNewGame) {
@@ -950,6 +1177,10 @@ class PlayingState extends GameState {
         // Called when returning from a pushed state (like pause menu)
         console.log('🔄 [PlayingState] RESUME called - setting interactionCooldown = 0.3');
         
+        // Smooth transition: start with the pause overlay and fade it out
+        // This prevents the jarring brightness jump when the 0.7-alpha overlay disappears
+        this.resumeOverlayAlpha = 0.7;
+        
         // DON'T snap camera when resuming - preserve the rubber-band offset
         // The camera will naturally continue following the player with smoothing
         // Only snap if resolution changed while paused (detected by significant position difference)
@@ -973,6 +1204,11 @@ class PlayingState extends GameState {
             this.fadeInAlpha = Math.min(1, this.fadeInTimer / this.fadeInDuration);
         }
         
+        // Update resume overlay fade-out
+        if (this.resumeOverlayAlpha > 0) {
+            this.resumeOverlayAlpha = Math.max(0, this.resumeOverlayAlpha - deltaTime / this.resumeOverlayDuration);
+        }
+        
         // Update game world
         this.game.updateGameplay(deltaTime);
     }
@@ -990,6 +1226,14 @@ class PlayingState extends GameState {
         if (this.fadeInAlpha < 1) {
             ctx.save();
             ctx.fillStyle = `rgba(0, 0, 0, ${1 - this.fadeInAlpha})`;
+            ctx.fillRect(0, 0, this.game.CANVAS_WIDTH, this.game.CANVAS_HEIGHT);
+            ctx.restore();
+        }
+        
+        // Render resume overlay fade-out (smooth transition from pause menu)
+        if (this.resumeOverlayAlpha > 0) {
+            ctx.save();
+            ctx.fillStyle = `rgba(0, 0, 0, ${this.resumeOverlayAlpha})`;
             ctx.fillRect(0, 0, this.game.CANVAS_WIDTH, this.game.CANVAS_HEIGHT);
             ctx.restore();
         }
@@ -7661,6 +7905,251 @@ class BattleState extends GameState {
                 ctx.restore();
             });
         });
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  CreditsState — scrolling credits parsed from data/credits.json
+// ─────────────────────────────────────────────────────────────────────────────
+class CreditsState extends GameState {
+    constructor(stateManager) {
+        super(stateManager);
+        this.creditsData = null;
+        this.scrollY = 0;
+        this.scrollSpeed = 40;       // pixels per second (auto-scroll)
+        this.manualScrollSpeed = 300; // pixels per second (manual scroll via up/down)
+        this.totalHeight = 0;
+        this.inputCooldown = 0;
+
+        // Studio logo (reuse path from boot splash)
+        this.studioLogo = new Image();
+        this.studioLogo.src = '/assets/bg/studio-logo.png';
+        this.studioLogoLoaded = false;
+        this.studioLogo.onload = () => { this.studioLogoLoaded = true; };
+
+        // Load credits data once
+        this._loadCredits();
+    }
+
+    async _loadCredits() {
+        try {
+            const resp = await fetch('/data/credits.json');
+            this.creditsData = await resp.json();
+            console.log('📜 Credits data loaded');
+        } catch (e) {
+            console.warn('⚠️ Could not load credits.json, using fallback', e);
+            this.creditsData = { sections: [], footer: 'Thank you for playing.' };
+        }
+    }
+
+    enter(data = {}) {
+        this.scrollY = 0;
+        this.inputCooldown = 0.3;
+    }
+
+    update(deltaTime) {
+        if (this.inputCooldown > 0) {
+            this.inputCooldown -= deltaTime;
+        }
+        // Auto-scroll upward
+        this.scrollY += this.scrollSpeed * deltaTime;
+    }
+
+    handleInput(inputManager) {
+        if (this.inputCooldown > 0) return;
+
+        // Exit on cancel / menu / confirm
+        if (inputManager.isJustPressed('cancel') || inputManager.isJustPressed('menu') || inputManager.isJustPressed('confirm')) {
+            this.game.audioManager?.playEffect('cancel.mp3');
+            this.stateManager.popState();
+            return;
+        }
+
+        // Manual scroll
+        if (inputManager.isPressed('up')) {
+            this.scrollY -= this.manualScrollSpeed * 0.016;
+            if (this.scrollY < 0) this.scrollY = 0;
+        }
+        if (inputManager.isPressed('down')) {
+            this.scrollY += this.manualScrollSpeed * 0.016;
+        }
+    }
+
+    render(ctx) {
+        const W = this.game.CANVAS_WIDTH;
+        const H = this.game.CANVAS_HEIGHT;
+        const ds = window.ds;
+        if (ds) ds.setDimensions(W, H);
+        const menuRenderer = this.stateManager.menuRenderer;
+
+        // Dark background
+        const bgGrad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.85);
+        bgGrad.addColorStop(0, ds?.colors?.background?.panel || '#1a1a24');
+        bgGrad.addColorStop(1, ds?.colors?.background?.dark || '#0a0a0f');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, W, H);
+
+        // Vignette
+        const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, W * 0.9);
+        vig.addColorStop(0, 'rgba(0,0,0,0)');
+        vig.addColorStop(1, 'rgba(0,0,0,0.6)');
+        ctx.fillStyle = vig;
+        ctx.fillRect(0, 0, W, H);
+
+        if (!this.creditsData) {
+            // Still loading
+            ctx.fillStyle = '#888';
+            ctx.font = ds ? ds.font('md', 'normal', 'body') : '18px "Lato", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Loading credits…', W / 2, H / 2);
+            return;
+        }
+
+        const primaryColor = ds?.colors?.primary || '#4a9eff';
+        const textPrimary = ds?.colors?.text?.primary || '#ffffff';
+        const textSecondary = ds?.colors?.text?.secondary || '#cccccc';
+        const textMuted = ds?.colors?.text?.muted || '#888888';
+
+        // ── Build layout on first render / recalculate ──
+        // Render credits in a clipped scrollable area
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, H * 0.05, W, H * 0.85);
+        ctx.clip();
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Start position: begin off-screen at the bottom
+        let y = H - this.scrollY;
+
+        // ── Studio logo at the top of scroll ──
+        if (this.studioLogoLoaded) {
+            const logoMaxH = H * 0.1;
+            const aspect = this.studioLogo.naturalWidth / this.studioLogo.naturalHeight;
+            const logoH = logoMaxH;
+            const logoW = logoH * aspect;
+            ctx.drawImage(this.studioLogo, W / 2 - logoW / 2, y, logoW, logoH);
+            y += logoH + H * 0.06;
+        } else {
+            y += H * 0.08;
+        }
+
+        // ── Sections ──
+        const sections = this.creditsData.sections || [];
+
+        // Role-based styling sizes
+        const sizes = {
+            lead:     { titleFont: ds ? ds.font('xl', 'bold', 'display') : 'bold 36px "Cinzel", serif',
+                        nameFont:  ds ? ds.font('lg', 'normal', 'body')  : '24px "Lato", sans-serif',
+                        titleColor: primaryColor, nameColor: textPrimary,
+                        gapAfterTitle: H * 0.025, gapAfterName: H * 0.015, gapAfterSection: H * 0.06 },
+            standard: { titleFont: ds ? ds.font('lg', 'bold', 'display') : 'bold 28px "Cinzel", serif',
+                        nameFont:  ds ? ds.font('md', 'normal', 'body')  : '20px "Lato", sans-serif',
+                        titleColor: primaryColor, nameColor: textSecondary,
+                        gapAfterTitle: H * 0.02, gapAfterName: H * 0.012, gapAfterSection: H * 0.05 },
+            minor:    { titleFont: ds ? ds.font('md', 'bold', 'display') : 'bold 22px "Cinzel", serif',
+                        nameFont:  ds ? ds.font('sm', 'normal', 'body')  : '16px "Lato", sans-serif',
+                        titleColor: ds ? ds.colors.alpha(primaryColor, 0.7) : 'rgba(74,158,255,0.7)',
+                        nameColor: textMuted,
+                        gapAfterTitle: H * 0.015, gapAfterName: H * 0.01, gapAfterSection: H * 0.04 },
+            special:  { titleFont: ds ? ds.font('lg', 'italic', 'display') : 'italic 28px "Cinzel", serif',
+                        nameFont:  ds ? ds.font('md', 'normal', 'body')   : '20px "Lato", sans-serif',
+                        titleColor: primaryColor, nameColor: textSecondary,
+                        gapAfterTitle: H * 0.02, gapAfterName: H * 0.012, gapAfterSection: H * 0.05 }
+        };
+
+        for (const section of sections) {
+            const style = sizes[section.role] || sizes.standard;
+
+            // Section title
+            ctx.save();
+            if (section.role === 'lead') {
+                ctx.shadowColor = 'rgba(74,158,255,0.35)';
+                ctx.shadowBlur = 16;
+            }
+            ctx.fillStyle = style.titleColor;
+            ctx.font = style.titleFont;
+            ctx.fillText(section.title, W / 2, y);
+            ctx.restore();
+            y += style.gapAfterTitle;
+
+            // Decorative line under title
+            const lineW = Math.min(W * 0.25, 300);
+            ctx.strokeStyle = ds ? ds.colors.alpha(primaryColor, 0.3) : 'rgba(74,158,255,0.3)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(W / 2 - lineW / 2, y);
+            ctx.lineTo(W / 2 + lineW / 2, y);
+            ctx.stroke();
+            y += style.gapAfterTitle;
+
+            // Names
+            const names = section.names || [];
+            if (names.length === 0) {
+                // Placeholder for empty sections
+                ctx.fillStyle = ds ? ds.colors.alpha(textMuted, 0.4) : 'rgba(136,136,136,0.4)';
+                ctx.font = style.nameFont;
+                ctx.fillText('—', W / 2, y);
+                y += style.gapAfterName;
+            } else {
+                ctx.fillStyle = style.nameColor;
+                ctx.font = style.nameFont;
+                for (const name of names) {
+                    ctx.fillText(name, W / 2, y);
+                    y += style.gapAfterName + H * 0.02;
+                }
+            }
+
+            y += style.gapAfterSection;
+        }
+
+        // ── Footer ──
+        if (this.creditsData.footer) {
+            y += H * 0.04;
+            ctx.save();
+            ctx.shadowColor = 'rgba(74,158,255,0.3)';
+            ctx.shadowBlur = 12;
+            ctx.fillStyle = textSecondary;
+            ctx.font = ds ? ds.font('lg', 'italic', 'display') : 'italic 28px "Cinzel", serif';
+            ctx.fillText(this.creditsData.footer, W / 2, y);
+            ctx.restore();
+            y += H * 0.06;
+
+            // Pulsing diamonds at the very end
+            const pa = 0.4 + Math.sin(Date.now() / 600) * 0.3;
+            ctx.fillStyle = ds ? ds.colors.alpha(primaryColor, pa) : `rgba(74,158,255,${pa})`;
+            ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
+            ctx.fillText('◆  ◆  ◆', W / 2, y);
+            y += H * 0.04;
+        }
+
+        // Track total height for scroll bounds
+        this.totalHeight = y - H + this.scrollY;
+
+        ctx.restore();
+
+        // ── Top/bottom fade masks ──
+        const fadeH = H * 0.08;
+        const topFade = ctx.createLinearGradient(0, 0, 0, fadeH);
+        topFade.addColorStop(0, ds?.colors?.background?.dark || '#0a0a0f');
+        topFade.addColorStop(1, 'rgba(10,10,15,0)');
+        ctx.fillStyle = topFade;
+        ctx.fillRect(0, 0, W, fadeH);
+
+        const botFade = ctx.createLinearGradient(0, H - fadeH, 0, H);
+        botFade.addColorStop(0, 'rgba(10,10,15,0)');
+        botFade.addColorStop(1, ds?.colors?.background?.dark || '#0a0a0f');
+        ctx.fillStyle = botFade;
+        ctx.fillRect(0, H - fadeH, W, fadeH);
+
+        // ── Back hint ──
+        ctx.fillStyle = textMuted;
+        ctx.font = ds ? ds.font('xs', 'normal', 'body') : '12px "Lato", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText('Press ESC to return', W / 2, H - H * 0.02);
     }
 }
 

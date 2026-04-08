@@ -127,7 +127,19 @@ class BiomeBGMSystem {
 
         // Get current biome
         const biome = bws.cellBiome?.get(mapId) || null;
-        if (!biome) return;
+        if (!biome) {
+            // Fallback: map has no biome assigned — use its static music field
+            const mapData = this.game.mapManager?.getMapData(mapId);
+            if (mapData?.music) {
+                const fallbackTrack = mapData.music.split('/').pop();
+                if (fallbackTrack && fallbackTrack !== this.currentTrack) {
+                    console.log(`🎵 BGM fallback (no biome): ${this.currentTrack || 'none'} → ${fallbackTrack}`);
+                    this.currentTrack = fallbackTrack;
+                    audio.playBGM(fallbackTrack, this.biomeCrossfadeDuration);
+                }
+            }
+            return;
+        }
 
         // Get time of day
         const hour = dnc ? dnc.timeOfDay : 12;
