@@ -332,20 +332,29 @@ class LoadingState extends GameState {
         this.loadingText = 'Loading map…';
         await this._frame();
 
-        // Pre-load the starting map
+        // Temporarily shorten the biome crossfade so the menu→map BGM
+        // transition is a quick 1.5 s crossfade instead of the usual 6 s.
+        // No hard kill — the old track fades out while the new one fades in.
+        const bbs = this.game.biomeBGMSystem;
+        const origBiomeFade = bbs?.biomeCrossfadeDuration;
+        if (bbs) bbs.biomeCrossfadeDuration = 1500;
+
+        // Pre-load the starting map.
+        // biomeBGMSystem.forceUpdate() inside loadMap will crossfade
+        // from menu BGM ('00.mp3') → map BGM ('01.mp3') over 1.5 s.
         await this.game.loadMap(this.game.currentMapId);
 
-        // Safety: if menu BGM is STILL the active track (biome system didn't
-        // trigger a crossfade), fall back to the map's static music or stop.
+        // Restore original crossfade duration
+        if (bbs && origBiomeFade !== undefined) bbs.biomeCrossfadeDuration = origBiomeFade;
+
+        // Safety: if BiomeBGMSystem didn't start map BGM (e.g. missing biome
+        // data AND missing static music), force-start it from the map's
+        // static music field so there is never silence.
         const am = this.game.audioManager;
-        if (am && am.currentBGM === '00.mp3') {
-            const mapData = this.game.mapManager?.getMapData(this.game.currentMapId);
-            const fallback = mapData?.music?.split('/').pop();
-            if (fallback && fallback !== '00.mp3') {
-                am.playBGM(fallback);  // crossfades menu → map music
-            } else {
-                am.stopBGM();          // graceful 1s fade-out
-            }
+        const mapData = this.game.mapManager?.getMapData(this.game.currentMapId);
+        const expectedBGM = mapData?.music?.split('/').pop();
+        if (am && expectedBGM && am.currentBGM !== this.game.audioManager.ensureMp3Extension(expectedBGM)) {
+            am.playBGM(expectedBGM, 1500);
         }
 
         this.loadingProgress = 0.9;
@@ -479,12 +488,12 @@ class LoadingState extends GameState {
             ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
             ctx.fillText('◆  ◆  ◆', W / 2, H * 0.75);
         } else {
-            // ── Normal loading screen ──
+            // ── Normal loading screen (minimal: dots + status) ──
 
             // ── Spinner (three pulsing dots) — centered ──
             const dotCount = 3;
             const dotSpacing = 18;
-            const centerY = H * 0.45;
+            const centerY = H * 0.47;
             for (let i = 0; i < dotCount; i++) {
                 const phase = (this.dotPhase - i * 0.35);
                 const scale = 0.6 + 0.4 * Math.max(0, Math.sin(phase * Math.PI));
@@ -500,46 +509,7 @@ class LoadingState extends GameState {
             // Loading text (status message)
             ctx.fillStyle = textSecondary;
             ctx.font = ds ? ds.font('md', 'normal', 'body') : '18px "Lato", sans-serif';
-            ctx.fillText(this.loadingText, W / 2, H * 0.52);
-
-            // Progress bar (thin, subtle)
-            const barW = Math.min(300, W * 0.35);
-            const barH = 4;
-            const barX = W / 2 - barW / 2;
-            const barY = H * 0.58;
-
-            // Track
-            ctx.fillStyle = ds?.colors?.background?.dark || '#0a0a0f';
-            ctx.fillRect(barX, barY, barW, barH);
-
-            // Fill
-            if (this.loadingProgress > 0) {
-                const fillW = barW * this.loadingProgress;
-                const grad = ctx.createLinearGradient(barX, barY, barX + fillW, barY);
-                grad.addColorStop(0, ds?.colors?.primaryDark || '#3a7ecc');
-                grad.addColorStop(1, primaryColor);
-                ctx.fillStyle = grad;
-                ctx.fillRect(barX, barY, fillW, barH);
-            }
-
-            // Percentage
-            const pct = Math.round(this.loadingProgress * 100);
-            ctx.fillStyle = textMuted;
-            ctx.font = ds ? ds.font('xs', 'normal', 'body') : '12px "Lato", sans-serif';
-            ctx.fillText(`${pct}%`, W / 2, barY + 22);
-
-            // ── Hint / Tooltip (bottom area) ──
-            if (this.currentHint) {
-                // "HINT" label
-                ctx.fillStyle = ds ? ds.colors.alpha(primaryColor, 0.6) : 'rgba(74,158,255,0.6)';
-                ctx.font = ds ? ds.font('xs', 'bold', 'body') : 'bold 12px "Lato", sans-serif';
-                ctx.fillText('HINT', W / 2, H * 0.82);
-
-                // Hint text
-                ctx.fillStyle = textMuted;
-                ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
-                ctx.fillText(this.currentHint, W / 2, H * 0.86);
-            }
+            ctx.fillText(this.loadingText, W / 2, H * 0.53);
         }
 
         ctx.restore();
@@ -998,6 +968,34 @@ class MainMenuState extends GameState {
             menuRenderer.drawHint(ctx, 'Audio will start with your first interaction', canvasWidth, canvasHeight);
         }
         
+        // Draw studio logo in bottom-left, centered above the version text
+        if (this.studioLogoLoaded) {
+            const logoPad = canvasHeight * 0.02;
+            const logoMaxH = canvasHeight * 0.14;
+            const aspect = this.studioLogo.naturalWidth / this.studioLogo.naturalHeight;
+            const logoH = logoMaxH;
+            const logoW = logoH * aspect;
+
+            // Measure version text width to center logo above it
+            const commitSha = typeof __GIT_COMMIT_SHA__ !== 'undefined' ? __GIT_COMMIT_SHA__ : 'dev';
+            ctx.save();
+            ctx.font = `400 ${Math.round(canvasHeight * 0.018)}px 'Lato', sans-serif`;
+            const versionText = `Version: ${commitSha}`;
+            const textW = ctx.measureText(versionText).width;
+            const textCenterX = logoPad + textW / 2;
+            ctx.restore();
+
+            ctx.save();
+            ctx.globalAlpha = 0.6;
+            ctx.drawImage(
+                this.studioLogo,
+                textCenterX - logoW / 2,
+                canvasHeight - logoH - logoPad - canvasHeight * 0.02,
+                logoW, logoH
+            );
+            ctx.restore();
+        }
+
         // Draw version/commit SHA in bottom left corner
         const commitSha = typeof __GIT_COMMIT_SHA__ !== 'undefined' ? __GIT_COMMIT_SHA__ : 'dev';
         ctx.save();
@@ -1008,24 +1006,6 @@ class MainMenuState extends GameState {
         const padding = canvasHeight * 0.02;
         ctx.fillText(`Version: ${commitSha}`, padding, canvasHeight - padding);
         ctx.restore();
-
-        // Draw studio logo in bottom-right corner
-        if (this.studioLogoLoaded) {
-            const logoPad = canvasHeight * 0.03;
-            const logoMaxH = canvasHeight * 0.10;
-            const aspect = this.studioLogo.naturalWidth / this.studioLogo.naturalHeight;
-            const logoH = logoMaxH;
-            const logoW = logoH * aspect;
-            ctx.save();
-            ctx.globalAlpha = 0.6;
-            ctx.drawImage(
-                this.studioLogo,
-                canvasWidth - logoW - logoPad,
-                canvasHeight - logoH - logoPad,
-                logoW, logoH
-            );
-            ctx.restore();
-        }
     }
 }
 
@@ -1073,7 +1053,13 @@ class PlayingState extends GameState {
         const isNewGame = data.isNewGame === true;
         const mapPreloaded = data.mapPreloaded === true;
         
-        if (isLoadedGame) {
+        // ── Must check resume FIRST so the new-game / loaded-game
+        //    branches don't accidentally re-trigger their one-time setup
+        //    (fade-in, camera snap, etc.) every time the pause menu closes.
+        if (isResumingFromPause) {
+            console.log('🔄 Resuming gameplay - preserving player position');
+            // Nothing to do — map, camera, and BGM are all intact.
+        } else if (isLoadedGame) {
             console.log('💾 Loaded game - player position already restored, map already loaded');
             // Everything is already loaded by SaveGameManager, don't do anything
         } else if (mapPreloaded) {
@@ -1084,7 +1070,7 @@ class PlayingState extends GameState {
                 this.fadeInAlpha = 0;
                 this.fadeInTimer = 0;
             }
-        } else if (!isResumingFromPause) {
+        } else {
             // For new games, set camera BEFORE loading map to prevent panning
             if (isNewGame) {
                 const camera = this.game.camera;
@@ -1104,10 +1090,6 @@ class PlayingState extends GameState {
             console.log('🆕 Fresh entry to gameplay - loading map');
             // Load the initial map and start BGM (player position already set in initializePlayer)
             await this.game.loadMap(this.game.currentMapId);
-        } else {
-            console.log('🔄 Resuming gameplay - preserving player position');
-            // Just ensure the map is loaded but don't reset player position
-            // await this.game.loadMap(this.game.currentMapId);
         }
     }
     
