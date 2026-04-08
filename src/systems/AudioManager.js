@@ -200,10 +200,14 @@ class AudioManager {
             }
 
             newBGM.loop = true;
-            newBGM.volume = 0; // Start at 0 for crossfade in
             
             // Capture old BGM before updating reference
             const oldBGM = this.bgmAudio;
+            const hasOldBGM = oldBGM && !oldBGM.paused;
+            
+            // Only start at 0 if we need to crossfade from an existing track.
+            // If nothing is playing, start at full volume immediately.
+            newBGM.volume = hasOldBGM ? 0 : this.calculateBGMVolume();
             
             // Update current BGM reference immediately to prevent race conditions
             // This ensures subsequent calls know about this new BGM even before it starts playing
@@ -234,19 +238,38 @@ class AudioManager {
                         return;
                     }
 
-                    console.log(`[AudioManager] ✅ BGM '${safeFilename}' loaded successfully, starting crossfade`);
-                    this.crossfadeBGM(oldBGM, newBGM, crossfadeDuration, safeFilename);
+                    if (hasOldBGM) {
+                        console.log(`[AudioManager] ✅ BGM '${safeFilename}' loaded, crossfading from previous track`);
+                        this.crossfadeBGM(oldBGM, newBGM, crossfadeDuration, safeFilename);
+                    } else {
+                        console.log(`[AudioManager] ✅ BGM '${safeFilename}' started at full volume (no previous track)`);
+                        // Ensure volume is correct (may have been set before calculateBGMVolume was ready)
+                        newBGM.volume = this.calculateBGMVolume();
+                        // Clean up the old audio element if it exists but was paused
+                        if (oldBGM) {
+                            oldBGM.currentTime = 0;
+                            this.audioElements.delete(oldBGM);
+                        }
+                    }
                 }).catch(error => {
                     console.error(`[AudioManager] ❌ Failed to play BGM '${safeFilename}':`, error);
                     this.audioElements.delete(newBGM);
                     // Revert currentBGM if playback failed and we haven't switched to another one
                     if (this.currentBGM === safeFilename) {
                         this.currentBGM = null;
-                        // If we reverted, we might want to restore oldBGM if it was still playing?
-                        // But for now, just clearing is safer than playing wrong audio
                         if (this.bgmAudio === newBGM) {
                             this.bgmAudio = oldBGM;
                         }
+                    }
+                    // Autoplay blocked — retry once after user interacts
+                    if (error.name === 'NotAllowedError') {
+                        console.log(`[AudioManager] 🔄 Will retry BGM '${safeFilename}' after user interaction`);
+                        const retry = () => {
+                            this.playBGM(filename, crossfadeDuration);
+                        };
+                        ['click', 'keydown', 'touchstart'].forEach(evt =>
+                            document.addEventListener(evt, retry, { once: true })
+                        );
                     }
                 });
             }

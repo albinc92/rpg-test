@@ -13,11 +13,11 @@ function dismissSplash() {
     setTimeout(() => splash.remove(), 700);
 }
 
-// Function to dynamically load scripts
+// Function to dynamically load scripts (cache-bust in dev to ensure fresh code)
 function loadScript(src) {
     return new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = src;
+        script.src = `${src}?t=${Date.now()}`;
         script.onload = resolve;
         script.onerror = reject;
         document.head.appendChild(script);

@@ -34,6 +34,8 @@ app.commandLine.appendSwitch('force_high_performance_gpu');
 // Force 1:1 pixel mapping (ignore Windows scaling)
 app.commandLine.appendSwitch('force-device-scale-factor', '1');
 app.commandLine.appendSwitch('high-dpi-support', '1');
+// Allow audio/video autoplay without requiring a user gesture first
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 // VSync / FPS Unlocking Logic
 if (!settings.vsync) {

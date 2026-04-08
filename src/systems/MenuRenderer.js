@@ -578,8 +578,8 @@ class MenuRenderer {
         } else {
             // Legacy fallback
             const sizes = this.getFontSizes(canvasHeight);
-            ctx.fillStyle = '#888';
-            ctx.font = `italic ${sizes.hint}px 'Lato', sans-serif`;
+            ctx.fillStyle = '#4a9eff';
+            ctx.font = `${sizes.instruction}px 'Lato', sans-serif`;
             ctx.textAlign = 'center';
             ctx.fillText(text, canvasWidth / 2, canvasHeight * yPosition);
         }

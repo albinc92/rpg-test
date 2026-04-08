@@ -607,8 +607,8 @@ class DesignSystem {
         ctx.save();
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.font = this.font('xs', 'normal', 'body');
-        ctx.fillStyle = this.colors.text.muted;
+        ctx.font = this.font('sm', 'normal', 'body');
+        ctx.fillStyle = this.colors.primary;
         
         // Use provided position or default to footer
         let y;

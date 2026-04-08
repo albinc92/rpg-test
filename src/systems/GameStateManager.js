@@ -332,40 +332,10 @@ class LoadingState extends GameState {
         this.loadingText = 'Loading map…';
         await this._frame();
 
-        const am = this.game.audioManager;
-        const bbs = this.game.biomeBGMSystem;
-
-        // 1. Kill any in-flight BGM crossfades (e.g. the menu music's own
-        //    5-second fade-in that may still be running). Without this,
-        //    the old fade-in's setInterval competes with our new crossfade,
-        //    causing the menu BGM to jump back to full volume.
-        if (am) {
-            for (const id of [...am.activeCrossfades]) {
-                if (id.startsWith('bgm')) am.activeCrossfades.delete(id);
-            }
-        }
-
-        // 2. Disable BiomeBGMSystem so loadMap's internal forceUpdate()
-        //    doesn't start ANOTHER crossfade that would compete with ours.
-        if (bbs) bbs.enabled = false;
-
-        // 3. Load the starting map (objects, collisions, lights, spawns…).
-        //    BGM is NOT touched because we disabled BiomeBGMSystem above.
+        // Load the starting map — BiomeBGMSystem.forceUpdate() runs inside
+        // loadMap and calls playBGM, which will crossfade from the menu BGM
+        // to the map BGM automatically (or start fresh if nothing is playing).
         await this.game.loadMap(this.game.currentMapId);
-
-        // 4. Start a clean crossfade: menu BGM → map BGM (1.5 s).
-        const mapData = this.game.mapManager?.getMapData(this.game.currentMapId);
-        const mapBGM = mapData?.music?.split('/').pop(); // e.g. '01.mp3'
-        if (am && mapBGM) {
-            am.playBGM(mapBGM, 1500);
-        }
-
-        // 5. Re-enable BiomeBGMSystem and sync its state so the periodic
-        //    update() call inside PlayingState doesn't re-trigger a duplicate.
-        if (bbs) {
-            bbs.enabled = true;
-            bbs.currentTrack = am?.currentBGM || mapBGM;
-        }
 
         this.loadingProgress = 0.9;
         this.loadingText = 'Almost there…';
@@ -488,8 +458,8 @@ class LoadingState extends GameState {
             ctx.fillText(this.game.t('loading.clickToStart'), W / 2, H / 2 - H * 0.05);
             ctx.restore();
 
-            ctx.fillStyle = textSecondary;
-            ctx.font = ds ? ds.font('md', 'normal', 'body') : '18px "Lato", sans-serif';
+            ctx.fillStyle = primaryColor;
+            ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
             ctx.fillText(this.game.t('loading.clickToStartHint'), W / 2, H / 2 + H * 0.05);
 
             // Pulsing diamonds
