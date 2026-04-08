@@ -151,6 +151,12 @@ class GameEngine {
         // Minimap overlay
         this.minimapSystem = new MinimapSystem(this);
 
+        // HUD icon bar (bottom-center hotkey icons)
+        this.hudIconBar = new HUDIconBar(this);
+
+        // Party HUD (top-left spirit display)
+        this.partyHUD = new PartyHUD(this);
+
         // Biome visual effects (shader profiles + environmental particles)
         this.biomeEffectsSystem = new BiomeEffectsSystem(this);
 
@@ -1086,6 +1092,16 @@ class GameEngine {
             this.minimapSystem.update(deltaTime);
         }
 
+        // Update HUD icon bar (flash timers)
+        if (this.hudIconBar) {
+            this.hudIconBar.update(deltaTime);
+        }
+
+        // Update party HUD
+        if (this.partyHUD) {
+            this.partyHUD.update(deltaTime);
+        }
+
         // Update biome effects (shader profiles + environmental particles)
         if (this.biomeEffectsSystem) {
             this.biomeEffectsSystem.update(deltaTime);
@@ -1505,6 +1521,7 @@ class GameEngine {
         // Handle inventory
         if (inputManager.isJustPressed('inventory')) {
             this.stateManager.pushState('INVENTORY');
+            if (this.hudIconBar) this.hudIconBar.flash('inventory');
         }
 
         // Toggle minimap
@@ -1512,6 +1529,7 @@ class GameEngine {
             if (this.minimapSystem) {
                 this.minimapSystem.toggle();
             }
+            if (this.hudIconBar) this.hudIconBar.flash('minimap');
         }
     }
     
@@ -1783,6 +1801,16 @@ class GameEngine {
         // Render minimap overlay (only during gameplay, not in editor)
         if (this.minimapSystem && this.minimapSystem.visible && !this.editorManager?.isActive) {
             this.minimapSystem.render(ctx);
+        }
+
+        // Render HUD icon bar (bottom-center hotkey strip)
+        if (this.hudIconBar && !this.editorManager?.isActive) {
+            this.hudIconBar.render(ctx);
+        }
+
+        // Render party HUD (top-left spirit list)
+        if (this.partyHUD && !this.editorManager?.isActive) {
+            this.partyHUD.render(ctx);
         }
         
         // Debug info is handled separately and can be toggled with F1

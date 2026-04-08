@@ -89,6 +89,8 @@ async function loadGameScripts() {
         await loadScript('/src/systems/BiomeEffectsSystem.js'); // NEW: Biome shader effects + particles
         await loadScript('/src/systems/BiomeGroundRenderer.js'); // NEW: Biome-textured ground backgrounds
         await loadScript('/src/systems/BiomeBGMSystem.js'); // NEW: Biome-driven dynamic BGM selection
+        await loadScript('/src/systems/HUDIconBar.js'); // NEW: Bottom-center HUD icon bar with hotkey badges
+        await loadScript('/src/systems/PartyHUD.js'); // NEW: Top-left party spirit display
         
         // Load editor components
         await loadScript('/src/editor/EditorStyles.js'); // NEW: Standardized editor styling

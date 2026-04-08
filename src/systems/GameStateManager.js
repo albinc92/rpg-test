@@ -1037,6 +1037,7 @@ class PlayingState extends GameState {
         // Check for pause via keyboard
         if (inputManager.isJustPressed('menu')) {
             this.stateManager.pushState('PAUSED');
+            if (this.game.hudIconBar) this.game.hudIconBar.flash('menu');
         }
         
         // Menu button clicks are now handled by canvas event listeners (see handleCanvasClick)
@@ -3263,16 +3264,19 @@ class WorldMapState extends GameState {
         if (!mapManager) return;
         // Collect per-cell data and build region center lookup
         this.regionCenters = {}; // regionName → {sumX, sumY, count}
+        this.superRegionCenters = {}; // superRegionName → {sumX, sumY, count}
         for (let y = this.gridMinY; y <= this.gridMaxY; y++) {
             for (let x = this.gridMinX; x <= this.gridMaxX; x++) {
                 const id = `${x}-${y}`;
                 const data = mapManager.getMapData(id);
                 if (data) {
                     const region = data.region || '';
+                    const superRegion = data.superRegion || '';
                     this.cellData[id] = {
                         biome: data.biome || 'grassland',
                         name: data.name || id,
                         region: region,
+                        superRegion: superRegion,
                         weather: data.weather || null
                     };
                     // Accumulate region centroid
@@ -3283,6 +3287,15 @@ class WorldMapState extends GameState {
                         this.regionCenters[region].sumX += x;
                         this.regionCenters[region].sumY += y;
                         this.regionCenters[region].count++;
+                    }
+                    // Accumulate super-region centroid
+                    if (superRegion) {
+                        if (!this.superRegionCenters[superRegion]) {
+                            this.superRegionCenters[superRegion] = { sumX: 0, sumY: 0, count: 0 };
+                        }
+                        this.superRegionCenters[superRegion].sumX += x;
+                        this.superRegionCenters[superRegion].sumY += y;
+                        this.superRegionCenters[superRegion].count++;
                     }
                 }
             }
@@ -3552,33 +3565,71 @@ class WorldMapState extends GameState {
             }
         }
 
-        // Draw region name labels at region centroids
-        if (this.regionCenters) {
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            for (const [regionName, rc] of Object.entries(this.regionCenters)) {
-                const avgX = rc.sumX / rc.count;
-                const avgY = rc.sumY / rc.count;
-                const rx = centerX + (avgX - this.camX) * cellW;
-                const ry = centerY + (this.camY - avgY) * cellH;
+        // ── Zoom-aware 2-tier labels ──
+        // z = cells visible across smallest axis: 7 (zoomed in) → 14 (zoomed out)
+        // Super-region: fade in 10→11, full at z >= 11
+        // Region:       full at z <= 10, fade out 10→11
+        {
+            const z = this.zoom;
+            const superAlpha  = Math.max(0, Math.min(1, z - 10));
+            const regionAlpha = Math.max(0, Math.min(1, 11 - z));
 
-                // Skip if off-screen
-                if (rx < mapAreaX - 100 || rx > mapAreaX + mapAreaW + 100) continue;
-                if (ry < mapAreaY - 50 || ry > mapAreaY + mapAreaH + 50) continue;
+            // ── Super-region labels ──
+            if (superAlpha > 0 && this.superRegionCenters) {
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                for (const [name, rc] of Object.entries(this.superRegionCenters)) {
+                    const avgX = rc.sumX / rc.count;
+                    const avgY = rc.sumY / rc.count;
+                    const rx = centerX + (avgX - this.camX) * cellW;
+                    const ry = centerY + (this.camY - avgY) * cellH;
+                    if (rx < mapAreaX - 150 || rx > mapAreaX + mapAreaW + 150) continue;
+                    if (ry < mapAreaY - 50 || ry > mapAreaY + mapAreaH + 50) continue;
 
-                // Scale font by region size and zoom
-                const regionScale = Math.min(1.5, Math.sqrt(rc.count) / 3);
-                const baseFontSize = Math.max(9, Math.min(16, cellW * 0.28));
-                const fontSize = Math.round(baseFontSize * regionScale);
+                    const regionScale = Math.min(2.0, Math.sqrt(rc.count) / 2.5);
+                    const baseFontSize = Math.max(12, Math.min(22, cellW * 0.35));
+                    const fontSize = Math.round(baseFontSize * regionScale);
 
-                ctx.save();
-                ctx.font = `bold ${fontSize}px "Cinzel", serif`;
-                ctx.fillStyle = 'rgba(255,255,255,0.7)';
-                ctx.shadowColor = 'rgba(0,0,0,0.8)';
-                ctx.shadowBlur = 4;
-                ctx.fillText(regionName, rx, ry);
-                ctx.shadowBlur = 0;
-                ctx.restore();
+                    ctx.save();
+                    ctx.globalAlpha = superAlpha * 0.75;
+                    ctx.font = `bold ${fontSize}px "Cinzel", serif`;
+                    ctx.fillStyle = 'rgba(255,255,255,1)';
+                    ctx.shadowColor = 'rgba(0,0,0,0.9)';
+                    ctx.shadowBlur = 6;
+                    ctx.fillText(name, rx, ry);
+                    ctx.shadowBlur = 0;
+                    ctx.globalAlpha = 1;
+                    ctx.restore();
+                }
+            }
+
+            // ── Region labels ──
+            if (regionAlpha > 0 && this.regionCenters) {
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                for (const [regionName, rc] of Object.entries(this.regionCenters)) {
+                    const avgX = rc.sumX / rc.count;
+                    const avgY = rc.sumY / rc.count;
+                    const rx = centerX + (avgX - this.camX) * cellW;
+                    const ry = centerY + (this.camY - avgY) * cellH;
+                    if (rx < mapAreaX - 100 || rx > mapAreaX + mapAreaW + 100) continue;
+                    if (ry < mapAreaY - 50 || ry > mapAreaY + mapAreaH + 50) continue;
+
+                    const regionScale = Math.min(1.5, Math.sqrt(rc.count) / 3);
+                    const baseFontSize = Math.max(9, Math.min(16, cellW * 0.28));
+                    const fontSize = Math.round(baseFontSize * regionScale);
+
+                    ctx.save();
+                    ctx.globalAlpha = regionAlpha * 0.7;
+                    ctx.font = `bold ${fontSize}px "Cinzel", serif`;
+                    ctx.fillStyle = 'rgba(255,255,255,1)';
+                    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                    ctx.shadowBlur = 4;
+                    ctx.fillText(regionName, rx, ry);
+                    ctx.shadowBlur = 0;
+                    ctx.globalAlpha = 1;
+                    ctx.restore();
+                }
             }
         }
 
@@ -3628,19 +3679,29 @@ class WorldMapState extends GameState {
         ctx.shadowBlur = 0;
         ctx.restore();
 
-        // Current location label — region + coordinate
+        // Current location label — super-region / region (x, y)
         {
             const cell = this.cellData[`${this.playerGridX}-${this.playerGridY}`];
+            const superRegion = cell?.superRegion || '';
             const region = cell?.region || 'Unknown';
+            const coordStr = MapCoords.formatDisplay(this.playerGridX, this.playerGridY);
+
             ctx.save();
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
+
+            // Super-region (smaller, dimmer — top line)
+            if (superRegion) {
+                ctx.font = '12px "Cinzel", serif';
+                ctx.fillStyle = 'rgba(200,220,255,0.45)';
+                ctx.fillText(superRegion, W / 2, H * 0.885);
+            }
+
+            // Region + coordinate (prominent — bottom line)
             ctx.font = 'bold 18px "Cinzel", serif';
             ctx.fillStyle = 'rgba(200,220,255,0.9)';
-            ctx.fillText(region, W / 2, H * 0.895);
-            ctx.font = '14px "Lato", sans-serif';
-            ctx.fillStyle = 'rgba(200,220,255,0.55)';
-            ctx.fillText(MapCoords.formatDisplay(this.playerGridX, this.playerGridY), W / 2, H * 0.92);
+            ctx.fillText(`${region}  (${coordStr})`, W / 2, H * 0.91);
+
             ctx.restore();
         }
 

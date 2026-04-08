@@ -44,13 +44,13 @@ class MinimapSystem {
 
         // Layout
         this.viewRadius = 4;             // Show 4 cells in each direction (9×9 grid)
-        this.cellSize = 16;              // Pixels per cell
+        this.cellSize = 20;              // Pixels per cell
         this.padding = 12;              // Padding inside frame
         this.margin = 16;               // Margin from canvas edge
 
         // Derived
         this.gridDiameter = this.viewRadius * 2 + 1; // 9
-        this.mapSize = this.gridDiameter * this.cellSize; // 144
+        this.mapSize = this.gridDiameter * this.cellSize; // 180
 
         // World grid bounds (must match WorldMapState)
         this.gridMinX = -14;
@@ -135,11 +135,11 @@ class MinimapSystem {
         const cs = this.cellSize;
         const r = this.viewRadius;
 
-        // Position: bottom-right corner
+        // Position: top-right corner
         const frameW = this.mapSize + this.padding * 2;
         const frameH = this.mapSize + this.padding * 2;
         const frameX = canvasW - frameW - this.margin;
-        const frameY = canvasH - frameH - this.margin;
+        const frameY = this.margin;
 
         ctx.save();
 
@@ -270,19 +270,27 @@ class MinimapSystem {
         ctx.fillText('W', mapX - 7, midY);
         ctx.fillText('E', mapX + this.mapSize + 7, midY);
 
-        // ── Region name + coordinates label ──
+        // ── Location label below minimap ──
         const currentMapData = this.game.mapManager?.getMapData(this.game.currentMapId);
         const coordStr = `(${MapCoords.formatDisplay(centerX, centerY)})`;
-        const labelText = currentMapData?.region
+        const labelX = frameX + frameW / 2;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+
+        // Top line (below frame): Super-region
+        if (currentMapData?.superRegion) {
+            ctx.font = 'bold 10px "Cinzel", serif';
+            ctx.fillStyle = 'rgba(210, 218, 235, 0.65)';
+            ctx.fillText(currentMapData.superRegion, labelX, frameY + frameH + 5);
+        }
+
+        // Bottom line: Region (x, y)
+        const regionCoord = currentMapData?.region
             ? `${currentMapData.region} ${coordStr}`
             : coordStr;
-        ctx.font = 'bold 10px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        ctx.fillStyle = 'rgba(220, 225, 240, 0.7)';
-        const labelX = frameX + frameW / 2;
-        const labelY = frameY - 4;
-        ctx.fillText(labelText, labelX, labelY);
+        ctx.font = 'bold 11px Arial';
+        ctx.fillStyle = 'rgba(220, 225, 240, 0.75)';
+        ctx.fillText(regionCoord, labelX, frameY + frameH + 19);
 
         ctx.restore();
     }

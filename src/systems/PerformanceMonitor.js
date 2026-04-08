@@ -64,17 +64,17 @@ class PerformanceMonitor {
         if (settings.showFPS && !settings.showDebugInfo) {
             ctx.save();
             ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-            ctx.fillRect(canvasWidth - s(80), s(10), s(70), s(25));
+            ctx.fillRect(canvasWidth - s(80), canvasHeight - s(35), s(70), s(25));
             
             ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
             ctx.lineWidth = 1;
-            ctx.strokeRect(canvasWidth - s(80), s(10), s(70), s(25));
+            ctx.strokeRect(canvasWidth - s(80), canvasHeight - s(35), s(70), s(25));
             
             ctx.fillStyle = '#00ff00';
             ctx.font = `bold ${s(14)}px Courier New, monospace`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(`FPS: ${this.fps}`, canvasWidth - s(45), s(22.5));
+            ctx.fillText(`FPS: ${this.fps}`, canvasWidth - s(45), canvasHeight - s(22.5));
             ctx.restore();
             return;
         }
