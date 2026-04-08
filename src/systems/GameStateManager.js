@@ -3325,7 +3325,7 @@ class WorldMapState extends GameState {
         const W = this.game.CANVAS_WIDTH;
         const H = this.game.CANVAS_HEIGHT;
         const mapAreaW = W * 0.90;
-        const mapAreaH = H * 0.80;
+        const mapAreaH = H * 0.72;
         const smaller = Math.min(mapAreaW, mapAreaH);
         // Grid must fill both axes
         const maxByW = this.gridCols * smaller / mapAreaW;
@@ -3342,7 +3342,7 @@ class WorldMapState extends GameState {
         const W = this.game.CANVAS_WIDTH;
         const H = this.game.CANVAS_HEIGHT;
         const mapAreaW = W * 0.90;
-        const mapAreaH = H * 0.80;
+        const mapAreaH = H * 0.72;
         const cellSize = Math.min(mapAreaW, mapAreaH) / this.zoom;
 
         // How many cells are visible in each axis
@@ -3491,16 +3491,16 @@ class WorldMapState extends GameState {
             this.game.renderGameplay(ctx);
         }
 
-        // Dark overlay
-        menuRenderer.drawOverlay(ctx, W, H, 0.92);
+        // Semi-transparent overlay (gameplay visible behind, like pause menu)
+        menuRenderer.drawOverlay(ctx, W, H, 0.7);
 
         ctx.save();
 
         // Each map is square (3840×3840) — cells are squares
         const mapAreaX = W * 0.05;
-        const mapAreaY = H * 0.08;
+        const mapAreaY = H * 0.10;
         const mapAreaW = W * 0.90;
-        const mapAreaH = H * 0.80;
+        const mapAreaH = H * 0.72;
 
         // Fit `this.zoom` cells into the smaller axis
         const cellSize = Math.min(mapAreaW, mapAreaH) / this.zoom;
@@ -3707,13 +3707,13 @@ class WorldMapState extends GameState {
             if (superRegion) {
                 ctx.font = '12px "Cinzel", serif';
                 ctx.fillStyle = 'rgba(200,220,255,0.45)';
-                ctx.fillText(superRegion, W / 2, H * 0.885);
+                ctx.fillText(superRegion, W / 2, H * 0.86);
             }
 
             // Region + coordinate (prominent — bottom line)
             ctx.font = 'bold 18px "Cinzel", serif';
             ctx.fillStyle = 'rgba(200,220,255,0.9)';
-            ctx.fillText(`${region}  (${coordStr})`, W / 2, H * 0.91);
+            ctx.fillText(`${region}  (${coordStr})`, W / 2, H * 0.885);
 
             ctx.restore();
         }
