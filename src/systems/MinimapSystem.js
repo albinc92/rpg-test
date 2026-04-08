@@ -194,7 +194,7 @@ class MinimapSystem {
 
                 // Fog of war — unvisited cells
                 if (!this.visitedCells.has(mapId)) {
-                    ctx.fillStyle = 'rgba(15, 15, 25, 0.88)';
+                    ctx.fillStyle = 'rgba(15, 15, 25, 0.55)';
                     ctx.fillRect(px, py, cs, cs);
                     continue;
                 }

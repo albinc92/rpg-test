@@ -3531,6 +3531,27 @@ class WorldMapState extends GameState {
             }
         }
 
+        // ── Fog of war — subtle overlay on unvisited cells ──
+        const visitedCells = this.game.minimapSystem?.visitedCells;
+        if (visitedCells) {
+            for (let gy = this.gridMinY; gy <= this.gridMaxY; gy++) {
+                for (let gx = this.gridMinX; gx <= this.gridMaxX; gx++) {
+                    const screenX = centerX + (gx - this.camX) * cellW - cellW / 2;
+                    const screenY = centerY + (gy - this.camY) * cellH - cellH / 2;
+
+                    // Frustum cull
+                    if (screenX + cellW < mapAreaX || screenX > mapAreaX + mapAreaW) continue;
+                    if (screenY + cellH < mapAreaY || screenY > mapAreaY + mapAreaH) continue;
+
+                    const id = `${gx}-${gy}`;
+                    if (!visitedCells.has(id)) {
+                        ctx.fillStyle = 'rgba(8, 10, 18, 0.45)';
+                        ctx.fillRect(screenX, screenY, cellW, cellH);
+                    }
+                }
+            }
+        }
+
         // Draw region name labels at region centroids
         if (this.regionCenters) {
             ctx.textAlign = 'center';
