@@ -200,7 +200,7 @@ async function main() {
             const biome = classifyCellByVoting(raw, meta.width, channels, cellX0, cellY0, cellW, cellH, meta.height);
             
             const mapX = gridMinX + gx;
-            const mapY = gridMinY + gy;
+            const mapY = gridMaxY - gy;  // Image top = north = maxY
             const mapId = `${mapX}-${mapY}`;
             
             cellBiomes[mapId] = { biome };
@@ -217,7 +217,7 @@ async function main() {
     const mapsData = JSON.parse(fs.readFileSync(mapsPath, 'utf-8'));
     
     // Preserve special maps (non-grid maps)
-    const specialMaps = Object.entries(maps).filter(([k,v]) => v.isBattleMap).map(([k]) => k);
+    const specialMaps = Object.entries(mapsData).filter(([k,v]) => v.isBattleMap).map(([k]) => k);
     
     // Preserved existing maps that have been manually edited (keep their names if set)
     const preservedIds = new Set(['0-0', '0-1', '1-0', '1-1', '-1-0', '-1-1']);
