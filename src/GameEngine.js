@@ -1773,11 +1773,7 @@ class GameEngine {
      * Render UI elements
      */
     renderUI(ctx) {
-        // Render HUD if player exists and not in editor mode (unless testing)
-        if (this.player && this.hudSystem) {
-            // Don't hide HUD in editor mode, it's useful to see
-            this.hudSystem.render(ctx, this.player);
-        }
+        // HUD (HP bar + gold counter) removed by design
 
         // Render biome environmental particles (fireflies, dust, etc.)
         if (this.biomeEffectsSystem && !this.editorManager?.isActive) {

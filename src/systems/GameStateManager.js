@@ -3632,17 +3632,15 @@ class WorldMapState extends GameState {
         {
             const cell = this.cellData[`${this.playerGridX}-${this.playerGridY}`];
             const region = cell?.region || 'Unknown';
-            const displayX = this.playerGridX - this.gridMinX;
-            const displayY = this.playerGridY - this.gridMinY;
             ctx.save();
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.font = 'bold 18px "Cinzel", serif';
             ctx.fillStyle = 'rgba(200,220,255,0.9)';
-            ctx.fillText(region, W / 2, H * 0.91);
+            ctx.fillText(region, W / 2, H * 0.895);
             ctx.font = '14px "Lato", sans-serif';
             ctx.fillStyle = 'rgba(200,220,255,0.55)';
-            ctx.fillText(`${displayX}, ${displayY}`, W / 2, H * 0.94);
+            ctx.fillText(MapCoords.formatDisplay(this.playerGridX, this.playerGridY), W / 2, H * 0.92);
             ctx.restore();
         }
 

@@ -1,4 +1,28 @@
 /**
+ * MapCoords — single source of truth for map coordinate display.
+ * Raw map IDs use -14..15 internally. Display uses 0..29 with (0,0) at bottom-left.
+ */
+class MapCoords {
+    static GRID_MIN_X = -14;
+    static GRID_MIN_Y = -14;
+
+    /** Convert raw map-ID coords to display coords (0-based, 0,0 = bottom-left) */
+    static toDisplay(rawX, rawY) {
+        return {
+            x: rawX - MapCoords.GRID_MIN_X,
+            y: rawY - MapCoords.GRID_MIN_Y
+        };
+    }
+
+    /** Format display string from raw coords */
+    static formatDisplay(rawX, rawY) {
+        const d = MapCoords.toDisplay(rawX, rawY);
+        return `${d.x}, ${d.y}`;
+    }
+}
+window.MapCoords = MapCoords;
+
+/**
  * MinimapSystem - Renders a small corner minimap showing the world map image
  * 
  * Features:
@@ -248,7 +272,7 @@ class MinimapSystem {
 
         // ── Region name + coordinates label ──
         const currentMapData = this.game.mapManager?.getMapData(this.game.currentMapId);
-        const coordStr = `(${centerX}, ${centerY})`;
+        const coordStr = `(${MapCoords.formatDisplay(centerX, centerY)})`;
         const labelText = currentMapData?.region
             ? `${currentMapData.region} ${coordStr}`
             : coordStr;
