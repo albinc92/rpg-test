@@ -4916,11 +4916,33 @@ class BattleState extends GameState {
         this.battleMapId = null;
         this.battleMapData = null;
         
-        if (currentMap?.battleMap && currentMap.battleMap !== this.game.currentMapId) {
+        // Determine battle map: explicit battleMap field, or infer from biome
+        let battleMapKey = currentMap?.battleMap;
+        if (!battleMapKey && currentMap?.biome) {
+            // Biome → battle map fallback mapping
+            const BIOME_BATTLE_MAP = {
+                'woodland': 'battle-woodland',
+                'dense-forest': 'battle-dense-forest',
+                'grassland': 'battle-grassland',
+                'plains': 'battle-plains',
+                'meadow': 'battle-meadow',
+                'desert': 'battle-desert',
+                'arid-desert': 'battle-arid-desert',
+                'snow': 'battle-snow',
+                'tundra': 'battle-tundra',
+                'mountain': 'battle-mountain',
+                'high-mountain': 'battle-high-mountain',
+                'lake': 'battle-lake',
+                'river-valley': 'battle-river-valley',
+            };
+            battleMapKey = BIOME_BATTLE_MAP[currentMap.biome] || 'battle-plains';
+        }
+        
+        if (battleMapKey && battleMapKey !== this.game.currentMapId) {
             // Get battle map data
-            const battleMapData = this.game.mapManager?.getMapData(currentMap.battleMap);
+            const battleMapData = this.game.mapManager?.getMapData(battleMapKey);
             if (battleMapData) {
-                this.battleMapId = currentMap.battleMap;
+                this.battleMapId = battleMapKey;
                 this.battleMapData = battleMapData;
                 
                 // Make sure the battle map's paint layer is loaded

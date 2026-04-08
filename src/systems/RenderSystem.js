@@ -898,9 +898,9 @@ class RenderSystem {
         const currentWidth = game.MAP_WIDTH * resolutionScale;
         const currentHeight = game.MAP_HEIGHT * resolutionScale;
 
-        // Helper to render a map background (gray rect only)
+        // Helper to render a map background (biome-textured ground)
         // mapId is the string key (e.g., "0-0") since mapData doesn't have an id property
-        // This only renders the gray background, NOT the paint layer
+        // This only renders the ground background, NOT the paint layer
         const renderMapBackground = (mapId, mapData, offsetX, offsetY) => {
             if (!mapData) return;
             
@@ -908,8 +908,11 @@ class RenderSystem {
             const width = game.MAP_WIDTH * resolutionScale;
             const height = game.MAP_HEIGHT * resolutionScale;
             
-            // Render gray background only
-            if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+            // Render biome-textured ground (falls back to biome color if textures not loaded)
+            const biome = mapData.biome || 'plains';
+            if (game.biomeGroundRenderer) {
+                game.biomeGroundRenderer.renderGround(biome, offsetX, offsetY, width, height, this.ctx, this.webglRenderer, this.useWebGL);
+            } else if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
                 this.webglRenderer.drawRect(offsetX, offsetY, width, height, [0.3, 0.3, 0.3, 1.0]);
             } else {
                 this.ctx.fillStyle = '#4d4d4d';
@@ -955,11 +958,14 @@ class RenderSystem {
         const safeAdjacentMaps = adjacentMaps || {};
 
         // =====================================================
-        // PHASE 1: Render all gray backgrounds
+        // PHASE 1: Render all biome-textured backgrounds
         // =====================================================
         
-        // Render CURRENT map's gray background FIRST
-        if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
+        // Render CURRENT map's background FIRST
+        const currentBiome = currentMap?.biome || 'plains';
+        if (game.biomeGroundRenderer) {
+            game.biomeGroundRenderer.renderGround(currentBiome, 0, 0, currentWidth, currentHeight, this.ctx, this.webglRenderer, this.useWebGL);
+        } else if (this.useWebGL && this.webglRenderer && this.webglRenderer.initialized) {
             this.webglRenderer.drawRect(0, 0, currentWidth, currentHeight, [0.3, 0.3, 0.3, 1.0]);
         } else {
             this.ctx.fillStyle = '#4d4d4d';

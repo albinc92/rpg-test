@@ -217,7 +217,7 @@ async function main() {
     const mapsData = JSON.parse(fs.readFileSync(mapsPath, 'utf-8'));
     
     // Preserve special maps (non-grid maps)
-    const specialMaps = ['0-1-shop', 'forest-battle-01'];
+    const specialMaps = Object.entries(maps).filter(([k,v]) => v.isBattleMap).map(([k]) => k);
     
     // Preserved existing maps that have been manually edited (keep their names if set)
     const preservedIds = new Set(['0-0', '0-1', '1-0', '1-1', '-1-0', '-1-1']);

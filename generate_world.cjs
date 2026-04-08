@@ -444,7 +444,7 @@ function generateWorld() {
     const existingMaps = JSON.parse(fs.readFileSync(mapsPath, 'utf-8'));
     
     // Special maps that aren't part of the grid
-    const specialMaps = ['0-1-shop', 'forest-battle-01'];
+    const specialMaps = Object.entries(maps).filter(([k,v]) => v.isBattleMap).map(([k]) => k);
     
     // Track which maps already exist (grid maps only)
     const existingGridMaps = new Set();

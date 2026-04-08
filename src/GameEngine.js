@@ -154,6 +154,10 @@ class GameEngine {
         // Biome visual effects (shader profiles + environmental particles)
         this.biomeEffectsSystem = new BiomeEffectsSystem(this);
 
+        // Biome ground renderer (textured biome backgrounds replacing flat gray)
+        this.biomeGroundRenderer = new BiomeGroundRenderer();
+        this.biomeGroundRenderer.loadTextures();
+
         // Perspective system for fake 3D depth effect (Diablo 2 style)
         this.perspectiveSystem = new PerspectiveSystem();
         // Can be toggled: this.perspectiveSystem.setEnabled(true/false)
