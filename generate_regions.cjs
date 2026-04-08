@@ -32,11 +32,12 @@ const REGION_NAMES = {
         'Kelvarn\'s Summit', 'The Bleached Fangs', 'Hrothgar\'s Crown', 'The Shivering Expanse',
         'Dredmere Glacier', 'Ivellion Snowfields', 'The Pale Teeth', 'Whitecrest Range',
         'Sunderglass Peaks', 'Frosthollow Basin', 'Yeva\'s Lament', 'The Everfrost',
+        'Boreal Terrace', 'Glacierheim Shelf', 'Rime Veil Reach',
     ],
     'tundra':       [
         'The Windscour', 'Brennick\'s Folly', 'Ashenmoor Flats', 'The Grey Waste',
         'Haldr\'s Crossing', 'Wraithfen Tundra', 'Bleakwater Moor', 'The Scoured Reach',
-        'Tormund\'s End', 'Duskmere Barrens',
+        'Tormund\'s End', 'Duskmere Barrens', 'Vakken Steppe', 'Hollowgust Plain',
     ],
     'frozen-peak':  [
         'The Shattered Spine', 'Algrimm\'s Spire', 'Frostfall Pinnacle', 'The Howling Crests',
@@ -45,6 +46,7 @@ const REGION_NAMES = {
     'mountain':     [
         'Karstholm Ridge', 'The Iron Scarps', 'Torbreck Crags', 'Greymane Cliffs',
         'Aelric\'s Watch', 'Stonecutter Pass', 'Windshear Bluff', 'The Basalt Ramparts',
+        'Valdrek Escarpment', 'Granitewall Shelf',
     ],
     'high-mountain':[
         'Drakenfall Heights', 'The Stormspear', 'Theron\'s Pinnacle', 'The Cloudbreak',
@@ -56,43 +58,48 @@ const REGION_NAMES = {
     'desert':       [
         'The Amber Desolation', 'Solarius Dunes', 'Kharad\'s Anvil', 'The Shimmersand',
         'Dust Veil Expanse', 'Orath\'s Crucible', 'Sandwhisper Flats', 'The Mirage Fields',
-        'Cindergold Dunes', 'Thasseri Wastes',
+        'Cindergold Dunes', 'Thasseri Wastes', 'Sunscar Basin', 'Dryreach Hollow',
+        'Molten Sands', 'Zarith Plateau', 'Emberdust Sweep',
     ],
     'arid-desert':  [
-        'Redvein Badlands', 'The Cracked Maw', 'Dusthollow Mesa', 'Sable Flats',
+        'Redvein Badlands', 'The Cracked Maw', 'Dusthollow Mesa', 'Sable Gully',
         'Korrath\'s Blight', 'Ochrebane Wastes', 'The Scorchmark', 'Bleachbone Barrens',
-        'Wrathwind Mesa', 'Carrack\'s Reach',
+        'Wrathwind Plateau', 'Carrack\'s Reach', 'Sunblight Ravine', 'Skullcap Bluffs',
+        'Rustmaw Canyon', 'Sandviper Gorge', 'The Withered Shelf',
     ],
     'oasis':        [
         'Mistveil Springs', 'Lirien\'s Rest', 'The Jade Pool', 'Oasis of Selûn',
     ],
     'plains':       [
-        'The Hearthlands', 'Aldenmere Fields', 'Tarven\'s Expanse', 'Goldbriar Prairie',
-        'The Wayward Flats', 'Thornfield Basin', 'Harrowdale Plains', 'Longstride Prairie',
+        'The Hearthlands', 'Aldenmere Fields', 'Tarven\'s Expanse', 'Goldbriar Steppe',
+        'The Wayward Stretch', 'Thornfield Basin', 'Harrowdale Savanna', 'Longstride Reach',
         'Millhaven Pastures', 'Brannock\'s Claim', 'The Rustgrass', 'Sunderfields',
-        'Galsworth Run', 'Pennworth Downs', 'Duskwheat Reach', 'Calder\'s Prospect',
-        'Ashford Grasslands', 'Ironwell Flats', 'The Heathermarch', 'Corwin\'s Pasture',
+        'Galsworth Run', 'Pennworth Downs', 'Duskwheat Corridor', 'Calder\'s Prospect',
+        'Ashford Grasslands', 'Ironwell Tablelands', 'The Heathermarch', 'Corwin\'s Paddock',
+        'Wrenholm Prairielands', 'Dustthorn Lowlands', 'Barleycroft Expanse', 'Stonehearth Flats',
+        'Tamworth Uplands', 'Fenwick Greenway',
     ],
     'grassland':    [
-        'Verdanthollow', 'Thistledown Vale', 'Briarcliff Meadows', 'Summerleigh Fields',
-        'Fairhaven Pasture', 'Greenholme Dale', 'Harlowe Glen', 'Elowen\'s Lea',
-        'The Dawngrass', 'Cloverwatch Downs',
+        'Verdanthollow', 'Thistledown Vale', 'Briarcliff Meadows', 'Summerleigh Greens',
+        'Fairhaven Paddock', 'Greenholme Dale', 'Harlowe Glen', 'Elowen\'s Lea',
+        'The Dawngrass', 'Cloverwatch Downs', 'Marigold Expanse', 'Willowstep Savanna',
+        'Hawthorn Glade', 'Cinderleaf Basin', 'Wheatveil Lowlands',
     ],
     'meadow':       [
         'Willowbend Meadow', 'Petalwing Dale', 'Sorrel Glade', 'Honeyfield Lea',
-        'Dewcrest Garden', 'Maren\'s Blush', 'Larkspur Hollow', 'Primeveil Meadow',
-        'Goldpetal Clearing', 'Heather\'s Crown', 'Dawnpetal Drift', 'Fennwick Glade',
-        'Silkwater Lea', 'Butterblossom Way',
+        'Dewcrest Garden', 'Maren\'s Blush', 'Larkspur Hollow', 'Primeveil Clearing',
+        'Goldpetal Terrace', 'Heather\'s Crown', 'Dawnpetal Drift', 'Fennwick Bower',
+        'Silkwater Nook', 'Butterblossom Way',
     ],
     'woodland':     [
         'Evergloom Forest', 'The Tanglewood', 'Verdara\'s Canopy', 'Fernhollow Timberland',
-        'Briarshadow Woods', 'The Mossweald', 'Ashenmere Forest', 'Thornwatch Thicket',
-        'Elkrun Timberland', 'Grimshaw Woods', 'Larkhollow Grove', 'Cedarveil Reaches',
-        'The Dapplewood', 'Ravenwild Forest', 'Dunmere Thicket', 'Corbin\'s Stand',
-        'Harthwood', 'Mirewood', 'Silvbark Expanse', 'Wickerfen Woods',
+        'Briarshadow Woods', 'The Mossweald', 'Ashenmere Copse', 'Thornwatch Thicket',
+        'Elkrun Timberland', 'Grimshaw Weald', 'Larkhollow Grove', 'Cedarveil Reaches',
+        'The Dapplewood', 'Ravenwild Depths', 'Dunmere Thicket', 'Corbin\'s Stand',
+        'Harthwood', 'Mirewood', 'Silvbark Expanse', 'Wickerfen Brake',
     ],
     'dense-forest': [
-        'The Blackthorn Depths', 'Gloomshroud Forest', 'Ironbark Wilds', 'Mordaunt\'s Hollow',
+        'The Blackthorn Depths', 'Gloomshroud Wilds', 'Ironbark Sanctuary', 'Mordaunt\'s Hollow',
         'The Rotwood', 'Wraithveil Thicket', 'Nightfall Canopy', 'The Sunless Groves',
     ],
     'jungle':       [
@@ -101,23 +108,24 @@ const REGION_NAMES = {
     ],
     'swamp':        [
         'Brackenmire', 'Gaelwynn\'s Bog', 'The Rotmarsh', 'Gloomfen', 'Moldwater Fen',
-        'Sorrowmere Marsh',
+        'Sorrowmere Quagmire',
     ],
     'tropical':     [
-        'Sunwrack Coast', 'The Cerulean Shallows', 'Palmhaven', 'Lanivar Bay',
+        'Sunwrack Lagoon', 'The Cerulean Shallows', 'Palmhaven', 'Lanivar Atoll',
         'Driftwood Strand',
     ],
     'coast':        [
-        'Saltmere Shore', 'Gaelcrest Bay', 'Breakwater Cove', 'Driftwood Point',
-        'Marren\'s Strand', 'Tidewatch Beach', 'Windbreak Shallows',
+        'Saltmere Shore', 'Gaelcrest Bay', 'Breakwater Cove', 'Tidebrine Point',
+        'Marren\'s Strand', 'Tidewatch Bluff', 'Windbreak Inlet',
     ],
     'lake':         [
         'Lake Aethermere', 'The Stillwater', 'Crystalveil Mere', 'Sigren\'s Pool',
-        'Moonhollow Lake', 'Lake Vyrendale', 'The Deepmirror', 'Ashwater Lake',
+        'Moonhollow Reservoir', 'Lake Vyrendale', 'The Deepmirror', 'Ashwater Tarn',
     ],
     'river-valley': [
         'The Serpent\'s Bend', 'Rivendale Crossing', 'Narrowbrook Valley', 'Galwyn\'s Ford',
         'Mistwater Banks', 'The Greenrun', 'Stonebridge Basin', 'Thornwater Gorge',
+        'Willowcreek Lowlands', 'Rushford Narrows', 'Cedarbrook Dell', 'Ashvale Riverwalk',
     ],
     'village':      [
         'Millhaven', 'Thornbury', 'Wycliffe Settlement', 'Brannock\'s Rest',
@@ -259,25 +267,64 @@ function main() {
     console.log(`After merging: ${finalRegions.length} regions (merged ${mergeCount} small regions)`);
     console.log('Final sizes:', finalRegions.map(r => `${r.biome}:${r.cells.length}`).sort().join(', '));
 
-    // ───── Name each region ─────
+    // ───── Name each region (with word-level dedup) ─────
     const usedNames = new Set();
+    const usedWords = new Set();    // blacklist individual significant words
+    const STOP_WORDS = new Set(['the', 'of', 'and', 'in', 'at', 'by']);
     const regionNames = [];
+
+    /** Extract significant words (3+ chars, not stop words) from a name */
+    function getSignificantWords(name) {
+        return name.replace(/['']/g, ' ').split(/\s+/)
+            .map(w => w.toLowerCase())
+            .filter(w => w.length >= 3 && !STOP_WORDS.has(w));
+    }
+
+    /** Check if a name shares any significant word with already-used names */
+    function hasWordConflict(name) {
+        return getSignificantWords(name).some(w => usedWords.has(w));
+    }
+
+    /** Mark all significant words in a name as used */
+    function claimName(name) {
+        usedNames.add(name);
+        for (const w of getSignificantWords(name)) {
+            usedWords.add(w);
+        }
+    }
 
     for (const region of finalRegions) {
         const candidates = REGION_NAMES[region.biome] || REGION_NAMES['grassland'];
         let name = null;
+
+        // First pass: find a name with zero word conflicts
         for (const n of candidates) {
-            if (!usedNames.has(n)) {
+            if (!usedNames.has(n) && !hasWordConflict(n)) {
                 name = n;
-                usedNames.add(n);
                 break;
             }
         }
+
+        // Second pass (fallback): accept a name even with partial word overlap
         if (!name) {
-            // All names used, append a number
-            name = candidates[0] + ' ' + (usedNames.size + 1);
-            usedNames.add(name);
+            for (const n of candidates) {
+                if (!usedNames.has(n)) {
+                    name = n;
+                    break;
+                }
+            }
         }
+
+        // Last resort: generate a unique numbered fallback
+        if (!name) {
+            let idx = 1;
+            do {
+                name = `${candidates[0]} ${idx}`;
+                idx++;
+            } while (usedNames.has(name));
+        }
+
+        claimName(name);
         regionNames.push(name);
     }
 
