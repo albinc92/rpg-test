@@ -804,6 +804,88 @@ class GameEngine {
                 e.preventDefault();
             }
         }
+        
+        // ─── Weather Debug Controls (F4) ───
+        // F4 - Cycle through weather debug presets
+        if (e.code === 'F4' && !e.shiftKey && !e.ctrlKey) {
+            this._cycleWeatherDebug();
+            e.preventDefault();
+        }
+        
+        // Shift+F4 - Force weather reroll for current region
+        if (e.shiftKey && e.code === 'F4') {
+            this._forceWeatherReroll();
+            e.preventDefault();
+        }
+        
+        // Ctrl+F4 - Reset weather to biome default (clear override)
+        if (e.ctrlKey && e.code === 'F4') {
+            this._clearWeatherOverride();
+            e.preventDefault();
+        }
+    }
+    
+    /**
+     * Weather debug preset list + cycling
+     */
+    _weatherDebugPresets = [
+        { name: 'Clear Sky',       channels: { rain: 0,   snow: 0,   wind: 0.1, fog: 0,    cloud: 0.1 } },
+        { name: 'Partly Cloudy',   channels: { rain: 0,   snow: 0,   wind: 0.15,fog: 0,    cloud: 0.4 } },
+        { name: 'Overcast',        channels: { rain: 0,   snow: 0,   wind: 0.2, fog: 0,    cloud: 0.8 } },
+        { name: 'Light Fog',       channels: { rain: 0,   snow: 0,   wind: 0.05,fog: 0.3,  cloud: 0.2 } },
+        { name: 'Heavy Fog',       channels: { rain: 0,   snow: 0,   wind: 0.02,fog: 0.8,  cloud: 0.3 } },
+        { name: 'Impenetrable Fog',channels: { rain: 0,   snow: 0,   wind: 0.01,fog: 1.0,  cloud: 0.2 } },
+        { name: 'Light Rain',      channels: { rain: 0.3, snow: 0,   wind: 0.2, fog: 0,    cloud: 0.6 } },
+        { name: 'Heavy Rain',      channels: { rain: 0.8, snow: 0,   wind: 0.6, fog: 0,    cloud: 0.9 } },
+        { name: 'Thunderstorm',    channels: { rain: 1.0, snow: 0,   wind: 0.9, fog: 0,    cloud: 1.0 } },
+        { name: 'Misty Rain',      channels: { rain: 0.3, snow: 0,   wind: 0.1, fog: 0.5,  cloud: 0.5 } },
+        { name: 'Light Snow',      channels: { rain: 0,   snow: 0.3, wind: 0.2, fog: 0,    cloud: 0.4 } },
+        { name: 'Heavy Snow',      channels: { rain: 0,   snow: 0.8, wind: 0.5, fog: 0.2,  cloud: 0.8 } },
+        { name: 'Blizzard',        channels: { rain: 0,   snow: 1.0, wind: 1.0, fog: 0.4,  cloud: 1.0 } },
+        { name: 'Windy',           channels: { rain: 0,   snow: 0,   wind: 0.8, fog: 0,    cloud: 0.3 } },
+    ];
+    _weatherDebugIndex = -1; // -1 = no override active
+    _weatherDebugActive = false;
+    
+    _cycleWeatherDebug() {
+        this._weatherDebugIndex = (this._weatherDebugIndex + 1) % this._weatherDebugPresets.length;
+        const preset = this._weatherDebugPresets[this._weatherDebugIndex];
+        this._weatherDebugActive = true;
+        
+        // Use a faster lerp for debug presets so they respond near-instantly
+        if (this.weatherSystem) {
+            this.weatherSystem._channelLerpOverride = 8.0; // ~0.1s snap
+            this.weatherSystem.applyChannels(preset.channels);
+        }
+        
+        console.log(`🌤️ Weather Debug [${this._weatherDebugIndex + 1}/${this._weatherDebugPresets.length}]: ${preset.name}`);
+        console.log(`   Rain:${preset.channels.rain} Snow:${preset.channels.snow} Wind:${preset.channels.wind} Fog:${preset.channels.fog} Cloud:${preset.channels.cloud}`);
+    }
+    
+    _forceWeatherReroll() {
+        if (this.biomeWeatherSystem?._initialized) {
+            this._weatherDebugActive = false;
+            this._weatherDebugIndex = -1;
+            // Restore normal lerp rate
+            if (this.weatherSystem) {
+                this.weatherSystem._channelLerpOverride = null;
+            }
+            // Force immediate reroll
+            this.biomeWeatherSystem.timeSinceLastRoll = this.biomeWeatherSystem.nextRollInterval;
+            console.log('🌤️ Weather Debug: Forced reroll for all regions');
+        } else {
+            console.log('🌤️ Weather Debug: BiomeWeatherSystem not active');
+        }
+    }
+    
+    _clearWeatherOverride() {
+        this._weatherDebugActive = false;
+        this._weatherDebugIndex = -1;
+        // Restore normal lerp rate
+        if (this.weatherSystem) {
+            this.weatherSystem._channelLerpOverride = null;
+        }
+        console.log('🌤️ Weather Debug: Override cleared — biome weather resumed');
     }
 
     /**
@@ -868,6 +950,7 @@ class GameEngine {
             // Safety cap for deltaTime to prevent spiral of death on lag spikes
             // If frame takes longer than 100ms (10fps), clamp it
             const safeDeltaTime = Math.min(deltaTime, 0.1);
+            this.lastDeltaTime = safeDeltaTime;
             
             // Set gameTime for animations (in milliseconds)
             this.gameTime = now;
@@ -984,9 +1067,18 @@ class GameEngine {
             if (this.biomeWeatherSystem) {
                 this.biomeWeatherSystem.update(deltaTime);
                 
-                // Get effective weather channels for current cell (with border blending)
-                const channels = this.biomeWeatherSystem.getWeatherForCell(this.currentMapId);
-                this.weatherSystem.applyChannels(channels);
+                // Skip biome channel application when debug weather override is active
+                if (!this._weatherDebugActive) {
+                    // Get effective weather channels for current cell (with border blending)
+                    const channels = this.biomeWeatherSystem.getWeatherForCell(this.currentMapId);
+                    this.weatherSystem.applyChannels(channels);
+                } else {
+                    // Keep applying the debug preset every frame so the lerp continues
+                    const preset = this._weatherDebugPresets[this._weatherDebugIndex];
+                    if (preset) {
+                        this.weatherSystem.applyChannels(preset.channels);
+                    }
+                }
             }
             
             this.weatherSystem.update(deltaTime);

@@ -486,17 +486,26 @@ class RenderSystem {
             }
 
             // Draw lens flare on top of everything (Screen Space)
-            // Only if sun is visible and weather is clear
+            // Only if sun is visible and weather is clear (uses actual weather channels)
             if (game?.dayNightCycle) {
-                const weather = game.currentMap?.weather;
-                // Check if weather allows sun (not raining/snowing)
-                // Assuming 'none', 'sunny' or null/undefined means clear weather
-                let isClearWeather = !weather || weather === 'none' || weather === 'sunny';
-                
-                // Handle object-based weather definition (e.g. { precipitation: 'none' })
-                if (typeof weather === 'object' && weather !== null) {
-                    const precip = weather.precipitation;
-                    isClearWeather = !precip || precip === 'none';
+                // Gate by actual weather channel values — not just static map weather
+                let isClearWeather = true;
+                let weatherDim = 1.0; // multiplier: 1 = full flare, 0 = no flare
+                const ws = game.weatherSystem;
+                if (ws && ws.channelMode) {
+                    const ch = ws.weatherChannels;
+                    // Heavy rain, snow, fog, or cloud cover all suppress lens flare
+                    const obscure = Math.max(ch.rain, ch.snow, ch.fog, ch.cloud * 0.8);
+                    weatherDim = Math.max(0, 1 - obscure * 2.5); // fades out quickly
+                    isClearWeather = weatherDim > 0.01;
+                } else {
+                    // Fallback: legacy static map weather
+                    const weather = game.currentMap?.weather;
+                    isClearWeather = !weather || weather === 'none' || weather === 'sunny';
+                    if (typeof weather === 'object' && weather !== null) {
+                        const precip = weather.precipitation;
+                        isClearWeather = !precip || precip === 'none';
+                    }
                 }
                 
                 // Always try to get sun position if dayNightCycle exists
@@ -522,9 +531,9 @@ class RenderSystem {
                     // Reset camera to identity for screen-space rendering
                     this.webglRenderer.setCamera(0, 0);
                     
-                    // Use calculated intensity combined with time fade
+                    // Use calculated intensity combined with time fade and weather dimming
                     const baseIntensity = Math.max(sunPos.intensity, 0.0); 
-                    const finalIntensity = baseIntensity * timeFade;
+                    const finalIntensity = baseIntensity * timeFade * weatherDim;
                     
                     if (finalIntensity > 0.01) {
                         this.webglRenderer.drawLensFlare(sunPos.x, sunPos.y, finalIntensity);

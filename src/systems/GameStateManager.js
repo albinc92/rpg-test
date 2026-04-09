@@ -6812,13 +6812,21 @@ class BattleState extends GameState {
         if (!dayNightCycle) return;
         
         // Check weather - no lens flare in bad weather
-        const weather = this.game.currentMap?.weather;
-        let isClearWeather = !weather || weather === 'none' || weather === 'sunny';
-        if (typeof weather === 'object' && weather !== null) {
-            const precip = weather.precipitation;
-            isClearWeather = !precip || precip === 'none';
+        // Use actual weather channels if available
+        const ws = this.game.weatherSystem;
+        if (ws && ws.channelMode) {
+            const ch = ws.weatherChannels;
+            const obscure = Math.max(ch.rain, ch.snow, ch.fog, ch.cloud * 0.8);
+            if (obscure > 0.4) return; // too overcast / rainy for lens flare
+        } else {
+            const weather = this.game.currentMap?.weather;
+            let isClearWeather = !weather || weather === 'none' || weather === 'sunny';
+            if (typeof weather === 'object' && weather !== null) {
+                const precip = weather.precipitation;
+                isClearWeather = !precip || precip === 'none';
+            }
+            if (!isClearWeather) return;
         }
-        if (!isClearWeather) return;
         
         // Get sun position
         const sunPos = dayNightCycle.getSunPosition();

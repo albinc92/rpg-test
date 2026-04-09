@@ -106,6 +106,10 @@ class PerformanceMonitor {
         }
         if (window.game?.biomeWeatherSystem?._initialized) {
             contentLines += 6; // Title, Region, Biome, Channels, Channels2, Reroll timer
+            if (window.game._weatherDebugActive) {
+                contentLines += 1; // active override label
+            }
+            contentLines += 1; // F4 hint
         }
         contentLines += 1; // F1 hint
         
@@ -214,8 +218,10 @@ class PerformanceMonitor {
             ctx.fillText(`Biome: ${biome}`, s(20), y);
             y += lineHeight;
             
-            // Weather channels
-            const ch = bws.getWeatherForCell(mapId);
+            // Weather channels — show actual applied values, not just biome values
+            const ch = window.game._weatherDebugActive
+                ? (window.game.weatherSystem?.weatherChannels || bws.getWeatherForCell(mapId))
+                : bws.getWeatherForCell(mapId);
             ctx.fillText(`Rain:${ch.rain.toFixed(2)} Snow:${ch.snow.toFixed(2)} Wind:${ch.wind.toFixed(2)}`, s(20), y);
             y += lineHeight;
             ctx.fillText(`Fog:${ch.fog.toFixed(2)}  Cloud:${ch.cloud.toFixed(2)}`, s(20), y);
@@ -227,6 +233,22 @@ class PerformanceMonitor {
             const secs = Math.floor(remaining % 60);
             ctx.fillStyle = c ? c.text.muted : '#888888';
             ctx.fillText(`Next reroll: ${mins}m ${secs.toString().padStart(2, '0')}s`, s(20), y);
+            y += lineHeight;
+            
+            // Show active weather override
+            if (window.game._weatherDebugActive) {
+                const presets = window.game._weatherDebugPresets;
+                const idx = window.game._weatherDebugIndex;
+                const name = presets?.[idx]?.name || '?';
+                ctx.fillStyle = highlightColor;
+                ctx.fillText(`⚠ Override: ${name} [${idx + 1}/${presets.length}]`, s(20), y);
+                y += lineHeight;
+            }
+            
+            // Weather debug hints
+            ctx.fillStyle = dimColor;
+            ctx.font = `${s(11)}px ${monoFont}`;
+            ctx.fillText('F4: Cycle weather  Shift+F4: Reroll  Ctrl+F4: Clear', s(20), y);
             y += lineHeight;
         }
         
