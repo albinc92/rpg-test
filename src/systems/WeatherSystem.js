@@ -563,6 +563,20 @@ class WeatherSystem {
     }
     
     /**
+     * Shift all weather particles by a world-coordinate offset.
+     * Called during seamless map transitions so particles stay in sync
+     * with the camera instead of being recycled all at once.
+     */
+    shiftParticles(dx, dy) {
+        for (const p of this.rainParticles)  { p.x += dx; p.y += dy; }
+        for (const p of this.snowParticles)  { p.x += dx; p.y += dy; }
+        for (const p of this.leafParticles)  { p.x += dx; p.y += dy; }
+        // Cloud shadows and fog wisps also live in world space
+        for (const s of this.cloudShadows)   { s.x += dx; s.y += dy; }
+        for (const w of this.fogWisps)       { w.x += dx; w.y += dy; }
+    }
+    
+    /**
      * Get camera viewport in world coordinates with padding
      */
     getCameraViewport() {

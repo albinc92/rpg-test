@@ -1414,6 +1414,12 @@ class GameEngine {
                 this.renderSystem.camera.targetY += scaledShiftY;
             }
             
+            // 4b. Shift weather particles so they stay in the same screen positions
+            // Particles are in world coords — apply the same unscaled shift
+            if (this.weatherSystem) {
+                this.weatherSystem.shiftParticles(shiftX, shiftY);
+            }
+            
             // 5. Initialize Systems for New Map
             
             // Layers
