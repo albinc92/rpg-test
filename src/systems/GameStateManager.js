@@ -334,6 +334,13 @@ class LoadingState extends GameState {
         this.loadingProgress = 0.2;
         await this._frame();
 
+        // Explicitly stop menu BGM — BiomeBGMSystem.forceUpdate() inside
+        // loadMap can silently fail if biome data isn't ready yet, which
+        // would leave the menu music playing over gameplay.
+        if (this.game.audioManager) {
+            this.game.audioManager.stopBGM();
+        }
+
         // Reset game state
         this.game.resetGame();
         this.loadingProgress = 0.5;
@@ -4811,31 +4818,37 @@ class PackState extends GameState {
             }
         }
 
+        // Reserve space for bottom-anchored value row so flowing content never overlaps it
+        const coinSize = Math.max(12, Math.min(18, detailsHeight * 0.04));
+        const bottomReserve = Math.max(30, detailsHeight * 0.08); // value row height
+        const contentBottom = panelBottom - bottomReserve;
+
         // 2) Name (word-wrapped)
-        const fontSize = Math.max(16, Math.min(28, detailsHeight * 0.06));
+        const fontSize = Math.max(14, Math.min(24, detailsHeight * 0.055));
         ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
         ctx.textAlign = 'center';
         ctx.font = ds ? ds.font('xl', 'bold', 'display') : `bold ${fontSize}px "Cinzel", serif`;
         if (ds) ds.applyShadow(ctx, 'glow');
 
         const nameLines = this._wrapLines(ctx, item.name, contentWidth);
-        const nameLineHeight = fontSize * 1.5;
+        const nameLineHeight = fontSize * 1.3;
         ctx.textBaseline = 'top';
         nameLines.forEach((line, i) => {
             ctx.fillText(line, centerX, cursorY + i * nameLineHeight);
         });
-        cursorY += nameLines.length * nameLineHeight + detailsHeight * 0.02;
+        cursorY += nameLines.length * nameLineHeight + Math.max(4, detailsHeight * 0.015);
 
         if (ds) ds.clearShadow(ctx);
 
         // 3) Rarity + type
+        const smallFontSize = Math.max(11, Math.min(14, detailsHeight * 0.03));
         ctx.fillStyle = ds ? ds.colors.getRarityColor(item.rarity) : '#9d9d9d';
-        ctx.font = ds ? ds.font('sm', 'normal', 'body') : 'italic 14px "Lato", sans-serif';
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : `italic ${smallFontSize}px "Lato", sans-serif`;
         ctx.textBaseline = 'top';
         const rarityStr = (item.rarity || 'common').charAt(0).toUpperCase() + (item.rarity || 'common').slice(1);
         const typeStr = (item.type || 'item').toLowerCase();
         ctx.fillText(`${rarityStr} ${typeStr}`, centerX, cursorY);
-        cursorY += detailsHeight * 0.05;
+        cursorY += smallFontSize + Math.max(6, detailsHeight * 0.02);
 
         // 4) Separator
         const sepWidth = detailsWidth * 0.6;
@@ -4846,27 +4859,30 @@ class PackState extends GameState {
         gradient.addColorStop(1, 'transparent');
         ctx.fillStyle = gradient;
         ctx.fillRect(centerX - sepWidth / 2, cursorY, sepWidth, 2);
-        cursorY += detailsHeight * 0.04;
+        cursorY += Math.max(8, detailsHeight * 0.025);
 
-        // 5) Description (word-wrapped)
+        // 5) Description (word-wrapped, overflow-safe)
         ctx.fillStyle = ds ? ds.colors.text.secondary : '#ccc';
-        const descFontSize = Math.max(12, Math.min(16, detailsHeight * 0.035));
+        const descFontSize = Math.max(11, Math.min(15, detailsHeight * 0.032));
         ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${descFontSize}px "Lato", sans-serif`;
-        const descLineHeight = descFontSize * 2;
+        const descLineHeight = Math.max(descFontSize + 4, descFontSize * 1.45);
         const descLines = this._wrapLines(ctx, item.description || this.game.t('pack.noDescription'), contentWidth);
         ctx.textBaseline = 'top';
-        descLines.forEach((line, i) => {
-            ctx.fillText(line, centerX, cursorY + i * descLineHeight);
-        });
-        cursorY += descLines.length * descLineHeight + detailsHeight * 0.03;
+        // Only render lines that fit above contentBottom
+        for (let i = 0; i < descLines.length; i++) {
+            if (cursorY + descLineHeight > contentBottom) break;
+            ctx.fillText(descLines[i], centerX, cursorY);
+            cursorY += descLineHeight;
+        }
+        cursorY += Math.max(4, detailsHeight * 0.015);
 
-        // 6) Stats (only if they fit)
+        // 6) Stats (only if they fit above contentBottom)
         if (item.stats && Object.keys(item.stats).length > 0) {
-            const statLineHeight = detailsHeight * 0.05;
+            const statLineHeight = Math.max(descFontSize + 4, detailsHeight * 0.04);
             ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${descFontSize}px "Lato", sans-serif`;
             ctx.textBaseline = 'top';
             for (const [stat, value] of Object.entries(item.stats)) {
-                if (cursorY + statLineHeight > panelBottom - detailsHeight * 0.06) break; // leave room for value
+                if (cursorY + statLineHeight > contentBottom) break;
                 const isNegative = value < 0;
                 ctx.fillStyle = isNegative
                     ? (ds ? ds.colors.danger : '#ef4444')
@@ -4878,8 +4894,7 @@ class PackState extends GameState {
             }
         }
 
-        // 7) Value — anchored to panel bottom
-        const coinSize = Math.max(12, Math.min(18, detailsHeight * 0.04));
+        // 7) Value — anchored to panel bottom (in the reserved space)
         ctx.fillStyle = ds ? ds.colors.text.muted : '#aaa';
         ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${descFontSize}px "Lato", sans-serif`;
         ctx.textAlign = 'center';
@@ -6735,31 +6750,37 @@ class ShopState extends GameState {
             }
         }
 
+        // Reserve space for bottom-anchored price row so flowing content never overlaps it
+        const coinSize = Math.max(12, Math.min(18, detailsHeight * 0.04));
+        const bottomReserve = Math.max(50, detailsHeight * 0.12); // price row + warning
+        const contentBottom = panelBottom - bottomReserve;
+
         // 2) Name (word-wrapped)
-        const fontSize = Math.max(16, Math.min(28, detailsHeight * 0.06));
+        const fontSize = Math.max(14, Math.min(24, detailsHeight * 0.055));
         ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
         ctx.textAlign = 'center';
         ctx.font = ds ? ds.font('xl', 'bold', 'display') : `bold ${fontSize}px "Cinzel", serif`;
         if (ds) ds.applyShadow(ctx, 'glow');
 
         const nameLines = this._wrapLines(ctx, item.name, contentWidth);
-        const nameLineHeight = fontSize * 1.5;
+        const nameLineHeight = fontSize * 1.3;
         ctx.textBaseline = 'top';
         nameLines.forEach((line, i) => {
             ctx.fillText(line, centerX, cursorY + i * nameLineHeight);
         });
-        cursorY += nameLines.length * nameLineHeight + detailsHeight * 0.02;
+        cursorY += nameLines.length * nameLineHeight + Math.max(4, detailsHeight * 0.015);
 
         if (ds) ds.clearShadow(ctx);
 
         // 3) Rarity + type
+        const smallFontSize = Math.max(11, Math.min(14, detailsHeight * 0.03));
         ctx.fillStyle = ds ? ds.colors.getRarityColor(item.rarity) : '#9d9d9d';
-        ctx.font = ds ? ds.font('sm', 'normal', 'body') : 'italic 14px "Lato", sans-serif';
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : `italic ${smallFontSize}px "Lato", sans-serif`;
         ctx.textBaseline = 'top';
         const rarityStr = (item.rarity || 'common').charAt(0).toUpperCase() + (item.rarity || 'common').slice(1);
         const typeStr = (item.type || 'item').toLowerCase();
         ctx.fillText(`${rarityStr} ${typeStr}`, centerX, cursorY);
-        cursorY += detailsHeight * 0.05;
+        cursorY += smallFontSize + Math.max(6, detailsHeight * 0.02);
 
         // 4) Separator
         const sepWidth = detailsWidth * 0.6;
@@ -6770,27 +6791,30 @@ class ShopState extends GameState {
         gradient.addColorStop(1, 'transparent');
         ctx.fillStyle = gradient;
         ctx.fillRect(centerX - sepWidth / 2, cursorY, sepWidth, 2);
-        cursorY += detailsHeight * 0.04;
+        cursorY += Math.max(8, detailsHeight * 0.025);
 
-        // 5) Description (word-wrapped)
+        // 5) Description (word-wrapped, overflow-safe)
         ctx.fillStyle = ds ? ds.colors.text.secondary : '#ccc';
-        const descFontSize = Math.max(12, Math.min(16, detailsHeight * 0.035));
+        const descFontSize = Math.max(11, Math.min(15, detailsHeight * 0.032));
         ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${descFontSize}px "Lato", sans-serif`;
-        const descLineHeight = descFontSize * 2;
+        const descLineHeight = Math.max(descFontSize + 4, descFontSize * 1.45);
         const descLines = this._wrapLines(ctx, item.description || this.game.t('shop.noDescription'), contentWidth);
         ctx.textBaseline = 'top';
-        descLines.forEach((line, i) => {
-            ctx.fillText(line, centerX, cursorY + i * descLineHeight);
-        });
-        cursorY += descLines.length * descLineHeight + detailsHeight * 0.03;
+        // Only render lines that fit above contentBottom
+        for (let i = 0; i < descLines.length; i++) {
+            if (cursorY + descLineHeight > contentBottom) break;
+            ctx.fillText(descLines[i], centerX, cursorY);
+            cursorY += descLineHeight;
+        }
+        cursorY += Math.max(4, detailsHeight * 0.015);
 
-        // 6) Stats (only if they fit)
+        // 6) Stats (only if they fit above contentBottom)
         if (item.stats && Object.keys(item.stats).length > 0) {
-            const statLineHeight = detailsHeight * 0.05;
+            const statLineHeight = Math.max(descFontSize + 4, detailsHeight * 0.04);
             ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${descFontSize}px "Lato", sans-serif`;
             ctx.textBaseline = 'top';
             for (const [stat, value] of Object.entries(item.stats)) {
-                if (cursorY + statLineHeight > panelBottom - detailsHeight * 0.12) break;
+                if (cursorY + statLineHeight > contentBottom) break;
                 const isNegative = value < 0;
                 ctx.fillStyle = isNegative
                     ? (ds ? ds.colors.danger : '#ef4444')
@@ -6802,11 +6826,10 @@ class ShopState extends GameState {
             }
         }
 
-        // 7) Price info — anchored to panel bottom
+        // 7) Price info — anchored to panel bottom (in the reserved space)
         const price = this.selectedTab === 0 ? item.price : item.sellPrice;
         const playerGold = this.getPlayerGold();
         const canAfford = playerGold >= price;
-        const coinSize = Math.max(12, Math.min(18, detailsHeight * 0.04));
 
         // "Not enough gold" warning
         if (!canAfford && this.selectedTab === 0) {
@@ -6814,7 +6837,7 @@ class ShopState extends GameState {
             ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${descFontSize}px "Lato", sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
-            ctx.fillText(this.game.t('shop.notEnoughGold'), centerX, panelBottom - detailsHeight * 0.06);
+            ctx.fillText(this.game.t('shop.notEnoughGold'), centerX, panelBottom - Math.max(20, detailsHeight * 0.045));
         }
 
         // Price display

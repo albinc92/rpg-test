@@ -147,7 +147,10 @@ class InputManager {
             
             if (!isTyping) {
                 this.keys[e.code] = true;
-                this.lastInputDevice = 'keyboard';
+                if (this.lastInputDevice !== 'keyboard') {
+                    this.lastInputDevice = 'keyboard';
+                    this._updateCursorVisibility();
+                }
                 
                 // Prevent default behavior for game keys
                 if (this.isGameKey(e.code)) {
@@ -164,6 +167,10 @@ class InputManager {
         document.addEventListener('mousemove', (e) => {
             this.mouse.x = e.clientX;
             this.mouse.y = e.clientY;
+            if (this.lastInputDevice !== 'keyboard') {
+                this.lastInputDevice = 'keyboard';
+                this._updateCursorVisibility();
+            }
         });
         
         document.addEventListener('mousedown', (e) => {
@@ -217,12 +224,22 @@ class InputManager {
                 const anyButton = gamepad.buttons.some(b => b.pressed);
                 const anyAxis = gamepad.axes.some(a => Math.abs(a) > 0.3);
                 if (anyButton || anyAxis) {
-                    this.lastInputDevice = 'gamepad';
+                    if (this.lastInputDevice !== 'gamepad') {
+                        this.lastInputDevice = 'gamepad';
+                        this._updateCursorVisibility();
+                    }
                 }
             }
         }
     }
     
+    /**
+     * Show/hide the OS cursor based on the active input device.
+     */
+    _updateCursorVisibility() {
+        document.body.style.cursor = this.lastInputDevice === 'gamepad' ? 'none' : '';
+    }
+
     /**
      * Check if an action is currently pressed
      */
