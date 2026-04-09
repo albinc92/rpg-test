@@ -4587,14 +4587,16 @@ class PackState extends GameState {
         ctx.fillStyle = ds ? ds.colors.warning : '#ffd700';
         ctx.font = ds ? ds.font('md', 'bold', 'body') : 'bold 22px "Lato", sans-serif';
         ctx.textAlign = 'right';
-        ctx.fillText(`💰 ${playerGold}`, canvasWidth - (ds ? ds.spacing(8) : 30), canvasHeight * 0.08);
+        ctx.textBaseline = 'top';
+        const goldY = canvasHeight * 0.04;
+        ctx.fillText(`💰 ${playerGold}`, canvasWidth - (ds ? ds.spacing(8) : 30), goldY);
 
         // Item count (top-right below gold)
         const allSlots = this.game.inventoryManager?.getAllSlots() || [];
         const maxSlots = this.game.inventoryManager?.getMaxSlots() || 30;
         ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
         ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px "Lato", sans-serif';
-        ctx.fillText(`${this.game.t('pack.count')}: ${allSlots.length}/${maxSlots}`, canvasWidth - (ds ? ds.spacing(8) : 30), canvasHeight * 0.08 + 28);
+        ctx.fillText(`${this.game.t('pack.count')}: ${allSlots.length}/${maxSlots}`, canvasWidth - (ds ? ds.spacing(8) : 30), goldY + 26);
 
         // Tabs
         this.renderTabs(ctx, canvasWidth, canvasHeight, menuRenderer, ds);
@@ -4886,10 +4888,10 @@ class PackState extends GameState {
         }
 
         // Value at bottom
-        const valueY = detailsY + detailsHeight - padding - 60;
+        const valueY = detailsY + detailsHeight - padding - 10;
         ctx.textBaseline = 'bottom';
-        ctx.fillStyle = ds ? ds.colors.warning : '#ffd700';
-        ctx.font = ds ? ds.font('lg', 'bold', 'body') : 'bold 24px "Lato", sans-serif';
+        ctx.fillStyle = ds ? ds.colors.text.muted : '#aaa';
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(`${this.game.t('pack.value')}: ${item.value || 0} 💰`, centerX, valueY);
     }
@@ -6512,7 +6514,8 @@ class ShopState extends GameState {
         ctx.fillStyle = ds ? ds.colors.warning : '#ffd700';
         ctx.font = ds ? ds.font('md', 'bold', 'body') : 'bold 22px "Lato", sans-serif';
         ctx.textAlign = 'right';
-        ctx.fillText(`💰 ${playerGold}`, canvasWidth - (ds ? ds.spacing(8) : 30), canvasHeight * 0.08);
+        ctx.textBaseline = 'top';
+        ctx.fillText(`💰 ${playerGold}`, canvasWidth - (ds ? ds.spacing(8) : 30), canvasHeight * 0.04);
         
         // Draw tabs
         this.renderTabs(ctx, canvasWidth, canvasHeight, menuRenderer, ds);
@@ -6815,18 +6818,18 @@ class ShopState extends GameState {
         const canAfford = playerGold >= price;
         
         // Price display - position from bottom
-        const priceY = detailsY + detailsHeight - padding - 60;
+        const priceY = detailsY + detailsHeight - padding - 10;
         ctx.textBaseline = 'bottom';
         ctx.fillStyle = ds ? ds.colors.warning : '#ffd700';
-        ctx.font = ds ? ds.font('lg', 'bold', 'body') : 'bold 24px "Lato", sans-serif';
+        ctx.font = ds ? ds.font('md', 'normal', 'body') : '18px "Lato", sans-serif';
         ctx.fillText(`${price} 💰`, centerX, priceY);
         
-        // "Not enough gold" warning (below price, only if can't afford)
+        // "Not enough gold" warning (above price)
         if (!canAfford && this.selectedTab === 0) {
             ctx.fillStyle = ds ? ds.colors.danger : '#ef4444';
-            ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px "Lato", sans-serif';
+            ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
             ctx.textBaseline = 'bottom';
-            ctx.fillText(this.game.t('shop.notEnoughGold'), centerX, detailsY + detailsHeight - padding - 20);
+            ctx.fillText(this.game.t('shop.notEnoughGold'), centerX, priceY - 28);
         }
     }
     

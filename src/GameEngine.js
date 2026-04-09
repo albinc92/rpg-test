@@ -2562,6 +2562,12 @@ class GameEngine {
         // Reset party manager for new game
         if (this.partyManager) this.partyManager.resetForNewGame();
         
+        // Reset inventory
+        if (this.inventoryManager) this.inventoryManager.clear();
+        
+        // Reset game variables (quest flags, switches, etc.)
+        if (this.gameVariables) this.gameVariables.clear();
+        
         // Reset camera
         if (this.camera) {
             this.camera.x = 0;
