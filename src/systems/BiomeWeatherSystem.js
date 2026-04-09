@@ -18,12 +18,13 @@
 const BIOME_WEATHER_TABLES = {
     // ── Forests ──
     'woodland': [
-        { weight: 40, channels: { rain: 0,    snow: 0,   wind: 0.1, fog: 0,    cloud: 0.2 } },  // clear
+        { weight: 35, channels: { rain: 0,    snow: 0,   wind: 0.1, fog: 0,    cloud: 0.2 } },  // clear
         { weight: 20, channels: { rain: 0,    snow: 0,   wind: 0.15, fog: 0,   cloud: 0.5 } },  // overcast
         { weight: 15, channels: { rain: 0.3,  snow: 0,   wind: 0.2, fog: 0,    cloud: 0.6 } },  // light rain
         { weight: 10, channels: { rain: 0.6,  snow: 0,   wind: 0.4, fog: 0,    cloud: 0.8 } },  // moderate rain
         { weight: 5,  channels: { rain: 0.9,  snow: 0,   wind: 0.7, fog: 0,    cloud: 1.0 } },  // heavy rain
-        { weight: 10, channels: { rain: 0,    snow: 0,   wind: 0.05, fog: 0.5, cloud: 0.3 } },  // foggy
+        { weight: 8,  channels: { rain: 0,    snow: 0,   wind: 0.05, fog: 0.5, cloud: 0.3 } },  // foggy
+        { weight: 7,  channels: { rain: 0,    snow: 0,   wind: 0.03, fog: 0.3, cloud: 0.15 } }, // morning haze
     ],
     'dense-forest': [
         { weight: 30, channels: { rain: 0,    snow: 0,   wind: 0.05, fog: 0.2, cloud: 0.3 } },  // misty clear
@@ -31,7 +32,7 @@ const BIOME_WEATHER_TABLES = {
         { weight: 20, channels: { rain: 0.35, snow: 0,   wind: 0.15, fog: 0.3, cloud: 0.7 } },  // drizzle
         { weight: 15, channels: { rain: 0.65, snow: 0,   wind: 0.3,  fog: 0.1, cloud: 0.8 } },  // rain
         { weight: 5,  channels: { rain: 0.95, snow: 0,   wind: 0.6,  fog: 0,   cloud: 1.0 } },  // downpour
-        { weight: 10, channels: { rain: 0,    snow: 0,   wind: 0.02, fog: 0.8, cloud: 0.2 } },  // deep fog
+        { weight: 12, channels: { rain: 0,    snow: 0,   wind: 0.02, fog: 0.9, cloud: 0.2 } },  // deep fog
     ],
 
     // ── Grasslands & Plains ──
@@ -81,7 +82,7 @@ const BIOME_WEATHER_TABLES = {
         { weight: 15, channels: { rain: 0,    snow: 0.7, wind: 0.5,  fog: 0,   cloud: 0.8 } },  // heavy snow
         { weight: 10, channels: { rain: 0,    snow: 0.95,wind: 0.9,  fog: 0.2, cloud: 1.0 } },  // blizzard
         { weight: 15, channels: { rain: 0,    snow: 0,   wind: 0.3,  fog: 0,   cloud: 0.2 } },  // cold clear
-        { weight: 10, channels: { rain: 0,    snow: 0.2, wind: 0.1,  fog: 0.5, cloud: 0.4 } },  // icy fog
+        { weight: 12, channels: { rain: 0,    snow: 0.2, wind: 0.1,  fog: 0.6, cloud: 0.4 } },  // icy fog
     ],
     'tundra': [
         { weight: 30, channels: { rain: 0,    snow: 0.2, wind: 0.4,  fog: 0,   cloud: 0.3 } },  // windswept
@@ -126,6 +127,16 @@ const BIOME_WEATHER_TABLES = {
         { weight: 15, channels: { rain: 0.6,  snow: 0,   wind: 0.4,  fog: 0,   cloud: 0.8 } },  // downpour
         { weight: 10, channels: { rain: 0.8,  snow: 0,   wind: 0.7,  fog: 0,   cloud: 1.0 } },  // storm
     ],
+
+    // ── Swamp ──
+    'swamp': [
+        { weight: 20, channels: { rain: 0,    snow: 0,   wind: 0.02, fog: 0.6, cloud: 0.3 } },  // thick swamp mist
+        { weight: 25, channels: { rain: 0,    snow: 0,   wind: 0.05, fog: 0.85,cloud: 0.4 } },  // deep bog fog
+        { weight: 15, channels: { rain: 0.25, snow: 0,   wind: 0.1,  fog: 0.5, cloud: 0.6 } },  // misty drizzle
+        { weight: 15, channels: { rain: 0.5,  snow: 0,   wind: 0.2,  fog: 0.3, cloud: 0.7 } },  // swamp rain
+        { weight: 10, channels: { rain: 0.75, snow: 0,   wind: 0.4,  fog: 0.1, cloud: 0.9 } },  // storm
+        { weight: 15, channels: { rain: 0,    snow: 0,   wind: 0.01, fog: 0.95,cloud: 0.2 } },  // impenetrable fog
+    ],
 };
 
 // ─── Time-of-Day Modifiers ──────────────────────────────────────────────────
@@ -156,6 +167,7 @@ const BIOME_AMBIENCE_MAP = {
     'high-mountain': 'mountain-0.mp3',
     'lake':          'water-0.mp3',
     'river-valley':  'water-0.mp3',
+    'swamp':         'water-0.mp3',
 };
 
 // ─── Weather Roll Interval ──────────────────────────────────────────────────

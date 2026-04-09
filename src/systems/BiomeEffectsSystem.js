@@ -150,6 +150,17 @@ const BIOME_PROFILES = {
         tint: [0.0, 0.03, 0.04, 0.04],
         particles: ['mist', 'dragonfly'],
     },
+
+    // ── Swamp ──
+    'swamp': {
+        temperature: 0.05,
+        saturationMult: 0.88,
+        bloomOffset: 0.01,
+        vignetteOffset: 0.2,
+        hazeIntensity: 0.15,
+        tint: [0.02, 0.06, 0.0, 0.1],    // murky green
+        particles: ['mist', 'firefly'],
+    },
 };
 
 // Default profile for unknown biomes

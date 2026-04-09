@@ -93,6 +93,12 @@ class WeatherSystem {
         
         // Fog overlay alpha (driven by channel)
         this.fogAlpha = 0;
+        
+        // ─── Cloud Shadow System ───
+        // Persistent cloud shadow blobs that drift across the ground
+        this.cloudShadows = [];
+        this._cloudShadowTimer = 0;
+        this._cloudShadowsInitialized = false;
     }
     
     /**
@@ -618,6 +624,9 @@ class WeatherSystem {
     update(deltaTime) {
         this.time += deltaTime;
         
+        // Update cloud shadows every frame (works in both modes)
+        this._updateCloudShadows(deltaTime);
+        
         // In channel mode, BiomeWeatherSystem drives everything via applyChannels()
         // We only need to update particles (movement physics) — no string transitions or dynamic rolling
         if (this.channelMode) {
@@ -898,6 +907,9 @@ class WeatherSystem {
         // Note: Sun effects are skipped in world-space rendering as they should be screen-space
         // TODO: Render sun effects in screen space separately if needed
         
+        // Render cloud shadows on the ground (world-space, before particles)
+        this.renderCloudShadows();
+        
         // Render rain (world coordinates)
         if (this.precipitation.startsWith('rain') || 
             (this.precipitation === 'dynamic' && this.currentDynamicWeather.startsWith('rain'))) {
@@ -922,34 +934,336 @@ class WeatherSystem {
     }
     
     /**
-     * Render fog overlay (screen-space semi-transparent layer)
+     * Render thick atmospheric fog overlay (screen-space).
+     * Produces dense, layered ground fog with time-of-day color tinting.
+     * Heavier at bottom of screen, multiple drifting horizontal bands,
+     * edge vignette, and subtle animation.
      */
     renderFog() {
         const ctx = this.ctx;
         const width = this.canvas.width;
         const height = this.canvas.height;
+        const fog = this.fogAlpha; // 0-1 intensity
+        const time = this.time;
         
         ctx.save();
         
-        // Base fog — white-ish translucent overlay
-        const alpha = this.fogAlpha * 0.35; // Max ~35% opacity for heavy fog
-        ctx.fillStyle = `rgba(220, 225, 230, ${alpha})`;
-        ctx.fillRect(0, 0, width, height);
+        // Reset to screen coordinates (fog is a screen-space overlay)
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         
-        // Layered fog wisps for depth
-        if (this.fogAlpha > 0.2) {
-            const wispAlpha = (this.fogAlpha - 0.2) * 0.15;
-            const time = this.time;
+        // ── Time-of-day fog color ──
+        // Morning/dawn fog is warm golden, night fog is cool blue, day is neutral
+        let fogR = 200, fogG = 210, fogB = 220; // default neutral
+        let fogTint = 0; // 0 = neutral, used for intensity of tinting
+        
+        if (this.game.dayNightCycle) {
+            const hour = this.game.dayNightCycle.timeOfDay;
+            if (hour >= 5 && hour < 8) {
+                // Dawn — warm golden fog
+                const t = (hour - 5) / 3; // 0 at 5:00, 1 at 8:00
+                fogR = 230 + t * 20;  // slightly warmer ramp
+                fogG = 210 + t * 15;
+                fogB = 190;
+                fogTint = Math.sin(t * Math.PI) * 0.6; // peaks mid-dawn
+            } else if (hour >= 18 && hour < 21) {
+                // Dusk — warm amber
+                const t = (hour - 18) / 3;
+                fogR = 220 + (1 - t) * 20;
+                fogG = 195;
+                fogB = 180;
+                fogTint = Math.sin(t * Math.PI) * 0.4;
+            } else if (hour >= 21 || hour < 5) {
+                // Night — cool blue-grey
+                fogR = 160;
+                fogG = 175;
+                fogB = 210;
+                fogTint = 0.5;
+            }
+        }
+        
+        // ── 1. Dense ground fog (bottom half, gradient up) ──
+        // Thick fog that hugs the ground, fading toward the horizon
+        const groundFogAlpha = fog * 0.45;
+        if (groundFogAlpha > 0.01) {
+            const groundGrad = ctx.createLinearGradient(0, height, 0, height * 0.25);
+            groundGrad.addColorStop(0, `rgba(${fogR}, ${fogG}, ${fogB}, ${groundFogAlpha})`);
+            groundGrad.addColorStop(0.3, `rgba(${fogR}, ${fogG}, ${fogB}, ${groundFogAlpha * 0.7})`);
+            groundGrad.addColorStop(0.6, `rgba(${fogR}, ${fogG}, ${fogB}, ${groundFogAlpha * 0.3})`);
+            groundGrad.addColorStop(1, `rgba(${fogR}, ${fogG}, ${fogB}, 0)`);
+            ctx.fillStyle = groundGrad;
+            ctx.fillRect(0, 0, width, height);
+        }
+        
+        // ── 2. Overall haze layer (uniform light tint across entire screen) ──
+        const hazeAlpha = fog * 0.2;
+        if (hazeAlpha > 0.01) {
+            ctx.fillStyle = `rgba(${fogR}, ${fogG}, ${fogB}, ${hazeAlpha})`;
+            ctx.fillRect(0, 0, width, height);
+        }
+        
+        // ── 3. Rolling fog bands (multiple thick horizontal layers that drift) ──
+        if (fog > 0.15) {
+            const bandCount = 5;
+            const bandMaxAlpha = (fog - 0.15) * 0.35;
             
-            // Slow-moving gradient wisps
-            for (let i = 0; i < 3; i++) {
-                const yCenter = height * (0.3 + i * 0.25) + Math.sin(time * 0.1 + i * 2) * 40;
-                const gradient = ctx.createLinearGradient(0, yCenter - 80, 0, yCenter + 80);
-                gradient.addColorStop(0, `rgba(200, 210, 220, 0)`);
-                gradient.addColorStop(0.5, `rgba(200, 210, 220, ${wispAlpha})`);
-                gradient.addColorStop(1, `rgba(200, 210, 220, 0)`);
+            for (let i = 0; i < bandCount; i++) {
+                // Each band has its own height, speed, and thickness
+                const baseY = height * (0.35 + i * 0.14);
+                const drift = Math.sin(time * (0.04 + i * 0.012) + i * 1.7) * 50;
+                const yCenter = baseY + drift;
+                const bandHeight = 90 + i * 15 + Math.sin(time * 0.03 + i * 3) * 20;
+                
+                // Opacity varies per band — center bands are thickest
+                const bandOpacity = bandMaxAlpha * (0.5 + 0.5 * Math.sin(i * 1.2 + 0.5));
+                
+                const bandGrad = ctx.createLinearGradient(0, yCenter - bandHeight, 0, yCenter + bandHeight);
+                bandGrad.addColorStop(0, `rgba(${fogR}, ${fogG}, ${fogB}, 0)`);
+                bandGrad.addColorStop(0.3, `rgba(${fogR}, ${fogG}, ${fogB}, ${bandOpacity * 0.5})`);
+                bandGrad.addColorStop(0.5, `rgba(${fogR}, ${fogG}, ${fogB}, ${bandOpacity})`);
+                bandGrad.addColorStop(0.7, `rgba(${fogR}, ${fogG}, ${fogB}, ${bandOpacity * 0.5})`);
+                bandGrad.addColorStop(1, `rgba(${fogR}, ${fogG}, ${fogB}, 0)`);
+                
+                ctx.fillStyle = bandGrad;
+                ctx.fillRect(0, yCenter - bandHeight, width, bandHeight * 2);
+            }
+        }
+        
+        // ── 4. Edge vignette fog (fog creeping in from screen edges) ──
+        if (fog > 0.3) {
+            const vigAlpha = (fog - 0.3) * 0.35;
+            
+            // Left edge
+            const leftGrad = ctx.createLinearGradient(0, 0, width * 0.3, 0);
+            leftGrad.addColorStop(0, `rgba(${fogR}, ${fogG}, ${fogB}, ${vigAlpha})`);
+            leftGrad.addColorStop(1, `rgba(${fogR}, ${fogG}, ${fogB}, 0)`);
+            ctx.fillStyle = leftGrad;
+            ctx.fillRect(0, 0, width * 0.3, height);
+            
+            // Right edge
+            const rightGrad = ctx.createLinearGradient(width, 0, width * 0.7, 0);
+            rightGrad.addColorStop(0, `rgba(${fogR}, ${fogG}, ${fogB}, ${vigAlpha})`);
+            rightGrad.addColorStop(1, `rgba(${fogR}, ${fogG}, ${fogB}, 0)`);
+            ctx.fillStyle = rightGrad;
+            ctx.fillRect(width * 0.7, 0, width * 0.3, height);
+            
+            // Top edge (lighter)
+            const topGrad = ctx.createLinearGradient(0, 0, 0, height * 0.2);
+            topGrad.addColorStop(0, `rgba(${fogR}, ${fogG}, ${fogB}, ${vigAlpha * 0.5})`);
+            topGrad.addColorStop(1, `rgba(${fogR}, ${fogG}, ${fogB}, 0)`);
+            ctx.fillStyle = topGrad;
+            ctx.fillRect(0, 0, width, height * 0.2);
+        }
+        
+        // ── 5. Thick rolling cloud wisps (large, slow-moving translucent blobs) ──
+        if (fog > 0.4) {
+            const wispAlpha = (fog - 0.4) * 0.18;
+            const wispCount = 4;
+            
+            for (let i = 0; i < wispCount; i++) {
+                // Each wisp drifts horizontally across the screen
+                const seed = i * 2.71828;
+                const xDrift = ((time * (0.006 + i * 0.003) + seed) % 2.5 - 0.25) * width;
+                const yCenter = height * (0.25 + i * 0.18) + Math.sin(time * 0.05 + seed) * 30;
+                const wispW = width * (0.35 + Math.sin(seed) * 0.1);
+                const wispH = 100 + Math.sin(time * 0.04 + seed) * 30;
+                
+                const wispGrad = ctx.createRadialGradient(
+                    xDrift + wispW / 2, yCenter, 0,
+                    xDrift + wispW / 2, yCenter, wispW / 2
+                );
+                wispGrad.addColorStop(0, `rgba(${fogR}, ${fogG}, ${fogB}, ${wispAlpha})`);
+                wispGrad.addColorStop(0.6, `rgba(${fogR}, ${fogG}, ${fogB}, ${wispAlpha * 0.4})`);
+                wispGrad.addColorStop(1, `rgba(${fogR}, ${fogG}, ${fogB}, 0)`);
+                
+                ctx.fillStyle = wispGrad;
+                ctx.save();
+                ctx.translate(xDrift + wispW / 2, yCenter);
+                ctx.scale(1, wispH / (wispW / 2));
+                ctx.beginPath();
+                ctx.arc(0, 0, wispW / 2, 0, Math.PI * 2);
+                ctx.restore();
+                ctx.fill();
+            }
+        }
+        
+        ctx.restore();
+    }
+    
+    // ─── Cloud Shadow System ────────────────────────────────────────────────
+    
+    /**
+     * Update cloud shadow blobs. Called every frame.
+     * Manages a pool of shadow "clouds" that drift across the world.
+     * @param {number} dt - delta time in seconds
+     */
+    _updateCloudShadows(dt) {
+        const cloud = this.weatherChannels?.cloud || 0;
+        
+        // Cloud shadows only during daytime with partial cloud cover (0.15–0.75)
+        let isDaytime = true;
+        if (this.game.dayNightCycle) {
+            const hour = this.game.dayNightCycle.timeOfDay;
+            isDaytime = hour >= 6 && hour < 19;
+        }
+        
+        // Determine target shadow count based on cloud coverage
+        // Partial clouds (0.15-0.75) → distinct shadow patches
+        // Above 0.75 → uniform overcast, no distinct shadows
+        const shadowActive = isDaytime && cloud >= 0.15 && cloud < 0.75;
+        const targetCount = shadowActive ? Math.floor(3 + (cloud - 0.15) * 12) : 0;
+        
+        // Wind direction for drift
+        const windX = (this.windStrength || 0.1) * 1.2;
+        const windY = (this.windStrength || 0.1) * 0.3;
+        
+        // Camera and viewport info
+        const camera = this.game.camera || { x: 0, y: 0, zoom: 1 };
+        const zoom = camera.zoom || 1.0;
+        const vpW = (this.game.CANVAS_WIDTH || 800) / zoom;
+        const vpH = (this.game.CANVAS_HEIGHT || 600) / zoom;
+        const pad = 400; // spawn padding outside viewport
+        
+        // Update existing shadows
+        for (let i = this.cloudShadows.length - 1; i >= 0; i--) {
+            const s = this.cloudShadows[i];
+            
+            // Drift with wind
+            s.x += windX * s.speed * dt * 60;
+            s.y += windY * s.speed * dt * 60;
+            
+            // Subtle organic pulsing of size
+            s.scalePhase += dt * s.pulseSpeed;
+            s.currentScale = s.baseScale + Math.sin(s.scalePhase) * s.baseScale * 0.08;
+            
+            // Fade in/out lifecycle
+            s.age += dt;
+            if (s.age < s.fadeIn) {
+                s.alpha = (s.age / s.fadeIn) * s.maxAlpha;
+            } else if (!shadowActive || this.cloudShadows.length > targetCount * 1.5) {
+                // Fade out if weather changed or too many
+                s.alpha = Math.max(0, s.alpha - dt * s.maxAlpha * 0.3);
+                if (s.alpha <= 0) {
+                    this.cloudShadows.splice(i, 1);
+                    continue;
+                }
+            } else {
+                s.alpha = s.maxAlpha;
+            }
+            
+            // Remove if drifted far past viewport
+            const dx = s.x - camera.x;
+            const dy = s.y - camera.y;
+            if (dx > vpW + pad * 2 || dx < -pad * 2 ||
+                dy > vpH + pad * 2 || dy < -pad * 2) {
+                this.cloudShadows.splice(i, 1);
+            }
+        }
+        
+        // Spawn new shadows to reach target
+        if (shadowActive && this.cloudShadows.length < targetCount) {
+            this._cloudShadowTimer += dt;
+            const spawnInterval = 1.5; // seconds between spawns
+            
+            while (this._cloudShadowTimer >= spawnInterval && this.cloudShadows.length < targetCount) {
+                this._cloudShadowTimer -= spawnInterval;
+                
+                // Spawn at left/top edge of viewport (upwind) so they drift across
+                const spawnX = camera.x - pad + Math.random() * (vpW + pad);
+                const spawnY = camera.y - pad * 0.5 + Math.random() * (vpH + pad);
+                
+                // Each shadow is an irregular blob defined by multiple overlapping ellipses
+                const blobCount = 2 + Math.floor(Math.random() * 3); // 2-4 sub-blobs
+                const blobs = [];
+                const baseRadius = 80 + Math.random() * 120; // 80-200px world units
+                
+                for (let b = 0; b < blobCount; b++) {
+                    blobs.push({
+                        offsetX: (Math.random() - 0.5) * baseRadius * 0.8,
+                        offsetY: (Math.random() - 0.5) * baseRadius * 0.4,
+                        radiusX: baseRadius * (0.5 + Math.random() * 0.6),
+                        radiusY: baseRadius * (0.3 + Math.random() * 0.4),
+                        rotation: Math.random() * Math.PI,
+                    });
+                }
+                
+                this.cloudShadows.push({
+                    x: spawnX,
+                    y: spawnY,
+                    blobs,
+                    speed: 0.3 + Math.random() * 0.4,   // drift speed multiplier
+                    baseScale: 0.8 + Math.random() * 0.4,
+                    currentScale: 1.0,
+                    scalePhase: Math.random() * Math.PI * 2,
+                    pulseSpeed: 0.3 + Math.random() * 0.2,
+                    alpha: 0,
+                    maxAlpha: 0.08 + Math.random() * 0.06, // 0.08-0.14 opacity
+                    fadeIn: 2 + Math.random() * 2,          // 2-4s fade in
+                    age: 0,
+                });
+            }
+            
+            // On first initialization, spread shadows across the whole viewport immediately
+            if (!this._cloudShadowsInitialized && this.cloudShadows.length > 0) {
+                this._cloudShadowsInitialized = true;
+                for (const s of this.cloudShadows) {
+                    s.x = camera.x - pad * 0.5 + Math.random() * (vpW + pad);
+                    s.y = camera.y - pad * 0.3 + Math.random() * (vpH + pad * 0.6);
+                    s.age = s.fadeIn + 1; // skip fade-in
+                    s.alpha = s.maxAlpha;
+                }
+            }
+        }
+        
+        if (!shadowActive && this.cloudShadows.length === 0) {
+            this._cloudShadowsInitialized = false;
+        }
+    }
+    
+    /**
+     * Render cloud shadows on the ground (world-space).
+     * Called during the world-space weather render pass (before fog overlay).
+     * Draws dark, organic blob shapes that represent cloud shadows.
+     * NOTE: Canvas context has camera transform active, so we draw in world coordinates.
+     */
+    renderCloudShadows() {
+        if (this.cloudShadows.length === 0) return;
+        
+        const ctx = this.ctx;
+        
+        ctx.save();
+        ctx.globalCompositeOperation = 'multiply';
+        
+        for (const shadow of this.cloudShadows) {
+            if (shadow.alpha <= 0.01) continue;
+            
+            const scale = shadow.currentScale;
+            
+            for (const blob of shadow.blobs) {
+                const worldX = shadow.x + blob.offsetX * scale;
+                const worldY = shadow.y + blob.offsetY * scale;
+                const rx = blob.radiusX * scale;
+                const ry = blob.radiusY * scale;
+                
+                // Draw soft-edged shadow ellipse using radial gradient
+                const maxR = Math.max(rx, ry);
+                const gradient = ctx.createRadialGradient(worldX, worldY, 0, worldX, worldY, maxR);
+                
+                // Darken ground — use multiply blend so it darkens underlying pixels
+                const shade = Math.floor(255 - shadow.alpha * 255);
+                gradient.addColorStop(0, `rgba(${shade}, ${shade}, ${shade + 5}, 1)`);
+                gradient.addColorStop(0.5, `rgba(${shade + 10}, ${shade + 10}, ${shade + 12}, 1)`);
+                gradient.addColorStop(0.85, `rgba(255, 255, 255, 1)`);
+                gradient.addColorStop(1, `rgba(255, 255, 255, 1)`);
+                
                 ctx.fillStyle = gradient;
-                ctx.fillRect(0, yCenter - 80, width, 160);
+                ctx.save();
+                ctx.translate(worldX, worldY);
+                ctx.rotate(blob.rotation);
+                ctx.scale(rx / maxR, ry / maxR);
+                ctx.beginPath();
+                ctx.arc(0, 0, maxR, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
             }
         }
         
