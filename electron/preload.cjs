@@ -13,7 +13,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Data file saving for editor
   saveDataFile: (filename, content) => ipcRenderer.invoke('save-data-file', filename, content),
   saveAllDataFiles: (files) => ipcRenderer.invoke('save-all-data-files', files),
-  isElectron: () => ipcRenderer.invoke('is-electron')
+  isElectron: () => ipcRenderer.invoke('is-electron'),
+
+  // Crash report relay (avoids CORS)
+  sendCrashReport: (webhookUrl, payload) => ipcRenderer.invoke('send-crash-report', webhookUrl, payload)
 });
 
 window.addEventListener('DOMContentLoaded', () => {

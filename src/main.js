@@ -65,6 +65,7 @@ async function loadGameScripts() {
         await loadScript('/src/systems/LightManager.js');
         
         // Load manager systems
+        await loadScript('/src/systems/CrashReporter.js'); // Crash handler w/ Discord webhook reporting
         await loadScript('/src/systems/AudioManager.js');
         await loadScript('/src/systems/InputManager.js');
         await loadScript('/src/systems/TouchControlsUI.js'); // NEW: Touch controls for mobile
@@ -134,6 +135,10 @@ async function loadGameScripts() {
         // Load game engine
         await loadScript('/src/GameEngine.js');
         
+        // Initialize crash reporter early (before engine, catches init errors too)
+        window.crashReporter = new CrashReporter();
+        window.crashReporter.setWebhookUrl('https://discord.com/api/webhooks/1491643482031259770/EY2P_7quzOXh6jo686qnmgMdeK1EviYNjCYBizzqJC8qGUxoVho9cfZuEnGvkT3e4PFi');
+
         // Initialize the game engine
         window.game = new GameEngine();
 

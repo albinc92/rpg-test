@@ -229,6 +229,23 @@ const createWindow = () => {
   // Check if running in Electron
   ipcMain.handle('is-electron', () => true);
 
+  // Crash report webhook relay (avoids CORS issues in renderer)
+  ipcMain.handle('send-crash-report', async (event, webhookUrl, payload) => {
+    try {
+      const resp = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) {
+        return { success: false, error: `HTTP ${resp.status}` };
+      }
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  });
+
   // In development, we can load the Vite dev server.
   // In production, we load the built index.html.
   // You can toggle this based on an environment variable or argument.
