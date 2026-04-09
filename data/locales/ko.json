@@ -231,6 +231,49 @@
     "saveFailed": "저장 실패",
     "loadFailed": "불러오기 실패"
   },
+
+  "gourd": {
+    "title": "호리병",
+    "party": "파티",
+    "storage": "보관함",
+    "boxLabel": "박스 {num}",
+    "emptySlot": "비어있음",
+    "emptyParty": "파티에 정령이 없습니다",
+    "emptyBox": "이 박스는 비어있습니다",
+    "spiritCount": "{count}/{max}",
+    "level": "Lv.{level}",
+    "stats": {
+      "hp": "HP",
+      "mp": "MP",
+      "attack": "공격",
+      "defense": "방어",
+      "magicAttack": "마공",
+      "magicDefense": "마방",
+      "speed": "속도"
+    },
+    "types": {
+      "fire": "불",
+      "water": "물",
+      "earth": "땅",
+      "wind": "바람"
+    },
+    "actions": {
+      "select": "선택",
+      "place": "배치",
+      "swap": "교환",
+      "deposit": "맡기기",
+      "withdraw": "찾기",
+      "summary": "상세",
+      "release": "놓아주기",
+      "cancel": "취소"
+    },
+    "holding": "선택 중: {name}",
+    "partyFull": "파티가 가득 찼습니다!",
+    "lastSpirit": "마지막 정령은 뺄 수 없습니다!",
+    "boxFull": "이 박스가 가득 찼습니다!",
+    "instructions": "\u2190 \u2192 파티/박스 | \u2191 \u2193 이동 | LB/RB 박스 전환 | Enter: 선택 | ESC: 뒤로",
+    "instructionsController": "\u2190 \u2192 파티/박스 | \u2191 \u2193 이동 | LB/RB 박스 전환 | A: 선택 | B: 뒤로"
+  },
   
   "loading": {
     "loading": "로딩 중...",

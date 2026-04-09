@@ -231,6 +231,49 @@
     "saveFailed": "Falha ao salvar",
     "loadFailed": "Falha ao carregar"
   },
+
+  "gourd": {
+    "title": "Cabaça",
+    "party": "Equipe",
+    "storage": "Depósito",
+    "boxLabel": "Caixa {num}",
+    "emptySlot": "Vazio",
+    "emptyParty": "Sem espíritos na equipe",
+    "emptyBox": "Esta caixa está vazia",
+    "spiritCount": "{count}/{max}",
+    "level": "Nv.{level}",
+    "stats": {
+      "hp": "PV",
+      "mp": "PM",
+      "attack": "ATQ",
+      "defense": "DEF",
+      "magicAttack": "A.MAG",
+      "magicDefense": "D.MAG",
+      "speed": "VEL"
+    },
+    "types": {
+      "fire": "Fogo",
+      "water": "Água",
+      "earth": "Terra",
+      "wind": "Vento"
+    },
+    "actions": {
+      "select": "Selecionar",
+      "place": "Colocar",
+      "swap": "Trocar",
+      "deposit": "Depositar",
+      "withdraw": "Retirar",
+      "summary": "Resumo",
+      "release": "Libertar",
+      "cancel": "Cancelar"
+    },
+    "holding": "Segurando: {name}",
+    "partyFull": "Equipe lotada!",
+    "lastSpirit": "Não é possível remover o último espírito!",
+    "boxFull": "Esta caixa está cheia!",
+    "instructions": "\u2190 \u2192 Equipe/Caixa | \u2191 \u2193 Navegar | LB/RB Trocar Caixa | Enter: Selecionar | ESC: Voltar",
+    "instructionsController": "\u2190 \u2192 Equipe/Caixa | \u2191 \u2193 Navegar | LB/RB Trocar Caixa | A: Selecionar | B: Voltar"
+  },
   
   "loading": {
     "loading": "Carregando...",

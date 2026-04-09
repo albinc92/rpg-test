@@ -231,6 +231,49 @@
     "saveFailed": "Speichern fehlgeschlagen",
     "loadFailed": "Laden fehlgeschlagen"
   },
+
+  "gourd": {
+    "title": "Kürbis",
+    "party": "Gruppe",
+    "storage": "Lager",
+    "boxLabel": "Box {num}",
+    "emptySlot": "Leer",
+    "emptyParty": "Keine Geister in der Gruppe",
+    "emptyBox": "Diese Box ist leer",
+    "spiritCount": "{count}/{max}",
+    "level": "Lv.{level}",
+    "stats": {
+      "hp": "KP",
+      "mp": "MP",
+      "attack": "ANG",
+      "defense": "VER",
+      "magicAttack": "M.ANG",
+      "magicDefense": "M.VER",
+      "speed": "INI"
+    },
+    "types": {
+      "fire": "Feuer",
+      "water": "Wasser",
+      "earth": "Erde",
+      "wind": "Wind"
+    },
+    "actions": {
+      "select": "Auswählen",
+      "place": "Platzieren",
+      "swap": "Tauschen",
+      "deposit": "Lagern",
+      "withdraw": "Entnehmen",
+      "summary": "Details",
+      "release": "Freilassen",
+      "cancel": "Abbrechen"
+    },
+    "holding": "Hält: {name}",
+    "partyFull": "Gruppe ist voll!",
+    "lastSpirit": "Letzter Geist kann nicht entfernt werden!",
+    "boxFull": "Diese Box ist voll!",
+    "instructions": "\u2190 \u2192 Gruppe/Box | \u2191 \u2193 Navigieren | LB/RB Box wechseln | Enter: Auswählen | ESC: Zurück",
+    "instructionsController": "\u2190 \u2192 Gruppe/Box | \u2191 \u2193 Navigieren | LB/RB Box wechseln | A: Auswählen | B: Zurück"
+  },
   
   "loading": {
     "loading": "Laden...",

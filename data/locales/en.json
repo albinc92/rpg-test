@@ -301,6 +301,49 @@
     },
     "noDescription": "No description available."
   },
+
+  "gourd": {
+    "title": "Gourd",
+    "party": "Party",
+    "storage": "Storage",
+    "boxLabel": "Box {num}",
+    "emptySlot": "Empty",
+    "emptyParty": "No spirits in party",
+    "emptyBox": "This box is empty",
+    "spiritCount": "{count}/{max}",
+    "level": "Lv.{level}",
+    "stats": {
+      "hp": "HP",
+      "mp": "MP",
+      "attack": "ATK",
+      "defense": "DEF",
+      "magicAttack": "M.ATK",
+      "magicDefense": "M.DEF",
+      "speed": "SPD"
+    },
+    "types": {
+      "fire": "Fire",
+      "water": "Water",
+      "earth": "Earth",
+      "wind": "Wind"
+    },
+    "actions": {
+      "select": "Select",
+      "place": "Place",
+      "swap": "Swap",
+      "deposit": "Deposit",
+      "withdraw": "Withdraw",
+      "summary": "Summary",
+      "release": "Release",
+      "cancel": "Cancel"
+    },
+    "holding": "Holding: {name}",
+    "partyFull": "Party is full!",
+    "lastSpirit": "Can't remove last spirit!",
+    "boxFull": "This box is full!",
+    "instructions": "\u2190 \u2192 Party/Box | \u2191 \u2193 Navigate | LB/RB Switch Box | Enter: Select | ESC: Back",
+    "instructionsController": "\u2190 \u2192 Party/Box | \u2191 \u2193 Navigate | LB/RB Switch Box | A: Select | B: Back"
+  },
   
   "loading": {
     "loading": "Loading...",

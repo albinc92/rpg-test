@@ -231,6 +231,49 @@
     "saveFailed": "保存失败",
     "loadFailed": "读取失败"
   },
+
+  "gourd": {
+    "title": "葫芦",
+    "party": "队伍",
+    "storage": "仓库",
+    "boxLabel": "箱子 {num}",
+    "emptySlot": "空",
+    "emptyParty": "队伍中没有精灵",
+    "emptyBox": "此箱子为空",
+    "spiritCount": "{count}/{max}",
+    "level": "Lv.{level}",
+    "stats": {
+      "hp": "生命",
+      "mp": "魔力",
+      "attack": "攻击",
+      "defense": "防御",
+      "magicAttack": "魔攻",
+      "magicDefense": "魔防",
+      "speed": "速度"
+    },
+    "types": {
+      "fire": "火",
+      "water": "水",
+      "earth": "土",
+      "wind": "风"
+    },
+    "actions": {
+      "select": "选择",
+      "place": "放置",
+      "swap": "交换",
+      "deposit": "存入",
+      "withdraw": "取出",
+      "summary": "详情",
+      "release": "放生",
+      "cancel": "取消"
+    },
+    "holding": "已选: {name}",
+    "partyFull": "队伍已满！",
+    "lastSpirit": "无法移除最后一只精灵！",
+    "boxFull": "此箱子已满！",
+    "instructions": "\u2190 \u2192 队伍/箱子 | \u2191 \u2193 移动 | LB/RB 切换箱子 | Enter: 选择 | ESC: 返回",
+    "instructionsController": "\u2190 \u2192 队伍/箱子 | \u2191 \u2193 移动 | LB/RB 切换箱子 | A: 选择 | B: 返回"
+  },
   
   "loading": {
     "loading": "加载中...",

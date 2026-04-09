@@ -1,4 +1,11 @@
-- generate a registry of spirits. the idea is to create a balanced system that tries to capture every dual-type of our existing elements and single types... i.e. one family which is only water based, one which is mixed water/grass etc... and stat lines which are unique and balanced given some metric-based foundation in order to keep things balanced... i.e. if a spirit is heavy on the speed attribute (-> higher damage throughput etc... then another stat should suffer as consequence or something....) thoughts?
+- 
+- generate a "placeholder" registry of spirits. the idea is to create a balanced system that tries to capture every single element type and dual element types... i.e. one family which is only water based, one which is mixed water/grass etc... and stat lines which are unique and balanced given some metric-based foundation in order to keep things balanced... i.e. if a spirit is heavy on the speed attribute (-> higher damage throughput etc... then another stat should suffer as consequence or something....) thoughts? maybe we could have some sort of elemental influence on stats... like... fire element are naturally high on offense, lightning types are naturally speedy... or maybe thats too predictive and boring... i don't know.. but its a cool idea anyhow. lets explore it together.
+- inventory system.
+- world map zone levels that dictates the level of the spirits that spawn in them
+  and the levelled item lists that can drop from chests
+- lootable chests.
+  - dynamic loot system from chests with levelled lists based on zone level (see feature above)
+- dynamic spawn system based on biome and zone level which determines which types of spirits that can spawn in a given map? thoughts?
 
 ================================================================================
 PLANNED FEATURES

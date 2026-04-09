@@ -13,8 +13,17 @@ class PartyManager {
         this.MAX_BENCH = 5;
         this.MAX_PARTY = this.MAX_ACTIVE + this.MAX_BENCH; // 6 total
         
+        // Box storage system (Pokémon PC-style)
+        this.BOX_CAPACITY = 30;   // spirits per box
+        this.MAX_BOXES = 10;      // total boxes
+        this.DEFAULT_BOX_NAMES = [
+            'Gourd I', 'Gourd II', 'Gourd III', 'Gourd IV', 'Gourd V',
+            'Gourd VI', 'Gourd VII', 'Gourd VIII', 'Gourd IX', 'Gourd X'
+        ];
+        
         this.party = [];      // Active + bench spirits
-        this.box = [];        // Spirit storage (no limit for now)
+        this.box = [];        // Legacy flat box (migrated to boxes on load)
+        this.boxes = [];      // Array of { name, spirits[] } — structured storage
         
         // Load saved party data
         this.loadPartyData();
@@ -30,16 +39,14 @@ class PartyManager {
                 const data = JSON.parse(saveData);
                 this.party = data.party || [];
                 this.box = data.box || [];
+                this.boxes = data.boxes || [];
                 
                 // Migrate old data - add scale and floating properties if missing
                 const migrateSpirit = (spirit) => {
                     if (!spirit.scale) {
-                        // Default to 0.075 which matches Sylphie template
                         spirit.scale = 0.075;
                     }
-                    // Add floating properties for Sylphie (name-based check for old saves)
                     if (spirit.isFloating === undefined) {
-                        // Default: Sylphie floats, others don't
                         spirit.isFloating = spirit.name === 'Sylphie';
                         spirit.floatingSpeed = 0.002;
                         spirit.floatingRange = 15;
@@ -48,9 +55,31 @@ class PartyManager {
                 };
                 this.party = this.party.map(migrateSpirit);
                 this.box = this.box.map(migrateSpirit);
+                
+                // Migrate flat box[] to structured boxes[]
+                if (this.boxes.length === 0) {
+                    this._initializeBoxes();
+                    // Move legacy flat box spirits into box 0
+                    if (this.box.length > 0) {
+                        for (const spirit of this.box) {
+                            this._addToFirstAvailableBox(migrateSpirit(spirit));
+                        }
+                        this.box = []; // Clear legacy
+                    }
+                } else {
+                    // Migrate spirits inside boxes
+                    for (const box of this.boxes) {
+                        box.spirits = (box.spirits || []).map(s => s ? migrateSpirit(s) : null);
+                    }
+                }
             } catch (e) {
                 console.warn('[PartyManager] Failed to load party data:', e);
             }
+        }
+        
+        // Ensure boxes are initialized
+        if (this.boxes.length === 0) {
+            this._initializeBoxes();
         }
         
         // Ensure player has at least one spirit
@@ -65,9 +94,135 @@ class PartyManager {
     savePartyData() {
         const data = {
             party: this.party,
-            box: this.box
+            box: [],  // Legacy — kept empty, all storage in boxes[]
+            boxes: this.boxes
         };
         localStorage.setItem('rpg_party_data', JSON.stringify(data));
+    }
+    
+    /**
+     * Initialize box storage with empty named boxes
+     */
+    _initializeBoxes() {
+        this.boxes = [];
+        for (let i = 0; i < this.MAX_BOXES; i++) {
+            this.boxes.push({
+                name: this.DEFAULT_BOX_NAMES[i] || `Gourd ${i + 1}`,
+                spirits: new Array(this.BOX_CAPACITY).fill(null)
+            });
+        }
+    }
+    
+    /**
+     * Add a spirit to the first available slot across all boxes
+     * @returns {boolean} true if placed successfully
+     */
+    _addToFirstAvailableBox(spirit) {
+        for (const box of this.boxes) {
+            const emptyIdx = box.spirits.indexOf(null);
+            if (emptyIdx !== -1) {
+                box.spirits[emptyIdx] = spirit;
+                return true;
+            }
+        }
+        return false; // All boxes full
+    }
+    
+    /**
+     * Get a specific box by index
+     */
+    getBox(index) {
+        return this.boxes[index] || null;
+    }
+    
+    /**
+     * Get total spirit count across all boxes
+     */
+    getBoxSpiritCount() {
+        let count = 0;
+        for (const box of this.boxes) {
+            count += box.spirits.filter(s => s !== null).length;
+        }
+        return count;
+    }
+    
+    /**
+     * Rename a box
+     */
+    renameBox(index, name) {
+        if (this.boxes[index]) {
+            this.boxes[index].name = name;
+            this.savePartyData();
+        }
+    }
+    
+    /**
+     * Move spirit from party to a specific box slot
+     */
+    moveToBoxSlot(partyIndex, boxIndex, slotIndex) {
+        if (this.party.length <= 1) return false;
+        if (!this.boxes[boxIndex]) return false;
+        if (this.boxes[boxIndex].spirits[slotIndex] !== null) return false;
+        
+        const spirit = this.party.splice(partyIndex, 1)[0];
+        if (spirit) {
+            this.boxes[boxIndex].spirits[slotIndex] = spirit;
+            this.savePartyData();
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Move spirit from a box slot to party
+     */
+    moveFromBoxToParty(boxIndex, slotIndex) {
+        if (this.party.length >= this.MAX_PARTY) return false;
+        if (!this.boxes[boxIndex]) return false;
+        
+        const spirit = this.boxes[boxIndex].spirits[slotIndex];
+        if (!spirit) return false;
+        
+        this.boxes[boxIndex].spirits[slotIndex] = null;
+        this.party.push(spirit);
+        this.savePartyData();
+        return true;
+    }
+    
+    /**
+     * Swap party spirit with box spirit
+     */
+    swapPartyWithBox(partyIndex, boxIndex, slotIndex) {
+        if (partyIndex < 0 || partyIndex >= this.party.length) return false;
+        if (!this.boxes[boxIndex]) return false;
+        
+        const partySpirit = this.party[partyIndex];
+        const boxSpirit = this.boxes[boxIndex].spirits[slotIndex];
+        
+        this.party[partyIndex] = boxSpirit;
+        this.boxes[boxIndex].spirits[slotIndex] = partySpirit;
+        
+        // Clean up: if boxSpirit was null, party now has a null — remove it
+        this.party = this.party.filter(s => s !== null);
+        
+        this.savePartyData();
+        return true;
+    }
+    
+    /**
+     * Swap two box slots (within same box or across boxes)
+     */
+    swapBoxSlots(boxA, slotA, boxB, slotB) {
+        if (!this.boxes[boxA] || !this.boxes[boxB]) return false;
+        
+        const spiritA = this.boxes[boxA].spirits[slotA];
+        const spiritB = this.boxes[boxB].spirits[slotB];
+        
+        this.boxes[boxA].spirits[slotA] = spiritB;
+        this.boxes[boxB].spirits[slotB] = spiritA;
+        
+        this.savePartyData();
+        return true;
     }
     
     /**
@@ -152,8 +307,13 @@ class PartyManager {
             this.party.push(spirit);
             console.log(`[PartyManager] Added ${spirit.name} to party`);
         } else {
-            this.box.push(spirit);
-            console.log(`[PartyManager] Party full, added ${spirit.name} to box`);
+            // Party full — add to first available box slot
+            if (this._addToFirstAvailableBox(spirit)) {
+                console.log(`[PartyManager] Party full, added ${spirit.name} to box storage`);
+            } else {
+                console.warn(`[PartyManager] All boxes full! Cannot add ${spirit.name}`);
+                return null;
+            }
         }
         
         this.savePartyData();
@@ -169,10 +329,13 @@ class PartyManager {
             id: spiritData.id || 'spirit_' + Date.now()
         };
         
-        this.box.push(spirit);
-        console.log(`[PartyManager] Added ${spirit.name} to box`);
-        this.savePartyData();
-        return spirit;
+        if (this._addToFirstAvailableBox(spirit)) {
+            console.log(`[PartyManager] Added ${spirit.name} to box storage`);
+            this.savePartyData();
+            return spirit;
+        }
+        console.warn(`[PartyManager] All boxes full! Cannot add ${spirit.name}`);
+        return null;
     }
     
     /**
@@ -245,9 +408,15 @@ class PartyManager {
         
         const spirit = this.removeFromParty(partyIndex);
         if (spirit) {
-            this.box.push(spirit);
-            this.savePartyData();
-            return true;
+            if (this._addToFirstAvailableBox(spirit)) {
+                this.savePartyData();
+                return true;
+            } else {
+                // No space — put back
+                this.party.splice(partyIndex, 0, spirit);
+                console.warn('[PartyManager] All boxes full');
+                return false;
+            }
         }
         return false;
     }
@@ -309,7 +478,15 @@ class PartyManager {
      * Get a spirit by ID
      */
     getSpiritById(id) {
-        return this.party.find(s => s.id === id) || this.box.find(s => s.id === id);
+        // Search party first
+        const inParty = this.party.find(s => s.id === id);
+        if (inParty) return inParty;
+        // Then search all boxes
+        for (const box of this.boxes) {
+            const found = box.spirits.find(s => s && s.id === id);
+            if (found) return found;
+        }
+        return null;
     }
     
     /**
@@ -319,10 +496,12 @@ class PartyManager {
         return {
             activeCount: Math.min(this.party.length, this.MAX_ACTIVE),
             benchCount: Math.max(0, this.party.length - this.MAX_ACTIVE),
-            boxCount: this.box.length,
+            boxCount: this.getBoxSpiritCount(),
             maxActive: this.MAX_ACTIVE,
             maxBench: this.MAX_BENCH,
-            maxParty: this.MAX_PARTY
+            maxParty: this.MAX_PARTY,
+            totalBoxes: this.MAX_BOXES,
+            boxCapacity: this.BOX_CAPACITY
         };
     }
 }

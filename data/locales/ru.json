@@ -229,6 +229,49 @@
     "saveFailed": "Ошибка сохранения",
     "loadFailed": "Ошибка загрузки"
   },
+
+  "gourd": {
+    "title": "Тыква",
+    "party": "Отряд",
+    "storage": "Хранилище",
+    "boxLabel": "Ячейка {num}",
+    "emptySlot": "Пусто",
+    "emptyParty": "В отряде нет духов",
+    "emptyBox": "Эта ячейка пуста",
+    "spiritCount": "{count}/{max}",
+    "level": "Ур.{level}",
+    "stats": {
+      "hp": "ОЗ",
+      "mp": "ОМ",
+      "attack": "АТК",
+      "defense": "ЗАЩ",
+      "magicAttack": "М.АТК",
+      "magicDefense": "М.ЗАЩ",
+      "speed": "СКР"
+    },
+    "types": {
+      "fire": "Огонь",
+      "water": "Вода",
+      "earth": "Земля",
+      "wind": "Ветер"
+    },
+    "actions": {
+      "select": "Выбрать",
+      "place": "Поместить",
+      "swap": "Обменять",
+      "deposit": "Положить",
+      "withdraw": "Забрать",
+      "summary": "Подробнее",
+      "release": "Отпустить",
+      "cancel": "Отмена"
+    },
+    "holding": "Выбран: {name}",
+    "partyFull": "Отряд полон!",
+    "lastSpirit": "Нельзя убрать последнего духа!",
+    "boxFull": "Эта ячейка заполнена!",
+    "instructions": "\u2190 \u2192 Отряд/Ячейка | \u2191 \u2193 Навигация | LB/RB Сменить Ячейку | Enter: Выбрать | ESC: Назад",
+    "instructionsController": "\u2190 \u2192 Отряд/Ячейка | \u2191 \u2193 Навигация | LB/RB Сменить Ячейку | A: Выбрать | B: Назад"
+  },
   
   "loading": {
     "loading": "Загрузка...",

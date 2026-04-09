@@ -21,6 +21,7 @@ class GameStateManager {
             'PAUSED': new PausedState(this),
             'SAVE_LOAD': new SaveLoadState(this),
             'INVENTORY': new InventoryState(this),
+            'GOURD': new GourdState(this),
             'WORLD_MAP': new WorldMapState(this),
             'DIALOGUE': new DialogueState(this),
             'SHOP': new ShopState(this),
@@ -3520,8 +3521,7 @@ class InventoryState extends GameState {
                 this.placeholderTimer = 2.0;
                 break;
             case 2: // Gourd
-                this.placeholderMessage = 'Gourd — Coming Soon';
-                this.placeholderTimer = 2.0;
+                this.stateManager.pushState('GOURD');
                 break;
         }
     }
@@ -3565,6 +3565,733 @@ class InventoryState extends GameState {
                 ? this.game.t('instructions.inventoryMenuController')
                 : this.game.t('instructions.inventoryMenu');
         menuRenderer.drawHint(ctx, hintText, canvasWidth, canvasHeight);
+    }
+}
+
+/**
+ * GourdState - Spirit party management (Pokémon PC-style)
+ * Left panel: Active party (6 slots)
+ * Right panel: Storage box grid (6×5 = 30 slots per box, 10 boxes)
+ * Bottom: Selected spirit detail / stats
+ */
+class GourdState extends GameState {
+    enter() {
+        // Panel focus: 'party' or 'box'
+        this.panel = 'party';
+        this.partyIndex = 0;        // 0-5 party cursor
+        this.currentBox = 0;        // 0-9 box page
+        this.boxCursor = 0;         // 0-29 box grid cursor
+        this.inputCooldown = 0.2;
+
+        // Held spirit for swap/move
+        this.heldSpirit = null;     // { source:'party'|'box', partyIdx, boxIdx, slotIdx, spirit }
+
+        // Toast messages
+        this.toast = null;
+        this.toastTimer = 0;
+
+        // Box grid layout
+        this.BOX_COLS = 6;
+        this.BOX_ROWS = 5;
+
+        // Sprite cache for spirit icons
+        this._spriteCache = {};
+
+        // Show touch controls
+        if (this.game.touchControlsUI) {
+            this.game.touchControlsUI.show();
+            this.game.touchControlsUI.updateButtonLabels('menu');
+        }
+
+        this.game.audioManager?.playEffect('menu-open.mp3');
+    }
+
+    exit() {
+        this.game.audioManager?.playEffect('menu-close.mp3');
+    }
+
+    update(deltaTime) {
+        if (this.inputCooldown > 0) this.inputCooldown -= deltaTime;
+        if (this.toastTimer > 0) {
+            this.toastTimer -= deltaTime;
+            if (this.toastTimer <= 0) this.toast = null;
+        }
+    }
+
+    _showToast(msg) {
+        this.toast = msg;
+        this.toastTimer = 2.0;
+    }
+
+    // ── Input ──────────────────────────────────────────────
+    handleInput(im) {
+        if (this.inputCooldown > 0) return;
+
+        // Cancel / back
+        if (im.isJustPressed('cancel')) {
+            if (this.heldSpirit) {
+                // Drop held spirit
+                this.heldSpirit = null;
+                this.game.audioManager?.playEffect('cancel.mp3');
+                return;
+            }
+            this.game.audioManager?.playEffect('cancel.mp3');
+            this.stateManager.popState();
+            return;
+        }
+
+        // Box switching: LB/RB
+        if (im.isJustPressed('zoomOut')) {
+            const pm = this.game.partyManager;
+            this.currentBox = (this.currentBox - 1 + pm.MAX_BOXES) % pm.MAX_BOXES;
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            return;
+        }
+        if (im.isJustPressed('zoomIn')) {
+            const pm = this.game.partyManager;
+            this.currentBox = (this.currentBox + 1) % pm.MAX_BOXES;
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            return;
+        }
+
+        if (this.panel === 'party') {
+            this._handlePartyInput(im);
+        } else {
+            this._handleBoxInput(im);
+        }
+    }
+
+    _handlePartyInput(im) {
+        const pm = this.game.partyManager;
+        const maxIdx = Math.max(pm.MAX_PARTY - 1, pm.party.length - 1);
+
+        if (im.isJustPressed('up')) {
+            this.partyIndex = Math.max(0, this.partyIndex - 1);
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        }
+        if (im.isJustPressed('down')) {
+            this.partyIndex = Math.min(maxIdx, this.partyIndex + 1);
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        }
+        if (im.isJustPressed('right')) {
+            this.panel = 'box';
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        }
+        if (im.isJustPressed('confirm')) {
+            this._handleConfirm();
+        }
+    }
+
+    _handleBoxInput(im) {
+        const col = this.boxCursor % this.BOX_COLS;
+        const row = Math.floor(this.boxCursor / this.BOX_COLS);
+
+        if (im.isJustPressed('up')) {
+            if (row > 0) {
+                this.boxCursor -= this.BOX_COLS;
+            }
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        }
+        if (im.isJustPressed('down')) {
+            if (row < this.BOX_ROWS - 1) {
+                this.boxCursor += this.BOX_COLS;
+            }
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        }
+        if (im.isJustPressed('left')) {
+            if (col > 0) {
+                this.boxCursor--;
+            } else {
+                this.panel = 'party';
+            }
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        }
+        if (im.isJustPressed('right')) {
+            if (col < this.BOX_COLS - 1) {
+                this.boxCursor++;
+            }
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        }
+        if (im.isJustPressed('confirm')) {
+            this._handleConfirm();
+        }
+    }
+
+    _handleConfirm() {
+        const pm = this.game.partyManager;
+        const t = (k, p) => this.game.t ? this.game.t(k, p) : k;
+
+        if (!this.heldSpirit) {
+            // ── Pick up ──
+            if (this.panel === 'party') {
+                const spirit = pm.party[this.partyIndex];
+                if (!spirit) return;
+                this.heldSpirit = { source: 'party', partyIdx: this.partyIndex, spirit };
+                this.game.audioManager?.playEffect('click.mp3');
+            } else {
+                const box = pm.getBox(this.currentBox);
+                const spirit = box?.spirits[this.boxCursor];
+                if (!spirit) return;
+                this.heldSpirit = { source: 'box', boxIdx: this.currentBox, slotIdx: this.boxCursor, spirit };
+                this.game.audioManager?.playEffect('click.mp3');
+            }
+        } else {
+            // ── Place / swap ──
+            if (this.panel === 'party') {
+                if (this.heldSpirit.source === 'party') {
+                    // Reorder within party
+                    const fromIdx = this.heldSpirit.partyIdx;
+                    const toIdx = this.partyIndex;
+                    if (fromIdx !== toIdx && toIdx < pm.party.length) {
+                        const [moved] = pm.party.splice(fromIdx, 1);
+                        pm.party.splice(toIdx, 0, moved);
+                        pm.savePartyData();
+                    }
+                    this.heldSpirit = null;
+                    this.game.audioManager?.playEffect('click.mp3');
+                } else {
+                    // Box → Party
+                    const targetSpirit = pm.party[this.partyIndex];
+                    if (targetSpirit) {
+                        // Swap party ↔ box
+                        pm.swapPartyWithBox(this.partyIndex, this.heldSpirit.boxIdx, this.heldSpirit.slotIdx);
+                    } else {
+                        // Withdraw to party (empty slot or append)
+                        if (pm.party.length >= pm.MAX_PARTY) {
+                            this._showToast(t('gourd.partyFull'));
+                            this.game.audioManager?.playEffect('cancel.mp3');
+                            return;
+                        }
+                        pm.moveFromBoxToParty(this.heldSpirit.boxIdx, this.heldSpirit.slotIdx);
+                    }
+                    this.heldSpirit = null;
+                    this.game.audioManager?.playEffect('click.mp3');
+                }
+            } else {
+                // Placing into box
+                if (this.heldSpirit.source === 'box') {
+                    // Swap within boxes
+                    pm.swapBoxSlots(this.heldSpirit.boxIdx, this.heldSpirit.slotIdx, this.currentBox, this.boxCursor);
+                    this.heldSpirit = null;
+                    this.game.audioManager?.playEffect('click.mp3');
+                } else {
+                    // Party → Box
+                    if (pm.party.length <= 1) {
+                        this._showToast(t('gourd.lastSpirit'));
+                        this.game.audioManager?.playEffect('cancel.mp3');
+                        return;
+                    }
+                    const boxSlot = pm.getBox(this.currentBox)?.spirits[this.boxCursor];
+                    if (boxSlot) {
+                        // Swap party ↔ box
+                        pm.swapPartyWithBox(this.heldSpirit.partyIdx, this.currentBox, this.boxCursor);
+                    } else {
+                        // Deposit to empty slot
+                        pm.moveToBoxSlot(this.heldSpirit.partyIdx, this.currentBox, this.boxCursor);
+                    }
+                    this.heldSpirit = null;
+                    this.game.audioManager?.playEffect('click.mp3');
+                }
+            }
+        }
+    }
+
+    // ── Helpers ─────────────────────────────────────────────
+    _getSelectedSpirit() {
+        const pm = this.game.partyManager;
+        if (this.panel === 'party') {
+            return pm.party[this.partyIndex] || null;
+        }
+        const box = pm.getBox(this.currentBox);
+        return box?.spirits[this.boxCursor] || null;
+    }
+
+    _getTypeColor(type) {
+        const map = {
+            fire:  '#ef4444',
+            water: '#3b82f6',
+            earth: '#a87632',
+            wind:  '#22d3ee'
+        };
+        return map[type] || '#888888';
+    }
+
+    _getSpriteImage(src) {
+        if (!src) return null;
+        if (this._spriteCache[src]) {
+            const img = this._spriteCache[src];
+            return img._loaded ? img : null;
+        }
+        const img = new Image();
+        img._loaded = false;
+        img.onload = () => { img._loaded = true; };
+        img.onerror = () => { img._loaded = false; };
+        img.src = src;
+        this._spriteCache[src] = img;
+        return null;
+    }
+
+    // ── Render ──────────────────────────────────────────────
+    render(ctx) {
+        const W = this.game.CANVAS_WIDTH;
+        const H = this.game.CANVAS_HEIGHT;
+        const mr = this.stateManager.menuRenderer;
+        const ds = window.ds;
+        if (ds) ds.setDimensions(W, H);
+
+        // Render game world behind
+        if (this.stateManager.isStateInStack('PLAYING')) {
+            this.game.renderGameplay(ctx);
+        }
+
+        // Overlay
+        mr.drawOverlay(ctx, W, H, 0.88);
+
+        // Title
+        const t = (k, p) => this.game.t ? this.game.t(k, p) : k;
+        mr.drawTitle(ctx, t('gourd.title'), W, H, 0.08);
+
+        // Layout constants
+        const pad = ds ? ds.spacing(4) : 16;
+        const topY = H * 0.14;
+        const panelH = H * 0.52;
+        const partyW = W * 0.28;
+        const boxW = W * 0.60;
+        const partyX = (W - partyW - boxW - pad) / 2;
+        const boxX = partyX + partyW + pad;
+        const detailY = topY + panelH + pad;
+        const detailH = H * 0.20;
+        const detailW = partyW + pad + boxW;
+
+        // Draw panels
+        this._renderPartyPanel(ctx, partyX, topY, partyW, panelH, ds, mr);
+        this._renderBoxPanel(ctx, boxX, topY, boxW, panelH, ds, mr);
+        this._renderDetailPanel(ctx, partyX, detailY, detailW, detailH, ds, mr);
+
+        // Toast
+        if (this.toast) {
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = ds ? ds.font('sm', 'bold', 'body') : 'bold 18px Lato, sans-serif';
+            const alpha = Math.min(1, this.toastTimer / 0.3);
+            ctx.fillStyle = `rgba(255, 200, 60, ${alpha})`;
+            ctx.fillText(this.toast, W / 2, H * 0.93);
+            ctx.restore();
+        }
+
+        // Hints
+        const im = this.game.inputManager;
+        const hintKey = im?.isUsingGamepad() ? 'gourd.instructionsController' : 'gourd.instructions';
+        mr.drawHint(ctx, t(hintKey), W, H);
+    }
+
+    // ── Party Panel ─────────────────────────────────────────
+    _renderPartyPanel(ctx, x, y, w, h, ds, mr) {
+        const pm = this.game.partyManager;
+        const t = (k, p) => this.game.t ? this.game.t(k, p) : k;
+
+        // Panel background
+        if (ds) {
+            ds.drawPanel(ctx, x, y, w, h);
+        } else {
+            mr.drawPanel(ctx, x, y, w, h);
+        }
+
+        // Header
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = ds ? ds.font('sm', 'bold', 'display') : 'bold 18px Cinzel, serif';
+        ctx.fillStyle = this.panel === 'party'
+            ? (ds ? ds.colors.primary : '#4a9eff')
+            : (ds ? ds.colors.text.secondary : '#ccc');
+        const headerY = y + (ds ? ds.spacing(6) : 24);
+        ctx.fillText(t('gourd.party'), x + w / 2, headerY);
+
+        // Count
+        ctx.font = ds ? ds.font('xs', 'normal', 'body') : '14px Lato, sans-serif';
+        ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
+        ctx.fillText(
+            t('gourd.spiritCount', { count: pm.party.length, max: pm.MAX_PARTY }),
+            x + w / 2,
+            headerY + (ds ? ds.fontSize('sm') + 4 : 22)
+        );
+        ctx.restore();
+
+        // Party slots
+        const slotStartY = headerY + (ds ? ds.fontSize('sm') + ds.spacing(5) : 40);
+        const slotH = Math.min((h - (slotStartY - y) - (ds ? ds.spacing(2) : 8)) / pm.MAX_PARTY, 
+                               ds ? ds.spacing(12) : 48);
+        const slotPad = ds ? ds.spacing(1) : 4;
+
+        for (let i = 0; i < pm.MAX_PARTY; i++) {
+            const spirit = pm.party[i] || null;
+            const sy = slotStartY + i * (slotH + slotPad);
+            const isSelected = this.panel === 'party' && this.partyIndex === i;
+            const isHeld = this.heldSpirit?.source === 'party' && this.heldSpirit?.partyIdx === i;
+
+            this._renderPartySlot(ctx, spirit, x + slotPad * 2, sy, w - slotPad * 4, slotH, isSelected, isHeld, i, ds);
+        }
+    }
+
+    _renderPartySlot(ctx, spirit, x, y, w, h, isSelected, isHeld, index, ds) {
+        const t = (k, p) => this.game.t ? this.game.t(k, p) : k;
+        ctx.save();
+
+        // Selection highlight
+        if (isSelected && ds) {
+            ds.drawSelectionHighlight(ctx, x, y, w, h);
+        } else if (isSelected) {
+            ctx.fillStyle = 'rgba(74, 158, 255, 0.15)';
+            ctx.fillRect(x, y, w, h);
+        }
+
+        // Held indicator (pulsing border)
+        if (isHeld) {
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.strokeRect(x, y, w, h);
+            ctx.setLineDash([]);
+        }
+
+        if (!spirit) {
+            // Empty slot
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = ds ? ds.font('xs', 'normal', 'body') : '14px Lato, sans-serif';
+            ctx.fillStyle = ds ? ds.colors.text.disabled : '#555';
+            ctx.fillText(`${index + 1}. ${t('gourd.emptySlot')}`, x + w / 2, y + h / 2);
+            ctx.restore();
+            return;
+        }
+
+        // Spirit icon
+        const iconSize = h - 4;
+        const iconX = x + 4;
+        const iconY = y + 2;
+        const spriteImg = this._getSpriteImage(spirit.sprite);
+        if (spriteImg) {
+            ctx.drawImage(spriteImg, iconX, iconY, iconSize, iconSize);
+        } else {
+            // Placeholder circle with type color
+            ctx.fillStyle = this._getTypeColor(spirit.type1);
+            ctx.globalAlpha = 0.3;
+            ctx.fillRect(iconX, iconY, iconSize, iconSize);
+            ctx.globalAlpha = 1.0;
+        }
+
+        // Active indicator (slot 0)
+        if (index === 0) {
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = ds ? ds.font('micro', 'bold', 'body') : 'bold 9px Lato';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText('★', iconX + 1, iconY + 1);
+        }
+
+        // Name + Level
+        const textX = iconX + iconSize + 6;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.font = ds ? ds.font('xs', 'medium', 'body') : '500 14px Lato, sans-serif';
+        ctx.fillStyle = isSelected
+            ? (ds ? ds.colors.text.primary : '#fff')
+            : (ds ? ds.colors.text.secondary : '#ccc');
+        ctx.fillText(spirit.name, textX, y + h * 0.35);
+
+        ctx.font = ds ? ds.font('micro', 'normal', 'body') : '10px Lato, sans-serif';
+        ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
+        ctx.fillText(t('gourd.level', { level: spirit.level }), textX, y + h * 0.65);
+
+        // Type badge
+        if (spirit.type1) {
+            const badgeX = x + w - (ds ? ds.spacing(4) : 16) - 4;
+            ctx.textAlign = 'right';
+            ctx.font = ds ? ds.font('micro', 'bold', 'body') : 'bold 9px Lato';
+            ctx.fillStyle = this._getTypeColor(spirit.type1);
+            ctx.fillText(t('gourd.types.' + spirit.type1), badgeX, y + h * 0.35);
+            if (spirit.type2) {
+                ctx.fillStyle = this._getTypeColor(spirit.type2);
+                ctx.fillText(t('gourd.types.' + spirit.type2), badgeX, y + h * 0.65);
+            }
+        }
+
+        ctx.restore();
+    }
+
+    // ── Box Panel ───────────────────────────────────────────
+    _renderBoxPanel(ctx, x, y, w, h, ds, mr) {
+        const pm = this.game.partyManager;
+        const box = pm.getBox(this.currentBox);
+        const t = (k, p) => this.game.t ? this.game.t(k, p) : k;
+
+        // Panel background
+        if (ds) {
+            ds.drawPanel(ctx, x, y, w, h);
+        } else {
+            mr.drawPanel(ctx, x, y, w, h);
+        }
+
+        // Header with box name + navigation arrows
+        ctx.save();
+        ctx.textBaseline = 'middle';
+        const headerY = y + (ds ? ds.spacing(6) : 24);
+
+        // Left arrow
+        ctx.textAlign = 'center';
+        ctx.font = ds ? ds.font('sm', 'bold', 'body') : 'bold 18px Lato';
+        ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
+        ctx.fillText('◄', x + (ds ? ds.spacing(6) : 24), headerY);
+
+        // Box name
+        ctx.font = ds ? ds.font('sm', 'bold', 'display') : 'bold 18px Cinzel, serif';
+        ctx.fillStyle = this.panel === 'box'
+            ? (ds ? ds.colors.primary : '#4a9eff')
+            : (ds ? ds.colors.text.secondary : '#ccc');
+        const boxName = box ? box.name : t('gourd.boxLabel', { num: this.currentBox + 1 });
+        ctx.fillText(boxName, x + w / 2, headerY);
+
+        // Right arrow
+        ctx.font = ds ? ds.font('sm', 'bold', 'body') : 'bold 18px Lato';
+        ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
+        ctx.fillText('►', x + w - (ds ? ds.spacing(6) : 24), headerY);
+
+        // Spirit count
+        const boxCount = box ? box.spirits.filter(s => s !== null).length : 0;
+        ctx.font = ds ? ds.font('xs', 'normal', 'body') : '14px Lato, sans-serif';
+        ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
+        ctx.fillText(
+            t('gourd.spiritCount', { count: boxCount, max: pm.BOX_CAPACITY }),
+            x + w / 2,
+            headerY + (ds ? ds.fontSize('sm') + 4 : 22)
+        );
+        ctx.restore();
+
+        // Grid
+        if (!box) return;
+        const gridStartY = headerY + (ds ? ds.fontSize('sm') + ds.spacing(5) : 40);
+        const gridPad = ds ? ds.spacing(2) : 8;
+        const gridW = w - gridPad * 2;
+        const gridH = h - (gridStartY - y) - gridPad;
+        const cellW = gridW / this.BOX_COLS;
+        const cellH = gridH / this.BOX_ROWS;
+
+        for (let row = 0; row < this.BOX_ROWS; row++) {
+            for (let col = 0; col < this.BOX_COLS; col++) {
+                const slotIdx = row * this.BOX_COLS + col;
+                const spirit = box.spirits[slotIdx];
+                const cx = x + gridPad + col * cellW;
+                const cy = gridStartY + row * cellH;
+                const isSelected = this.panel === 'box' && this.boxCursor === slotIdx;
+                const isHeld = this.heldSpirit?.source === 'box'
+                    && this.heldSpirit?.boxIdx === this.currentBox
+                    && this.heldSpirit?.slotIdx === slotIdx;
+
+                this._renderBoxSlot(ctx, spirit, cx, cy, cellW, cellH, isSelected, isHeld, ds);
+            }
+        }
+    }
+
+    _renderBoxSlot(ctx, spirit, x, y, w, h, isSelected, isHeld, ds) {
+        const pad = 2;
+        const innerX = x + pad;
+        const innerY = y + pad;
+        const innerW = w - pad * 2;
+        const innerH = h - pad * 2;
+
+        ctx.save();
+
+        // Slot background
+        ctx.fillStyle = isSelected
+            ? (ds ? ds.colors.alpha(ds.colors.primary, 0.15) : 'rgba(74, 158, 255, 0.15)')
+            : (ds ? ds.colors.alpha(ds.colors.background.elevated, 0.4) : 'rgba(37, 37, 48, 0.4)');
+        ctx.fillRect(innerX, innerY, innerW, innerH);
+
+        // Border
+        if (isSelected) {
+            ctx.strokeStyle = ds ? ds.colors.primary : '#4a9eff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(innerX, innerY, innerW, innerH);
+        } else {
+            ctx.strokeStyle = ds ? ds.colors.alpha(ds.colors.text.primary, 0.08) : 'rgba(255,255,255,0.08)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(innerX, innerY, innerW, innerH);
+        }
+
+        // Held indicator
+        if (isHeld) {
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([3, 3]);
+            ctx.strokeRect(innerX, innerY, innerW, innerH);
+            ctx.setLineDash([]);
+        }
+
+        if (!spirit) {
+            ctx.restore();
+            return;
+        }
+
+        // Spirit sprite or colored square
+        const iconPad = 4;
+        const iconSize = Math.min(innerW, innerH) - iconPad * 2;
+        const iconX = innerX + (innerW - iconSize) / 2;
+        const iconY = innerY + iconPad;
+        const spriteImg = this._getSpriteImage(spirit.sprite);
+        if (spriteImg) {
+            ctx.drawImage(spriteImg, iconX, iconY, iconSize, iconSize * 0.65);
+        } else {
+            ctx.fillStyle = this._getTypeColor(spirit.type1);
+            ctx.globalAlpha = 0.4;
+            ctx.fillRect(iconX, iconY, iconSize, iconSize * 0.55);
+            ctx.globalAlpha = 1.0;
+        }
+
+        // Name below icon (compact)
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.font = ds ? ds.font('micro', 'normal', 'body') : '9px Lato, sans-serif';
+        ctx.fillStyle = isSelected
+            ? (ds ? ds.colors.text.primary : '#fff')
+            : (ds ? ds.colors.text.secondary : '#ccc');
+
+        // Truncate name if needed
+        const maxNameW = innerW - 4;
+        let name = spirit.name;
+        if (ctx.measureText(name).width > maxNameW) {
+            while (ctx.measureText(name + '…').width > maxNameW && name.length > 1) {
+                name = name.slice(0, -1);
+            }
+            name += '…';
+        }
+        ctx.fillText(name, innerX + innerW / 2, innerY + innerH - 2);
+
+        ctx.restore();
+    }
+
+    // ── Detail Panel ────────────────────────────────────────
+    _renderDetailPanel(ctx, x, y, w, h, ds, mr) {
+        const t = (k, p) => this.game.t ? this.game.t(k, p) : k;
+        const spirit = this._getSelectedSpirit();
+
+        // Panel
+        if (ds) {
+            ds.drawPanel(ctx, x, y, w, h, { alpha: 0.5 });
+        } else {
+            mr.drawPanel(ctx, x, y, w, h, 0.5);
+        }
+
+        if (!spirit) {
+            // Empty message
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px Lato, sans-serif';
+            ctx.fillStyle = ds ? ds.colors.text.disabled : '#555';
+            const emptyMsg = this.panel === 'party' ? t('gourd.emptyParty') : t('gourd.emptyBox');
+            ctx.fillText(emptyMsg, x + w / 2, y + h / 2);
+            ctx.restore();
+            return;
+        }
+
+        ctx.save();
+        const pad = ds ? ds.spacing(4) : 16;
+
+        // Spirit preview icon
+        const iconSize = h - pad * 2;
+        const iconX = x + pad;
+        const iconY = y + pad;
+        const spriteImg = this._getSpriteImage(spirit.sprite);
+        if (spriteImg) {
+            ctx.drawImage(spriteImg, iconX, iconY, iconSize, iconSize);
+        } else {
+            ctx.fillStyle = this._getTypeColor(spirit.type1);
+            ctx.globalAlpha = 0.3;
+            ctx.fillRect(iconX, iconY, iconSize, iconSize);
+            ctx.globalAlpha = 1.0;
+        }
+
+        // Held indicator text
+        if (this.heldSpirit?.spirit === spirit) {
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.font = ds ? ds.font('micro', 'bold', 'body') : 'bold 10px Lato';
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillText(t('gourd.holding', { name: spirit.name }), iconX + iconSize / 2, iconY - 2);
+        }
+
+        // Name & Level
+        const infoX = iconX + iconSize + pad;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.font = ds ? ds.font('md', 'bold', 'display') : 'bold 24px Cinzel, serif';
+        ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
+        ctx.fillText(spirit.name, infoX, y + pad);
+
+        // Level
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px Lato, sans-serif';
+        ctx.fillStyle = ds ? ds.colors.text.secondary : '#ccc';
+        const lvlText = t('gourd.level', { level: spirit.level });
+        const nameW = ctx.measureText(spirit.name).width;
+        ctx.fillText('  ' + lvlText, infoX + nameW, y + pad + 4);
+
+        // Types
+        const typeY = y + pad + (ds ? ds.fontSize('md') + 6 : 30);
+        if (spirit.type1) {
+            ctx.font = ds ? ds.font('xs', 'bold', 'body') : 'bold 14px Lato';
+            ctx.fillStyle = this._getTypeColor(spirit.type1);
+            const type1Text = t('gourd.types.' + spirit.type1);
+            ctx.fillText(type1Text, infoX, typeY);
+            if (spirit.type2) {
+                const t1w = ctx.measureText(type1Text + '  ').width;
+                ctx.fillStyle = this._getTypeColor(spirit.type2);
+                ctx.fillText(t('gourd.types.' + spirit.type2), infoX + t1w, typeY);
+            }
+        }
+
+        // Stats row
+        const statsY = typeY + (ds ? ds.fontSize('xs') + 8 : 22);
+        const stats = spirit.baseStats;
+        if (stats) {
+            const statDefs = [
+                { key: 'hp', val: stats.hp },
+                { key: 'mp', val: stats.mp },
+                { key: 'attack', val: stats.attack },
+                { key: 'defense', val: stats.defense },
+                { key: 'magicAttack', val: stats.magicAttack },
+                { key: 'magicDefense', val: stats.magicDefense },
+                { key: 'speed', val: stats.speed }
+            ];
+
+            ctx.font = ds ? ds.font('micro', 'normal', 'body') : '10px Lato, sans-serif';
+            const availW = w - (infoX - x) - pad;
+            const statSpacing = availW / statDefs.length;
+
+            for (let i = 0; i < statDefs.length; i++) {
+                const sx = infoX + i * statSpacing;
+                // Label
+                ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
+                ctx.fillText(t('gourd.stats.' + statDefs[i].key), sx, statsY);
+                // Value
+                ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
+                ctx.font = ds ? ds.font('xs', 'bold', 'body') : 'bold 14px Lato';
+                ctx.fillText(String(statDefs[i].val), sx, statsY + (ds ? ds.fontSize('micro') + 4 : 14));
+                ctx.font = ds ? ds.font('micro', 'normal', 'body') : '10px Lato, sans-serif';
+            }
+        }
+
+        // Abilities
+        if (spirit.abilities && spirit.abilities.length > 0) {
+            const abilY = statsY + (ds ? ds.fontSize('micro') * 2 + 14 : 32);
+            ctx.font = ds ? ds.font('micro', 'normal', 'body') : '10px Lato, sans-serif';
+            ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
+            const abilNames = spirit.abilities.map(a => a.name).join('  •  ');
+            ctx.fillText(abilNames, infoX, abilY);
+        }
+
+        ctx.restore();
     }
 }
 

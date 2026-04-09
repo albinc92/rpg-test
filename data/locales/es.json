@@ -239,6 +239,49 @@
     "saveFailed": "Error al guardar",
     "loadFailed": "Error al cargar"
   },
+
+  "gourd": {
+    "title": "Calabaza",
+    "party": "Equipo",
+    "storage": "Almacén",
+    "boxLabel": "Caja {num}",
+    "emptySlot": "Vacío",
+    "emptyParty": "Sin espíritus en el equipo",
+    "emptyBox": "Esta caja está vacía",
+    "spiritCount": "{count}/{max}",
+    "level": "Nv.{level}",
+    "stats": {
+      "hp": "PV",
+      "mp": "PM",
+      "attack": "ATQ",
+      "defense": "DEF",
+      "magicAttack": "A.MAG",
+      "magicDefense": "D.MAG",
+      "speed": "VEL"
+    },
+    "types": {
+      "fire": "Fuego",
+      "water": "Agua",
+      "earth": "Tierra",
+      "wind": "Viento"
+    },
+    "actions": {
+      "select": "Seleccionar",
+      "place": "Colocar",
+      "swap": "Intercambiar",
+      "deposit": "Depositar",
+      "withdraw": "Retirar",
+      "summary": "Resumen",
+      "release": "Liberar",
+      "cancel": "Cancelar"
+    },
+    "holding": "Sosteniendo: {name}",
+    "partyFull": "¡Equipo lleno!",
+    "lastSpirit": "¡No puedes sacar el último espíritu!",
+    "boxFull": "¡Esta caja está llena!",
+    "instructions": "\u2190 \u2192 Equipo/Caja | \u2191 \u2193 Navegar | LB/RB Cambiar Caja | Enter: Seleccionar | ESC: Volver",
+    "instructionsController": "\u2190 \u2192 Equipo/Caja | \u2191 \u2193 Navegar | LB/RB Cambiar Caja | A: Seleccionar | B: Volver"
+  },
   
   "loading": {
     "loading": "Cargando...",

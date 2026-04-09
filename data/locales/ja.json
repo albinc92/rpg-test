@@ -239,6 +239,49 @@
     "saveFailed": "保存に失敗",
     "loadFailed": "読込に失敗"
   },
+
+  "gourd": {
+    "title": "ひょうたん",
+    "party": "パーティ",
+    "storage": "ボックス",
+    "boxLabel": "ボックス {num}",
+    "emptySlot": "空き",
+    "emptyParty": "パーティにスピリットがいません",
+    "emptyBox": "このボックスは空です",
+    "spiritCount": "{count}/{max}",
+    "level": "Lv.{level}",
+    "stats": {
+      "hp": "HP",
+      "mp": "MP",
+      "attack": "攻撃",
+      "defense": "防御",
+      "magicAttack": "魔攻",
+      "magicDefense": "魔防",
+      "speed": "素早さ"
+    },
+    "types": {
+      "fire": "火",
+      "water": "水",
+      "earth": "土",
+      "wind": "風"
+    },
+    "actions": {
+      "select": "選択",
+      "place": "配置",
+      "swap": "入替",
+      "deposit": "預ける",
+      "withdraw": "引き出す",
+      "summary": "詳細",
+      "release": "逃がす",
+      "cancel": "キャンセル"
+    },
+    "holding": "選択中: {name}",
+    "partyFull": "パーティがいっぱいです！",
+    "lastSpirit": "最後のスピリットは外せません！",
+    "boxFull": "このボックスは満杯です！",
+    "instructions": "\u2190 \u2192 パーティ/ボックス | \u2191 \u2193 移動 | LB/RB ボックス切替 | Enter: 決定 | ESC: 戻る",
+    "instructionsController": "\u2190 \u2192 パーティ/ボックス | \u2191 \u2193 移動 | LB/RB ボックス切替 | A: 決定 | B: 戻る"
+  },
   
   "loading": {
     "loading": "読み込み中...",

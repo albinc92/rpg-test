@@ -229,6 +229,49 @@
     "saveFailed": "Salvataggio fallito",
     "loadFailed": "Caricamento fallito"
   },
+
+  "gourd": {
+    "title": "Zucca",
+    "party": "Squadra",
+    "storage": "Deposito",
+    "boxLabel": "Box {num}",
+    "emptySlot": "Vuoto",
+    "emptyParty": "Nessuno spirito nella squadra",
+    "emptyBox": "Questa box è vuota",
+    "spiritCount": "{count}/{max}",
+    "level": "Lv.{level}",
+    "stats": {
+      "hp": "PV",
+      "mp": "PM",
+      "attack": "ATT",
+      "defense": "DIF",
+      "magicAttack": "A.MAG",
+      "magicDefense": "D.MAG",
+      "speed": "VEL"
+    },
+    "types": {
+      "fire": "Fuoco",
+      "water": "Acqua",
+      "earth": "Terra",
+      "wind": "Vento"
+    },
+    "actions": {
+      "select": "Seleziona",
+      "place": "Posiziona",
+      "swap": "Scambia",
+      "deposit": "Deposita",
+      "withdraw": "Ritira",
+      "summary": "Dettagli",
+      "release": "Rilascia",
+      "cancel": "Annulla"
+    },
+    "holding": "Selezionato: {name}",
+    "partyFull": "Squadra al completo!",
+    "lastSpirit": "Non puoi rimuovere l'ultimo spirito!",
+    "boxFull": "Questa box è piena!",
+    "instructions": "\u2190 \u2192 Squadra/Box | \u2191 \u2193 Naviga | LB/RB Cambia Box | Invio: Seleziona | ESC: Indietro",
+    "instructionsController": "\u2190 \u2192 Squadra/Box | \u2191 \u2193 Naviga | LB/RB Cambia Box | A: Seleziona | B: Indietro"
+  },
   
   "loading": {
     "loading": "Caricamento...",

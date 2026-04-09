@@ -231,6 +231,49 @@
     "saveFailed": "Échec de la sauvegarde",
     "loadFailed": "Échec du chargement"
   },
+
+  "gourd": {
+    "title": "Gourde",
+    "party": "Équipe",
+    "storage": "Stockage",
+    "boxLabel": "Boîte {num}",
+    "emptySlot": "Vide",
+    "emptyParty": "Pas d'esprits dans l'équipe",
+    "emptyBox": "Cette boîte est vide",
+    "spiritCount": "{count}/{max}",
+    "level": "Nv.{level}",
+    "stats": {
+      "hp": "PV",
+      "mp": "PM",
+      "attack": "ATQ",
+      "defense": "DÉF",
+      "magicAttack": "A.MAG",
+      "magicDefense": "D.MAG",
+      "speed": "VIT"
+    },
+    "types": {
+      "fire": "Feu",
+      "water": "Eau",
+      "earth": "Terre",
+      "wind": "Vent"
+    },
+    "actions": {
+      "select": "Sélectionner",
+      "place": "Placer",
+      "swap": "Échanger",
+      "deposit": "Déposer",
+      "withdraw": "Retirer",
+      "summary": "Résumé",
+      "release": "Relâcher",
+      "cancel": "Annuler"
+    },
+    "holding": "Tient: {name}",
+    "partyFull": "L'équipe est pleine !",
+    "lastSpirit": "Impossible de retirer le dernier esprit !",
+    "boxFull": "Cette boîte est pleine !",
+    "instructions": "\u2190 \u2192 Équipe/Boîte | \u2191 \u2193 Naviguer | LB/RB Changer Boîte | Entrée: Sélectionner | ÉCHAP: Retour",
+    "instructionsController": "\u2190 \u2192 Équipe/Boîte | \u2191 \u2193 Naviguer | LB/RB Changer Boîte | A: Sélectionner | B: Retour"
+  },
   
   "loading": {
     "loading": "Chargement...",
