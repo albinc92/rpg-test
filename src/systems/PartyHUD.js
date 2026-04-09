@@ -10,8 +10,8 @@
  *
  * Layout (top-left, vertical):
  *   ┌───────────────────────┐
- *   │ [sprite] Sylphie Lv.5 │  ← lead spirit
- *   │ ██████████░░░  68/80  │  ← HP bar
+ *   │ [sprite] Aeroph Lv.5  │  ← lead spirit
+ *   │ ██████████░░░  35/35  │  ← HP bar
  *   ├───────────────────────┤
  *   │ [s] Spirit2     Lv.4  │  ← bench (compact)
  *   └───────────────────────┘

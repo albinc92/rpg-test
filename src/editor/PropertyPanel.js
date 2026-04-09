@@ -1492,7 +1492,6 @@ end;`;
             ],
             'Spirit': [
                 'assets/npc/Spirits/sylphie.png',
-                'assets/npc/Spirits/nythra.png',
             ],
             'Chest': [
                 'assets/npc/chest-0.png',

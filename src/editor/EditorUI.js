@@ -2369,7 +2369,7 @@ class EditorUI {
             spiritData = {
                 id: '',
                 name: 'New Spirit',
-                spriteSrc: 'assets/npc/Spirits/Sylphie00.png',
+                spriteSrc: 'assets/npc/Spirits/sylphie.png',
                 scale: 0.8, // Use scale instead of spriteWidth/spriteHeight
                 collisionShape: 'circle',
                 collisionPercent: 0.3, // Simple number instead of object

@@ -47,9 +47,17 @@ class PartyManager {
                         spirit.scale = 0.075;
                     }
                     if (spirit.isFloating === undefined) {
-                        spirit.isFloating = spirit.name === 'Sylphie';
+                        spirit.isFloating = spirit.name === 'Aeroph' || spirit.name === 'Sylphie';
                         spirit.floatingSpeed = 0.002;
                         spirit.floatingRange = 15;
+                    }
+                    // Migrate old Sylphie starters to Aeroph
+                    if (spirit.name === 'Sylphie') {
+                        spirit.name = 'Aeroph';
+                        spirit.chainId = 'wind_mystic';
+                        spirit.archetype = 'mystic';
+                        spirit.stage = 1;
+                        spirit.speciesId = 'aeroph';
                     }
                     return spirit;
                 };
@@ -237,39 +245,39 @@ class PartyManager {
     }
     
     /**
-     * Add default starter spirit (1 Sylphie for 1v1 battles)
+     * Add default starter spirit (Aeroph - wind mystic)
      */
     addDefaultSpirit() {
-        const createSylphie = (index) => ({
+        const createStarter = (index) => ({
             id: 'starter_spirit_' + Date.now() + '_' + index,
-            name: 'Sylphie',
+            name: 'Aeroph',
+            chainId: 'wind_mystic',
+            archetype: 'mystic',
+            stage: 1,
+            speciesId: 'aeroph',
             level: 5,
             exp: 0,
             type1: 'wind',
             type2: null,
             baseStats: {
-                hp: 80,
-                mp: 40,
-                attack: 18,
-                defense: 12,
-                magicAttack: 22,
-                magicDefense: 15,
-                speed: 25
+                hp: 35,
+                mp: 36,
+                attack: 29,
+                defense: 23,
+                magicAttack: 48,
+                magicDefense: 35,
+                speed: 38
             },
-            abilities: [
-                { id: 'attack', name: 'Attack', type: 'physical', element: null, power: 40, mpCost: 0, target: 'single_enemy' },
-                { id: 'gust', name: 'Gust', type: 'magical', element: 'wind', power: 50, mpCost: 8, target: 'single_enemy' },
-                { id: 'heal', name: 'Heal', type: 'supportive', element: null, power: 30, mpCost: 10, target: 'single_ally' }
-            ],
+            abilities: [],  // Resolved from registry via SpiritRegistry.resolveLearnset()
             sprite: '/assets/npc/Spirits/sylphie.png',
-            scale: 0.075,  // Match the spirit template scale
-            isFloating: true,  // Sylphie floats/hovers
+            scale: 0.075,
+            isFloating: true,
             floatingSpeed: 0.002,
             floatingRange: 15
         });
         
-        // Add 1 Sylphie to the party (1v1 - lead spirit)
-        this.party.push(createSylphie(0));
+        // Add 1 Aeroph to the party (1v1 - lead spirit)
+        this.party.push(createStarter(0));
         this.savePartyData();
     }
     

@@ -163,7 +163,7 @@ class ObjectPalette {
                     data: { 
                         category: 'Actor', 
                         actorType: 'spirit',
-                        spriteSrc: 'assets/npc/Spirits/Sylphie00.png',
+                        spriteSrc: 'assets/npc/Spirits/sylphie.png',
                         name: 'Spirit',
                         scale: 0.2
                     }

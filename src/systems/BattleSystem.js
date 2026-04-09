@@ -257,7 +257,7 @@ class BattleSystem {
             type1: spiritData.type1 || spiritData.element || 'fire',
             type2: spiritData.type2 || null,
             sprite: spiritData.sprite || spiritData.spriteSrc,
-            scale: spiritData.scale || 0.075, // Copy scale from template (default to Sylphie's scale)
+            scale: spiritData.scale || 0.075, // Copy scale from template
             isPlayerOwned: isPlayerOwned,
             
             // Floating/hovering animation

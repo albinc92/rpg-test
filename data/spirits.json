@@ -1,8 +1,12 @@
 {
   "spirits": [
     {
-      "id": "forest_sprite",
-      "name": "Sylphie",
+      "id": "wind_mystic_spawn",
+      "name": "Aeroph",
+      "chainId": "wind_mystic",
+      "archetype": "mystic",
+      "stage": 1,
+      "speciesId": "aeroph",
       "spriteSrc": "/assets/npc/Spirits/sylphie.png",
       "scale": 0.075,
       "hasCollision": true,
@@ -17,53 +21,28 @@
       "type1": "wind",
       "type2": null,
       "baseStats": {
-        "hp": 80,
-        "mp": 40,
-        "attack": 18,
-        "defense": 12,
-        "magicAttack": 22,
-        "magicDefense": 15,
-        "speed": 25
+        "hp": 35,
+        "mp": 36,
+        "attack": 29,
+        "defense": 23,
+        "magicAttack": 48,
+        "magicDefense": 35,
+        "speed": 38
       },
       "expYield": 30,
       "goldYield": 15,
-      "abilities": [
-        {
-          "id": "attack",
-          "name": "Attack",
-          "type": "physical",
-          "element": null,
-          "power": 40,
-          "mpCost": 0,
-          "target": "single_enemy"
-        },
-        {
-          "id": "gust",
-          "name": "Gust",
-          "type": "magical",
-          "element": "wind",
-          "power": 50,
-          "mpCost": 8,
-          "target": "single_enemy"
-        },
-        {
-          "id": "heal",
-          "name": "Heal",
-          "type": "supportive",
-          "element": null,
-          "power": 30,
-          "mpCost": 10,
-          "target": "single_ally"
-        }
-      ],
       "moveSpeed": 2.5,
       "movePattern": "wander",
-      "description": "A gentle forest spirit that appears during the day"
+      "description": "A tiny sylph that plays in summer breezes"
     },
     {
-      "id": "night_wisp",
-      "name": "Nythra",
-      "spriteSrc": "/assets/npc/Spirits/nythra.png",
+      "id": "water_mystic_spawn",
+      "name": "Naroph",
+      "chainId": "water_mystic",
+      "archetype": "mystic",
+      "stage": 1,
+      "speciesId": "naroph",
+      "spriteSrc": "/assets/npc/Spirits/sylphie.png",
       "scale": 0.01,
       "hasCollision": true,
       "collisionShape": "circle",
@@ -77,58 +56,28 @@
       "type1": "water",
       "type2": null,
       "baseStats": {
-        "hp": 70,
-        "mp": 50,
-        "attack": 15,
-        "defense": 10,
-        "magicAttack": 28,
-        "magicDefense": 18,
-        "speed": 30
+        "hp": 38,
+        "mp": 40,
+        "attack": 28,
+        "defense": 25,
+        "magicAttack": 48,
+        "magicDefense": 36,
+        "speed": 33
       },
       "expYield": 35,
       "goldYield": 18,
-      "abilities": [
-        {
-          "id": "attack",
-          "name": "Attack",
-          "type": "physical",
-          "element": null,
-          "power": 40,
-          "mpCost": 0,
-          "target": "single_enemy"
-        },
-        {
-          "id": "aqua_jet",
-          "name": "Aqua Jet",
-          "type": "magical",
-          "element": "water",
-          "power": 55,
-          "mpCost": 10,
-          "target": "single_enemy"
-        },
-        {
-          "id": "mist",
-          "name": "Mist",
-          "type": "curse",
-          "element": "water",
-          "power": 0,
-          "mpCost": 8,
-          "target": "single_enemy",
-          "debuff": {
-            "stat": "speed",
-            "amount": -5,
-            "duration": 3
-          }
-        }
-      ],
       "moveSpeed": 2,
       "movePattern": "wander",
-      "description": "A mysterious wisp that only appears at night"
+      "description": "A translucent jellyfish that drifts on currents of magic"
     },
     {
-      "id": "dawn_guardian",
-      "name": "Dawn Guardian",
-      "spriteSrc": "/assets/npc/Spirits/Sylphie00.png",
+      "id": "fire_guardian_spawn",
+      "name": "Pyrald",
+      "chainId": "fire_guardian",
+      "archetype": "guardian",
+      "stage": 1,
+      "speciesId": "pyrald",
+      "spriteSrc": "/assets/npc/Spirits/sylphie.png",
       "scale": 0.01,
       "hasCollision": true,
       "collisionShape": "circle",
@@ -140,60 +89,30 @@
       "isFloating": false,
       "level": 8,
       "type1": "fire",
-      "type2": "earth",
+      "type2": null,
       "baseStats": {
-        "hp": 120,
-        "mp": 35,
-        "attack": 28,
-        "defense": 22,
-        "magicAttack": 20,
-        "magicDefense": 18,
-        "speed": 18
+        "hp": 44,
+        "mp": 30,
+        "attack": 38,
+        "defense": 48,
+        "magicAttack": 28,
+        "magicDefense": 33,
+        "speed": 24
       },
       "expYield": 60,
       "goldYield": 30,
-      "abilities": [
-        {
-          "id": "attack",
-          "name": "Attack",
-          "type": "physical",
-          "element": null,
-          "power": 40,
-          "mpCost": 0,
-          "target": "single_enemy"
-        },
-        {
-          "id": "fireball",
-          "name": "Fireball",
-          "type": "magical",
-          "element": "fire",
-          "power": 60,
-          "mpCost": 12,
-          "target": "single_enemy"
-        },
-        {
-          "id": "rock_armor",
-          "name": "Rock Armor",
-          "type": "supportive",
-          "element": "earth",
-          "power": 0,
-          "mpCost": 10,
-          "target": "self",
-          "buff": {
-            "stat": "defense",
-            "amount": 10,
-            "duration": 3
-          }
-        }
-      ],
       "moveSpeed": 1.2,
       "movePattern": "wander",
-      "description": "A powerful guardian that appears only at dawn"
+      "description": "A small crustacean with a shell of smoldering volcanic rock"
     },
     {
-      "id": "dusk_shadow",
-      "name": "Dusk Shadow",
-      "spriteSrc": "/assets/npc/Spirits/Sylphie00.png",
+      "id": "earth_mystic_spawn",
+      "name": "Teroph",
+      "chainId": "earth_mystic",
+      "archetype": "mystic",
+      "stage": 1,
+      "speciesId": "teroph",
+      "spriteSrc": "/assets/npc/Spirits/sylphie.png",
       "scale": 0.01,
       "hasCollision": true,
       "collisionShape": "circle",
@@ -207,53 +126,19 @@
       "type1": "earth",
       "type2": null,
       "baseStats": {
-        "hp": 90,
-        "mp": 45,
-        "attack": 24,
-        "defense": 16,
-        "magicAttack": 24,
-        "magicDefense": 14,
-        "speed": 22
+        "hp": 40,
+        "mp": 34,
+        "attack": 30,
+        "defense": 27,
+        "magicAttack": 46,
+        "magicDefense": 34,
+        "speed": 34
       },
       "expYield": 45,
       "goldYield": 22,
-      "abilities": [
-        {
-          "id": "attack",
-          "name": "Attack",
-          "type": "physical",
-          "element": null,
-          "power": 40,
-          "mpCost": 0,
-          "target": "single_enemy"
-        },
-        {
-          "id": "rock_throw",
-          "name": "Rock Throw",
-          "type": "magical",
-          "element": "earth",
-          "power": 55,
-          "mpCost": 10,
-          "target": "single_enemy"
-        },
-        {
-          "id": "shadow_curse",
-          "name": "Shadow Curse",
-          "type": "curse",
-          "element": null,
-          "power": 0,
-          "mpCost": 12,
-          "target": "single_enemy",
-          "debuff": {
-            "stat": "defense",
-            "amount": -8,
-            "duration": 3
-          }
-        }
-      ],
       "moveSpeed": 1.8,
       "movePattern": "wander",
-      "description": "A shadowy being that emerges during dusk"
+      "description": "A moth with wings of fine dust that shimmer with earth magic"
     }
   ]
 }
