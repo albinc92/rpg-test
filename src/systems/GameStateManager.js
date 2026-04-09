@@ -795,7 +795,10 @@ class MainMenuState extends GameState {
             canvas.removeEventListener('click', this._onCanvasClick);
             canvas.removeEventListener('mousemove', this._onCanvasMove);
             canvas.removeEventListener('touchend', this._onCanvasClick);
-            canvas.style.cursor = 'default';
+            // Only reset cursor if not using gamepad
+            if (!this.game.inputManager || this.game.inputManager.lastInputDevice !== 'gamepad') {
+                canvas.style.cursor = 'default';
+            }
         }
         
         // DON'T kill BGM here — let the next state's playBGM() naturally crossfade
@@ -1160,7 +1163,10 @@ class MainMenuState extends GameState {
         if (!pt) return;
         const idx = this._hitTestLinks(pt.x, pt.y);
         this.hoveredLink = idx;
-        this.game.canvas.style.cursor = idx >= 0 ? 'pointer' : 'default';
+        // Only show pointer/default cursor if not using gamepad
+        if (!this.game.inputManager || this.game.inputManager.lastInputDevice !== 'gamepad') {
+            this.game.canvas.style.cursor = idx >= 0 ? 'pointer' : 'default';
+        }
     }
 }
 
@@ -4824,10 +4830,10 @@ class PackState extends GameState {
         const contentBottom = panelBottom - bottomReserve;
 
         // 2) Name (word-wrapped)
-        const fontSize = Math.max(14, Math.min(24, detailsHeight * 0.055));
+        const fontSize = ds ? ds.fontSize('lg') : Math.max(14, Math.min(24, detailsHeight * 0.055));
         ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
         ctx.textAlign = 'center';
-        ctx.font = ds ? ds.font('xl', 'bold', 'display') : `bold ${fontSize}px "Cinzel", serif`;
+        ctx.font = ds ? ds.font('lg', 'bold', 'display') : `bold ${fontSize}px "Cinzel", serif`;
         if (ds) ds.applyShadow(ctx, 'glow');
 
         const nameLines = this._wrapLines(ctx, item.name, contentWidth);
@@ -4836,14 +4842,14 @@ class PackState extends GameState {
         nameLines.forEach((line, i) => {
             ctx.fillText(line, centerX, cursorY + i * nameLineHeight);
         });
-        cursorY += nameLines.length * nameLineHeight + Math.max(4, detailsHeight * 0.015);
+        cursorY += nameLines.length * nameLineHeight + Math.max(6, detailsHeight * 0.02);
 
         if (ds) ds.clearShadow(ctx);
 
         // 3) Rarity + type
-        const smallFontSize = Math.max(11, Math.min(14, detailsHeight * 0.03));
+        const smallFontSize = ds ? ds.fontSize('xs') : Math.max(11, Math.min(14, detailsHeight * 0.03));
         ctx.fillStyle = ds ? ds.colors.getRarityColor(item.rarity) : '#9d9d9d';
-        ctx.font = ds ? ds.font('sm', 'normal', 'body') : `italic ${smallFontSize}px "Lato", sans-serif`;
+        ctx.font = ds ? ds.font('xs', 'normal', 'body') : `italic ${smallFontSize}px "Lato", sans-serif`;
         ctx.textBaseline = 'top';
         const rarityStr = (item.rarity || 'common').charAt(0).toUpperCase() + (item.rarity || 'common').slice(1);
         const typeStr = (item.type || 'item').toLowerCase();
@@ -4863,9 +4869,9 @@ class PackState extends GameState {
 
         // 5) Description (word-wrapped, overflow-safe)
         ctx.fillStyle = ds ? ds.colors.text.secondary : '#ccc';
-        const descFontSize = Math.max(11, Math.min(15, detailsHeight * 0.032));
+        const descFontSize = ds ? ds.fontSize('sm') : Math.max(11, Math.min(15, detailsHeight * 0.032));
         ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${descFontSize}px "Lato", sans-serif`;
-        const descLineHeight = Math.max(descFontSize + 4, descFontSize * 1.45);
+        const descLineHeight = descFontSize * 1.5;
         const descLines = this._wrapLines(ctx, item.description || this.game.t('pack.noDescription'), contentWidth);
         ctx.textBaseline = 'top';
         // Only render lines that fit above contentBottom
@@ -6756,10 +6762,10 @@ class ShopState extends GameState {
         const contentBottom = panelBottom - bottomReserve;
 
         // 2) Name (word-wrapped)
-        const fontSize = Math.max(14, Math.min(24, detailsHeight * 0.055));
+        const fontSize = ds ? ds.fontSize('lg') : Math.max(14, Math.min(24, detailsHeight * 0.055));
         ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
         ctx.textAlign = 'center';
-        ctx.font = ds ? ds.font('xl', 'bold', 'display') : `bold ${fontSize}px "Cinzel", serif`;
+        ctx.font = ds ? ds.font('lg', 'bold', 'display') : `bold ${fontSize}px "Cinzel", serif`;
         if (ds) ds.applyShadow(ctx, 'glow');
 
         const nameLines = this._wrapLines(ctx, item.name, contentWidth);
@@ -6768,14 +6774,14 @@ class ShopState extends GameState {
         nameLines.forEach((line, i) => {
             ctx.fillText(line, centerX, cursorY + i * nameLineHeight);
         });
-        cursorY += nameLines.length * nameLineHeight + Math.max(4, detailsHeight * 0.015);
+        cursorY += nameLines.length * nameLineHeight + Math.max(6, detailsHeight * 0.02);
 
         if (ds) ds.clearShadow(ctx);
 
         // 3) Rarity + type
-        const smallFontSize = Math.max(11, Math.min(14, detailsHeight * 0.03));
+        const smallFontSize = ds ? ds.fontSize('xs') : Math.max(11, Math.min(14, detailsHeight * 0.03));
         ctx.fillStyle = ds ? ds.colors.getRarityColor(item.rarity) : '#9d9d9d';
-        ctx.font = ds ? ds.font('sm', 'normal', 'body') : `italic ${smallFontSize}px "Lato", sans-serif`;
+        ctx.font = ds ? ds.font('xs', 'normal', 'body') : `italic ${smallFontSize}px "Lato", sans-serif`;
         ctx.textBaseline = 'top';
         const rarityStr = (item.rarity || 'common').charAt(0).toUpperCase() + (item.rarity || 'common').slice(1);
         const typeStr = (item.type || 'item').toLowerCase();
@@ -6795,9 +6801,9 @@ class ShopState extends GameState {
 
         // 5) Description (word-wrapped, overflow-safe)
         ctx.fillStyle = ds ? ds.colors.text.secondary : '#ccc';
-        const descFontSize = Math.max(11, Math.min(15, detailsHeight * 0.032));
+        const descFontSize = ds ? ds.fontSize('sm') : Math.max(11, Math.min(15, detailsHeight * 0.032));
         ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${descFontSize}px "Lato", sans-serif`;
-        const descLineHeight = Math.max(descFontSize + 4, descFontSize * 1.45);
+        const descLineHeight = descFontSize * 1.5;
         const descLines = this._wrapLines(ctx, item.description || this.game.t('shop.noDescription'), contentWidth);
         ctx.textBaseline = 'top';
         // Only render lines that fit above contentBottom
@@ -6826,32 +6832,32 @@ class ShopState extends GameState {
             }
         }
 
-        // 7) Price info — anchored to panel bottom (in the reserved space)
+        // 7) Price info — stacked from panel bottom upward
         const price = this.selectedTab === 0 ? item.price : item.sellPrice;
         const playerGold = this.getPlayerGold();
         const canAfford = playerGold >= price;
 
-        // "Not enough gold" warning
-        if (!canAfford && this.selectedTab === 0) {
-            ctx.fillStyle = ds ? ds.colors.danger : '#ef4444';
-            ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${descFontSize}px "Lato", sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText(this.game.t('shop.notEnoughGold'), centerX, panelBottom - Math.max(20, detailsHeight * 0.045));
-        }
-
-        // Price display
+        // Price display — anchored to panel bottom
         ctx.fillStyle = ds ? ds.colors.warning : '#ffd700';
         ctx.font = ds ? ds.font('md', 'bold', 'body') : `bold 18px "Lato", sans-serif`;
+        const priceFontSize = ds ? ds.fontSize('md') : 18;
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        const priceText = `${price}`;
-        const priceFontSize = parseFloat((ctx.font.match(/(\d+(?:\.\d+)?)px/) || ['','18'])[1]);
         ctx.textBaseline = 'middle';
-        const priceMidY = panelBottom - priceFontSize / 2;
+        const priceMidY = panelBottom - priceFontSize * 0.6;
+        const priceText = `${price}`;
         const priceTextWidth = ctx.measureText(priceText).width;
         ctx.fillText(priceText, centerX - coinSize / 2, priceMidY);
         this._drawGoldCoin(ctx, centerX + priceTextWidth / 2, priceMidY - coinSize / 2, coinSize);
+
+        // "Not enough gold" warning — above the price row
+        if (!canAfford && this.selectedTab === 0) {
+            ctx.fillStyle = ds ? ds.colors.danger : '#ef4444';
+            const warnFontSize = ds ? ds.fontSize('sm') : 14;
+            ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${warnFontSize}px "Lato", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(this.game.t('shop.notEnoughGold'), centerX, priceMidY - priceFontSize * 0.6 - 4);
+        }
     }
     
     renderQuantitySelector(ctx, canvasWidth, canvasHeight, menuRenderer, ds) {

@@ -237,7 +237,12 @@ class InputManager {
      * Show/hide the OS cursor based on the active input device.
      */
     _updateCursorVisibility() {
-        document.body.style.cursor = this.lastInputDevice === 'gamepad' ? 'none' : '';
+        const hide = this.lastInputDevice === 'gamepad';
+        document.body.style.cursor = hide ? 'none' : '';
+        // Also set on canvas element since element-level cursor overrides body
+        if (this.game?.canvas) {
+            this.game.canvas.style.cursor = hide ? 'none' : '';
+        }
     }
 
     /**
