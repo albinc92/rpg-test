@@ -329,14 +329,13 @@ class LoadingState extends GameState {
     }
 
     async _loadNewGame() {
-        this.loadingText = 'Preparing world…';
+        this.loadingText = this.game.t('loading.loading');
         this.loadingProgress = 0.2;
         await this._frame();
 
         // Reset game state
         this.game.resetGame();
         this.loadingProgress = 0.5;
-        this.loadingText = 'Loading map…';
         await this._frame();
 
         // Load the starting map — BiomeBGMSystem.forceUpdate() runs inside
@@ -345,7 +344,6 @@ class LoadingState extends GameState {
         await this.game.loadMap(this.game.currentMapId);
 
         this.loadingProgress = 0.9;
-        this.loadingText = 'Almost there…';
         await this._delay(200);
 
         this.loadingProgress = 1.0;
@@ -355,21 +353,18 @@ class LoadingState extends GameState {
     }
 
     async _loadSavedGame() {
-        this.loadingText = this.game.t('loading.saveData');
+        this.loadingText = this.game.t('loading.loading');
         this.loadingProgress = 0.2;
         await this._frame();
 
-        this.loadingText = this.game.t('loading.map');
         this.loadingProgress = 0.4;
 
         const success = await this.game.saveGameManager.loadGame(this.loadSaveId, this.game);
 
         if (success) {
-            this.loadingText = this.game.t('loading.restoring');
             this.loadingProgress = 0.8;
             await this._delay(200);
 
-            this.loadingText = this.game.t('loading.ready');
             this.loadingProgress = 1.0;
             await this._delay(300);
 
