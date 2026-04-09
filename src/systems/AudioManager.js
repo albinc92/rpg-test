@@ -131,6 +131,22 @@ class AudioManager {
         console.log('[AudioManager] ✅ Cleanup complete');
     }
 
+    // Preload a BGM track so it's buffered and ready for instant playback
+    preloadBGM(filename) {
+        const safeFilename = this.ensureMp3Extension(filename);
+        if (!safeFilename) return;
+        const url = `assets/audio/bgm/${safeFilename}?cb=${this.cacheBuster}`;
+        const audio = new Audio();
+        audio.preload = 'auto';
+        audio.src = url;
+        audio.load();
+        // Store reference so the browser doesn't GC it before playBGM uses it
+        if (!this._preloadCache) this._preloadCache = new Map();
+        this._preloadCache.set(safeFilename, audio);
+        this.audioElements.add(audio);
+        console.log(`[AudioManager] ⏳ Preloading BGM: ${safeFilename}`);
+    }
+
     // Ensure filename has .mp3 extension
     ensureMp3Extension(filename) {
         if (!filename) return filename;
@@ -192,8 +208,15 @@ class AudioManager {
 
             console.log(`[AudioManager] 🎵 Playing BGM with crossfade: ${safeFilename} (${crossfadeDuration}ms)`);
             
-            // Create new audio element with proper error handling
-            const newBGM = this.createAudioElement(`assets/audio/bgm/${safeFilename}`, 'BGM');
+            // Use preloaded audio element if available, otherwise create new one
+            let newBGM;
+            if (this._preloadCache?.has(safeFilename)) {
+                newBGM = this._preloadCache.get(safeFilename);
+                this._preloadCache.delete(safeFilename);
+                console.log(`[AudioManager] ♻️ Using preloaded BGM: ${safeFilename}`);
+            } else {
+                newBGM = this.createAudioElement(`assets/audio/bgm/${safeFilename}`, 'BGM');
+            }
             if (!newBGM) {
                 console.error(`[AudioManager] ❌ Failed to create BGM audio element for: ${safeFilename}`);
                 return;

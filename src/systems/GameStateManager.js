@@ -315,6 +315,12 @@ class LoadingState extends GameState {
         this.loadingText = this.game.t('loading.audio');
         this.loadingProgress = 0.5;
         await this.waitForAudio();
+
+        // Preload main-menu BGM so it plays instantly when the menu loads
+        if (this.game.audioManager) {
+            this.game.audioManager.preloadBGM('00.mp3');
+        }
+
         this.loadingProgress = 1.0;
 
         // Hand off to the studio splash screen
@@ -1136,12 +1142,16 @@ class PlayingState extends GameState {
     }
     
     resume() {
-        // Called when returning from a pushed state (like pause menu)
+        // Called when returning from a pushed state (like pause menu, dialogue, shop)
         console.log('🔄 [PlayingState] RESUME called - setting interactionCooldown = 0.3');
         
-        // Smooth transition: start with the pause overlay and fade it out
-        // This prevents the jarring brightness jump when the 0.7-alpha overlay disappears
-        this.resumeOverlayAlpha = 0.7;
+        // Only apply the dark-overlay fade when returning from the pause menu
+        // (which itself draws a 0.7-alpha overlay). Dialogue / shop exits should
+        // NOT flash black because their overlays are lighter or absent.
+        const prev = this.stateManager.previousState;
+        if (prev === 'PAUSED' || prev === 'SAVE_LOAD' || prev === 'SETTINGS') {
+            this.resumeOverlayAlpha = 0.7;
+        }
         
         // DON'T snap camera when resuming - preserve the rubber-band offset
         // The camera will naturally continue following the player with smoothing
@@ -7889,7 +7899,7 @@ class CreditsState extends GameState {
         super(stateManager);
         this.creditsData = null;
         this.scrollY = 0;
-        this.scrollSpeed = 40;       // pixels per second (auto-scroll)
+        this.scrollSpeed = 80;       // pixels per second (auto-scroll)
         this.manualScrollSpeed = 300; // pixels per second (manual scroll via up/down)
         this.totalHeight = 0;
         this.inputCooldown = 0;
@@ -7999,7 +8009,7 @@ class CreditsState extends GameState {
 
         // ── Studio logo at the top of scroll ──
         if (this.studioLogoLoaded) {
-            const logoMaxH = H * 0.1;
+            const logoMaxH = H * 0.25;
             const aspect = this.studioLogo.naturalWidth / this.studioLogo.naturalHeight;
             const logoH = logoMaxH;
             const logoW = logoH * aspect;

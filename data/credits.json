@@ -3,47 +3,47 @@
     {
       "role": "lead",
       "title": "Game Director & Lead Developer",
-      "names": []
+      "names": ["Albin Carlson"]
     },
     {
       "role": "lead",
       "title": "Lead Writer & Narrative Designer",
-      "names": []
+      "names": ["Albin Carlson"]
     },
     {
       "role": "standard",
       "title": "Art & Visual Design",
-      "names": []
+      "names": ["ChatGPT (OpenAI)"]
     },
     {
       "role": "standard",
       "title": "Music & Sound Design",
-      "names": []
+      "names": ["Albin Carlson"]
     },
     {
       "role": "standard",
       "title": "Programming",
-      "names": []
+      "names": ["Albin Carlson", "GitHub Copilot (Anthropic Claude)"]
     },
     {
       "role": "standard",
       "title": "Level Design",
-      "names": []
+      "names": ["Albin Carlson"]
     },
     {
       "role": "minor",
       "title": "Quality Assurance & Testing",
-      "names": []
+      "names": ["Albin Carlson"]
     },
     {
       "role": "minor",
       "title": "Localization",
-      "names": []
+      "names": ["Albin Carlson", "GitHub Copilot (Anthropic Claude)"]
     },
     {
       "role": "special",
       "title": "Special Thanks",
-      "names": []
+      "names": ["ChatGPT (OpenAI) — Graphics & Asset Generation", "GitHub Copilot (Anthropic Claude) — Programming Assistant"]
     }
   ],
   "footer": "Thank you for playing."
