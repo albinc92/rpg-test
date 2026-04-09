@@ -620,6 +620,18 @@ class MainMenuState extends GameState {
         super(stateManager);
         this.backgroundImage = null;
 
+        // Social links (bottom-right of main menu)
+        this.socialLinks = [
+            { label: 'Discord', icon: '💬', url: 'https://discord.gg/placeholder' },
+            { label: 'Website', icon: '🌐', url: 'https://example.com' }
+        ];
+        this.socialLinkBounds = [];  // click targets
+        this.hoveredLink = -1;
+
+        // Bind canvas event handlers for social links
+        this._onCanvasClick = this._handleCanvasClick.bind(this);
+        this._onCanvasMove = this._handleCanvasMove.bind(this);
+
         // Studio logo (shown in bottom-right corner)
         this.studioLogo = new Image();
         this.studioLogo.src = '/assets/bg/studio-logo.png';
@@ -669,6 +681,16 @@ class MainMenuState extends GameState {
         console.log('🎮 MainMenuState.enter() called');
         this.selectedOption = 0;
         this.musicStarted = false;
+        this.socialLinkBounds = [];
+        this.hoveredLink = -1;
+        
+        // Attach canvas listeners for social link interactions
+        const canvas = this.game.canvas;
+        if (canvas) {
+            canvas.addEventListener('click', this._onCanvasClick);
+            canvas.addEventListener('mousemove', this._onCanvasMove);
+            canvas.addEventListener('touchend', this._onCanvasClick);
+        }
         
         // Start video if ready
         if (this.isVideoReady && this.backgroundVideo) {
@@ -756,6 +778,15 @@ class MainMenuState extends GameState {
     
     exit() {
         console.log('🚪 MAIN MENU EXITED');
+        
+        // Remove social link listeners
+        const canvas = this.game.canvas;
+        if (canvas) {
+            canvas.removeEventListener('click', this._onCanvasClick);
+            canvas.removeEventListener('mousemove', this._onCanvasMove);
+            canvas.removeEventListener('touchend', this._onCanvasClick);
+            canvas.style.cursor = 'default';
+        }
         
         // DON'T kill BGM here — let the next state's playBGM() naturally crossfade
         // from the menu music to the map BGM, just like map-to-map transitions.
@@ -992,6 +1023,107 @@ class MainMenuState extends GameState {
         const padding = canvasHeight * 0.02;
         ctx.fillText(`Version: ${commitSha}`, padding, canvasHeight - padding);
         ctx.restore();
+
+        // Draw social links in bottom-right corner
+        this.renderSocialLinks(ctx, canvasWidth, canvasHeight);
+    }
+
+    renderSocialLinks(ctx, W, H) {
+        const ds = window.ds;
+        const linkFont = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
+        const pad = H * 0.02;
+        const gap = H * 0.012;
+        const linkH = H * 0.032;
+
+        this.socialLinkBounds = [];
+        let y = H - pad - linkH;
+
+        // Draw from bottom to top so first link is lowest
+        for (let i = this.socialLinks.length - 1; i >= 0; i--) {
+            const link = this.socialLinks[i];
+            const text = `${link.icon}  ${link.label}`;
+            ctx.font = linkFont;
+            const textW = ctx.measureText(text).width;
+            const x = W - pad - textW;
+
+            const isHovered = this.hoveredLink === i;
+
+            ctx.save();
+            ctx.globalAlpha = isHovered ? 1.0 : 0.5;
+            ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, x, y + linkH / 2);
+
+            // Underline on hover
+            if (isHovered) {
+                ctx.strokeStyle = ds ? ds.colors.primary : '#4a9eff';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(x, y + linkH / 2 + 8);
+                ctx.lineTo(x + textW, y + linkH / 2 + 8);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            this.socialLinkBounds[i] = { x, y, w: textW, h: linkH };
+            y -= linkH + gap;
+        }
+    }
+
+    openLink(url) {
+        if (window.electronAPI?.openExternal) {
+            window.electronAPI.openExternal(url);
+        } else {
+            window.open(url, '_blank');
+        }
+    }
+
+    _getCanvasCoords(event) {
+        const canvas = this.game.canvas;
+        if (!canvas) return null;
+        const rect = canvas.getBoundingClientRect();
+        let clientX, clientY;
+        if (event.changedTouches?.length) {
+            clientX = event.changedTouches[0].clientX;
+            clientY = event.changedTouches[0].clientY;
+        } else {
+            clientX = event.clientX;
+            clientY = event.clientY;
+        }
+        const scaleX = this.game.CANVAS_WIDTH / rect.width;
+        const scaleY = this.game.CANVAS_HEIGHT / rect.height;
+        return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+    }
+
+    _hitTestLinks(cx, cy) {
+        for (let i = 0; i < this.socialLinkBounds.length; i++) {
+            const b = this.socialLinkBounds[i];
+            if (b && cx >= b.x && cx <= b.x + b.w && cy >= b.y && cy <= b.y + b.h) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    _handleCanvasClick(event) {
+        if (this.stateManager.currentState !== 'MAIN_MENU') return;
+        const pt = this._getCanvasCoords(event);
+        if (!pt) return;
+        const idx = this._hitTestLinks(pt.x, pt.y);
+        if (idx >= 0) {
+            this.game.audioManager?.playEffect('click.mp3');
+            this.openLink(this.socialLinks[idx].url);
+        }
+    }
+
+    _handleCanvasMove(event) {
+        if (this.stateManager.currentState !== 'MAIN_MENU') return;
+        const pt = this._getCanvasCoords(event);
+        if (!pt) return;
+        const idx = this._hitTestLinks(pt.x, pt.y);
+        this.hoveredLink = idx;
+        this.game.canvas.style.cursor = idx >= 0 ? 'pointer' : 'default';
     }
 }
 

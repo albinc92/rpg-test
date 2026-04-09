@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -160,6 +160,14 @@ const createWindow = () => {
 
   ipcMain.handle('exit-app', () => {
     app.quit();
+  });
+
+  // Open external URL in the user's default browser
+  ipcMain.handle('open-external', (event, url) => {
+    // Only allow http/https URLs for security
+    if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
+      shell.openExternal(url);
+    }
   });
 
   // Get the data folder path (relative to the app)

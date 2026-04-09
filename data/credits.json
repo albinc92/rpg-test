@@ -44,6 +44,11 @@
       "role": "special",
       "title": "Special Thanks",
       "names": ["ChatGPT (OpenAI) — Graphics & Asset Generation", "GitHub Copilot (Anthropic Claude) — Programming Assistant"]
+    },
+    {
+      "role": "minor",
+      "title": "Community",
+      "names": ["Join us on Discord: discord.gg/placeholder", "Visit our website: example.com"]
     }
   ],
   "footer": "Thank you for playing."

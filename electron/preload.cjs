@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isFullscreen: () => ipcRenderer.invoke('is-fullscreen'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
   exitApp: () => ipcRenderer.invoke('exit-app'),
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
   
   // Data file saving for editor
   saveDataFile: (filename, content) => ipcRenderer.invoke('save-data-file', filename, content),
