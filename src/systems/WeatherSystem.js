@@ -109,6 +109,9 @@ class WeatherSystem {
         this._lightningFlash = 0;        // current flash brightness (0-1)
         this._lightningPhase = 0;        // flash animation phase
         this._lightningActive = false;   // is a flash in progress?
+        this._lightningIntensity = 1.0;  // per-strike intensity (0.3-1.0)
+        this._lightningPulses = [];      // array of {time, peak} pulse keyframes
+        this._lightningDuration = 0.6;   // total flash duration for this strike
         this._thunderSounds = ['thunder-01.mp3', 'thunder-02.mp3', 'thunder-03.mp3', 'thunder-04.mp3', 'thunder-05.mp3'];
         this._scheduleNextThunder();
         
@@ -1340,23 +1343,10 @@ class WeatherSystem {
         if (this._lightningActive) {
             this._lightningPhase += dt;
             
-            // Multi-pulse flash pattern: bright flash, dim, second flash, fade out
-            // Total duration ~0.6s
-            if (this._lightningPhase < 0.05) {
-                // Initial bright flash
-                this._lightningFlash = 0.7 + this._lightningPhase * 6; // ramp to ~1.0
-            } else if (this._lightningPhase < 0.1) {
-                // Quick dim
-                this._lightningFlash = 1.0 - (this._lightningPhase - 0.05) * 12; // drop to ~0.4
-            } else if (this._lightningPhase < 0.15) {
-                // Second flash (sometimes brighter, sometimes dimmer)
-                this._lightningFlash = 0.4 + (this._lightningPhase - 0.1) * 8; // up to ~0.8
-            } else if (this._lightningPhase < 0.6) {
-                // Gradual fade out
-                const t = (this._lightningPhase - 0.15) / 0.45;
-                this._lightningFlash = 0.8 * (1 - t * t); // quadratic fade
-            } else {
-                // Done
+            // Evaluate dynamic pulse pattern
+            this._lightningFlash = this._evaluateFlashCurve(this._lightningPhase);
+            
+            if (this._lightningPhase >= this._lightningDuration) {
                 this._lightningFlash = 0;
                 this._lightningActive = false;
             }
@@ -1379,17 +1369,105 @@ class WeatherSystem {
     /**
      * Trigger a lightning flash + thunder sound.
      */
+    /**
+     * Evaluate the flash brightness at a given time using the dynamic pulse keyframes.
+     * Each pulse ramps up quickly then fades, producing natural multi-flicker lightning.
+     */
+    _evaluateFlashCurve(t) {
+        const pulses = this._lightningPulses;
+        const intensity = this._lightningIntensity;
+        let brightness = 0;
+        
+        for (const pulse of pulses) {
+            const riseEnd = pulse.time + 0.03;       // 30ms rise
+            const holdEnd = riseEnd + 0.02;           // 20ms hold
+            const fadeEnd = holdEnd + pulse.fadeTime;  // variable fade
+            
+            if (t < pulse.time) continue;
+            
+            let val = 0;
+            if (t < riseEnd) {
+                // Quick ramp up
+                val = pulse.peak * ((t - pulse.time) / 0.03);
+            } else if (t < holdEnd) {
+                // Brief hold at peak
+                val = pulse.peak;
+            } else if (t < fadeEnd) {
+                // Fade out (quadratic ease)
+                const ft = (t - holdEnd) / pulse.fadeTime;
+                val = pulse.peak * (1 - ft * ft);
+            }
+            
+            brightness = Math.max(brightness, val * intensity);
+        }
+        
+        return brightness;
+    }
+    
+    /**
+     * Build a random set of flash pulses for a lightning strike.
+     * Intensity 0.3-1.0 determines pulse count, brightness, and duration.
+     */
+    _buildFlashPulses(intensity) {
+        const pulses = [];
+        
+        // Number of pulses: weak=1, medium=2, strong=2-3
+        let pulseCount;
+        if (intensity < 0.45) {
+            pulseCount = 1;
+        } else if (intensity < 0.75) {
+            pulseCount = 2;
+        } else {
+            pulseCount = Math.random() < 0.6 ? 3 : 2;
+        }
+        
+        let time = 0;
+        for (let i = 0; i < pulseCount; i++) {
+            // First pulse is always the strongest, subsequent flickers vary
+            const isFirst = i === 0;
+            const peak = isFirst
+                ? 0.7 + intensity * 0.3              // 0.7-1.0 for first pulse
+                : 0.3 + Math.random() * intensity * 0.5; // weaker re-flashes
+            
+            // Fade time: shorter for intense strikes (snappier), longer for weak (lingering)
+            const fadeTime = isFirst
+                ? 0.08 + (1 - intensity) * 0.15      // 0.08-0.23s
+                : 0.06 + Math.random() * 0.12;       // 0.06-0.18s for re-flashes
+            
+            pulses.push({ time, peak, fadeTime });
+            
+            // Gap between pulses: 0.04-0.12s (close together = more dramatic)
+            time += 0.05 + fadeTime + Math.random() * 0.08;
+        }
+        
+        // Total duration = last pulse end + tail fade
+        const lastPulse = pulses[pulses.length - 1];
+        const totalDuration = lastPulse.time + 0.05 + lastPulse.fadeTime + 0.15;
+        
+        return { pulses, totalDuration };
+    }
+    
     _triggerLightning() {
+        // Randomize strike intensity: 0.3 (distant flicker) to 1.0 (close powerful bolt)
+        const intensity = 0.3 + Math.random() * 0.7;
+        this._lightningIntensity = intensity;
+        
+        // Build dynamic pulse pattern based on intensity
+        const { pulses, totalDuration } = this._buildFlashPulses(intensity);
+        this._lightningPulses = pulses;
+        this._lightningDuration = totalDuration;
+        
         // Start flash animation
         this._lightningActive = true;
         this._lightningPhase = 0;
-        this._lightningFlash = 0.7;
+        this._lightningFlash = 0;
         
-        // Play thunder sound with slight delay (light travels faster than sound)
-        // Delay 0.3-1.5s simulates distance
-        const soundDelay = 300 + Math.random() * 1200;
+        // Sound delay inversely correlated with intensity:
+        // intense = close = short delay (100-400ms), weak = far = long delay (600-1800ms)
+        const soundDelay = Math.round(100 + (1 - intensity) * 1700 * Math.random());
         const soundFile = this._thunderSounds[Math.floor(Math.random() * this._thunderSounds.length)];
-        const volume = 0.8 + Math.random() * 0.2; // 0.8-1.0 volume — thunder must cut through wind
+        // Volume scales with intensity: 0.5 (distant rumble) to 1.0 (close crack)
+        const volume = 0.5 + intensity * 0.5;
         
         setTimeout(() => {
             if (this.game.audioManager) {
@@ -1409,9 +1487,12 @@ class WeatherSystem {
         ctx.save();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         
-        // White flash with current intensity
-        const alpha = this._lightningFlash * 0.6; // cap max opacity
-        ctx.fillStyle = `rgba(220, 225, 255, ${alpha})`;
+        // White flash — intensity modulates max opacity (0.35 for weak, 0.7 for strong)
+        const maxAlpha = 0.35 + this._lightningIntensity * 0.35;
+        const alpha = this._lightningFlash * maxAlpha;
+        // Slight color temperature shift: weak = warm white, strong = cool blue-white
+        const blue = Math.round(225 + this._lightningIntensity * 30); // 225-255
+        ctx.fillStyle = `rgba(220, 225, ${Math.min(blue, 255)}, ${alpha})`;
         ctx.fillRect(0, 0, width, height);
         
         ctx.restore();
