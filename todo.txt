@@ -9,6 +9,9 @@
   - dynamic loot system from chests with levelled lists based on zone level (see feature above)
 - dynamic spawn system based on biome and zone level which determines which types of spirits that can spawn in a given map? thoughts?
 
+BOLD IDEA:
+- convert the game into 3D like paper mario... ingame objects are still 2d ad stick up vertically... that way we dont have to have fake depth effect and also.... we could theorietically cast real shadows and not just skewed transforms of the base sprite... thoughts?
+
 ================================================================================
 PLANNED FEATURES
 ================================================================================

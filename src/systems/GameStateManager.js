@@ -4582,21 +4582,28 @@ class PackState extends GameState {
         // Title
         menuRenderer.drawTitle(ctx, this.game.t('pack.title'), canvasWidth, canvasHeight, 0.08);
 
-        // Gold display (top-right)
+        // Gold display (top-right) with coin icon
         const playerGold = this.getPlayerGold();
         ctx.fillStyle = ds ? ds.colors.warning : '#ffd700';
         ctx.font = ds ? ds.font('md', 'bold', 'body') : 'bold 22px "Lato", sans-serif';
         ctx.textAlign = 'right';
-        ctx.textBaseline = 'top';
-        const goldY = canvasHeight * 0.04;
-        ctx.fillText(`💰 ${playerGold}`, canvasWidth - (ds ? ds.spacing(8) : 30), goldY);
+        ctx.textBaseline = 'alphabetic';
+        const goldCoinSize = 18;
+        const goldTextRight = canvasWidth - (ds ? ds.spacing(8) : 30);
+        const goldMetrics = ctx.measureText(`${playerGold}`);
+        const goldTextTop = canvasHeight * 0.04;
+        const goldBaselineY = goldTextTop + goldMetrics.actualBoundingBoxAscent;
+        ctx.fillText(`${playerGold}`, goldTextRight - goldCoinSize - 4, goldBaselineY);
+        const goldVisualCenterY = goldTextTop + (goldMetrics.actualBoundingBoxAscent + goldMetrics.actualBoundingBoxDescent) / 2;
+        this._drawGoldCoin(ctx, goldTextRight - goldCoinSize, goldVisualCenterY - goldCoinSize / 2, goldCoinSize);
 
         // Item count (top-right below gold)
         const allSlots = this.game.inventoryManager?.getAllSlots() || [];
         const maxSlots = this.game.inventoryManager?.getMaxSlots() || 30;
         ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
         ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px "Lato", sans-serif';
-        ctx.fillText(`${this.game.t('pack.count')}: ${allSlots.length}/${maxSlots}`, canvasWidth - (ds ? ds.spacing(8) : 30), goldY + 26);
+        ctx.textBaseline = 'top';
+        ctx.fillText(`${this.game.t('pack.count')}: ${allSlots.length}/${maxSlots}`, canvasWidth - (ds ? ds.spacing(8) : 30), goldTextTop + goldMetrics.actualBoundingBoxAscent + goldMetrics.actualBoundingBoxDescent + 4);
 
         // Tabs
         this.renderTabs(ctx, canvasWidth, canvasHeight, menuRenderer, ds);
@@ -4781,14 +4788,16 @@ class PackState extends GameState {
 
         menuRenderer.drawPanel(ctx, detailsX, detailsY, detailsWidth, detailsHeight, 0.7);
 
-        const padding = ds ? ds.spacing(8) : 35;
+        const padding = ds ? ds.spacing(6) : 25;
         const centerX = detailsX + detailsWidth / 2;
+        const contentWidth = detailsWidth - padding * 2;
+        const panelBottom = detailsY + detailsHeight - padding;
 
-        // Item icon
-        const iconSize = ds ? ds.spacing(20) : 80;
-        const iconY = detailsY + padding;
-        let hasIcon = false;
+        // ── flowing cursor: every element advances cursorY ──
+        let cursorY = detailsY + padding;
 
+        // 1) Item icon
+        const iconSize = Math.min(detailsHeight * 0.15, ds ? ds.spacing(16) : 64);
         if (item.icon) {
             if (!this.iconCache[item.icon]) {
                 const img = new Image();
@@ -4797,103 +4806,124 @@ class PackState extends GameState {
             }
             const iconImg = this.iconCache[item.icon];
             if (iconImg && iconImg.complete && iconImg.naturalWidth > 0) {
-                ctx.drawImage(iconImg, centerX - iconSize / 2, iconY, iconSize, iconSize);
-                hasIcon = true;
+                ctx.drawImage(iconImg, centerX - iconSize / 2, cursorY, iconSize, iconSize);
+                cursorY += iconSize + detailsHeight * 0.03;
             }
         }
 
-        // Name (with word-wrap, matching ShopState)
-        const nameAreaTop = hasIcon ? iconY + iconSize + 35 : detailsY + padding;
-        const maxNameWidth = detailsWidth - padding * 2;
-        const fontSize = ds ? 43 : 28;
-
+        // 2) Name (word-wrapped)
+        const fontSize = Math.max(16, Math.min(28, detailsHeight * 0.06));
         ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
         ctx.textAlign = 'center';
         ctx.font = ds ? ds.font('xl', 'bold', 'display') : `bold ${fontSize}px "Cinzel", serif`;
         if (ds) ds.applyShadow(ctx, 'glow');
 
-        const nameWidth = ctx.measureText(item.name).width;
-        let nameAreaHeight;
-
-        if (nameWidth > maxNameWidth) {
-            const words = item.name.split(' ');
-            let lines = [];
-            let currentLine = '';
-            for (const word of words) {
-                const testLine = currentLine ? currentLine + ' ' + word : word;
-                if (ctx.measureText(testLine).width > maxNameWidth && currentLine) {
-                    lines.push(currentLine);
-                    currentLine = word;
-                } else {
-                    currentLine = testLine;
-                }
-            }
-            if (currentLine) lines.push(currentLine);
-
-            const lineHeight = fontSize * 1.6;
-            nameAreaHeight = lines.length * lineHeight;
-            const nameStartY = nameAreaTop + lineHeight / 2;
-            ctx.textBaseline = 'middle';
-            lines.forEach((line, i) => {
-                ctx.fillText(line, centerX, nameStartY + i * lineHeight);
-            });
-        } else {
-            nameAreaHeight = fontSize * 1.2;
-            ctx.textBaseline = 'middle';
-            ctx.fillText(item.name, centerX, nameAreaTop + nameAreaHeight / 2);
-        }
+        const nameLines = this._wrapLines(ctx, item.name, contentWidth);
+        const nameLineHeight = fontSize * 1.5;
+        ctx.textBaseline = 'top';
+        nameLines.forEach((line, i) => {
+            ctx.fillText(line, centerX, cursorY + i * nameLineHeight);
+        });
+        cursorY += nameLines.length * nameLineHeight + detailsHeight * 0.02;
 
         if (ds) ds.clearShadow(ctx);
 
-        // Rarity + type badge
-        const rarityY = nameAreaTop + nameAreaHeight + 45;
+        // 3) Rarity + type
         ctx.fillStyle = ds ? ds.colors.getRarityColor(item.rarity) : '#9d9d9d';
-        ctx.font = ds ? ds.font('md', 'normal', 'body') : 'italic 18px "Lato", sans-serif';
-        ctx.textBaseline = 'middle';
-        const rarityText = (item.rarity || 'common').charAt(0).toUpperCase() + (item.rarity || 'common').slice(1);
-        const typeText = (item.type || 'item').toLowerCase();
-        ctx.fillText(`${rarityText} ${typeText}`, centerX, rarityY);
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : 'italic 14px "Lato", sans-serif';
+        ctx.textBaseline = 'top';
+        const rarityStr = (item.rarity || 'common').charAt(0).toUpperCase() + (item.rarity || 'common').slice(1);
+        const typeStr = (item.type || 'item').toLowerCase();
+        ctx.fillText(`${rarityStr} ${typeStr}`, centerX, cursorY);
+        cursorY += detailsHeight * 0.05;
 
-        // Separator
-        const lineY = nameAreaTop + nameAreaHeight + 90;
-        const lineWidth = detailsWidth * 0.6;
-        const gradient = ctx.createLinearGradient(centerX - lineWidth / 2, lineY, centerX + lineWidth / 2, lineY);
+        // 4) Separator
+        const sepWidth = detailsWidth * 0.6;
+        const gradient = ctx.createLinearGradient(centerX - sepWidth / 2, cursorY, centerX + sepWidth / 2, cursorY);
         gradient.addColorStop(0, 'transparent');
         gradient.addColorStop(0.2, ds ? ds.colors.alpha(ds.colors.primary, 0.5) : 'rgba(74, 158, 255, 0.5)');
         gradient.addColorStop(0.8, ds ? ds.colors.alpha(ds.colors.primary, 0.5) : 'rgba(74, 158, 255, 0.5)');
         gradient.addColorStop(1, 'transparent');
         ctx.fillStyle = gradient;
-        ctx.fillRect(centerX - lineWidth / 2, lineY, lineWidth, 2);
+        ctx.fillRect(centerX - sepWidth / 2, cursorY, sepWidth, 2);
+        cursorY += detailsHeight * 0.04;
 
-        // Description
-        const descY = lineY + 60;
+        // 5) Description (word-wrapped)
         ctx.fillStyle = ds ? ds.colors.text.secondary : '#ccc';
-        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px "Lato", sans-serif';
-        this.wrapText(ctx, item.description || this.game.t('pack.noDescription'), centerX, descY, detailsWidth - padding * 2, 36);
+        const descFontSize = Math.max(12, Math.min(16, detailsHeight * 0.035));
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${descFontSize}px "Lato", sans-serif`;
+        const descLineHeight = descFontSize * 2;
+        const descLines = this._wrapLines(ctx, item.description || this.game.t('pack.noDescription'), contentWidth);
+        ctx.textBaseline = 'top';
+        descLines.forEach((line, i) => {
+            ctx.fillText(line, centerX, cursorY + i * descLineHeight);
+        });
+        cursorY += descLines.length * descLineHeight + detailsHeight * 0.03;
 
-        // Stats
+        // 6) Stats (only if they fit)
         if (item.stats && Object.keys(item.stats).length > 0) {
-            let statsY = descY + 80;
-            ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px "Lato", sans-serif';
+            const statLineHeight = detailsHeight * 0.05;
+            ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${descFontSize}px "Lato", sans-serif`;
+            ctx.textBaseline = 'top';
             for (const [stat, value] of Object.entries(item.stats)) {
+                if (cursorY + statLineHeight > panelBottom - detailsHeight * 0.06) break; // leave room for value
                 const isNegative = value < 0;
                 ctx.fillStyle = isNegative
                     ? (ds ? ds.colors.danger : '#ef4444')
                     : (ds ? ds.colors.success : '#4ade80');
                 const prefix = isNegative ? '' : '+';
                 const statName = stat.charAt(0).toUpperCase() + stat.slice(1);
-                ctx.fillText(`${prefix}${value} ${statName}`, centerX, statsY);
-                statsY += 40;
+                ctx.fillText(`${prefix}${value} ${statName}`, centerX, cursorY);
+                cursorY += statLineHeight;
             }
         }
 
-        // Value at bottom
-        const valueY = detailsY + detailsHeight - padding - 10;
-        ctx.textBaseline = 'bottom';
+        // 7) Value — anchored to panel bottom
+        const coinSize = Math.max(12, Math.min(18, detailsHeight * 0.04));
         ctx.fillStyle = ds ? ds.colors.text.muted : '#aaa';
-        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${descFontSize}px "Lato", sans-serif`;
         ctx.textAlign = 'center';
-        ctx.fillText(`${this.game.t('pack.value')}: ${item.value || 0} 💰`, centerX, valueY);
+        ctx.textBaseline = 'alphabetic';
+        const valueText = `${this.game.t('pack.value')}: ${item.value || 0}`;
+        const valueMetrics = ctx.measureText(valueText);
+        const valueBaselineY = panelBottom - valueMetrics.actualBoundingBoxDescent;
+        ctx.fillText(valueText, centerX - coinSize / 2, valueBaselineY);
+        const valueVisualTop = valueBaselineY - valueMetrics.actualBoundingBoxAscent;
+        const valueVisualBottom = valueBaselineY + valueMetrics.actualBoundingBoxDescent;
+        const valueVisualCenterY = (valueVisualTop + valueVisualBottom) / 2;
+        this._drawGoldCoin(ctx, centerX + valueMetrics.width / 2, valueVisualCenterY - coinSize / 2, coinSize);
+    }
+
+    /** Shared: wrap text into lines array */
+    _wrapLines(ctx, text, maxWidth) {
+        const words = text.split(' ');
+        const lines = [];
+        let current = '';
+        for (const word of words) {
+            const test = current ? current + ' ' + word : word;
+            if (ctx.measureText(test).width > maxWidth && current) {
+                lines.push(current);
+                current = word;
+            } else {
+                current = test;
+            }
+        }
+        if (current) lines.push(current);
+        return lines;
+    }
+
+    /** Shared: draw gold.png coin icon at (x, y) with given size */
+    _drawGoldCoin(ctx, x, y, size) {
+        const coinPath = 'assets/icon/Currency/gold.png';
+        if (!this.iconCache[coinPath]) {
+            const img = new Image();
+            img.src = coinPath;
+            this.iconCache[coinPath] = img;
+        }
+        const coinImg = this.iconCache[coinPath];
+        if (coinImg && coinImg.complete && coinImg.naturalWidth > 0) {
+            ctx.drawImage(coinImg, x, y, size, size);
+        }
     }
 
     renderActionMenu(ctx, canvasWidth, canvasHeight, menuRenderer, ds) {
@@ -4987,23 +5017,6 @@ class PackState extends GameState {
         ctx.restore();
     }
 
-    wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-        const words = text.split(' ');
-        let line = '';
-        let currentY = y;
-        for (const word of words) {
-            const testLine = line + word + ' ';
-            const metrics = ctx.measureText(testLine);
-            if (metrics.width > maxWidth && line !== '') {
-                ctx.fillText(line.trim(), x, currentY);
-                line = word + ' ';
-                currentY += lineHeight;
-            } else {
-                line = testLine;
-            }
-        }
-        ctx.fillText(line.trim(), x, currentY);
-    }
 }
 
 /**
@@ -6509,13 +6522,18 @@ class ShopState extends GameState {
         // Draw shop title using design system
         menuRenderer.drawTitle(ctx, this.shopName, canvasWidth, canvasHeight, 0.08);
         
-        // Draw gold display
+        // Draw gold display with coin icon
         const playerGold = this.getPlayerGold();
         ctx.fillStyle = ds ? ds.colors.warning : '#ffd700';
         ctx.font = ds ? ds.font('md', 'bold', 'body') : 'bold 22px "Lato", sans-serif';
         ctx.textAlign = 'right';
-        ctx.textBaseline = 'top';
-        ctx.fillText(`💰 ${playerGold}`, canvasWidth - (ds ? ds.spacing(8) : 30), canvasHeight * 0.04);
+        const shopGoldFontSize = parseFloat((ctx.font.match(/(\d+(?:\.\d+)?)px/) || ['','22'])[1]);
+        ctx.textBaseline = 'middle';
+        const goldCoinSize = 18;
+        const goldTextRight = canvasWidth - (ds ? ds.spacing(8) : 30);
+        const shopGoldMidY = canvasHeight * 0.04 + shopGoldFontSize / 2;
+        ctx.fillText(`${playerGold}`, goldTextRight - goldCoinSize - 4, shopGoldMidY);
+        this._drawGoldCoin(ctx, goldTextRight - goldCoinSize, shopGoldMidY - goldCoinSize / 2, goldCoinSize);
         
         // Draw tabs
         this.renderTabs(ctx, canvasWidth, canvasHeight, menuRenderer, ds);
@@ -6683,154 +6701,134 @@ class ShopState extends GameState {
     renderItemDetails(ctx, canvasWidth, canvasHeight, menuRenderer, ds) {
         const items = this.getCurrentList();
         if (items.length === 0) return;
-        
+
         const item = items[this.selectedOption];
         if (!item) return;
-        
+
         const detailsX = canvasWidth * 0.57;
         const detailsY = canvasHeight * 0.22;
         const detailsWidth = canvasWidth * 0.38;
         const detailsHeight = canvasHeight * 0.63;
-        
-        // Details panel
+
         menuRenderer.drawPanel(ctx, detailsX, detailsY, detailsWidth, detailsHeight, 0.7);
-        
-        const padding = ds ? ds.spacing(8) : 35;
+
+        const padding = ds ? ds.spacing(6) : 25;
         const centerX = detailsX + detailsWidth / 2;
-        
-        // Item icon (if available)
-        const iconSize = ds ? ds.spacing(20) : 80;
-        const iconY = detailsY + padding;
-        let hasIcon = false;
-        
+        const contentWidth = detailsWidth - padding * 2;
+        const panelBottom = detailsY + detailsHeight - padding;
+
+        // ── flowing cursor: every element advances cursorY ──
+        let cursorY = detailsY + padding;
+
+        // 1) Item icon
+        const iconSize = Math.min(detailsHeight * 0.15, ds ? ds.spacing(16) : 64);
         if (item.icon) {
-            // Load icon if not cached
             if (!this.iconCache[item.icon]) {
                 const img = new Image();
                 img.src = item.icon;
                 this.iconCache[item.icon] = img;
             }
-            
             const iconImg = this.iconCache[item.icon];
             if (iconImg && iconImg.complete && iconImg.naturalWidth > 0) {
-                ctx.drawImage(iconImg, centerX - iconSize / 2, iconY, iconSize, iconSize);
-                hasIcon = true;
+                ctx.drawImage(iconImg, centerX - iconSize / 2, cursorY, iconSize, iconSize);
+                cursorY += iconSize + detailsHeight * 0.03;
             }
         }
-        
-        // Item name (below icon or at top if no icon) - word wrap if needed
-        const nameAreaTop = hasIcon ? iconY + iconSize + 35 : detailsY + padding;
-        const maxNameWidth = detailsWidth - padding * 2;
-        const fontSize = ds ? 43 : 28; // xl size
-        
+
+        // 2) Name (word-wrapped)
+        const fontSize = Math.max(16, Math.min(28, detailsHeight * 0.06));
         ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
         ctx.textAlign = 'center';
         ctx.font = ds ? ds.font('xl', 'bold', 'display') : `bold ${fontSize}px "Cinzel", serif`;
         if (ds) ds.applyShadow(ctx, 'glow');
-        
-        // Check if name needs wrapping
-        const nameWidth = ctx.measureText(item.name).width;
-        let nameAreaHeight;
-        
-        if (nameWidth > maxNameWidth) {
-            // Word wrap the name
-            const words = item.name.split(' ');
-            let lines = [];
-            let currentLine = '';
-            
-            for (const word of words) {
-                const testLine = currentLine ? currentLine + ' ' + word : word;
-                if (ctx.measureText(testLine).width > maxNameWidth && currentLine) {
-                    lines.push(currentLine);
-                    currentLine = word;
-                } else {
-                    currentLine = testLine;
-                }
-            }
-            if (currentLine) lines.push(currentLine);
-            
-            // Draw wrapped name centered vertically
-            const lineHeight = fontSize * 1.6;
-            nameAreaHeight = lines.length * lineHeight;
-            const nameStartY = nameAreaTop + lineHeight / 2;
-            
-            ctx.textBaseline = 'middle';
-            lines.forEach((line, i) => {
-                ctx.fillText(line, centerX, nameStartY + i * lineHeight);
-            });
-        } else {
-            // Single line name
-            nameAreaHeight = fontSize * 1.2;
-            ctx.textBaseline = 'middle';
-            ctx.fillText(item.name, centerX, nameAreaTop + nameAreaHeight / 2);
-        }
-        
+
+        const nameLines = this._wrapLines(ctx, item.name, contentWidth);
+        const nameLineHeight = fontSize * 1.5;
+        ctx.textBaseline = 'top';
+        nameLines.forEach((line, i) => {
+            ctx.fillText(line, centerX, cursorY + i * nameLineHeight);
+        });
+        cursorY += nameLines.length * nameLineHeight + detailsHeight * 0.02;
+
         if (ds) ds.clearShadow(ctx);
-        
-        // Separator line position (fixed distance from name area)
-        const lineY = nameAreaTop + nameAreaHeight + 90;
-        
-        // Type and rarity - centered between name and line
-        const rarityY = nameAreaTop + nameAreaHeight + 45; // Halfway between name bottom and line
+
+        // 3) Rarity + type
         ctx.fillStyle = ds ? ds.colors.getRarityColor(item.rarity) : '#9d9d9d';
-        ctx.font = ds ? ds.font('md', 'normal', 'body') : 'italic 18px "Lato", sans-serif';
-        ctx.textBaseline = 'middle';
-        const rarityText = (item.rarity || 'common').charAt(0).toUpperCase() + (item.rarity || 'common').slice(1);
-        const typeText = (item.type || 'item').toLowerCase();
-        ctx.fillText(`${rarityText} ${typeText}`, centerX, rarityY);
-        
-        // Separator line
-        const lineWidth = detailsWidth * 0.6;
-        const gradient = ctx.createLinearGradient(centerX - lineWidth / 2, lineY, centerX + lineWidth / 2, lineY);
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : 'italic 14px "Lato", sans-serif';
+        ctx.textBaseline = 'top';
+        const rarityStr = (item.rarity || 'common').charAt(0).toUpperCase() + (item.rarity || 'common').slice(1);
+        const typeStr = (item.type || 'item').toLowerCase();
+        ctx.fillText(`${rarityStr} ${typeStr}`, centerX, cursorY);
+        cursorY += detailsHeight * 0.05;
+
+        // 4) Separator
+        const sepWidth = detailsWidth * 0.6;
+        const gradient = ctx.createLinearGradient(centerX - sepWidth / 2, cursorY, centerX + sepWidth / 2, cursorY);
         gradient.addColorStop(0, 'transparent');
         gradient.addColorStop(0.2, ds ? ds.colors.alpha(ds.colors.primary, 0.5) : 'rgba(74, 158, 255, 0.5)');
         gradient.addColorStop(0.8, ds ? ds.colors.alpha(ds.colors.primary, 0.5) : 'rgba(74, 158, 255, 0.5)');
         gradient.addColorStop(1, 'transparent');
         ctx.fillStyle = gradient;
-        ctx.fillRect(centerX - lineWidth / 2, lineY, lineWidth, 2);
-        
-        // Description
-        const descY = lineY + 60;
+        ctx.fillRect(centerX - sepWidth / 2, cursorY, sepWidth, 2);
+        cursorY += detailsHeight * 0.04;
+
+        // 5) Description (word-wrapped)
         ctx.fillStyle = ds ? ds.colors.text.secondary : '#ccc';
-        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px "Lato", sans-serif';
-        this.wrapText(ctx, item.description || this.game.t('shop.noDescription'), centerX, descY, detailsWidth - padding * 2, 36);
-        
-        // Stats if any
+        const descFontSize = Math.max(12, Math.min(16, detailsHeight * 0.035));
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${descFontSize}px "Lato", sans-serif`;
+        const descLineHeight = descFontSize * 2;
+        const descLines = this._wrapLines(ctx, item.description || this.game.t('shop.noDescription'), contentWidth);
+        ctx.textBaseline = 'top';
+        descLines.forEach((line, i) => {
+            ctx.fillText(line, centerX, cursorY + i * descLineHeight);
+        });
+        cursorY += descLines.length * descLineHeight + detailsHeight * 0.03;
+
+        // 6) Stats (only if they fit)
         if (item.stats && Object.keys(item.stats).length > 0) {
-            let statsY = descY + 80;
-            ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px "Lato", sans-serif';
-            
+            const statLineHeight = detailsHeight * 0.05;
+            ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${descFontSize}px "Lato", sans-serif`;
+            ctx.textBaseline = 'top';
             for (const [stat, value] of Object.entries(item.stats)) {
+                if (cursorY + statLineHeight > panelBottom - detailsHeight * 0.12) break;
                 const isNegative = value < 0;
-                ctx.fillStyle = isNegative 
+                ctx.fillStyle = isNegative
                     ? (ds ? ds.colors.danger : '#ef4444')
                     : (ds ? ds.colors.success : '#4ade80');
                 const prefix = isNegative ? '' : '+';
                 const statName = stat.charAt(0).toUpperCase() + stat.slice(1);
-                ctx.fillText(`${prefix}${value} ${statName}`, centerX, statsY);
-                statsY += 40;
+                ctx.fillText(`${prefix}${value} ${statName}`, centerX, cursorY);
+                cursorY += statLineHeight;
             }
         }
-        
-        // Price info at bottom
+
+        // 7) Price info — anchored to panel bottom
         const price = this.selectedTab === 0 ? item.price : item.sellPrice;
         const playerGold = this.getPlayerGold();
         const canAfford = playerGold >= price;
-        
-        // Price display - position from bottom
-        const priceY = detailsY + detailsHeight - padding - 10;
-        ctx.textBaseline = 'bottom';
-        ctx.fillStyle = ds ? ds.colors.warning : '#ffd700';
-        ctx.font = ds ? ds.font('md', 'normal', 'body') : '18px "Lato", sans-serif';
-        ctx.fillText(`${price} 💰`, centerX, priceY);
-        
-        // "Not enough gold" warning (above price)
+        const coinSize = Math.max(12, Math.min(18, detailsHeight * 0.04));
+
+        // "Not enough gold" warning
         if (!canAfford && this.selectedTab === 0) {
             ctx.fillStyle = ds ? ds.colors.danger : '#ef4444';
-            ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
+            ctx.font = ds ? ds.font('sm', 'normal', 'body') : `${descFontSize}px "Lato", sans-serif`;
+            ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
-            ctx.fillText(this.game.t('shop.notEnoughGold'), centerX, priceY - 28);
+            ctx.fillText(this.game.t('shop.notEnoughGold'), centerX, panelBottom - detailsHeight * 0.06);
         }
+
+        // Price display
+        ctx.fillStyle = ds ? ds.colors.warning : '#ffd700';
+        ctx.font = ds ? ds.font('md', 'bold', 'body') : `bold 18px "Lato", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        const priceText = `${price}`;
+        const priceFontSize = parseFloat((ctx.font.match(/(\d+(?:\.\d+)?)px/) || ['','18'])[1]);
+        ctx.textBaseline = 'middle';
+        const priceMidY = panelBottom - priceFontSize / 2;
+        const priceTextWidth = ctx.measureText(priceText).width;
+        ctx.fillText(priceText, centerX - coinSize / 2, priceMidY);
+        this._drawGoldCoin(ctx, centerX + priceTextWidth / 2, priceMidY - coinSize / 2, coinSize);
     }
     
     renderQuantitySelector(ctx, canvasWidth, canvasHeight, menuRenderer, ds) {
@@ -6884,7 +6882,14 @@ class ShopState extends GameState {
         ctx.font = ds ? ds.font('md', 'normal', 'body') : '18px "Lato", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
-        ctx.fillText(`${this.game.t('shop.total')}: ${total} 💰`, centerX, boxY + boxHeight - padding - 35);
+        const totalText = `${this.game.t('shop.total')}: ${total}`;
+        const totalFontSize = parseFloat((ctx.font.match(/(\d+(?:\.\d+)?)px/) || ['','18'])[1]);
+        const totalCoinSize = 16;
+        ctx.textBaseline = 'middle';
+        const totalMidY = boxY + boxHeight - padding - 35 - totalFontSize / 2;
+        const totalTextWidth = ctx.measureText(totalText).width;
+        ctx.fillText(totalText, centerX - totalCoinSize / 2, totalMidY);
+        this._drawGoldCoin(ctx, centerX + totalTextWidth / 2 - totalCoinSize / 2, totalMidY - totalCoinSize / 2, totalCoinSize);
         
         // Instructions - at very bottom (adapts to input device)
         const im = this.game.inputManager;
@@ -6897,23 +6902,36 @@ class ShopState extends GameState {
         ctx.fillText(qtyHint, centerX, boxY + boxHeight - padding);
     }
     
-    wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+    /** Shared: wrap text into lines array */
+    _wrapLines(ctx, text, maxWidth) {
         const words = text.split(' ');
-        let line = '';
-        let currentY = y;
-        
+        const lines = [];
+        let current = '';
         for (const word of words) {
-            const testLine = line + word + ' ';
-            const metrics = ctx.measureText(testLine);
-            if (metrics.width > maxWidth && line !== '') {
-                ctx.fillText(line.trim(), x, currentY);
-                line = word + ' ';
-                currentY += lineHeight;
+            const test = current ? current + ' ' + word : word;
+            if (ctx.measureText(test).width > maxWidth && current) {
+                lines.push(current);
+                current = word;
             } else {
-                line = testLine;
+                current = test;
             }
         }
-        ctx.fillText(line.trim(), x, currentY);
+        if (current) lines.push(current);
+        return lines;
+    }
+
+    /** Shared: draw gold.png coin icon at (x, y) with given size */
+    _drawGoldCoin(ctx, x, y, size) {
+        const coinPath = 'assets/icon/Currency/gold.png';
+        if (!this.iconCache[coinPath]) {
+            const img = new Image();
+            img.src = coinPath;
+            this.iconCache[coinPath] = img;
+        }
+        const coinImg = this.iconCache[coinPath];
+        if (coinImg && coinImg.complete && coinImg.naturalWidth > 0) {
+            ctx.drawImage(coinImg, x, y, size, size);
+        }
     }
 }
 
