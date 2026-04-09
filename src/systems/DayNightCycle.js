@@ -117,7 +117,7 @@ class DayNightCycle {
      * Get the next phase after the given phase
      */
     getNextPhase(currentPhaseName) {
-        const phaseOrder = ['night', 'dawn', 'day', 'dusk', 'nightfall'];
+        const phaseOrder = ['night', 'dawn', 'day', 'dusk', 'night2'];
         const currentIndex = phaseOrder.indexOf(currentPhaseName);
         
         if (currentIndex === -1 || currentIndex === phaseOrder.length - 1) {

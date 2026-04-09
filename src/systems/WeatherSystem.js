@@ -1463,8 +1463,10 @@ class WeatherSystem {
         this._lightningFlash = 0;
         
         // Sound delay inversely correlated with intensity:
-        // intense = close = short delay (100-400ms), weak = far = long delay (600-1800ms)
-        const soundDelay = Math.round(100 + (1 - intensity) * 1700 * Math.random());
+        // intense = close = short delay (100-400ms), weak = far = long delay (800-2000ms)
+        const baseDelay = 100 + Math.random() * 300;  // always some variation (100-400ms)
+        const distanceDelay = (1 - intensity) * (800 + Math.random() * 800); // 0-1600ms extra for weak
+        const soundDelay = Math.round(baseDelay + distanceDelay);
         const soundFile = this._thunderSounds[Math.floor(Math.random() * this._thunderSounds.length)];
         // Volume scales with intensity: 0.5 (distant rumble) to 1.0 (close crack)
         const volume = 0.5 + intensity * 0.5;
