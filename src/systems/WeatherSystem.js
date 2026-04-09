@@ -103,6 +103,15 @@ class WeatherSystem {
         this._fogWispTimer = 0;
         this._fogWispsInitialized = false;
         
+        // ─── Thunder & Lightning System ───
+        this._thunderTimer = 0;          // countdown to next thunder event
+        this._thunderInterval = 0;       // seconds between thunder events
+        this._lightningFlash = 0;        // current flash brightness (0-1)
+        this._lightningPhase = 0;        // flash animation phase
+        this._lightningActive = false;   // is a flash in progress?
+        this._thunderSounds = ['thunder-01.mp3', 'thunder-02.mp3', 'thunder-03.mp3', 'thunder-04.mp3', 'thunder-05.mp3'];
+        this._scheduleNextThunder();
+        
         // ─── Cloud Shadow System ───
         // Persistent cloud shadow blobs that drift across the ground
         this.cloudShadows = [];
@@ -696,6 +705,9 @@ class WeatherSystem {
         // Update fog wisps every frame
         this._updateFogWisps(deltaTime);
         
+        // Update thunder & lightning
+        this._updateThunderLightning(deltaTime);
+        
         // In channel mode, BiomeWeatherSystem drives everything via applyChannels()
         // We only need to update particles (movement physics) — no string transitions or dynamic rolling
         if (this.channelMode) {
@@ -1001,6 +1013,11 @@ class WeatherSystem {
             this.renderFogWisps();  // world-space wisps FIRST (under camera transform)
             this.renderFog();       // screen-space vignette on top
         }
+        
+        // Render lightning flash (screen-space, on top of everything)
+        if (this._lightningFlash > 0.01) {
+            this.renderLightningFlash();
+        }
     }
     
     /**
@@ -1292,6 +1309,110 @@ class WeatherSystem {
                 ctx.restore();
             }
         }
+        
+        ctx.restore();
+    }
+    
+    // ─── Thunder & Lightning System ──────────────────────────────────────────
+    
+    /**
+     * Schedule next thunder event with random interval.
+     * Heavier rain = more frequent thunder.
+     */
+    _scheduleNextThunder() {
+        // Base interval 8-25 seconds, shorter when rain is heavier
+        const rain = this.weatherChannels?.rain || 0;
+        const minInterval = Math.max(4, 8 - rain * 5);   // 4-8s at heavy rain
+        const maxInterval = Math.max(10, 25 - rain * 12); // 10-25s
+        this._thunderInterval = minInterval + Math.random() * (maxInterval - minInterval);
+        this._thunderTimer = this._thunderInterval;
+    }
+    
+    /**
+     * Update thunder & lightning system.
+     * Active when rain >= 0.85 (thunderstorm conditions).
+     */
+    _updateThunderLightning(dt) {
+        const rain = this.weatherChannels?.rain || 0;
+        const isThunderstorm = rain >= 0.85;
+        
+        // Update existing flash animation (always, even if storm ends mid-flash)
+        if (this._lightningActive) {
+            this._lightningPhase += dt;
+            
+            // Multi-pulse flash pattern: bright flash, dim, second flash, fade out
+            // Total duration ~0.6s
+            if (this._lightningPhase < 0.05) {
+                // Initial bright flash
+                this._lightningFlash = 0.7 + this._lightningPhase * 6; // ramp to ~1.0
+            } else if (this._lightningPhase < 0.1) {
+                // Quick dim
+                this._lightningFlash = 1.0 - (this._lightningPhase - 0.05) * 12; // drop to ~0.4
+            } else if (this._lightningPhase < 0.15) {
+                // Second flash (sometimes brighter, sometimes dimmer)
+                this._lightningFlash = 0.4 + (this._lightningPhase - 0.1) * 8; // up to ~0.8
+            } else if (this._lightningPhase < 0.6) {
+                // Gradual fade out
+                const t = (this._lightningPhase - 0.15) / 0.45;
+                this._lightningFlash = 0.8 * (1 - t * t); // quadratic fade
+            } else {
+                // Done
+                this._lightningFlash = 0;
+                this._lightningActive = false;
+            }
+        }
+        
+        if (!isThunderstorm) {
+            // Reset timer when not storming
+            this._thunderTimer = this._thunderInterval;
+            return;
+        }
+        
+        // Countdown to next thunder
+        this._thunderTimer -= dt;
+        if (this._thunderTimer <= 0) {
+            this._triggerLightning();
+            this._scheduleNextThunder();
+        }
+    }
+    
+    /**
+     * Trigger a lightning flash + thunder sound.
+     */
+    _triggerLightning() {
+        // Start flash animation
+        this._lightningActive = true;
+        this._lightningPhase = 0;
+        this._lightningFlash = 0.7;
+        
+        // Play thunder sound with slight delay (light travels faster than sound)
+        // Delay 0.3-1.5s simulates distance
+        const soundDelay = 300 + Math.random() * 1200;
+        const soundFile = this._thunderSounds[Math.floor(Math.random() * this._thunderSounds.length)];
+        const volume = 0.8 + Math.random() * 0.2; // 0.8-1.0 volume — thunder must cut through wind
+        
+        setTimeout(() => {
+            if (this.game.audioManager) {
+                this.game.audioManager.playEffect(soundFile, volume);
+            }
+        }, soundDelay);
+    }
+    
+    /**
+     * Render lightning flash overlay (screen-space white flash).
+     */
+    renderLightningFlash() {
+        const ctx = this.ctx;
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+        
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        
+        // White flash with current intensity
+        const alpha = this._lightningFlash * 0.6; // cap max opacity
+        ctx.fillStyle = `rgba(220, 225, 255, ${alpha})`;
+        ctx.fillRect(0, 0, width, height);
         
         ctx.restore();
     }

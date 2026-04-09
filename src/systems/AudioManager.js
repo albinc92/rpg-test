@@ -653,7 +653,7 @@ class AudioManager {
             console.log(`[AudioManager] 🌧️ Playing Weather Sound with crossfade: ${filename} (${crossfadeDuration}ms)`);
             
             // Create new audio element
-            const newWeather = this.createAudioElement(`assets/audio/effect/${filename}`, 'Weather');
+            const newWeather = this.createAudioElement(`assets/audio/effect/weather/${filename}`, 'Weather');
             if (!newWeather) {
                 console.error(`[AudioManager] ❌ Failed to create weather audio element for: ${filename}`);
                 return;
@@ -846,7 +846,7 @@ class AudioManager {
             console.log(`[AudioManager] 💨 Playing Wind Sound with crossfade: ${filename} (${crossfadeDuration}ms)`);
             
             // Create new audio element
-            const newWind = this.createAudioElement(`assets/audio/effect/${filename}`, 'Wind');
+            const newWind = this.createAudioElement(`assets/audio/effect/weather/${filename}`, 'Wind');
             if (!newWind) {
                 console.error(`[AudioManager] ❌ Failed to create wind audio element for: ${filename}`);
                 return;
@@ -1024,6 +1024,39 @@ class AudioManager {
         this.resumeWindSound();
     }
 
+    // Map known effect filenames to their subfolder for organized asset loading
+    static EFFECT_SUBFOLDERS = {
+        // UI sounds
+        'click.mp3': 'ui', 'cancel.mp3': 'ui', 'coin.mp3': 'ui',
+        'menu-navigation.mp3': 'ui', 'ready.mp3': 'ui', 'transition.mp3': 'ui',
+        // Combat sounds
+        'strike01.mp3': 'combat', 'spell.mp3': 'combat',
+        // Player sounds
+        'footstep-0.mp3': 'player', 'spawn.mp3': 'player',
+        // Dialogue sounds
+        'speech-bubble.mp3': 'dialogue', 'speech-yes.mp3': 'dialogue',
+        // Weather sounds (thunder played via playEffect)
+        'thunder-01.mp3': 'weather', 'thunder-02.mp3': 'weather',
+        'thunder-03.mp3': 'weather', 'thunder-04.mp3': 'weather',
+        'thunder-05.mp3': 'weather',
+    };
+
+    /**
+     * Resolve the full asset path for an effect filename.
+     * Looks up the subfolder from EFFECT_SUBFOLDERS map, falls back to root effect/ dir.
+     */
+    _resolveEffectPath(filename) {
+        const subfolder = AudioManager.EFFECT_SUBFOLDERS[filename];
+        if (subfolder) {
+            return `assets/audio/effect/${subfolder}/${filename}`;
+        }
+        // If filename already contains a slash (caller specified subfolder), use as-is
+        if (filename.includes('/')) {
+            return `assets/audio/effect/${filename}`;
+        }
+        return `assets/audio/effect/${filename}`;
+    }
+
     playEffect(filename, volume = 1.0) {
         const playAction = () => {
             const safeFilename = this.ensureMp3Extension(filename);
@@ -1033,7 +1066,7 @@ class AudioManager {
             }
 
             const effectId = `${safeFilename}_${Date.now()}_${Math.random()}`;
-            const audio = this.createAudioElement(`assets/audio/effect/${safeFilename}`, 'Effect');
+            const audio = this.createAudioElement(this._resolveEffectPath(safeFilename), 'Effect');
             
             if (!audio) {
                 console.error(`[AudioManager] ❌ Failed to create effect audio element for: ${safeFilename}`);
@@ -1250,6 +1283,6 @@ window.audioDebug = {
     hideStartScreen: () => window.AudioManager.hideStartScreen(),
     cleanup: () => window.AudioManager.cleanup(),
     testBGM: (filename = '00.mp3') => window.AudioManager.playBGM(filename),
-    testEffect: (filename = 'coin.mp3') => window.AudioManager.playEffect(filename),
+    testEffect: (filename = 'ui/coin.mp3') => window.AudioManager.playEffect(filename),
     testAmbience: (filename = 'forest-0.mp3') => window.AudioManager.playAmbience(filename)
 };
