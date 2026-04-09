@@ -65,9 +65,13 @@ class InputManager {
             buttons: {},     // Current frame button state
             prevButtons: {}, // Previous frame button state
             axes: [],        // Current frame axes
+            prevAxes: [],    // Previous frame axes
             connected: false,
             index: -1
         };
+
+        // Track which input device was used most recently ('keyboard' or 'gamepad')
+        this.lastInputDevice = 'keyboard';
 
         // Standard Gamepad Mapping (Xbox/PlayStation standard layout)
         this.gamepadMapping = {
@@ -143,6 +147,7 @@ class InputManager {
             
             if (!isTyping) {
                 this.keys[e.code] = true;
+                this.lastInputDevice = 'keyboard';
                 
                 // Prevent default behavior for game keys
                 if (this.isGameKey(e.code)) {
@@ -196,8 +201,9 @@ class InputManager {
             const gamepad = gamepads[this.gamepadState.index];
             
             if (gamepad) {
-                // Store previous buttons
+                // Store previous buttons and axes
                 this.gamepadState.prevButtons = { ...this.gamepadState.buttons };
+                this.gamepadState.prevAxes = [...this.gamepadState.axes];
                 
                 // Update current buttons
                 gamepad.buttons.forEach((button, index) => {
@@ -206,6 +212,13 @@ class InputManager {
                 
                 // Update axes
                 this.gamepadState.axes = [...gamepad.axes];
+
+                // Detect if gamepad is being actively used this frame
+                const anyButton = gamepad.buttons.some(b => b.pressed);
+                const anyAxis = gamepad.axes.some(a => Math.abs(a) > 0.3);
+                if (anyButton || anyAxis) {
+                    this.lastInputDevice = 'gamepad';
+                }
             }
         }
     }
@@ -220,12 +233,23 @@ class InputManager {
             return true;
         }
         
-        // Check Gamepad
+        // Check Gamepad buttons
         if (this.gamepadState.connected) {
             for (const [btnIndex, actions] of Object.entries(this.gamepadMapping)) {
                 if (actions.includes(action) && this.gamepadState.buttons[btnIndex]) {
                     return true;
                 }
+            }
+
+            // Check Gamepad joystick axes for directional actions
+            if (this.gamepadState.axes.length >= 2) {
+                const deadzone = 0.3;
+                const axisX = this.gamepadState.axes[0];
+                const axisY = this.gamepadState.axes[1];
+                if ((action === 'up' || action === 'moveUp') && axisY < -deadzone) return true;
+                if ((action === 'down' || action === 'moveDown') && axisY > deadzone) return true;
+                if ((action === 'left' || action === 'moveLeft') && axisX < -deadzone) return true;
+                if ((action === 'right' || action === 'moveRight') && axisX > deadzone) return true;
             }
         }
 
@@ -251,7 +275,7 @@ class InputManager {
             return true;
         }
 
-        // Check Gamepad
+        // Check Gamepad buttons
         if (this.gamepadState.connected) {
             for (const [btnIndex, actions] of Object.entries(this.gamepadMapping)) {
                 if (actions.includes(action) && 
@@ -259,6 +283,19 @@ class InputManager {
                     !this.gamepadState.prevButtons[btnIndex]) {
                     return true;
                 }
+            }
+
+            // Check Gamepad joystick axes for directional just-pressed
+            if (this.gamepadState.axes.length >= 2) {
+                const deadzone = 0.5;
+                const axisX = this.gamepadState.axes[0];
+                const axisY = this.gamepadState.axes[1];
+                const prevAxisX = this.gamepadState.prevAxes[0] || 0;
+                const prevAxisY = this.gamepadState.prevAxes[1] || 0;
+                if ((action === 'up' || action === 'moveUp') && axisY < -deadzone && prevAxisY >= -deadzone) return true;
+                if ((action === 'down' || action === 'moveDown') && axisY > deadzone && prevAxisY <= deadzone) return true;
+                if ((action === 'left' || action === 'moveLeft') && axisX < -deadzone && prevAxisX >= -deadzone) return true;
+                if ((action === 'right' || action === 'moveRight') && axisX > deadzone && prevAxisX <= deadzone) return true;
             }
         }
         
@@ -397,6 +434,13 @@ class InputManager {
         return { x, y, magnitude, isAnalog };
     }
     
+    /**
+     * Check if the gamepad is the most recently used input device
+     */
+    isUsingGamepad() {
+        return this.lastInputDevice === 'gamepad' && this.gamepadState.connected;
+    }
+
     /**
      * Check if mouse button is pressed
      */

@@ -622,11 +622,17 @@ class MainMenuState extends GameState {
 
         // Social links (bottom-right of main menu)
         this.socialLinks = [
-            { label: 'Discord', icon: '💬', url: 'https://discord.gg/placeholder' },
+            { label: 'Discord', icon: null, url: 'https://discord.gg/placeholder' },
             { label: 'Website', icon: '🌐', url: 'https://example.com' }
         ];
         this.socialLinkBounds = [];  // click targets
         this.hoveredLink = -1;
+
+        // Load Discord icon image
+        this._discordIcon = new Image();
+        this._discordIcon.src = 'assets/icon/discord.svg';
+        this._discordIconLoaded = false;
+        this._discordIcon.onload = () => { this._discordIconLoaded = true; };
 
         // Bind canvas event handlers for social links
         this._onCanvasClick = this._handleCanvasClick.bind(this);
@@ -1041,19 +1047,46 @@ class MainMenuState extends GameState {
         // Draw from bottom to top so first link is lowest
         for (let i = this.socialLinks.length - 1; i >= 0; i--) {
             const link = this.socialLinks[i];
-            const text = `${link.icon}  ${link.label}`;
-            ctx.font = linkFont;
-            const textW = ctx.measureText(text).width;
-            const x = W - pad - textW;
-
             const isHovered = this.hoveredLink === i;
+            const iconSize = linkH * 0.9;
+            const iconGap = iconSize * 0.35;
+            const useDiscordIcon = link.label === 'Discord' && this._discordIconLoaded;
+
+            // Measure label text
+            ctx.font = linkFont;
+            const labelW = ctx.measureText(link.label).width;
+
+            // Total width: icon + gap + label
+            const iconPartW = useDiscordIcon ? iconSize + iconGap : 0;
+            const emojiPartW = !useDiscordIcon && link.icon ? ctx.measureText(link.icon + '  ').width : 0;
+            const totalW = iconPartW + emojiPartW + labelW;
+            const x = W - pad - totalW;
 
             ctx.save();
             ctx.globalAlpha = isHovered ? 1.0 : 0.5;
+
+            let drawX = x;
+
+            // Draw Discord icon image or emoji fallback
+            if (useDiscordIcon) {
+                const iconY = y + (linkH - iconSize) / 2;
+                ctx.drawImage(this._discordIcon, drawX, iconY, iconSize, iconSize);
+                drawX += iconSize + iconGap;
+            } else if (link.icon) {
+                ctx.font = linkFont;
+                ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(link.icon + '  ', drawX, y + linkH / 2);
+                drawX += emojiPartW;
+            }
+
+            // Draw label text
             ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
+            ctx.font = linkFont;
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
-            ctx.fillText(text, x, y + linkH / 2);
+            ctx.fillText(link.label, drawX, y + linkH / 2);
 
             // Underline on hover
             if (isHovered) {
@@ -1061,12 +1094,12 @@ class MainMenuState extends GameState {
                 ctx.lineWidth = 1;
                 ctx.beginPath();
                 ctx.moveTo(x, y + linkH / 2 + 8);
-                ctx.lineTo(x + textW, y + linkH / 2 + 8);
+                ctx.lineTo(x + totalW, y + linkH / 2 + 8);
                 ctx.stroke();
             }
             ctx.restore();
 
-            this.socialLinkBounds[i] = { x, y, w: textW, h: linkH };
+            this.socialLinkBounds[i] = { x, y, w: totalW, h: linkH };
             y -= linkH + gap;
         }
     }
@@ -1550,10 +1583,13 @@ class PausedState extends GameState {
             );
         }
         
-        // Draw instructions (localized)
-        const instructions = this.game.inputManager.isMobile 
+        // Draw instructions (localized, adapts to input device)
+        const im = this.game.inputManager;
+        const instructions = im.isMobile 
             ? this.game.t('instructions.tapToSelect')
-            : this.game.t('instructions.pauseMenu');
+            : im.isUsingGamepad()
+                ? this.game.t('instructions.pauseMenuController')
+                : this.game.t('instructions.pauseMenu');
         menuRenderer.drawInstruction(ctx, instructions, canvasWidth, canvasHeight, 0.9);
     }
 }
@@ -1996,16 +2032,21 @@ class SaveLoadState extends GameState {
             );
         }
         
-        // Instructions at bottom
+        // Instructions at bottom (adapts to input device)
+        const im = this.game.inputManager;
         let instructions = '';
         if (this.mode === 'save_list') {
-            instructions = this.game.inputManager.isMobile 
+            instructions = im.isMobile 
                 ? this.game.t('instructions.saveMenuMobile')
-                : this.game.t('instructions.saveMenu');
+                : im.isUsingGamepad()
+                    ? this.game.t('instructions.saveMenuController')
+                    : this.game.t('instructions.saveMenu');
         } else {
-            instructions = this.game.inputManager.isMobile 
+            instructions = im.isMobile 
                 ? this.game.t('instructions.loadMenuMobile')
-                : this.game.t('instructions.loadMenu');
+                : im.isUsingGamepad()
+                    ? this.game.t('instructions.loadMenuController')
+                    : this.game.t('instructions.loadMenu');
         }
         menuRenderer.drawInstruction(ctx, instructions, canvasWidth, canvasHeight, 0.93);
     }
@@ -3269,13 +3310,18 @@ class SettingsState extends GameState {
         
         ctx.shadowBlur = 0;
         
-        // Draw instructions using calculated position (localized)
-        let instructions = this.game.inputManager.isMobile 
+        // Draw instructions using calculated position (adapts to input device)
+        const im = this.game.inputManager;
+        let instructions = im.isMobile 
             ? this.game.t('instructions.settingsMobile')
-            : this.game.t('instructions.settingsMenu');
+            : im.isUsingGamepad()
+                ? this.game.t('instructions.settingsMenuController')
+                : this.game.t('instructions.settingsMenu');
             
         if (this.rebindingAction) {
-            instructions = this.game.t('instructions.rebinding');
+            instructions = im.isUsingGamepad()
+                ? this.game.t('instructions.rebindingController')
+                : this.game.t('instructions.rebinding');
         }
         
         menuRenderer.drawInstruction(ctx, instructions, canvasWidth, canvasHeight, instructionsCenterY);
@@ -3511,10 +3557,13 @@ class InventoryState extends GameState {
             ctx.restore();
         }
 
-        // Controls hint
-        const hintText = this.game.inputManager?.isMobile
+        // Controls hint (adapts to input device)
+        const im = this.game.inputManager;
+        const hintText = im?.isMobile
             ? 'A: Select | B: Close'
-            : 'Enter: Select | ESC: Close';
+            : im?.isUsingGamepad()
+                ? this.game.t('instructions.inventoryMenuController')
+                : this.game.t('instructions.inventoryMenu');
         menuRenderer.drawHint(ctx, hintText, canvasWidth, canvasHeight);
     }
 }
@@ -4066,10 +4115,13 @@ class WorldMapState extends GameState {
             ctx.restore();
         }
 
-        // Controls hint
-        const hintText = this.game.inputManager?.isMobile
+        // Controls hint (adapts to input device)
+        const im = this.game.inputManager;
+        const hintText = im?.isMobile
             ? 'D-Pad: Pan | A: Center | B: Close'
-            : 'Arrows: Pan | +/-: Zoom | Enter: Center | ESC: Close';
+            : im?.isUsingGamepad()
+                ? this.game.t('instructions.worldMapController')
+                : this.game.t('instructions.worldMap');
         menuRenderer.drawHint(ctx, hintText, W, H);
     }
 
@@ -4626,10 +4678,13 @@ class DialogueState extends GameState {
             }
         }
         
-        // Controls hint at bottom of screen
-        const hintText = this.game.inputManager?.isMobile 
+        // Controls hint at bottom of screen (adapts to input device)
+        const im = this.game.inputManager;
+        const hintText = im?.isMobile 
             ? this.game.t('instructions.dialogueMobile') 
-            : this.game.t('instructions.dialogueMenu');
+            : im?.isUsingGamepad()
+                ? this.game.t('instructions.dialogueMenuController')
+                : this.game.t('instructions.dialogueMenu');
         ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
         ctx.font = ds ? ds.font('sm', 'normal', 'body') : `14px ${bodyFont}`;
         ctx.textAlign = 'center';
@@ -5037,8 +5092,14 @@ class ShopState extends GameState {
             this.renderQuantitySelector(ctx, canvasWidth, canvasHeight, menuRenderer, ds);
         }
         
-        // Draw hints
-        menuRenderer.drawHint(ctx, this.game.t('shop.hints'), canvasWidth, canvasHeight);
+        // Draw hints (adapts to input device)
+        const im = this.game.inputManager;
+        const shopHint = im?.isMobile
+            ? this.game.t('shop.hints')
+            : im?.isUsingGamepad()
+                ? this.game.t('instructions.shopMenuController')
+                : this.game.t('instructions.shopMenu');
+        menuRenderer.drawHint(ctx, shopHint, canvasWidth, canvasHeight);
     }
     
     renderTabs(ctx, canvasWidth, canvasHeight, menuRenderer, ds) {
@@ -5386,11 +5447,15 @@ class ShopState extends GameState {
         ctx.textBaseline = 'bottom';
         ctx.fillText(`${this.game.t('shop.total')}: ${total} 💰`, centerX, boxY + boxHeight - padding - 35);
         
-        // Instructions - at very bottom
+        // Instructions - at very bottom (adapts to input device)
+        const im = this.game.inputManager;
         ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
         ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
         ctx.textBaseline = 'bottom';
-        ctx.fillText(this.game.t('shop.quantityHints'), centerX, boxY + boxHeight - padding);
+        const qtyHint = im?.isUsingGamepad()
+            ? this.game.t('instructions.shopQuantityController')
+            : this.game.t('instructions.shopQuantity');
+        ctx.fillText(qtyHint, centerX, boxY + boxHeight - padding);
     }
     
     wrapText(ctx, text, x, y, maxWidth, lineHeight) {
@@ -7340,10 +7405,13 @@ class BattleState extends GameState {
         const panel = this._drawBattlePanel(ctx, width, height, 'Abilities', rows, itemH);
         const { menuX, menuW, pad, contentY } = panel;
 
-        // Back hint (bottom-right of title area)
-        const backHint = this.game.inputManager?.isMobile 
+        // Back hint (bottom-right of title area, adapts to input device)
+        const im = this.game.inputManager;
+        const backHint = im?.isMobile 
             ? this.game.t('instructions.battleBackMobile') 
-            : this.game.t('instructions.battleBack');
+            : im?.isUsingGamepad()
+                ? this.game.t('instructions.battleBackController')
+                : this.game.t('instructions.battleBack');
         ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
         ctx.font = ds ? ds.font('sm', 'normal', 'body') : "14px 'Lato', sans-serif";
         ctx.textAlign = 'right';
@@ -7423,10 +7491,13 @@ class BattleState extends GameState {
         const panel = this._drawBattlePanel(ctx, width, height, 'Switch To', rows, itemH);
         const { menuX, menuW, pad, contentY } = panel;
 
-        // Back hint
-        const switchBackHint = this.game.inputManager?.isMobile 
+        // Back hint (adapts to input device)
+        const im = this.game.inputManager;
+        const switchBackHint = im?.isMobile 
             ? this.game.t('instructions.battleBackMobile') 
-            : this.game.t('instructions.battleBack');
+            : im?.isUsingGamepad()
+                ? this.game.t('instructions.battleBackController')
+                : this.game.t('instructions.battleBack');
         ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
         ctx.font = ds ? ds.font('sm', 'normal', 'body') : "14px 'Lato', sans-serif";
         ctx.textAlign = 'right';
@@ -7710,9 +7781,12 @@ class BattleState extends GameState {
         
         // Continue prompt
         if (this.resultsTimer > 1.0) {
-            const continueHint = this.game.inputManager?.isMobile 
+            const im = this.game.inputManager;
+            const continueHint = im?.isMobile 
                 ? this.game.t('instructions.battleContinueMobile') 
-                : this.game.t('instructions.battleContinue');
+                : im?.isUsingGamepad()
+                    ? this.game.t('instructions.battleContinueController')
+                    : this.game.t('instructions.battleContinue');
             ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
             ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px Lato, sans-serif';
             ctx.textAlign = 'center';
@@ -8042,6 +8116,12 @@ class CreditsState extends GameState {
         this.studioLogoLoaded = false;
         this.studioLogo.onload = () => { this.studioLogoLoaded = true; };
 
+        // Discord icon for Community section
+        this._discordIcon = new Image();
+        this._discordIcon.src = 'assets/icon/discord.svg';
+        this._discordIconLoaded = false;
+        this._discordIcon.onload = () => { this._discordIconLoaded = true; };
+
         // Load credits data once
         this._loadCredits();
     }
@@ -8212,7 +8292,20 @@ class CreditsState extends GameState {
                 ctx.fillStyle = style.nameColor;
                 ctx.font = style.nameFont;
                 for (const name of names) {
-                    ctx.fillText(name, W / 2, y);
+                    // Draw Discord icon inline if this line mentions Discord
+                    if (this._discordIconLoaded && /discord/i.test(name)) {
+                        const iconH = parseInt(style.nameFont) * 1.1 || 20;
+                        const iconW = iconH * (127.14 / 96.36); // aspect ratio of Discord icon
+                        const textW = ctx.measureText(name).width;
+                        const totalW = iconW + 8 + textW;
+                        const startX = W / 2 - totalW / 2;
+                        ctx.drawImage(this._discordIcon, startX, y - iconH / 2, iconW, iconH);
+                        ctx.textAlign = 'left';
+                        ctx.fillText(name, startX + iconW + 8, y);
+                        ctx.textAlign = 'center';
+                    } else {
+                        ctx.fillText(name, W / 2, y);
+                    }
                     y += style.gapAfterName + H * 0.02;
                 }
             }
@@ -8260,9 +8353,12 @@ class CreditsState extends GameState {
         ctx.fillRect(0, H - fadeH, W, fadeH);
 
         // ── Back hint ──
-        const creditsHint = this.game.inputManager?.isMobile 
+        const im = this.game.inputManager;
+        const creditsHint = im?.isMobile 
             ? this.game.t('instructions.creditsMobile') 
-            : this.game.t('instructions.creditsBack');
+            : im?.isUsingGamepad()
+                ? this.game.t('instructions.creditsBackController')
+                : this.game.t('instructions.creditsBack');
         ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
         ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
         ctx.textAlign = 'center';

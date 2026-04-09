@@ -223,28 +223,46 @@
     "audioStart": "Audio will start with your first interaction",
     "controllerConnected": "Controller connected",
     "controllerDisconnected": "Controller disconnected",
-    "pressEscToClose": "Press ESC to close"
+    "pressEscToClose": "Press ESC to close",
+    "pressEscToCloseController": "Press B to close"
   },
   
   "instructions": {
     "tapToSelect": "Tap to Select",
     "pauseMenu": "Arrow Keys: Navigate • Enter: Select • ESC: Resume",
+    "pauseMenuController": "D-Pad: Navigate • A: Select • B: Resume",
     "settingsMenu": "Arrow Keys: Navigate • Left/Right: Adjust • Enter: Select • ESC: Back",
+    "settingsMenuController": "D-Pad: Navigate • Left/Right: Adjust • A: Select • B: Back",
     "settingsMobile": "Joystick: Navigate • A: Select • B: Back",
     "rebinding": "Press any key to rebind... (ESC to cancel)",
+    "rebindingController": "Press any button to rebind... (B to cancel)",
     "saveLoadMenu": "Arrow Keys: Navigate • Enter: Select • DEL: Delete • ESC: Back",
     "saveMenu": "Enter: Save • ESC: Back",
+    "saveMenuController": "A: Save • B: Back",
     "saveMenuMobile": "Tap to Select • Back to Cancel",
     "loadMenu": "Enter: Load • DEL: Delete • ESC: Back",
+    "loadMenuController": "A: Load • X: Delete • B: Back",
     "loadMenuMobile": "Tap to Load • Long Press to Delete",
     "dialogueMenu": "Enter: Continue • ESC: Close",
+    "dialogueMenuController": "A: Continue • B: Close",
     "dialogueMobile": "Tap to Continue",
     "battleBack": "[ESC] Back",
+    "battleBackController": "[B] Back",
     "battleBackMobile": "[B] Back",
     "battleContinue": "Press CONFIRM to continue",
+    "battleContinueController": "Press A to continue",
     "battleContinueMobile": "Tap to continue",
     "creditsBack": "Press ESC to return",
-    "creditsMobile": "Tap to return"
+    "creditsBackController": "Press B to return",
+    "creditsMobile": "Tap to return",
+    "inventoryMenu": "Enter: Select | ESC: Close",
+    "inventoryMenuController": "A: Select | B: Close",
+    "worldMap": "Arrows: Pan | +/-: Zoom | Enter: Center | ESC: Close",
+    "worldMapController": "Stick/D-Pad: Pan | LB/RB: Zoom | A: Center | B: Close",
+    "shopMenu": "← → Switch Tab  |  ↑ ↓ Navigate  |  ENTER Select  |  ESC Close",
+    "shopMenuController": "LB/RB Switch Tab  |  D-Pad Navigate  |  A Select  |  B Close",
+    "shopQuantity": "ENTER to confirm  |  ESC to cancel",
+    "shopQuantityController": "A to confirm  |  B to cancel"
   },
   
   "errors": {
