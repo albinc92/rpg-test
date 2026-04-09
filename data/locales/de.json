@@ -274,6 +274,34 @@
     "instructions": "\u2190 \u2192 Gruppe/Box | \u2191 \u2193 Navigieren | LB/RB Box wechseln | Enter: Auswählen | ESC: Zurück",
     "instructionsController": "\u2190 \u2192 Gruppe/Box | \u2191 \u2193 Navigieren | LB/RB Box wechseln | A: Auswählen | B: Zurück"
   },
+
+  "pack": {
+    "title": "Rucksack",
+    "tabs": {
+      "all": "Alle",
+      "consumable": "Verbrauch",
+      "weapon": "Waffe",
+      "armor": "Rüstung",
+      "material": "Material",
+      "key": "Schlüssel"
+    },
+    "empty": "Keine Gegenstände",
+    "actions": {
+      "use": "Benutzen",
+      "drop": "Ablegen",
+      "sort": "Sortieren"
+    },
+    "count": "Gegenstände",
+    "value": "Wert",
+    "confirmDrop": "Gegenstand ablegen?",
+    "itemUsed": "{item} benutzt!",
+    "itemDropped": "{item} abgelegt.",
+    "sorted": "Gegenstände sortiert.",
+    "cannotUse": "Kann nicht benutzt werden.",
+    "noDescription": "Keine Beschreibung.",
+    "instructions": "\u2190 \u2192 Tab | \u2191 \u2193 Navigieren | Enter: Aktion | S: Sortieren | ESC: Zurück",
+    "instructionsController": "LB/RB Tab | \u2191 \u2193 Navigieren | A: Aktion | Y: Sortieren | B: Zurück"
+  },
   
   "loading": {
     "loading": "Laden...",

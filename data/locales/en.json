@@ -344,6 +344,34 @@
     "instructions": "\u2190 \u2192 Party/Box | \u2191 \u2193 Navigate | LB/RB Switch Box | Enter: Select | ESC: Back",
     "instructionsController": "\u2190 \u2192 Party/Box | \u2191 \u2193 Navigate | LB/RB Switch Box | A: Select | B: Back"
   },
+
+  "pack": {
+    "title": "Pack",
+    "tabs": {
+      "all": "All",
+      "consumable": "Consumable",
+      "weapon": "Weapon",
+      "armor": "Armor",
+      "material": "Material",
+      "key": "Key Item"
+    },
+    "empty": "No items",
+    "actions": {
+      "use": "Use",
+      "drop": "Drop",
+      "sort": "Sort"
+    },
+    "count": "Items",
+    "value": "Value",
+    "confirmDrop": "Drop this item?",
+    "itemUsed": "Used {item}!",
+    "itemDropped": "Dropped {item}.",
+    "sorted": "Items sorted.",
+    "cannotUse": "Cannot use this item.",
+    "noDescription": "No description.",
+    "instructions": "\u2190 \u2192 Tab | \u2191 \u2193 Navigate | Enter: Action | S: Sort | ESC: Back",
+    "instructionsController": "LB/RB Tab | \u2191 \u2193 Navigate | A: Action | Y: Sort | B: Back"
+  },
   
   "loading": {
     "loading": "Loading...",

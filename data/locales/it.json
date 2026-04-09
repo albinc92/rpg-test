@@ -272,6 +272,34 @@
     "instructions": "\u2190 \u2192 Squadra/Box | \u2191 \u2193 Naviga | LB/RB Cambia Box | Invio: Seleziona | ESC: Indietro",
     "instructionsController": "\u2190 \u2192 Squadra/Box | \u2191 \u2193 Naviga | LB/RB Cambia Box | A: Seleziona | B: Indietro"
   },
+
+  "pack": {
+    "title": "Zaino",
+    "tabs": {
+      "all": "Tutto",
+      "consumable": "Consumabile",
+      "weapon": "Arma",
+      "armor": "Armatura",
+      "material": "Materiale",
+      "key": "Chiave"
+    },
+    "empty": "Nessun oggetto",
+    "actions": {
+      "use": "Usa",
+      "drop": "Getta",
+      "sort": "Ordina"
+    },
+    "count": "Oggetti",
+    "value": "Valore",
+    "confirmDrop": "Gettare questo oggetto?",
+    "itemUsed": "{item} usato!",
+    "itemDropped": "{item} gettato.",
+    "sorted": "Oggetti ordinati.",
+    "cannotUse": "Non puoi usare questo oggetto.",
+    "noDescription": "Nessuna descrizione.",
+    "instructions": "\u2190 \u2192 Scheda | \u2191 \u2193 Naviga | Invio: Azione | S: Ordina | ESC: Indietro",
+    "instructionsController": "LB/RB Scheda | \u2191 \u2193 Naviga | A: Azione | Y: Ordina | B: Indietro"
+  },
   
   "loading": {
     "loading": "Caricamento...",

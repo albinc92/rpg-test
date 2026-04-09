@@ -282,6 +282,34 @@
     "instructions": "\u2190 \u2192 Equipo/Caja | \u2191 \u2193 Navegar | LB/RB Cambiar Caja | Enter: Seleccionar | ESC: Volver",
     "instructionsController": "\u2190 \u2192 Equipo/Caja | \u2191 \u2193 Navegar | LB/RB Cambiar Caja | A: Seleccionar | B: Volver"
   },
+
+  "pack": {
+    "title": "Mochila",
+    "tabs": {
+      "all": "Todo",
+      "consumable": "Consumible",
+      "weapon": "Arma",
+      "armor": "Armadura",
+      "material": "Material",
+      "key": "Clave"
+    },
+    "empty": "Sin objetos",
+    "actions": {
+      "use": "Usar",
+      "drop": "Soltar",
+      "sort": "Ordenar"
+    },
+    "count": "Objetos",
+    "value": "Valor",
+    "confirmDrop": "¿Soltar este objeto?",
+    "itemUsed": "¡{item} usado!",
+    "itemDropped": "{item} soltado.",
+    "sorted": "Objetos ordenados.",
+    "cannotUse": "No se puede usar este objeto.",
+    "noDescription": "Sin descripción.",
+    "instructions": "\u2190 \u2192 Pestaña | \u2191 \u2193 Navegar | Enter: Acción | S: Ordenar | ESC: Volver",
+    "instructionsController": "LB/RB Pestaña | \u2191 \u2193 Navegar | A: Acción | Y: Ordenar | B: Volver"
+  },
   
   "loading": {
     "loading": "Cargando...",

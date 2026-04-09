@@ -22,6 +22,7 @@ class GameStateManager {
             'SAVE_LOAD': new SaveLoadState(this),
             'INVENTORY': new InventoryState(this),
             'GOURD': new GourdState(this),
+            'PACK': new PackState(this),
             'WORLD_MAP': new WorldMapState(this),
             'DIALOGUE': new DialogueState(this),
             'SHOP': new ShopState(this),
@@ -3512,8 +3513,7 @@ class InventoryState extends GameState {
                 this.stateManager.pushState('WORLD_MAP');
                 break;
             case 1: // Pack
-                this.placeholderMessage = 'Pack — Coming Soon';
-                this.placeholderTimer = 2.0;
+                this.stateManager.pushState('PACK');
                 break;
             case 2: // Gourd
                 this.stateManager.pushState('GOURD');
@@ -4287,6 +4287,720 @@ class GourdState extends GameState {
         }
 
         ctx.restore();
+    }
+}
+
+/**
+ * Pack State - Player inventory browsing & item management
+ * Category tabs, item list with icons, detail panel, use/drop actions
+ */
+class PackState extends GameState {
+    enter() {
+        // Tab state: 0=All, 1=Consumable, 2=Weapon, 3=Armor, 4=Material, 5=Key
+        this.selectedTab = 0;
+        this.tabTypes = [null, 'consumable', 'weapon', 'armor', 'material', 'key'];
+        this.tabKeys = ['all', 'consumable', 'weapon', 'armor', 'material', 'key'];
+
+        // List state
+        this.selectedOption = 0;
+        this.scrollOffset = 0;
+        this.maxVisibleItems = 6;
+        this.inputCooldown = 0.2;
+
+        // Action menu overlay
+        this.showActionMenu = false;
+        this.selectedAction = 0;
+        this.actionOptions = []; // built per-item
+
+        // Drop confirmation overlay
+        this.showDropConfirm = false;
+
+        // Toast message
+        this.toastMessage = null;
+        this.toastTimer = 0;
+
+        // Icon cache (same pattern as ShopState)
+        this.iconCache = {};
+
+        // Build filtered list
+        this.buildItemList();
+
+        this.game.audioManager?.playEffect('menu-open.mp3');
+    }
+
+    /* ---- data helpers ---- */
+
+    buildItemList() {
+        const allItems = this.game.inventoryManager?.getAllSlots() || [];
+        const filterType = this.tabTypes[this.selectedTab];
+
+        const filtered = filterType
+            ? allItems.filter(item => item.type === filterType)
+            : allItems;
+
+        // Attach original indices so use/drop target the right slot
+        this.items = filtered.map(item => {
+            const originalIndex = allItems.indexOf(item);
+            return { ...item, _slotIndex: originalIndex };
+        });
+    }
+
+    getPlayerGold() {
+        return this.game.player?.gold || 0;
+    }
+
+    /* ---- lifecycle ---- */
+
+    exit() {
+        this.game.audioManager?.playEffect('menu-close.mp3');
+    }
+
+    update(deltaTime) {
+        if (this.inputCooldown > 0) this.inputCooldown -= deltaTime;
+        if (this.toastTimer > 0) {
+            this.toastTimer -= deltaTime;
+            if (this.toastTimer <= 0) this.toastMessage = null;
+        }
+    }
+
+    /* ---- input ---- */
+
+    handleInput(inputManager) {
+        if (this.inputCooldown > 0) return;
+
+        // Drop confirm takes priority
+        if (this.showDropConfirm) {
+            this.handleDropConfirmInput(inputManager);
+            return;
+        }
+
+        // Action menu takes next priority
+        if (this.showActionMenu) {
+            this.handleActionMenuInput(inputManager);
+            return;
+        }
+
+        // Close pack
+        if (inputManager.isJustPressed('cancel') || inputManager.isJustPressed('menu')) {
+            this.game.audioManager?.playEffect('cancel.mp3');
+            this.stateManager.popState();
+            return;
+        }
+
+        // Sort (X / Delete / Backspace)
+        if (inputManager.isJustPressed('delete')) {
+            this.sortItems();
+            return;
+        }
+
+        // Tab switching — left/right (keyboard arrows/WASD) + LB/RB (gamepad)
+        if (inputManager.isJustPressed('left') || inputManager.isJustPressed('zoomOut')) {
+            this.selectedTab = (this.selectedTab - 1 + this.tabTypes.length) % this.tabTypes.length;
+            this.selectedOption = 0;
+            this.scrollOffset = 0;
+            this.buildItemList();
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.inputCooldown = 0.1;
+            return;
+        }
+        if (inputManager.isJustPressed('right') || inputManager.isJustPressed('zoomIn')) {
+            this.selectedTab = (this.selectedTab + 1) % this.tabTypes.length;
+            this.selectedOption = 0;
+            this.scrollOffset = 0;
+            this.buildItemList();
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.inputCooldown = 0.1;
+            return;
+        }
+
+        if (this.items.length === 0) return;
+
+        // Up/Down navigation
+        if (inputManager.isJustPressed('up')) {
+            this.selectedOption = Math.max(0, this.selectedOption - 1);
+            this.updateScrollOffset();
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.inputCooldown = 0.08;
+        }
+        if (inputManager.isJustPressed('down')) {
+            this.selectedOption = Math.min(this.items.length - 1, this.selectedOption + 1);
+            this.updateScrollOffset();
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.inputCooldown = 0.08;
+        }
+
+        // Confirm — open action menu
+        if (inputManager.isJustPressed('confirm')) {
+            this.openActionMenu();
+        }
+    }
+
+    openActionMenu() {
+        const item = this.items[this.selectedOption];
+        if (!item) return;
+
+        this.actionOptions = [];
+        if (item.type === 'consumable') {
+            this.actionOptions.push({ key: 'use', label: this.game.t('pack.actions.use') });
+        }
+        this.actionOptions.push({ key: 'drop', label: this.game.t('pack.actions.drop') });
+
+        this.selectedAction = 0;
+        this.showActionMenu = true;
+        this.game.audioManager?.playEffect('menu-select.mp3');
+    }
+
+    handleActionMenuInput(inputManager) {
+        if (inputManager.isJustPressed('cancel')) {
+            this.showActionMenu = false;
+            this.game.audioManager?.playEffect('cancel.mp3');
+            this.inputCooldown = 0.1;
+            return;
+        }
+        if (inputManager.isJustPressed('up')) {
+            this.selectedAction = Math.max(0, this.selectedAction - 1);
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.inputCooldown = 0.08;
+        }
+        if (inputManager.isJustPressed('down')) {
+            this.selectedAction = Math.min(this.actionOptions.length - 1, this.selectedAction + 1);
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.inputCooldown = 0.08;
+        }
+        if (inputManager.isJustPressed('confirm')) {
+            const action = this.actionOptions[this.selectedAction];
+            if (action.key === 'use') {
+                this.useSelectedItem();
+            } else if (action.key === 'drop') {
+                this.showDropConfirm = true;
+                this.showActionMenu = false;
+                this.game.audioManager?.playEffect('click.mp3');
+                this.inputCooldown = 0.15;
+            }
+        }
+    }
+
+    handleDropConfirmInput(inputManager) {
+        if (inputManager.isJustPressed('cancel')) {
+            this.showDropConfirm = false;
+            this.game.audioManager?.playEffect('cancel.mp3');
+            this.inputCooldown = 0.1;
+            return;
+        }
+        if (inputManager.isJustPressed('confirm')) {
+            this.dropSelectedItem();
+        }
+    }
+
+    /* ---- actions ---- */
+
+    useSelectedItem() {
+        const item = this.items[this.selectedOption];
+        if (!item) return;
+
+        const target = this.game.player;
+        const success = this.game.inventoryManager.useItem(item._slotIndex, target);
+
+        if (success) {
+            const msg = this.game.t('pack.itemUsed').replace('{item}', item.name);
+            this.showToast(msg);
+            this.game.audioManager?.playEffect('menu-select.mp3');
+        } else {
+            this.showToast(this.game.t('pack.cannotUse'));
+            this.game.audioManager?.playEffect('error.mp3');
+        }
+
+        this.showActionMenu = false;
+        this.refreshAfterChange();
+    }
+
+    dropSelectedItem() {
+        const item = this.items[this.selectedOption];
+        if (!item) return;
+
+        this.game.inventoryManager.removeItem(item.id, 1);
+        const msg = this.game.t('pack.itemDropped').replace('{item}', item.name);
+        this.showToast(msg);
+        this.game.audioManager?.playEffect('cancel.mp3');
+
+        this.showDropConfirm = false;
+        this.refreshAfterChange();
+    }
+
+    sortItems() {
+        this.game.inventoryManager.sort();
+        this.buildItemList();
+        this.selectedOption = 0;
+        this.scrollOffset = 0;
+        this.showToast(this.game.t('pack.sorted'));
+        this.game.audioManager?.playEffect('menu-select.mp3');
+        this.inputCooldown = 0.15;
+    }
+
+    refreshAfterChange() {
+        this.buildItemList();
+        if (this.selectedOption >= this.items.length) {
+            this.selectedOption = Math.max(0, this.items.length - 1);
+        }
+        this.updateScrollOffset();
+        this.inputCooldown = 0.15;
+    }
+
+    showToast(msg) {
+        this.toastMessage = msg;
+        this.toastTimer = 2.0;
+    }
+
+    updateScrollOffset() {
+        if (this.items.length > this.maxVisibleItems) {
+            if (this.selectedOption < this.scrollOffset) {
+                this.scrollOffset = this.selectedOption;
+            } else if (this.selectedOption >= this.scrollOffset + this.maxVisibleItems) {
+                this.scrollOffset = this.selectedOption - this.maxVisibleItems + 1;
+            }
+        }
+    }
+
+    /* ---- rendering ---- */
+
+    render(ctx) {
+        const canvasWidth = this.game.CANVAS_WIDTH;
+        const canvasHeight = this.game.CANVAS_HEIGHT;
+        const menuRenderer = this.stateManager.menuRenderer;
+        const ds = window.ds;
+
+        if (ds) ds.setDimensions(canvasWidth, canvasHeight);
+
+        // Render game world behind
+        if (this.stateManager.isStateInStack('PLAYING')) {
+            this.game.renderGameplay(ctx);
+        }
+
+        // Overlay
+        menuRenderer.drawOverlay(ctx, canvasWidth, canvasHeight, 0.85);
+
+        // Title
+        menuRenderer.drawTitle(ctx, this.game.t('pack.title'), canvasWidth, canvasHeight, 0.08);
+
+        // Gold display (top-right)
+        const playerGold = this.getPlayerGold();
+        ctx.fillStyle = ds ? ds.colors.warning : '#ffd700';
+        ctx.font = ds ? ds.font('md', 'bold', 'body') : 'bold 22px "Lato", sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(`💰 ${playerGold}`, canvasWidth - (ds ? ds.spacing(8) : 30), canvasHeight * 0.08);
+
+        // Item count (top-right below gold)
+        const allSlots = this.game.inventoryManager?.getAllSlots() || [];
+        const maxSlots = this.game.inventoryManager?.getMaxSlots() || 30;
+        ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px "Lato", sans-serif';
+        ctx.fillText(`${this.game.t('pack.count')}: ${allSlots.length}/${maxSlots}`, canvasWidth - (ds ? ds.spacing(8) : 30), canvasHeight * 0.08 + 28);
+
+        // Tabs
+        this.renderTabs(ctx, canvasWidth, canvasHeight, menuRenderer, ds);
+
+        // Item list (left panel)
+        this.renderItemList(ctx, canvasWidth, canvasHeight, menuRenderer, ds);
+
+        // Item details (right panel)
+        this.renderItemDetails(ctx, canvasWidth, canvasHeight, menuRenderer, ds);
+
+        // Action menu overlay
+        if (this.showActionMenu) {
+            this.renderActionMenu(ctx, canvasWidth, canvasHeight, menuRenderer, ds);
+        }
+
+        // Drop confirm overlay
+        if (this.showDropConfirm) {
+            this.renderDropConfirm(ctx, canvasWidth, canvasHeight, menuRenderer, ds);
+        }
+
+        // Toast message
+        if (this.toastMessage) {
+            this.renderToast(ctx, canvasWidth, canvasHeight, ds);
+        }
+
+        // Hints
+        const im = this.game.inputManager;
+        const hint = im?.isUsingGamepad()
+            ? this.game.t('pack.instructionsController')
+            : this.game.t('pack.instructions');
+        menuRenderer.drawHint(ctx, hint, canvasWidth, canvasHeight);
+    }
+
+    /* ---- sub-renderers ---- */
+
+    renderTabs(ctx, canvasWidth, canvasHeight, menuRenderer, ds) {
+        const tabY = canvasHeight * 0.14;
+        const tabCount = this.tabKeys.length;
+        const gap = ds ? ds.spacing(1) : 4;
+        const totalWidth = canvasWidth * 0.7;
+        const tabWidth = (totalWidth - gap * (tabCount - 1)) / tabCount;
+        const tabHeight = ds ? ds.height(5) : 35;
+        const startX = (canvasWidth - totalWidth) / 2;
+
+        this.tabKeys.forEach((key, index) => {
+            const tabX = startX + index * (tabWidth + gap);
+            const isSelected = this.selectedTab === index;
+
+            if (isSelected) {
+                if (ds) {
+                    ds.drawSelectionHighlight(ctx, tabX, tabY, tabWidth, tabHeight);
+                } else {
+                    ctx.fillStyle = 'rgba(74, 158, 255, 0.2)';
+                    ctx.fillRect(tabX, tabY, tabWidth, tabHeight);
+                }
+                ctx.strokeStyle = ds ? ds.colors.primary : '#4a9eff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(tabX, tabY, tabWidth, tabHeight);
+            } else {
+                ctx.fillStyle = ds ? ds.colors.alpha(ds.colors.background.panel, 0.6) : 'rgba(30, 30, 40, 0.6)';
+                ctx.fillRect(tabX, tabY, tabWidth, tabHeight);
+                ctx.strokeStyle = ds ? ds.colors.alpha(ds.colors.text.muted, 0.3) : 'rgba(136, 136, 136, 0.3)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(tabX, tabY, tabWidth, tabHeight);
+            }
+
+            ctx.fillStyle = isSelected
+                ? (ds ? ds.colors.text.primary : '#fff')
+                : (ds ? ds.colors.text.muted : '#888');
+            ctx.font = isSelected
+                ? (ds ? ds.font('sm', 'bold', 'body') : 'bold 14px "Lato", sans-serif')
+                : (ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif');
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(this.game.t(`pack.tabs.${key}`), tabX + tabWidth / 2, tabY + tabHeight / 2);
+        });
+    }
+
+    renderItemList(ctx, canvasWidth, canvasHeight, menuRenderer, ds) {
+        const listX = canvasWidth * 0.05;
+        const listY = canvasHeight * 0.22;
+        const listWidth = canvasWidth * 0.5;
+        const listHeight = canvasHeight * 0.63;
+
+        menuRenderer.drawPanel(ctx, listX, listY, listWidth, listHeight, 0.7);
+
+        if (this.items.length === 0) {
+            ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
+            ctx.font = ds ? ds.font('md', 'normal', 'body') : '20px "Lato", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(this.game.t('pack.empty'), listX + listWidth / 2, listY + listHeight / 2);
+            return;
+        }
+
+        const itemPadding = ds ? ds.spacing(4) : 15;
+        const itemHeight = (listHeight - itemPadding * 2) / this.maxVisibleItems;
+        const visibleItems = this.items.slice(this.scrollOffset, this.scrollOffset + this.maxVisibleItems);
+        const iconSize = Math.min(32, itemHeight - 12);
+
+        visibleItems.forEach((item, index) => {
+            const actualIndex = this.scrollOffset + index;
+            const isSelected = actualIndex === this.selectedOption;
+            const y = listY + itemPadding + index * itemHeight;
+            const rowHeight = itemHeight - 8;
+
+            // Selection highlight
+            if (isSelected) {
+                if (ds) {
+                    ds.drawSelectionHighlight(ctx, listX + itemPadding, y, listWidth - itemPadding * 2, rowHeight);
+                } else {
+                    const gradient = ctx.createLinearGradient(listX, y, listX + listWidth, y);
+                    gradient.addColorStop(0, 'rgba(74, 158, 255, 0)');
+                    gradient.addColorStop(0.1, 'rgba(74, 158, 255, 0.2)');
+                    gradient.addColorStop(0.9, 'rgba(74, 158, 255, 0.2)');
+                    gradient.addColorStop(1, 'rgba(74, 158, 255, 0)');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(listX + itemPadding, y, listWidth - itemPadding * 2, rowHeight);
+                }
+            }
+
+            // Item icon
+            let iconOffset = 0;
+            if (item.icon) {
+                if (!this.iconCache[item.icon]) {
+                    const img = new Image();
+                    img.src = item.icon;
+                    this.iconCache[item.icon] = img;
+                }
+                const iconImg = this.iconCache[item.icon];
+                if (iconImg && iconImg.complete && iconImg.naturalWidth > 0) {
+                    const iconX = listX + itemPadding + 8;
+                    const iconY2 = y + (rowHeight - iconSize) / 2;
+                    ctx.drawImage(iconImg, iconX, iconY2, iconSize, iconSize);
+                    iconOffset = iconSize + 10;
+                }
+            }
+
+            // Item name
+            ctx.fillStyle = isSelected
+                ? (ds ? ds.colors.text.primary : '#fff')
+                : (ds ? ds.colors.text.secondary : '#ccc');
+            ctx.font = isSelected
+                ? (ds ? ds.font('md', 'bold', 'body') : 'bold 18px "Lato", sans-serif')
+                : (ds ? ds.font('sm', 'normal', 'body') : '16px "Lato", sans-serif');
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(item.name, listX + itemPadding + 15 + iconOffset, y + rowHeight / 2);
+
+            // Quantity (right side)
+            const scrollbarMargin = this.items.length > this.maxVisibleItems ? 30 : 0;
+            if (item.quantity > 1) {
+                ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
+                ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(`x${item.quantity}`, listX + listWidth - itemPadding - 15 - scrollbarMargin, y + rowHeight / 2);
+            }
+        });
+
+        // Scrollbar
+        if (this.items.length > this.maxVisibleItems) {
+            const scrollbarX = listX + listWidth - itemPadding - 10;
+            const scrollbarY = listY + itemPadding;
+            const scrollbarHeight = listHeight - itemPadding * 2;
+            menuRenderer.drawScrollbar(ctx, scrollbarX, scrollbarY, scrollbarHeight, {
+                offset: this.scrollOffset,
+                maxVisible: this.maxVisibleItems,
+                total: this.items.length
+            });
+        }
+    }
+
+    renderItemDetails(ctx, canvasWidth, canvasHeight, menuRenderer, ds) {
+        if (this.items.length === 0) return;
+        const item = this.items[this.selectedOption];
+        if (!item) return;
+
+        const detailsX = canvasWidth * 0.57;
+        const detailsY = canvasHeight * 0.22;
+        const detailsWidth = canvasWidth * 0.38;
+        const detailsHeight = canvasHeight * 0.63;
+
+        menuRenderer.drawPanel(ctx, detailsX, detailsY, detailsWidth, detailsHeight, 0.7);
+
+        const padding = ds ? ds.spacing(8) : 35;
+        const centerX = detailsX + detailsWidth / 2;
+
+        // Item icon
+        const iconSize = ds ? ds.spacing(20) : 80;
+        const iconY = detailsY + padding;
+        let hasIcon = false;
+
+        if (item.icon) {
+            if (!this.iconCache[item.icon]) {
+                const img = new Image();
+                img.src = item.icon;
+                this.iconCache[item.icon] = img;
+            }
+            const iconImg = this.iconCache[item.icon];
+            if (iconImg && iconImg.complete && iconImg.naturalWidth > 0) {
+                ctx.drawImage(iconImg, centerX - iconSize / 2, iconY, iconSize, iconSize);
+                hasIcon = true;
+            }
+        }
+
+        // Name (with word-wrap, matching ShopState)
+        const nameAreaTop = hasIcon ? iconY + iconSize + 35 : detailsY + padding;
+        const maxNameWidth = detailsWidth - padding * 2;
+        const fontSize = ds ? 43 : 28;
+
+        ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
+        ctx.textAlign = 'center';
+        ctx.font = ds ? ds.font('xl', 'bold', 'display') : `bold ${fontSize}px "Cinzel", serif`;
+        if (ds) ds.applyShadow(ctx, 'glow');
+
+        const nameWidth = ctx.measureText(item.name).width;
+        let nameAreaHeight;
+
+        if (nameWidth > maxNameWidth) {
+            const words = item.name.split(' ');
+            let lines = [];
+            let currentLine = '';
+            for (const word of words) {
+                const testLine = currentLine ? currentLine + ' ' + word : word;
+                if (ctx.measureText(testLine).width > maxNameWidth && currentLine) {
+                    lines.push(currentLine);
+                    currentLine = word;
+                } else {
+                    currentLine = testLine;
+                }
+            }
+            if (currentLine) lines.push(currentLine);
+
+            const lineHeight = fontSize * 1.6;
+            nameAreaHeight = lines.length * lineHeight;
+            const nameStartY = nameAreaTop + lineHeight / 2;
+            ctx.textBaseline = 'middle';
+            lines.forEach((line, i) => {
+                ctx.fillText(line, centerX, nameStartY + i * lineHeight);
+            });
+        } else {
+            nameAreaHeight = fontSize * 1.2;
+            ctx.textBaseline = 'middle';
+            ctx.fillText(item.name, centerX, nameAreaTop + nameAreaHeight / 2);
+        }
+
+        if (ds) ds.clearShadow(ctx);
+
+        // Rarity + type badge
+        const rarityY = nameAreaTop + nameAreaHeight + 45;
+        ctx.fillStyle = ds ? ds.colors.getRarityColor(item.rarity) : '#9d9d9d';
+        ctx.font = ds ? ds.font('md', 'normal', 'body') : 'italic 18px "Lato", sans-serif';
+        ctx.textBaseline = 'middle';
+        const rarityText = (item.rarity || 'common').charAt(0).toUpperCase() + (item.rarity || 'common').slice(1);
+        const typeText = (item.type || 'item').toLowerCase();
+        ctx.fillText(`${rarityText} ${typeText}`, centerX, rarityY);
+
+        // Separator
+        const lineY = nameAreaTop + nameAreaHeight + 90;
+        const lineWidth = detailsWidth * 0.6;
+        const gradient = ctx.createLinearGradient(centerX - lineWidth / 2, lineY, centerX + lineWidth / 2, lineY);
+        gradient.addColorStop(0, 'transparent');
+        gradient.addColorStop(0.2, ds ? ds.colors.alpha(ds.colors.primary, 0.5) : 'rgba(74, 158, 255, 0.5)');
+        gradient.addColorStop(0.8, ds ? ds.colors.alpha(ds.colors.primary, 0.5) : 'rgba(74, 158, 255, 0.5)');
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(centerX - lineWidth / 2, lineY, lineWidth, 2);
+
+        // Description
+        const descY = lineY + 60;
+        ctx.fillStyle = ds ? ds.colors.text.secondary : '#ccc';
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px "Lato", sans-serif';
+        this.wrapText(ctx, item.description || this.game.t('pack.noDescription'), centerX, descY, detailsWidth - padding * 2, 36);
+
+        // Stats
+        if (item.stats && Object.keys(item.stats).length > 0) {
+            let statsY = descY + 80;
+            ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px "Lato", sans-serif';
+            for (const [stat, value] of Object.entries(item.stats)) {
+                const isNegative = value < 0;
+                ctx.fillStyle = isNegative
+                    ? (ds ? ds.colors.danger : '#ef4444')
+                    : (ds ? ds.colors.success : '#4ade80');
+                const prefix = isNegative ? '' : '+';
+                const statName = stat.charAt(0).toUpperCase() + stat.slice(1);
+                ctx.fillText(`${prefix}${value} ${statName}`, centerX, statsY);
+                statsY += 40;
+            }
+        }
+
+        // Value at bottom
+        const valueY = detailsY + detailsHeight - padding - 60;
+        ctx.textBaseline = 'bottom';
+        ctx.fillStyle = ds ? ds.colors.warning : '#ffd700';
+        ctx.font = ds ? ds.font('lg', 'bold', 'body') : 'bold 24px "Lato", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${this.game.t('pack.value')}: ${item.value || 0} 💰`, centerX, valueY);
+    }
+
+    renderActionMenu(ctx, canvasWidth, canvasHeight, menuRenderer, ds) {
+        const boxWidth = ds ? ds.width(30) : 250;
+        const boxHeight = ds ? ds.height(5) : 35;
+        const totalHeight = boxHeight * this.actionOptions.length + 20;
+        const boxX = (canvasWidth - boxWidth) / 2;
+        const boxY = (canvasHeight - totalHeight) / 2;
+
+        // Overlay
+        ctx.fillStyle = ds ? ds.colors.alpha(ds.colors.background.overlay, 0.5) : 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        // Panel
+        menuRenderer.drawPanel(ctx, boxX, boxY, boxWidth, totalHeight, 0.95);
+
+        this.actionOptions.forEach((opt, i) => {
+            const optY = boxY + 10 + i * boxHeight;
+            const isSelected = i === this.selectedAction;
+
+            if (isSelected) {
+                if (ds) {
+                    ds.drawSelectionHighlight(ctx, boxX + 10, optY, boxWidth - 20, boxHeight - 4);
+                } else {
+                    ctx.fillStyle = 'rgba(74, 158, 255, 0.2)';
+                    ctx.fillRect(boxX + 10, optY, boxWidth - 20, boxHeight - 4);
+                }
+            }
+
+            ctx.fillStyle = isSelected
+                ? (ds ? ds.colors.text.primary : '#fff')
+                : (ds ? ds.colors.text.secondary : '#ccc');
+            ctx.font = isSelected
+                ? (ds ? ds.font('md', 'bold', 'body') : 'bold 18px "Lato", sans-serif')
+                : (ds ? ds.font('md', 'normal', 'body') : '18px "Lato", sans-serif');
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(opt.label, boxX + boxWidth / 2, optY + (boxHeight - 4) / 2);
+        });
+    }
+
+    renderDropConfirm(ctx, canvasWidth, canvasHeight, menuRenderer, ds) {
+        const boxWidth = ds ? ds.width(40) : 350;
+        const boxHeight = ds ? ds.height(20) : 140;
+        const boxX = (canvasWidth - boxWidth) / 2;
+        const boxY = (canvasHeight - boxHeight) / 2;
+
+        // Overlay
+        ctx.fillStyle = ds ? ds.colors.alpha(ds.colors.background.overlay, 0.7) : 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        // Panel
+        menuRenderer.drawPanel(ctx, boxX, boxY, boxWidth, boxHeight, 0.95);
+
+        // Confirm text
+        ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
+        ctx.font = ds ? ds.font('md', 'normal', 'body') : '18px "Lato", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.game.t('pack.confirmDrop'), boxX + boxWidth / 2, boxY + boxHeight * 0.35);
+
+        // Hint
+        const im = this.game.inputManager;
+        ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
+        const confirmHint = im?.isUsingGamepad()
+            ? 'A: OK  |  B: Cancel'
+            : 'Enter: OK  |  ESC: Cancel';
+        ctx.fillText(confirmHint, boxX + boxWidth / 2, boxY + boxHeight * 0.7);
+    }
+
+    renderToast(ctx, canvasWidth, canvasHeight, ds) {
+        const alpha = Math.min(1, this.toastTimer);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = ds ? ds.colors.alpha(ds.colors.background.panel, 0.9) : 'rgba(30, 30, 40, 0.9)';
+        const toastWidth = Math.min(400, canvasWidth * 0.5);
+        const toastHeight = 40;
+        const toastX = (canvasWidth - toastWidth) / 2;
+        const toastY = canvasHeight * 0.88;
+        ctx.fillRect(toastX, toastY, toastWidth, toastHeight);
+        ctx.strokeStyle = ds ? ds.colors.primary : '#4a9eff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(toastX, toastY, toastWidth, toastHeight);
+
+        ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px "Lato", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.toastMessage, canvasWidth / 2, toastY + toastHeight / 2);
+        ctx.restore();
+    }
+
+    wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+        const words = text.split(' ');
+        let line = '';
+        let currentY = y;
+        for (const word of words) {
+            const testLine = line + word + ' ';
+            const metrics = ctx.measureText(testLine);
+            if (metrics.width > maxWidth && line !== '') {
+                ctx.fillText(line.trim(), x, currentY);
+                line = word + ' ';
+                currentY += lineHeight;
+            } else {
+                line = testLine;
+            }
+        }
+        ctx.fillText(line.trim(), x, currentY);
     }
 }
 

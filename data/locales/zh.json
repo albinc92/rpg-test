@@ -274,6 +274,34 @@
     "instructions": "\u2190 \u2192 队伍/箱子 | \u2191 \u2193 移动 | LB/RB 切换箱子 | Enter: 选择 | ESC: 返回",
     "instructionsController": "\u2190 \u2192 队伍/箱子 | \u2191 \u2193 移动 | LB/RB 切换箱子 | A: 选择 | B: 返回"
   },
+
+  "pack": {
+    "title": "背包",
+    "tabs": {
+      "all": "全部",
+      "consumable": "消耗品",
+      "weapon": "武器",
+      "armor": "护甲",
+      "material": "材料",
+      "key": "钥匙"
+    },
+    "empty": "没有物品",
+    "actions": {
+      "use": "使用",
+      "drop": "丢弃",
+      "sort": "整理"
+    },
+    "count": "物品",
+    "value": "价值",
+    "confirmDrop": "丢弃这个物品？",
+    "itemUsed": "使用了{item}！",
+    "itemDropped": "丢弃了{item}。",
+    "sorted": "物品已整理。",
+    "cannotUse": "无法使用此物品。",
+    "noDescription": "没有描述。",
+    "instructions": "\u2190 \u2192 标签 | \u2191 \u2193 移动 | Enter: 操作 | S: 整理 | ESC: 返回",
+    "instructionsController": "LB/RB 标签 | \u2191 \u2193 移动 | A: 操作 | Y: 整理 | B: 返回"
+  },
   
   "loading": {
     "loading": "加载中...",

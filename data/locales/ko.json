@@ -274,6 +274,34 @@
     "instructions": "\u2190 \u2192 파티/박스 | \u2191 \u2193 이동 | LB/RB 박스 전환 | Enter: 선택 | ESC: 뒤로",
     "instructionsController": "\u2190 \u2192 파티/박스 | \u2191 \u2193 이동 | LB/RB 박스 전환 | A: 선택 | B: 뒤로"
   },
+
+  "pack": {
+    "title": "배낭",
+    "tabs": {
+      "all": "전체",
+      "consumable": "소모품",
+      "weapon": "무기",
+      "armor": "방어구",
+      "material": "재료",
+      "key": "열쇠"
+    },
+    "empty": "아이템 없음",
+    "actions": {
+      "use": "사용",
+      "drop": "버리기",
+      "sort": "정리"
+    },
+    "count": "아이템",
+    "value": "가치",
+    "confirmDrop": "이 아이템을 버리시겠습니까?",
+    "itemUsed": "{item} 사용!",
+    "itemDropped": "{item} 버렸습니다.",
+    "sorted": "아이템 정리 완료.",
+    "cannotUse": "이 아이템은 사용할 수 없습니다.",
+    "noDescription": "설명 없음.",
+    "instructions": "\u2190 \u2192 탭 | \u2191 \u2193 이동 | Enter: 액션 | S: 정리 | ESC: 뒤로",
+    "instructionsController": "LB/RB 탭 | \u2191 \u2193 이동 | A: 액션 | Y: 정리 | B: 뒤로"
+  },
   
   "loading": {
     "loading": "로딩 중...",

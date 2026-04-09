@@ -274,6 +274,34 @@
     "instructions": "\u2190 \u2192 Équipe/Boîte | \u2191 \u2193 Naviguer | LB/RB Changer Boîte | Entrée: Sélectionner | ÉCHAP: Retour",
     "instructionsController": "\u2190 \u2192 Équipe/Boîte | \u2191 \u2193 Naviguer | LB/RB Changer Boîte | A: Sélectionner | B: Retour"
   },
+
+  "pack": {
+    "title": "Sac",
+    "tabs": {
+      "all": "Tout",
+      "consumable": "Consommable",
+      "weapon": "Arme",
+      "armor": "Armure",
+      "material": "Matériau",
+      "key": "Clé"
+    },
+    "empty": "Aucun objet",
+    "actions": {
+      "use": "Utiliser",
+      "drop": "Jeter",
+      "sort": "Trier"
+    },
+    "count": "Objets",
+    "value": "Valeur",
+    "confirmDrop": "Jeter cet objet ?",
+    "itemUsed": "{item} utilisé !",
+    "itemDropped": "{item} jeté.",
+    "sorted": "Objets triés.",
+    "cannotUse": "Impossible d'utiliser cet objet.",
+    "noDescription": "Aucune description.",
+    "instructions": "\u2190 \u2192 Onglet | \u2191 \u2193 Naviguer | Entrée: Action | S: Trier | ÉCHAP: Retour",
+    "instructionsController": "LB/RB Onglet | \u2191 \u2193 Naviguer | A: Action | Y: Trier | B: Retour"
+  },
   
   "loading": {
     "loading": "Chargement...",

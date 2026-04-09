@@ -282,6 +282,34 @@
     "instructions": "\u2190 \u2192 パーティ/ボックス | \u2191 \u2193 移動 | LB/RB ボックス切替 | Enter: 決定 | ESC: 戻る",
     "instructionsController": "\u2190 \u2192 パーティ/ボックス | \u2191 \u2193 移動 | LB/RB ボックス切替 | A: 決定 | B: 戻る"
   },
+
+  "pack": {
+    "title": "バッグ",
+    "tabs": {
+      "all": "全て",
+      "consumable": "消耗品",
+      "weapon": "武器",
+      "armor": "防具",
+      "material": "素材",
+      "key": "キー"
+    },
+    "empty": "アイテムなし",
+    "actions": {
+      "use": "使う",
+      "drop": "捨てる",
+      "sort": "整理"
+    },
+    "count": "アイテム",
+    "value": "価値",
+    "confirmDrop": "このアイテムを捨てますか？",
+    "itemUsed": "{item}を使った！",
+    "itemDropped": "{item}を捨てた。",
+    "sorted": "アイテムを整理した。",
+    "cannotUse": "このアイテムは使えません。",
+    "noDescription": "説明なし。",
+    "instructions": "\u2190 \u2192 タブ | \u2191 \u2193 移動 | Enter: アクション | S: 整理 | ESC: 戻る",
+    "instructionsController": "LB/RB タブ | \u2191 \u2193 移動 | A: アクション | Y: 整理 | B: 戻る"
+  },
   
   "loading": {
     "loading": "読み込み中...",
