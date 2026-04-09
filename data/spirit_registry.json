@@ -1,0 +1,907 @@
+{
+  "meta": {
+    "version": "2.0",
+    "levelCap": 100,
+    "maxAbilitySlots": 4,
+    "statFormula": "floor(baseStat * stageMultiplier * (1 + (level - 1) * 0.03))",
+    "expFormula": "floor(100 * level^1.5)",
+    "stageMultipliers": { "1": 1.0, "2": 1.4, "3": 1.8 },
+    "fusionLevelFormula": "ceil((parentA_level + parentB_level) / 2 / 2)",
+    "fusionImprintRate": 0.10,
+    "fusionImprintCap": 15,
+    "archetypeBlend": {
+      "speciesWeight": 0.6,
+      "parentAWeight": 0.2,
+      "parentBWeight": 0.2
+    }
+  },
+
+  "elements": {
+    "fire":      { "name": "Fire",      "color": "#FF6B35", "icon": "🔥", "tier1": "ember",        "tier2": "flame_wave",    "tier3": "inferno",         "tier4": "eruption" },
+    "water":     { "name": "Water",     "color": "#4A9EFF", "icon": "💧", "tier1": "aqua_splash",   "tier2": "tidal_surge",   "tier3": "deluge",          "tier4": "maelstrom" },
+    "earth":     { "name": "Earth",     "color": "#8B6914", "icon": "🪨", "tier1": "pebble_shot",   "tier2": "quake",         "tier3": "landslide",       "tier4": "tectonic_fury" },
+    "wind":      { "name": "Wind",      "color": "#7CFFB2", "icon": "🌪️", "tier1": "gust",          "tier2": "cyclone",       "tier3": "hurricane",       "tier4": "tempest" },
+    "lightning": { "name": "Lightning", "color": "#FFD700", "icon": "⚡", "tier1": "spark",         "tier2": "thunderbolt",   "tier3": "lightning_strike", "tier4": "thunder_storm" },
+    "ice":       { "name": "Ice",       "color": "#A8E6FF", "icon": "❄️", "tier1": "frost_shard",   "tier2": "blizzard",      "tier3": "ice_lance",       "tier4": "absolute_zero" },
+    "light":     { "name": "Light",     "color": "#FFFACD", "icon": "✨", "tier1": "holy_spark",    "tier2": "radiance",      "tier3": "judgment",        "tier4": "divine_light" },
+    "dark":      { "name": "Dark",      "color": "#8B45A6", "icon": "🌑", "tier1": "shadow_bolt",   "tier2": "dark_pulse",    "tier3": "void_crush",      "tier4": "oblivion" }
+  },
+
+  "typeChart": {
+    "_doc": "Super effective = 2.0, Self-resist = 0.5, Unlisted = 1.0. Each type: 2 strengths, 2 weaknesses.",
+    "fire":      { "ice": 2.0, "earth": 2.0, "fire": 0.5 },
+    "water":     { "fire": 2.0, "lightning": 2.0, "water": 0.5 },
+    "earth":     { "lightning": 2.0, "wind": 2.0, "earth": 0.5 },
+    "wind":      { "ice": 2.0, "light": 2.0, "wind": 0.5 },
+    "lightning": { "wind": 2.0, "dark": 2.0, "lightning": 0.5 },
+    "ice":       { "earth": 2.0, "water": 2.0, "ice": 0.5 },
+    "light":     { "dark": 2.0, "fire": 2.0, "light": 0.5 },
+    "dark":      { "light": 2.0, "water": 2.0, "dark": 0.5 }
+  },
+
+  "archetypes": {
+    "striker": {
+      "name": "Striker",
+      "description": "Reckless physical hitter. High ATK, fragile against magic.",
+      "primary": "attack",
+      "dump": "magicDefense",
+      "primaryMultiplier": 1.35,
+      "dumpMultiplier": 0.70,
+      "learnsetTemplate": [
+        { "level": 1, "ability": "attack" },
+        { "level": 5, "ability": "ELEMENT_T1" },
+        { "level": 10, "ability": "power_strike" },
+        { "level": 16, "ability": "ELEMENT_T2" },
+        { "level": 22, "ability": "heal" },
+        { "level": 28, "ability": "reckless_charge" },
+        { "level": 36, "ability": "ELEMENT_T3" },
+        { "level": 45, "ability": "focus" },
+        { "level": 55, "ability": "ELEMENT_T4" }
+      ]
+    },
+    "mystic": {
+      "name": "Mystic",
+      "description": "Devastating magic wielder. High SPATK, paper-thin armor.",
+      "primary": "magicAttack",
+      "dump": "defense",
+      "primaryMultiplier": 1.35,
+      "dumpMultiplier": 0.70,
+      "learnsetTemplate": [
+        { "level": 1, "ability": "attack" },
+        { "level": 5, "ability": "ELEMENT_T1" },
+        { "level": 10, "ability": "focus" },
+        { "level": 16, "ability": "ELEMENT_T2" },
+        { "level": 22, "ability": "mind_blast" },
+        { "level": 28, "ability": "heal" },
+        { "level": 36, "ability": "ELEMENT_T3" },
+        { "level": 45, "ability": "arcane_burst" },
+        { "level": 55, "ability": "ELEMENT_T4" }
+      ]
+    },
+    "guardian": {
+      "name": "Guardian",
+      "description": "Immovable wall. High DEF, always acts last.",
+      "primary": "defense",
+      "dump": "speed",
+      "primaryMultiplier": 1.35,
+      "dumpMultiplier": 0.70,
+      "learnsetTemplate": [
+        { "level": 1, "ability": "attack" },
+        { "level": 5, "ability": "ELEMENT_T1" },
+        { "level": 10, "ability": "guard" },
+        { "level": 16, "ability": "iron_wall" },
+        { "level": 22, "ability": "ELEMENT_T2" },
+        { "level": 28, "ability": "heal" },
+        { "level": 36, "ability": "ELEMENT_T3" },
+        { "level": 45, "ability": "fortify" },
+        { "level": 55, "ability": "ELEMENT_T4" }
+      ]
+    },
+    "warden": {
+      "name": "Warden",
+      "description": "Magic sponge and team protector. High SPDEF, weak physical offense.",
+      "primary": "magicDefense",
+      "dump": "attack",
+      "primaryMultiplier": 1.35,
+      "dumpMultiplier": 0.70,
+      "learnsetTemplate": [
+        { "level": 1, "ability": "attack" },
+        { "level": 5, "ability": "ELEMENT_T1" },
+        { "level": 10, "ability": "heal" },
+        { "level": 16, "ability": "spirit_shield" },
+        { "level": 22, "ability": "ELEMENT_T2" },
+        { "level": 28, "ability": "purify" },
+        { "level": 36, "ability": "ELEMENT_T3" },
+        { "level": 45, "ability": "guard" },
+        { "level": 55, "ability": "ELEMENT_T4" }
+      ]
+    },
+    "swift": {
+      "name": "Swift",
+      "description": "Always strikes first. Blazing SPD, fragile body.",
+      "primary": "speed",
+      "dump": "hp",
+      "primaryMultiplier": 1.35,
+      "dumpMultiplier": 0.70,
+      "learnsetTemplate": [
+        { "level": 1, "ability": "attack" },
+        { "level": 5, "ability": "ELEMENT_T1" },
+        { "level": 10, "ability": "quick_strike" },
+        { "level": 16, "ability": "ELEMENT_T2" },
+        { "level": 22, "ability": "evasion" },
+        { "level": 28, "ability": "heal" },
+        { "level": 36, "ability": "ELEMENT_T3" },
+        { "level": 45, "ability": "focus" },
+        { "level": 55, "ability": "ELEMENT_T4" }
+      ]
+    },
+    "titan": {
+      "name": "Titan",
+      "description": "Massive HP pool. Endures everything, but no magic offense.",
+      "primary": "hp",
+      "dump": "magicAttack",
+      "primaryMultiplier": 1.35,
+      "dumpMultiplier": 0.70,
+      "learnsetTemplate": [
+        { "level": 1, "ability": "attack" },
+        { "level": 5, "ability": "ELEMENT_T1" },
+        { "level": 10, "ability": "endure" },
+        { "level": 16, "ability": "ELEMENT_T2" },
+        { "level": 22, "ability": "crush" },
+        { "level": 28, "ability": "heal" },
+        { "level": 36, "ability": "ELEMENT_T3" },
+        { "level": 45, "ability": "guard" },
+        { "level": 55, "ability": "ELEMENT_T4" }
+      ]
+    },
+    "channeler": {
+      "name": "Channeler",
+      "description": "Endless spell fuel. Huge MP pool, physically exposed.",
+      "primary": "mp",
+      "dump": "defense",
+      "primaryMultiplier": 1.35,
+      "dumpMultiplier": 0.70,
+      "learnsetTemplate": [
+        { "level": 1, "ability": "attack" },
+        { "level": 5, "ability": "ELEMENT_T1" },
+        { "level": 10, "ability": "meditate" },
+        { "level": 16, "ability": "ELEMENT_T2" },
+        { "level": 22, "ability": "siphon" },
+        { "level": 28, "ability": "heal" },
+        { "level": 36, "ability": "ELEMENT_T3" },
+        { "level": 45, "ability": "focus" },
+        { "level": 55, "ability": "ELEMENT_T4" }
+      ]
+    }
+  },
+
+  "abilities": [
+    { "id": "attack",           "name": "Attack",           "type": "physical",    "element": null,        "power": 40,  "mpCost": 0,  "target": "single_enemy",  "description": "A basic physical strike" },
+    { "id": "tackle",           "name": "Tackle",           "type": "physical",    "element": null,        "power": 35,  "mpCost": 0,  "target": "single_enemy",  "description": "Charges at the target with full body weight" },
+    { "id": "heal",             "name": "Heal",             "type": "supportive",  "element": null,        "power": 30,  "mpCost": 10, "target": "single_ally",   "description": "Restores a moderate amount of HP" },
+    { "id": "guard",            "name": "Guard",            "type": "supportive",  "element": null,        "power": 0,   "mpCost": 0,  "target": "self",          "description": "Raises guard, halving damage taken this turn", "buff": { "stat": "defense", "amount": 50, "duration": 1, "isPercent": true } },
+    { "id": "focus",            "name": "Focus",            "type": "supportive",  "element": null,        "power": 0,   "mpCost": 5,  "target": "self",          "description": "Concentrates energy, boosting magic power", "buff": { "stat": "magicAttack", "amount": 30, "duration": 2, "isPercent": true } },
+
+    { "id": "ember",            "name": "Ember",            "type": "magical",     "element": "fire",      "power": 40,  "mpCost": 5,  "target": "single_enemy",  "description": "Hurls a small fireball at the target" },
+    { "id": "flame_wave",       "name": "Flame Wave",       "type": "magical",     "element": "fire",      "power": 65,  "mpCost": 12, "target": "single_enemy",  "description": "Sends a wave of searing flames" },
+    { "id": "inferno",          "name": "Inferno",          "type": "magical",     "element": "fire",      "power": 85,  "mpCost": 20, "target": "single_enemy",  "description": "Engulfs the target in a raging inferno", "statusChance": 0.20, "statusEffect": "burn" },
+    { "id": "eruption",         "name": "Eruption",         "type": "magical",     "element": "fire",      "power": 110, "mpCost": 30, "target": "all_enemies",   "description": "Volcanic fury erupts beneath all foes", "recoilPercent": 0.20 },
+
+    { "id": "aqua_splash",      "name": "Aqua Splash",      "type": "magical",     "element": "water",     "power": 40,  "mpCost": 5,  "target": "single_enemy",  "description": "Fires a jet of pressurized water" },
+    { "id": "tidal_surge",      "name": "Tidal Surge",      "type": "magical",     "element": "water",     "power": 65,  "mpCost": 12, "target": "single_enemy",  "description": "A forceful surge of oceanic energy" },
+    { "id": "deluge",           "name": "Deluge",           "type": "magical",     "element": "water",     "power": 85,  "mpCost": 20, "target": "single_enemy",  "description": "Drowns the target in a torrent of water", "debuff": { "stat": "speed", "amount": -20, "duration": 2, "isPercent": true } },
+    { "id": "maelstrom",        "name": "Maelstrom",        "type": "magical",     "element": "water",     "power": 110, "mpCost": 30, "target": "all_enemies",   "description": "A devastating whirlpool engulfs all foes" },
+
+    { "id": "pebble_shot",      "name": "Pebble Shot",      "type": "physical",    "element": "earth",     "power": 40,  "mpCost": 5,  "target": "single_enemy",  "description": "Launches a volley of sharp stones" },
+    { "id": "quake",            "name": "Quake",            "type": "magical",     "element": "earth",     "power": 65,  "mpCost": 12, "target": "single_enemy",  "description": "The ground shakes violently beneath the target" },
+    { "id": "landslide",        "name": "Landslide",        "type": "magical",     "element": "earth",     "power": 85,  "mpCost": 20, "target": "single_enemy",  "description": "A cascade of boulders buries the target", "debuff": { "stat": "defense", "amount": -20, "duration": 2, "isPercent": true } },
+    { "id": "tectonic_fury",    "name": "Tectonic Fury",    "type": "magical",     "element": "earth",     "power": 110, "mpCost": 30, "target": "all_enemies",   "description": "The earth splits apart in cataclysmic upheaval" },
+
+    { "id": "gust",             "name": "Gust",             "type": "magical",     "element": "wind",      "power": 40,  "mpCost": 5,  "target": "single_enemy",  "description": "A sharp blade of wind slashes the target" },
+    { "id": "cyclone",          "name": "Cyclone",          "type": "magical",     "element": "wind",      "power": 65,  "mpCost": 12, "target": "single_enemy",  "description": "A swirling vortex batters the target" },
+    { "id": "hurricane",        "name": "Hurricane",        "type": "magical",     "element": "wind",      "power": 85,  "mpCost": 20, "target": "single_enemy",  "description": "Devastating winds tear at the target", "statusChance": 0.20, "statusEffect": "confuse" },
+    { "id": "tempest",          "name": "Tempest",          "type": "magical",     "element": "wind",      "power": 110, "mpCost": 30, "target": "all_enemies",   "description": "An apocalyptic storm annihilates everything" },
+
+    { "id": "spark",            "name": "Spark",            "type": "magical",     "element": "lightning",  "power": 40,  "mpCost": 5,  "target": "single_enemy",  "description": "Zaps the target with a jolt of electricity" },
+    { "id": "thunderbolt",      "name": "Thunderbolt",      "type": "magical",     "element": "lightning",  "power": 65,  "mpCost": 12, "target": "single_enemy",  "description": "A powerful bolt of lightning strikes the target" },
+    { "id": "lightning_strike",  "name": "Lightning Strike",  "type": "magical",     "element": "lightning",  "power": 85,  "mpCost": 20, "target": "single_enemy",  "description": "A devastating arc of electricity", "statusChance": 0.25, "statusEffect": "paralyze" },
+    { "id": "thunder_storm",    "name": "Thunder Storm",    "type": "magical",     "element": "lightning",  "power": 110, "mpCost": 30, "target": "all_enemies",   "description": "The sky unleashes cataclysmic lightning" },
+
+    { "id": "frost_shard",      "name": "Frost Shard",      "type": "magical",     "element": "ice",       "power": 40,  "mpCost": 5,  "target": "single_enemy",  "description": "Launches a razor-sharp shard of ice" },
+    { "id": "blizzard",         "name": "Blizzard",         "type": "magical",     "element": "ice",       "power": 65,  "mpCost": 12, "target": "single_enemy",  "description": "A freezing storm batters the target" },
+    { "id": "ice_lance",        "name": "Ice Lance",        "type": "magical",     "element": "ice",       "power": 85,  "mpCost": 20, "target": "single_enemy",  "description": "A massive spear of ice impales the target", "statusChance": 0.20, "statusEffect": "freeze" },
+    { "id": "absolute_zero",    "name": "Absolute Zero",    "type": "magical",     "element": "ice",       "power": 110, "mpCost": 30, "target": "all_enemies",   "description": "All heat is ripped from the battlefield" },
+
+    { "id": "holy_spark",       "name": "Holy Spark",       "type": "magical",     "element": "light",     "power": 40,  "mpCost": 5,  "target": "single_enemy",  "description": "A burst of purifying light" },
+    { "id": "radiance",         "name": "Radiance",         "type": "magical",     "element": "light",     "power": 65,  "mpCost": 12, "target": "single_enemy",  "description": "Brilliant rays of light sear the target" },
+    { "id": "judgment",         "name": "Judgment",         "type": "magical",     "element": "light",     "power": 85,  "mpCost": 20, "target": "single_enemy",  "description": "A beam of divine judgment strikes down", "statusChance": 0.20, "statusEffect": "blind" },
+    { "id": "divine_light",     "name": "Divine Light",     "type": "magical",     "element": "light",     "power": 110, "mpCost": 30, "target": "all_enemies",   "description": "The sun itself scorches all who oppose" },
+
+    { "id": "shadow_bolt",      "name": "Shadow Bolt",      "type": "magical",     "element": "dark",      "power": 40,  "mpCost": 5,  "target": "single_enemy",  "description": "A missile of condensed darkness" },
+    { "id": "dark_pulse",       "name": "Dark Pulse",       "type": "magical",     "element": "dark",      "power": 65,  "mpCost": 12, "target": "single_enemy",  "description": "A wave of malicious dark energy" },
+    { "id": "void_crush",       "name": "Void Crush",       "type": "magical",     "element": "dark",      "power": 85,  "mpCost": 20, "target": "single_enemy",  "description": "The void constricts around the target", "statusChance": 0.20, "statusEffect": "curse" },
+    { "id": "oblivion",         "name": "Oblivion",         "type": "magical",     "element": "dark",      "power": 110, "mpCost": 30, "target": "all_enemies",   "description": "Reality unravels, consuming all in darkness" },
+
+    { "id": "power_strike",     "name": "Power Strike",     "type": "physical",    "element": null,        "power": 70,  "mpCost": 8,  "target": "single_enemy",  "description": "A devastating physical blow with high crit chance", "critBonus": 0.15 },
+    { "id": "reckless_charge",  "name": "Reckless Charge",  "type": "physical",    "element": null,        "power": 95,  "mpCost": 15, "target": "single_enemy",  "description": "An all-out charge that damages the user too", "recoilPercent": 0.25 },
+    { "id": "mind_blast",       "name": "Mind Blast",       "type": "magical",     "element": null,        "power": 70,  "mpCost": 10, "target": "single_enemy",  "description": "A psychic shockwave that may confuse", "statusChance": 0.25, "statusEffect": "confuse" },
+    { "id": "arcane_burst",     "name": "Arcane Burst",     "type": "magical",     "element": null,        "power": 95,  "mpCost": 18, "target": "single_enemy",  "description": "Pure arcane energy that shreds magic resistance", "ignoreDefensePercent": 0.30 },
+    { "id": "iron_wall",        "name": "Iron Wall",        "type": "supportive",  "element": null,        "power": 0,   "mpCost": 8,  "target": "self",          "description": "Hardens body to steel, massively raising DEF", "buff": { "stat": "defense", "amount": 50, "duration": 3, "isPercent": true } },
+    { "id": "fortify",          "name": "Fortify",          "type": "supportive",  "element": null,        "power": 0,   "mpCost": 12, "target": "self",          "description": "Fortifies both physical and magical defenses", "buff": { "stat": "defense+magicDefense", "amount": 30, "duration": 3, "isPercent": true } },
+    { "id": "spirit_shield",    "name": "Spirit Shield",    "type": "supportive",  "element": null,        "power": 0,   "mpCost": 8,  "target": "single_ally",   "description": "Projects a magical barrier on an ally", "buff": { "stat": "magicDefense", "amount": 50, "duration": 3, "isPercent": true } },
+    { "id": "purify",           "name": "Purify",           "type": "supportive",  "element": null,        "power": 20,  "mpCost": 10, "target": "single_ally",   "description": "Cleanses debuffs and restores some HP", "cleanse": true },
+    { "id": "quick_strike",     "name": "Quick Strike",     "type": "physical",    "element": null,        "power": 50,  "mpCost": 5,  "target": "single_enemy",  "description": "A lightning-fast strike that always goes first", "priority": true },
+    { "id": "evasion",          "name": "Evasion",          "type": "supportive",  "element": null,        "power": 0,   "mpCost": 8,  "target": "self",          "description": "Heightens reflexes, greatly boosting dodge chance", "buff": { "stat": "evasion", "amount": 30, "duration": 2, "isPercent": true } },
+    { "id": "endure",           "name": "Endure",           "type": "supportive",  "element": null,        "power": 0,   "mpCost": 5,  "target": "self",          "description": "Braces for impact — survives the next lethal hit with 1 HP", "endure": true },
+    { "id": "crush",            "name": "Crush",            "type": "physical",    "element": null,        "power": 85,  "mpCost": 12, "target": "single_enemy",  "description": "A bone-crushing blow that lowers the target's DEF", "debuff": { "stat": "defense", "amount": -20, "duration": 2, "isPercent": true } },
+    { "id": "meditate",         "name": "Meditate",         "type": "supportive",  "element": null,        "power": 0,   "mpCost": 0,  "target": "self",          "description": "Enters deep focus, restoring 30% of max MP", "restoreMpPercent": 0.30 },
+    { "id": "siphon",           "name": "Siphon",           "type": "magical",     "element": null,        "power": 30,  "mpCost": 0,  "target": "single_enemy",  "description": "Drains the target's magical energy", "drainMp": true }
+  ],
+
+  "species": [
+    {
+      "chainId": "fire_striker",
+      "element": "fire",
+      "archetype": "striker",
+      "baseStats": { "hp": 40, "mp": 28, "attack": 51, "defense": 33, "magicAttack": 33, "magicDefense": 24, "speed": 38 },
+      "stages": [
+        { "stage": 1, "id": "scorchling",  "name": "Scorchling",  "evolveLevel": 16, "description": "A fierce pup with ember-hot fangs that singe anything it bites" },
+        { "stage": 2, "id": "blazefang",   "name": "Blazefang",   "evolveLevel": 36, "description": "Its fangs burn white-hot, capable of melting steel on contact" },
+        { "stage": 3, "id": "pyrowulf",    "name": "Pyrowulf",    "evolveLevel": null, "description": "An apex predator wreathed in living flame, feared across all biomes" }
+      ]
+    },
+    {
+      "chainId": "fire_mystic",
+      "element": "fire",
+      "archetype": "mystic",
+      "baseStats": { "hp": 36, "mp": 38, "attack": 28, "defense": 24, "magicAttack": 49, "magicDefense": 33, "speed": 37 },
+      "stages": [
+        { "stage": 1, "id": "candlemoth",  "name": "Candlemoth",  "evolveLevel": 16, "description": "A small moth with wings that flicker like candle flames" },
+        { "stage": 2, "id": "flamewraith", "name": "Flamewraith", "evolveLevel": 36, "description": "An ethereal being of pure flame that drifts through the night" },
+        { "stage": 3, "id": "pyrosphinx",  "name": "Pyrosphinx",  "evolveLevel": null, "description": "An ancient fire sphinx whose riddles burn as hot as its magic" }
+      ]
+    },
+    {
+      "chainId": "fire_guardian",
+      "element": "fire",
+      "archetype": "guardian",
+      "baseStats": { "hp": 44, "mp": 30, "attack": 38, "defense": 48, "magicAttack": 28, "magicDefense": 33, "speed": 24 },
+      "stages": [
+        { "stage": 1, "id": "cindershell", "name": "Cindershell", "evolveLevel": 16, "description": "A small crustacean with a shell of smoldering volcanic rock" },
+        { "stage": 2, "id": "lavaguard",   "name": "Lavaguard",   "evolveLevel": 36, "description": "Its magma-infused shell absorbs blows and radiates intense heat" },
+        { "stage": 3, "id": "volcatrice",  "name": "Volcatrice",  "evolveLevel": null, "description": "A walking fortress of obsidian and lava, virtually indestructible" }
+      ]
+    },
+    {
+      "chainId": "fire_warden",
+      "element": "fire",
+      "archetype": "warden",
+      "baseStats": { "hp": 39, "mp": 32, "attack": 27, "defense": 34, "magicAttack": 33, "magicDefense": 48, "speed": 34 },
+      "stages": [
+        { "stage": 1, "id": "hearthling",  "name": "Hearthling",  "evolveLevel": 16, "description": "A gentle spirit that tends the warmth of home fires" },
+        { "stage": 2, "id": "ashwarden",   "name": "Ashwarden",   "evolveLevel": 36, "description": "Cloaked in protective ash, it shields allies from magical harm" },
+        { "stage": 3, "id": "solsticent",  "name": "Solsticent",  "evolveLevel": null, "description": "The embodiment of the summer sun's protective warmth" }
+      ]
+    },
+    {
+      "chainId": "fire_swift",
+      "element": "fire",
+      "archetype": "swift",
+      "baseStats": { "hp": 28, "mp": 30, "attack": 38, "defense": 32, "magicAttack": 35, "magicDefense": 33, "speed": 49 },
+      "stages": [
+        { "stage": 1, "id": "flickertail", "name": "Flickertail", "evolveLevel": 16, "description": "A tiny lizard that moves so fast it appears to teleport" },
+        { "stage": 2, "id": "flashfire",   "name": "Flashfire",   "evolveLevel": 36, "description": "Streaks across the battlefield as a blur of living fire" },
+        { "stage": 3, "id": "pyrovalon",   "name": "Pyrovalon",   "evolveLevel": null, "description": "Faster than flame itself — strikes before opponents can blink" }
+      ]
+    },
+    {
+      "chainId": "fire_titan",
+      "element": "fire",
+      "archetype": "titan",
+      "baseStats": { "hp": 53, "mp": 28, "attack": 40, "defense": 36, "magicAttack": 24, "magicDefense": 33, "speed": 33 },
+      "stages": [
+        { "stage": 1, "id": "smolderpaw",  "name": "Smolderpaw",  "evolveLevel": 16, "description": "A bulky bear cub that constantly smolders with inner fire" },
+        { "stage": 2, "id": "charbull",    "name": "Charbull",    "evolveLevel": 36, "description": "An enormous beast of charred hide that shrugs off most attacks" },
+        { "stage": 3, "id": "pyrotaur",    "name": "Pyrotaur",    "evolveLevel": null, "description": "A colossal fire titan whose footsteps leave pools of magma" }
+      ]
+    },
+    {
+      "chainId": "fire_channeler",
+      "element": "fire",
+      "archetype": "channeler",
+      "baseStats": { "hp": 35, "mp": 45, "attack": 33, "defense": 24, "magicAttack": 38, "magicDefense": 33, "speed": 37 },
+      "stages": [
+        { "stage": 1, "id": "sparkwisp",   "name": "Sparkwisp",   "evolveLevel": 16, "description": "A floating ember that feeds on ambient magical energy" },
+        { "stage": 2, "id": "embermage",    "name": "Embermage",   "evolveLevel": 36, "description": "Channels fire through an inexhaustible well of mana" },
+        { "stage": 3, "id": "pyrosage",     "name": "Pyrosage",    "evolveLevel": null, "description": "An ancient sage of flame whose spells never run dry" }
+      ]
+    },
+
+    {
+      "chainId": "water_striker",
+      "element": "water",
+      "archetype": "striker",
+      "baseStats": { "hp": 39, "mp": 32, "attack": 48, "defense": 34, "magicAttack": 37, "magicDefense": 23, "speed": 35 },
+      "stages": [
+        { "stage": 1, "id": "snapfin",     "name": "Snapfin",     "evolveLevel": 16, "description": "An aggressive fish with razor-sharp fins and a nasty bite" },
+        { "stage": 2, "id": "torrentjaw",   "name": "Torrentjaw",  "evolveLevel": 36, "description": "Its hydraulic jaws crush anything caught in their grip" },
+        { "stage": 3, "id": "maelstrix",    "name": "Maelstrix",   "evolveLevel": null, "description": "A fearsome sea predator that creates whirlpools with each strike" }
+      ]
+    },
+    {
+      "chainId": "water_mystic",
+      "element": "water",
+      "archetype": "mystic",
+      "baseStats": { "hp": 38, "mp": 40, "attack": 28, "defense": 25, "magicAttack": 48, "magicDefense": 36, "speed": 33 },
+      "stages": [
+        { "stage": 1, "id": "dewdrift",    "name": "Dewdrift",    "evolveLevel": 16, "description": "A translucent jellyfish that drifts on currents of magic" },
+        { "stage": 2, "id": "mistweaver",  "name": "Mistweaver",  "evolveLevel": 36, "description": "Weaves illusions from mist and moonlight" },
+        { "stage": 3, "id": "abyssoracle", "name": "Abyssoracle", "evolveLevel": null, "description": "Sees all futures reflected in the deep — its magic is absolute" }
+      ]
+    },
+    {
+      "chainId": "water_guardian",
+      "element": "water",
+      "archetype": "guardian",
+      "baseStats": { "hp": 43, "mp": 34, "attack": 35, "defense": 46, "magicAttack": 32, "magicDefense": 36, "speed": 23 },
+      "stages": [
+        { "stage": 1, "id": "shellguard",  "name": "Shellguard",  "evolveLevel": 16, "description": "A clam-like creature with an impossibly hard pearlescent shell" },
+        { "stage": 2, "id": "reefsentry",  "name": "Reefsentry",  "evolveLevel": 36, "description": "Encrusted with living coral, it forms a living barrier" },
+        { "stage": 3, "id": "tideguardian","name": "Tideguardian","evolveLevel": null, "description": "An ancient sentinel of the deep, armored in ocean-forged pearl" }
+      ]
+    },
+    {
+      "chainId": "water_warden",
+      "element": "water",
+      "archetype": "warden",
+      "baseStats": { "hp": 40, "mp": 36, "attack": 24, "defense": 36, "magicAttack": 36, "magicDefense": 46, "speed": 32 },
+      "stages": [
+        { "stage": 1, "id": "streamfoal",  "name": "Streamfoal",  "evolveLevel": 16, "description": "A graceful foal born from crystal-clear mountain streams" },
+        { "stage": 2, "id": "tidestag",    "name": "Tidestag",    "evolveLevel": 36, "description": "Its antlers channel tidal energy to shield allies" },
+        { "stage": 3, "id": "oceanward",   "name": "Oceanward",   "evolveLevel": null, "description": "Guardian of coasts and harbors, its presence calms any storm" }
+      ]
+    },
+    {
+      "chainId": "water_swift",
+      "element": "water",
+      "archetype": "swift",
+      "baseStats": { "hp": 26, "mp": 34, "attack": 35, "defense": 33, "magicAttack": 39, "magicDefense": 36, "speed": 46 },
+      "stages": [
+        { "stage": 1, "id": "splashtail",  "name": "Splashtail",  "evolveLevel": 16, "description": "A tiny eel that darts through water faster than the eye can track" },
+        { "stage": 2, "id": "ripcurrent",  "name": "Ripcurrent",  "evolveLevel": 36, "description": "Moves with the speed of ocean currents, striking from nowhere" },
+        { "stage": 3, "id": "aquavalor",   "name": "Aquavalor",   "evolveLevel": null, "description": "A blur of fins and spray — the fastest spirit in any ocean" }
+      ]
+    },
+    {
+      "chainId": "water_titan",
+      "element": "water",
+      "archetype": "titan",
+      "baseStats": { "hp": 52, "mp": 32, "attack": 37, "defense": 38, "magicAttack": 27, "magicDefense": 36, "speed": 30 },
+      "stages": [
+        { "stage": 1, "id": "gulptoad",    "name": "Gulptoad",    "evolveLevel": 16, "description": "A rotund toad that can swallow prey twice its size" },
+        { "stage": 2, "id": "wavebreaker", "name": "Wavebreaker", "evolveLevel": 36, "description": "Its massive body parts the waves — nothing can move it" },
+        { "stage": 3, "id": "leviathos",   "name": "Leviathos",   "evolveLevel": null, "description": "An ancient leviathan of unfathomable endurance" }
+      ]
+    },
+    {
+      "chainId": "water_channeler",
+      "element": "water",
+      "archetype": "channeler",
+      "baseStats": { "hp": 37, "mp": 46, "attack": 32, "defense": 25, "magicAttack": 39, "magicDefense": 36, "speed": 33 },
+      "stages": [
+        { "stage": 1, "id": "bubblite",    "name": "Bubblite",    "evolveLevel": 16, "description": "A bubble spirit that absorbs mana from the moisture in air" },
+        { "stage": 2, "id": "tidecaster",  "name": "Tidecaster",  "evolveLevel": 36, "description": "Commands the tides with seemingly endless magical reserves" },
+        { "stage": 3, "id": "depthsage",   "name": "Depthsage",   "evolveLevel": null, "description": "A deep-sea sage whose mana well is as boundless as the ocean" }
+      ]
+    },
+
+    {
+      "chainId": "earth_striker",
+      "element": "earth",
+      "archetype": "striker",
+      "baseStats": { "hp": 42, "mp": 28, "attack": 50, "defense": 37, "magicAttack": 32, "magicDefense": 25, "speed": 34 },
+      "stages": [
+        { "stage": 1, "id": "rockfang",    "name": "Rockfang",    "evolveLevel": 16, "description": "A tough canine with fangs of crystallized mineral" },
+        { "stage": 2, "id": "terraslash",  "name": "Terraslash",  "evolveLevel": 36, "description": "Its stone claws cleave through bedrock like butter" },
+        { "stage": 3, "id": "seismowulf",  "name": "Seismowulf",  "evolveLevel": null, "description": "Each pounce registers on seismographs — pure tectonic force" }
+      ]
+    },
+    {
+      "chainId": "earth_mystic",
+      "element": "earth",
+      "archetype": "mystic",
+      "baseStats": { "hp": 40, "mp": 34, "attack": 30, "defense": 27, "magicAttack": 46, "magicDefense": 34, "speed": 34 },
+      "stages": [
+        { "stage": 1, "id": "dustmoth",    "name": "Dustmoth",    "evolveLevel": 16, "description": "A moth with wings of fine dust that shimmer with earth magic" },
+        { "stage": 2, "id": "sandswirl",   "name": "Sandswirl",   "evolveLevel": 36, "description": "A swirling vortex of enchanted sand and ancient power" },
+        { "stage": 3, "id": "terravault",  "name": "Terravault",  "evolveLevel": null, "description": "Contains the compressed power of entire mountain ranges" }
+      ]
+    },
+    {
+      "chainId": "earth_guardian",
+      "element": "earth",
+      "archetype": "guardian",
+      "baseStats": { "hp": 45, "mp": 30, "attack": 37, "defense": 50, "magicAttack": 28, "magicDefense": 34, "speed": 24 },
+      "stages": [
+        { "stage": 1, "id": "claypact",    "name": "Claypact",    "evolveLevel": 16, "description": "A small golem packed from dense, enchanted clay" },
+        { "stage": 2, "id": "bouldershield","name": "Bouldershield","evolveLevel": 36, "description": "Its body is a wall of granite — nothing gets past" },
+        { "stage": 3, "id": "petracoloss", "name": "Petracoloss", "evolveLevel": null, "description": "A colossus of living stone, the ultimate defensive fortress" }
+      ]
+    },
+    {
+      "chainId": "earth_warden",
+      "element": "earth",
+      "archetype": "warden",
+      "baseStats": { "hp": 41, "mp": 32, "attack": 26, "defense": 37, "magicAttack": 33, "magicDefense": 48, "speed": 31 },
+      "stages": [
+        { "stage": 1, "id": "mossfoal",    "name": "Mossfoal",    "evolveLevel": 16, "description": "A gentle fawn covered in soft, healing moss" },
+        { "stage": 2, "id": "stonestag",   "name": "Stonestag",   "evolveLevel": 36, "description": "Its antlers of petrified wood ward off hostile magic" },
+        { "stage": 3, "id": "gaiaward",    "name": "Gaiaward",    "evolveLevel": null, "description": "The living shield of the earth itself, impervious to sorcery" }
+      ]
+    },
+    {
+      "chainId": "earth_swift",
+      "element": "earth",
+      "archetype": "swift",
+      "baseStats": { "hp": 29, "mp": 30, "attack": 37, "defense": 35, "magicAttack": 35, "magicDefense": 34, "speed": 46 },
+      "stages": [
+        { "stage": 1, "id": "skitrock",    "name": "Skitrock",    "evolveLevel": 16, "description": "A small gecko that skitters across stone surfaces at blinding speed" },
+        { "stage": 2, "id": "terradash",   "name": "Terradash",   "evolveLevel": 36, "description": "Tunnels through solid rock faster than most can run" },
+        { "stage": 3, "id": "quartzvalor", "name": "Quartzvalor", "evolveLevel": null, "description": "A crystalline blur — strikes like a meteor and vanishes underground" }
+      ]
+    },
+    {
+      "chainId": "earth_titan",
+      "element": "earth",
+      "archetype": "titan",
+      "baseStats": { "hp": 55, "mp": 28, "attack": 39, "defense": 39, "magicAttack": 23, "magicDefense": 34, "speed": 31 },
+      "stages": [
+        { "stage": 1, "id": "mudmound",    "name": "Mudmound",    "evolveLevel": 16, "description": "A living pile of enchanted mud with surprising resilience" },
+        { "stage": 2, "id": "earthcrusher","name": "Earthcrusher","evolveLevel": 36, "description": "An enormous beast whose stomps crack the earth for miles" },
+        { "stage": 3, "id": "terratitan",  "name": "Terratitan",  "evolveLevel": null, "description": "Mistaken for mountains, these ancient titans are nearly immortal" }
+      ]
+    },
+    {
+      "chainId": "earth_channeler",
+      "element": "earth",
+      "archetype": "channeler",
+      "baseStats": { "hp": 38, "mp": 44, "attack": 35, "defense": 27, "magicAttack": 36, "magicDefense": 34, "speed": 34 },
+      "stages": [
+        { "stage": 1, "id": "geomote",     "name": "Geomote",     "evolveLevel": 16, "description": "A tiny spirit that resonates with the earth's ley lines" },
+        { "stage": 2, "id": "runecaster",  "name": "Runecaster",  "evolveLevel": 36, "description": "Inscribes ancient runes of power from an endless well of earth magic" },
+        { "stage": 3, "id": "terrasage",   "name": "Terrasage",   "evolveLevel": null, "description": "A primordial sage whose magic draws from the planet's core" }
+      ]
+    },
+
+    {
+      "chainId": "wind_striker",
+      "element": "wind",
+      "archetype": "striker",
+      "baseStats": { "hp": 36, "mp": 30, "attack": 47, "defense": 33, "magicAttack": 35, "magicDefense": 26, "speed": 40 },
+      "stages": [
+        { "stage": 1, "id": "gustfang",    "name": "Gustfang",    "evolveLevel": 16, "description": "A wild pup that rides the wind to ambush its prey" },
+        { "stage": 2, "id": "galeclaw",    "name": "Galeclaw",    "evolveLevel": 36, "description": "Its claws cut with the force of a gale-speed wind blade" },
+        { "stage": 3, "id": "tempestwulf", "name": "Tempestwulf", "evolveLevel": null, "description": "A howling wolf of pure storm energy — its attacks are unavoidable" }
+      ]
+    },
+    {
+      "chainId": "wind_mystic",
+      "element": "wind",
+      "archetype": "mystic",
+      "baseStats": { "hp": 35, "mp": 36, "attack": 29, "defense": 23, "magicAttack": 48, "magicDefense": 35, "speed": 38 },
+      "stages": [
+        { "stage": 1, "id": "breezeling",  "name": "Breezeling",  "evolveLevel": 16, "description": "A tiny sylph that plays in summer breezes" },
+        { "stage": 2, "id": "cyclomist",   "name": "Cyclomist",   "evolveLevel": 36, "description": "A whirling enigma of mist and wind magic" },
+        { "stage": 3, "id": "stormphantom","name": "Stormphantom","evolveLevel": null, "description": "An invisible storm spirit — felt, never seen, always devastating" }
+      ]
+    },
+    {
+      "chainId": "wind_guardian",
+      "element": "wind",
+      "archetype": "guardian",
+      "baseStats": { "hp": 40, "mp": 33, "attack": 35, "defense": 45, "magicAttack": 30, "magicDefense": 35, "speed": 27 },
+      "stages": [
+        { "stage": 1, "id": "windcurl",    "name": "Windcurl",    "evolveLevel": 16, "description": "A hedgehog-like spirit that curls into an impenetrable windball" },
+        { "stage": 2, "id": "aeroshield",  "name": "Aeroshield",  "evolveLevel": 36, "description": "Generates a permanent cyclone barrier around itself" },
+        { "stage": 3, "id": "aegistorm",   "name": "Aegistorm",   "evolveLevel": null, "description": "An unbreachable fortress of compressed air and storm energy" }
+      ]
+    },
+    {
+      "chainId": "wind_warden",
+      "element": "wind",
+      "archetype": "warden",
+      "baseStats": { "hp": 36, "mp": 34, "attack": 25, "defense": 33, "magicAttack": 36, "magicDefense": 46, "speed": 36 },
+      "stages": [
+        { "stage": 1, "id": "zephyrfoal",  "name": "Zephyrfoal",  "evolveLevel": 16, "description": "A playful deer born from gentle spring winds" },
+        { "stage": 2, "id": "galestag",    "name": "Galestag",    "evolveLevel": 36, "description": "Its antlers scatter hostile spells like leaves in the wind" },
+        { "stage": 3, "id": "stormward",   "name": "Stormward",   "evolveLevel": null, "description": "Stands in the eye of any storm, protecting all who seek shelter" }
+      ]
+    },
+    {
+      "chainId": "wind_swift",
+      "element": "wind",
+      "archetype": "swift",
+      "baseStats": { "hp": 25, "mp": 32, "attack": 36, "defense": 31, "magicAttack": 38, "magicDefense": 34, "speed": 50 },
+      "stages": [
+        { "stage": 1, "id": "drafttail",   "name": "Drafttail",   "evolveLevel": 16, "description": "A hummingbird spirit that flits between moments" },
+        { "stage": 2, "id": "gustrunner",  "name": "Gustrunner",  "evolveLevel": 36, "description": "Rides air currents at supersonic speed" },
+        { "stage": 3, "id": "hurricanex",  "name": "Hurricanex",  "evolveLevel": null, "description": "The fastest spirit ever recorded — it IS the wind" }
+      ]
+    },
+    {
+      "chainId": "wind_titan",
+      "element": "wind",
+      "archetype": "titan",
+      "baseStats": { "hp": 49, "mp": 30, "attack": 37, "defense": 35, "magicAttack": 26, "magicDefense": 35, "speed": 35 },
+      "stages": [
+        { "stage": 1, "id": "galebrute",   "name": "Galebrute",   "evolveLevel": 16, "description": "A hulking beast that breathes hurricane-force winds" },
+        { "stage": 2, "id": "stormcrusher","name": "Stormcrusher","evolveLevel": 36, "description": "Its massive wings create devastating pressure waves" },
+        { "stage": 3, "id": "tempetaur",   "name": "Tempetaur",   "evolveLevel": null, "description": "A sky titan whose wingspan blocks out the sun" }
+      ]
+    },
+    {
+      "chainId": "wind_channeler",
+      "element": "wind",
+      "archetype": "channeler",
+      "baseStats": { "hp": 34, "mp": 44, "attack": 33, "defense": 23, "magicAttack": 38, "magicDefense": 35, "speed": 38 },
+      "stages": [
+        { "stage": 1, "id": "airmote",     "name": "Airmote",     "evolveLevel": 16, "description": "A mote of sentient air that hums with magical resonance" },
+        { "stage": 2, "id": "windweaver",  "name": "Windweaver",  "evolveLevel": 36, "description": "Weaves spells from wind itself, never running dry" },
+        { "stage": 3, "id": "galesage",    "name": "Galesage",    "evolveLevel": null, "description": "An eternal wind sage — its breath is pure concentrated mana" }
+      ]
+    },
+
+    {
+      "chainId": "lightning_striker",
+      "element": "lightning",
+      "archetype": "striker",
+      "baseStats": { "hp": 37, "mp": 30, "attack": 50, "defense": 32, "magicAttack": 36, "magicDefense": 24, "speed": 39 },
+      "stages": [
+        { "stage": 1, "id": "sparkfang",   "name": "Sparkfang",   "evolveLevel": 16, "description": "A crackling pup whose bite carries a devastating electrical shock" },
+        { "stage": 2, "id": "voltslash",   "name": "Voltslash",   "evolveLevel": 36, "description": "Slashes with electrified claws that paralyze on contact" },
+        { "stage": 3, "id": "thunderwulf", "name": "Thunderwulf", "evolveLevel": null, "description": "A wolf of living lightning — each howl splits the sky" }
+      ]
+    },
+    {
+      "chainId": "lightning_mystic",
+      "element": "lightning",
+      "archetype": "mystic",
+      "baseStats": { "hp": 36, "mp": 36, "attack": 30, "defense": 24, "magicAttack": 49, "magicDefense": 34, "speed": 37 },
+      "stages": [
+        { "stage": 1, "id": "staticfly",   "name": "Staticfly",   "evolveLevel": 16, "description": "A firefly that sparks with static electricity" },
+        { "stage": 2, "id": "boltgeist",   "name": "Boltgeist",   "evolveLevel": 36, "description": "A spectral form composed entirely of ball lightning" },
+        { "stage": 3, "id": "plasmavault", "name": "Plasmavault", "evolveLevel": null, "description": "Contains the power of a thunderstorm in a single focused mind" }
+      ]
+    },
+    {
+      "chainId": "lightning_guardian",
+      "element": "lightning",
+      "archetype": "guardian",
+      "baseStats": { "hp": 41, "mp": 31, "attack": 37, "defense": 46, "magicAttack": 31, "magicDefense": 34, "speed": 26 },
+      "stages": [
+        { "stage": 1, "id": "shockpact",   "name": "Shockpact",   "evolveLevel": 16, "description": "A compact armadillo-like spirit charged with defensive electricity" },
+        { "stage": 2, "id": "voltshield",  "name": "Voltshield",  "evolveLevel": 36, "description": "Its electrified shell shocks anything that strikes it" },
+        { "stage": 3, "id": "dynamofort",  "name": "Dynamofort",  "evolveLevel": null, "description": "A living dynamo fortress — attackers receive as much as they give" }
+      ]
+    },
+    {
+      "chainId": "lightning_warden",
+      "element": "lightning",
+      "archetype": "warden",
+      "baseStats": { "hp": 37, "mp": 35, "attack": 24, "defense": 34, "magicAttack": 37, "magicDefense": 47, "speed": 34 },
+      "stages": [
+        { "stage": 1, "id": "pulsefoal",   "name": "Pulsefoal",   "evolveLevel": 16, "description": "A young hart whose antlers pulse with protective static" },
+        { "stage": 2, "id": "shockstag",   "name": "Shockstag",   "evolveLevel": 36, "description": "Creates an electromagnetic field that deflects hostile magic" },
+        { "stage": 3, "id": "ionward",     "name": "Ionward",     "evolveLevel": null, "description": "Projects an ionized barrier that nullifies magical attacks entirely" }
+      ]
+    },
+    {
+      "chainId": "lightning_swift",
+      "element": "lightning",
+      "archetype": "swift",
+      "baseStats": { "hp": 26, "mp": 31, "attack": 37, "defense": 32, "magicAttack": 38, "magicDefense": 33, "speed": 50 },
+      "stages": [
+        { "stage": 1, "id": "ziptail",     "name": "Ziptail",     "evolveLevel": 16, "description": "A tiny weasel-like spirit that moves at the speed of electricity" },
+        { "stage": 2, "id": "boltrunner",  "name": "Boltrunner",  "evolveLevel": 36, "description": "Runs along power lines and strikes before thunder can follow" },
+        { "stage": 3, "id": "voltvalor",   "name": "Voltvalor",   "evolveLevel": null, "description": "Pure electrical impulse given form — strikes at the speed of thought" }
+      ]
+    },
+    {
+      "chainId": "lightning_titan",
+      "element": "lightning",
+      "archetype": "titan",
+      "baseStats": { "hp": 50, "mp": 30, "attack": 40, "defense": 36, "magicAttack": 25, "magicDefense": 34, "speed": 33 },
+      "stages": [
+        { "stage": 1, "id": "rumbletoad",  "name": "Rumbletoad",  "evolveLevel": 16, "description": "A stout toad whose croaks produce rolling thunder" },
+        { "stage": 2, "id": "thundercrusher","name": "Thundercrusher","evolveLevel": 36, "description": "Its footsteps are accompanied by deafening thunderclaps" },
+        { "stage": 3, "id": "volttitan",   "name": "Volttitan",   "evolveLevel": null, "description": "A titan of thunder whose body stores entire lightning storms" }
+      ]
+    },
+    {
+      "chainId": "lightning_channeler",
+      "element": "lightning",
+      "archetype": "channeler",
+      "baseStats": { "hp": 35, "mp": 45, "attack": 34, "defense": 24, "magicAttack": 39, "magicDefense": 34, "speed": 36 },
+      "stages": [
+        { "stage": 1, "id": "sparklet",    "name": "Sparklet",    "evolveLevel": 16, "description": "A dancing spark that feeds on electromagnetic fields" },
+        { "stage": 2, "id": "arccaster",   "name": "Arccaster",   "evolveLevel": 36, "description": "Channels lightning through its body in an endless loop of power" },
+        { "stage": 3, "id": "voltsage",    "name": "Voltsage",    "evolveLevel": null, "description": "An ancient electrical sage — its mana regenerates faster than it spends" }
+      ]
+    },
+
+    {
+      "chainId": "ice_striker",
+      "element": "ice",
+      "archetype": "striker",
+      "baseStats": { "hp": 38, "mp": 31, "attack": 49, "defense": 36, "magicAttack": 34, "magicDefense": 25, "speed": 35 },
+      "stages": [
+        { "stage": 1, "id": "frostfang",   "name": "Frostfang",   "evolveLevel": 16, "description": "A wolf pup with fangs of solid ice that never melt" },
+        { "stage": 2, "id": "glacierslash","name": "Glacierslash","evolveLevel": 36, "description": "Its claws are glacial blades that freeze flesh on contact" },
+        { "stage": 3, "id": "cryowulf",    "name": "Cryowulf",    "evolveLevel": null, "description": "The arctic apex — its breath flash-freezes everything in range" }
+      ]
+    },
+    {
+      "chainId": "ice_mystic",
+      "element": "ice",
+      "archetype": "mystic",
+      "baseStats": { "hp": 37, "mp": 37, "attack": 28, "defense": 26, "magicAttack": 48, "magicDefense": 36, "speed": 34 },
+      "stages": [
+        { "stage": 1, "id": "snowmote",    "name": "Snowmote",    "evolveLevel": 16, "description": "A tiny ice crystal spirit that exudes an aura of deep cold" },
+        { "stage": 2, "id": "frostgeist",  "name": "Frostgeist",  "evolveLevel": 36, "description": "A ghostly figure of frozen mist with devastating ice magic" },
+        { "stage": 3, "id": "glacialmind", "name": "Glacialmind", "evolveLevel": null, "description": "Its mind operates at absolute zero — perfect magical precision" }
+      ]
+    },
+    {
+      "chainId": "ice_guardian",
+      "element": "ice",
+      "archetype": "guardian",
+      "baseStats": { "hp": 44, "mp": 32, "attack": 34, "defense": 49, "magicAttack": 30, "magicDefense": 36, "speed": 23 },
+      "stages": [
+        { "stage": 1, "id": "icepact",     "name": "Icepact",     "evolveLevel": 16, "description": "A compact ice crab with a shell of permafrost" },
+        { "stage": 2, "id": "permashield", "name": "Permashield", "evolveLevel": 36, "description": "Encased in ice so thick that attacks simply shatter against it" },
+        { "stage": 3, "id": "cryofortress","name": "Cryofortress","evolveLevel": null, "description": "A walking glacier — the ultimate frozen bulwark" }
+      ]
+    },
+    {
+      "chainId": "ice_warden",
+      "element": "ice",
+      "archetype": "warden",
+      "baseStats": { "hp": 39, "mp": 34, "attack": 25, "defense": 36, "magicAttack": 34, "magicDefense": 49, "speed": 31 },
+      "stages": [
+        { "stage": 1, "id": "rimefoal",    "name": "Rimefoal",    "evolveLevel": 16, "description": "A delicate fawn wreathed in shimmering rime frost" },
+        { "stage": 2, "id": "froststag",   "name": "Froststag",   "evolveLevel": 36, "description": "Its crystalline antlers create a dome of cold that absorbs magic" },
+        { "stage": 3, "id": "tundraward",  "name": "Tundraward",  "evolveLevel": null, "description": "Guardian of the frozen wastes — no spell can breach its icy aura" }
+      ]
+    },
+    {
+      "chainId": "ice_swift",
+      "element": "ice",
+      "archetype": "swift",
+      "baseStats": { "hp": 27, "mp": 33, "attack": 35, "defense": 34, "magicAttack": 37, "magicDefense": 36, "speed": 47 },
+      "stages": [
+        { "stage": 1, "id": "sleetpaw",    "name": "Sleetpaw",    "evolveLevel": 16, "description": "A tiny fox that slides across ice with effortless grace" },
+        { "stage": 2, "id": "hailrunner",  "name": "Hailrunner",  "evolveLevel": 36, "description": "Leaves patterns of frost wherever it dashes — too fast to follow" },
+        { "stage": 3, "id": "blizzardvalor","name": "Blizzardvalor","evolveLevel": null, "description": "A crystalline blur — strikes with the piercing speed of a blizzard" }
+      ]
+    },
+    {
+      "chainId": "ice_titan",
+      "element": "ice",
+      "archetype": "titan",
+      "baseStats": { "hp": 54, "mp": 30, "attack": 37, "defense": 38, "magicAttack": 24, "magicDefense": 36, "speed": 30 },
+      "stages": [
+        { "stage": 1, "id": "frostlump",   "name": "Frostlump",   "evolveLevel": 16, "description": "A round, dense ball of compacted snow with surprising vitality" },
+        { "stage": 2, "id": "glaciercrusher","name": "Glaciercrusher","evolveLevel": 36, "description": "An enormous ice bear that shrugs off punishment indefinitely" },
+        { "stage": 3, "id": "cryotaur",    "name": "Cryotaur",    "evolveLevel": null, "description": "An ancient ice titan — has endured since the last ice age" }
+      ]
+    },
+    {
+      "chainId": "ice_channeler",
+      "element": "ice",
+      "archetype": "channeler",
+      "baseStats": { "hp": 36, "mp": 45, "attack": 32, "defense": 26, "magicAttack": 38, "magicDefense": 36, "speed": 34 },
+      "stages": [
+        { "stage": 1, "id": "frostlet",    "name": "Frostlet",    "evolveLevel": 16, "description": "A tiny ice sprite that draws mana from the cold itself" },
+        { "stage": 2, "id": "cryocaster",  "name": "Cryocaster",  "evolveLevel": 36, "description": "Commands ice with a bottomless reserve of cryogenic energy" },
+        { "stage": 3, "id": "glacialsage", "name": "Glacialsage", "evolveLevel": null, "description": "An ancient sage of winter whose spells cascade endlessly" }
+      ]
+    },
+
+    {
+      "chainId": "light_striker",
+      "element": "light",
+      "archetype": "striker",
+      "baseStats": { "hp": 39, "mp": 30, "attack": 48, "defense": 35, "magicAttack": 36, "magicDefense": 24, "speed": 36 },
+      "stages": [
+        { "stage": 1, "id": "gleamfang",   "name": "Gleamfang",   "evolveLevel": 16, "description": "A radiant pup with fangs that shine like sunbeams" },
+        { "stage": 2, "id": "radiantclaw", "name": "Radiantclaw", "evolveLevel": 36, "description": "Its claws leave trails of burning light with every strike" },
+        { "stage": 3, "id": "solwulf",     "name": "Solwulf",     "evolveLevel": null, "description": "A solar predator — its attacks are as blinding as they are brutal" }
+      ]
+    },
+    {
+      "chainId": "light_mystic",
+      "element": "light",
+      "archetype": "mystic",
+      "baseStats": { "hp": 39, "mp": 35, "attack": 29, "defense": 25, "magicAttack": 47, "magicDefense": 37, "speed": 34 },
+      "stages": [
+        { "stage": 1, "id": "prismite",    "name": "Prismite",    "evolveLevel": 16, "description": "A floating crystal that refracts light into magical energy" },
+        { "stage": 2, "id": "haloglow",    "name": "Haloglow",    "evolveLevel": 36, "description": "Surrounded by a halo of pure light that powers its devastating spells" },
+        { "stage": 3, "id": "luminoracle", "name": "Luminoracle", "evolveLevel": null, "description": "An oracle of pure light — its visions become searing reality" }
+      ]
+    },
+    {
+      "chainId": "light_guardian",
+      "element": "light",
+      "archetype": "guardian",
+      "baseStats": { "hp": 43, "mp": 33, "attack": 35, "defense": 47, "magicAttack": 30, "magicDefense": 37, "speed": 24 },
+      "stages": [
+        { "stage": 1, "id": "dawnpact",    "name": "Dawnpact",    "evolveLevel": 16, "description": "A tortoise with a shell that glows with morning light" },
+        { "stage": 2, "id": "luxshield",   "name": "Luxshield",   "evolveLevel": 36, "description": "Its shell is a prism of hardened light — nearly impervious" },
+        { "stage": 3, "id": "radiantfort", "name": "Radiantfort", "evolveLevel": null, "description": "A beacon of indestructible light that shields all who stand behind it" }
+      ]
+    },
+    {
+      "chainId": "light_warden",
+      "element": "light",
+      "archetype": "warden",
+      "baseStats": { "hp": 40, "mp": 33, "attack": 24, "defense": 35, "magicAttack": 35, "magicDefense": 48, "speed": 33 },
+      "stages": [
+        { "stage": 1, "id": "glintfoal",   "name": "Glintfoal",   "evolveLevel": 16, "description": "A fawn whose coat glints with protective starlight" },
+        { "stage": 2, "id": "halostag",    "name": "Halostag",    "evolveLevel": 36, "description": "Its halo-crowned antlers dispel curses and dark magic" },
+        { "stage": 3, "id": "celestward",  "name": "Celestward",  "evolveLevel": null, "description": "A celestial guardian that bathes allies in restorative starlight" }
+      ]
+    },
+    {
+      "chainId": "light_swift",
+      "element": "light",
+      "archetype": "swift",
+      "baseStats": { "hp": 28, "mp": 32, "attack": 36, "defense": 33, "magicAttack": 38, "magicDefense": 35, "speed": 47 },
+      "stages": [
+        { "stage": 1, "id": "flashtail",   "name": "Flashtail",   "evolveLevel": 16, "description": "A tiny bird of light that appears and vanishes in flashes" },
+        { "stage": 2, "id": "beamrunner",  "name": "Beamrunner",  "evolveLevel": 36, "description": "Travels on beams of light — almost impossible to track" },
+        { "stage": 3, "id": "luxvalor",    "name": "Luxvalor",    "evolveLevel": null, "description": "Moves at the speed of light itself — ultimate velocity" }
+      ]
+    },
+    {
+      "chainId": "light_titan",
+      "element": "light",
+      "archetype": "titan",
+      "baseStats": { "hp": 52, "mp": 31, "attack": 38, "defense": 37, "magicAttack": 26, "magicDefense": 37, "speed": 31 },
+      "stages": [
+        { "stage": 1, "id": "dawnpaw",     "name": "Dawnpaw",     "evolveLevel": 16, "description": "A stout bear cub that radiates warmth and morning light" },
+        { "stage": 2, "id": "solarcrusher","name": "Solarcrusher","evolveLevel": 36, "description": "An enormous sun bear whose embrace crushes with gravitational force" },
+        { "stage": 3, "id": "lumintaur",   "name": "Lumintaur",   "evolveLevel": null, "description": "A titan of living sunlight — its body is an inexhaustible furnace" }
+      ]
+    },
+    {
+      "chainId": "light_channeler",
+      "element": "light",
+      "archetype": "channeler",
+      "baseStats": { "hp": 37, "mp": 44, "attack": 33, "defense": 25, "magicAttack": 37, "magicDefense": 37, "speed": 35 },
+      "stages": [
+        { "stage": 1, "id": "glowlet",     "name": "Glowlet",     "evolveLevel": 16, "description": "A softly glowing orb that feeds on ambient light energy" },
+        { "stage": 2, "id": "prismcaster", "name": "Prismcaster", "evolveLevel": 36, "description": "Channels light through prismatic focus — its mana never wavers" },
+        { "stage": 3, "id": "luxsage",     "name": "Luxsage",     "evolveLevel": null, "description": "A radiant sage of light whose magical reserves rival the sun itself" }
+      ]
+    },
+
+    {
+      "chainId": "dark_striker",
+      "element": "dark",
+      "archetype": "striker",
+      "baseStats": { "hp": 37, "mp": 32, "attack": 51, "defense": 34, "magicAttack": 34, "magicDefense": 23, "speed": 37 },
+      "stages": [
+        { "stage": 1, "id": "shadefang",   "name": "Shadefang",   "evolveLevel": 16, "description": "A shadow pup that strikes from darkness without warning" },
+        { "stage": 2, "id": "duskslash",   "name": "Duskslash",   "evolveLevel": 36, "description": "Merges with shadows, delivering devastating surprise attacks" },
+        { "stage": 3, "id": "voidwulf",    "name": "Voidwulf",    "evolveLevel": null, "description": "A wolf made of pure void — its attacks erase rather than cut" }
+      ]
+    },
+    {
+      "chainId": "dark_mystic",
+      "element": "dark",
+      "archetype": "mystic",
+      "baseStats": { "hp": 36, "mp": 38, "attack": 31, "defense": 23, "magicAttack": 50, "magicDefense": 34, "speed": 35 },
+      "stages": [
+        { "stage": 1, "id": "noxmote",     "name": "Noxmote",     "evolveLevel": 16, "description": "A mote of sentient darkness that whispers forbidden knowledge" },
+        { "stage": 2, "id": "umbraswirl",  "name": "Umbraswirl",  "evolveLevel": 36, "description": "A vortex of shadow magic that warps reality around it" },
+        { "stage": 3, "id": "abyssphantom","name": "Abyssphantom","evolveLevel": null, "description": "An entity from the abyss — its magic unravels the laws of nature" }
+      ]
+    },
+    {
+      "chainId": "dark_guardian",
+      "element": "dark",
+      "archetype": "guardian",
+      "baseStats": { "hp": 42, "mp": 31, "attack": 38, "defense": 48, "magicAttack": 29, "magicDefense": 33, "speed": 25 },
+      "stages": [
+        { "stage": 1, "id": "murkpact",    "name": "Murkpact",    "evolveLevel": 16, "description": "A dense shadow creature with an impenetrable dark shell" },
+        { "stage": 2, "id": "voidshield",  "name": "Voidshield",  "evolveLevel": 36, "description": "Cloaked in void armor that absorbs energy from every attack" },
+        { "stage": 3, "id": "eclipsefort", "name": "Eclipsefort", "evolveLevel": null, "description": "A fortress of eclipsed light — attacks pass through harmlessly" }
+      ]
+    },
+    {
+      "chainId": "dark_warden",
+      "element": "dark",
+      "archetype": "warden",
+      "baseStats": { "hp": 37, "mp": 36, "attack": 26, "defense": 34, "magicAttack": 36, "magicDefense": 47, "speed": 32 },
+      "stages": [
+        { "stage": 1, "id": "duskfoal",    "name": "Duskfoal",    "evolveLevel": 16, "description": "A fawn of twilight that feeds on fading light" },
+        { "stage": 2, "id": "umbrastag",   "name": "Umbrastag",   "evolveLevel": 36, "description": "Its shadowy antlers absorb and nullify hostile enchantments" },
+        { "stage": 3, "id": "nightward",   "name": "Nightward",   "evolveLevel": null, "description": "Cloaked in eternal night — no spell can pierce its darkness" }
+      ]
+    },
+    {
+      "chainId": "dark_swift",
+      "element": "dark",
+      "archetype": "swift",
+      "baseStats": { "hp": 26, "mp": 33, "attack": 38, "defense": 32, "magicAttack": 37, "magicDefense": 34, "speed": 48 },
+      "stages": [
+        { "stage": 1, "id": "flickshade",  "name": "Flickshade",  "evolveLevel": 16, "description": "A shadow that moves independently, darting between dark spaces" },
+        { "stage": 2, "id": "shadowrunner","name": "Shadowrunner","evolveLevel": 36, "description": "Runs through the shadow realm, emerging anywhere to strike" },
+        { "stage": 3, "id": "voidvalor",   "name": "Voidvalor",   "evolveLevel": null, "description": "Transcends space through void-walking — no location is safe" }
+      ]
+    },
+    {
+      "chainId": "dark_titan",
+      "element": "dark",
+      "archetype": "titan",
+      "baseStats": { "hp": 53, "mp": 30, "attack": 39, "defense": 36, "magicAttack": 24, "magicDefense": 34, "speed": 32 },
+      "stages": [
+        { "stage": 1, "id": "gloompaw",    "name": "Gloompaw",    "evolveLevel": 16, "description": "A hulking shadow bear that absorbs light around it" },
+        { "stage": 2, "id": "nightcrusher","name": "Nightcrusher","evolveLevel": 36, "description": "An enormous creature of condensed darkness, devastatingly durable" },
+        { "stage": 3, "id": "abysstitan",  "name": "Abysstitan",  "evolveLevel": null, "description": "Born from the deepest void — its HP seems to have no limit" }
+      ]
+    },
+    {
+      "chainId": "dark_channeler",
+      "element": "dark",
+      "archetype": "channeler",
+      "baseStats": { "hp": 35, "mp": 46, "attack": 35, "defense": 23, "magicAttack": 39, "magicDefense": 34, "speed": 35 },
+      "stages": [
+        { "stage": 1, "id": "noxlet",      "name": "Noxlet",      "evolveLevel": 16, "description": "A tiny creature of night that feeds on ambient dark energy" },
+        { "stage": 2, "id": "shadowcaster","name": "Shadowcaster","evolveLevel": 36, "description": "Channels the void's infinite darkness into unending spellcasts" },
+        { "stage": 3, "id": "voidsage",    "name": "Voidsage",    "evolveLevel": null, "description": "An eldritch sage of the void — its mana well is a black hole" }
+      ]
+    }
+  ],
+
+  "fusionTable": {
+    "_doc": "Each key is 'elementA+elementB' (alphabetical order). Result is the fusion species with dual typing. Stats at fusion are computed from parents' archetypes using fusionBlend formula in meta.",
+    "dark+fire":      { "fusionElement": ["fire", "dark"],      "name": "Hellfire",     "stages": [{ "stage": 1, "id": "hellfang",    "name": "Hellfang",    "evolveLevel": 40 }, { "stage": 2, "id": "infernoshade",  "name": "Infernoshade",  "evolveLevel": null }], "baseStats": { "hp": 40, "mp": 36, "attack": 45, "defense": 30, "magicAttack": 44, "magicDefense": 30, "speed": 37 }, "description": "Born of darkness and flame — an unholy fusion of shadow fire" },
+    "dark+water":     { "fusionElement": ["water", "dark"],     "name": "Abyss",        "stages": [{ "stage": 1, "id": "abyssfin",    "name": "Abyssfin",    "evolveLevel": 40 }, { "stage": 2, "id": "depthterror",   "name": "Depthterror",   "evolveLevel": null }], "baseStats": { "hp": 42, "mp": 38, "attack": 38, "defense": 33, "magicAttack": 46, "magicDefense": 36, "speed": 32 }, "description": "The crushing darkness of the deep sea given sentient form" },
+    "dark+earth":     { "fusionElement": ["earth", "dark"],     "name": "Grave",        "stages": [{ "stage": 1, "id": "graveclaw",   "name": "Graveclaw",   "evolveLevel": 40 }, { "stage": 2, "id": "tombwarden",    "name": "Tombwarden",    "evolveLevel": null }], "baseStats": { "hp": 44, "mp": 34, "attack": 42, "defense": 40, "magicAttack": 34, "magicDefense": 36, "speed": 30 }, "description": "From buried depths, the earth's darkness rises" },
+    "dark+wind":      { "fusionElement": ["wind", "dark"],      "name": "Phantom",      "stages": [{ "stage": 1, "id": "phantomgust", "name": "Phantomgust", "evolveLevel": 40 }, { "stage": 2, "id": "wraithtempest", "name": "Wraithtempest", "evolveLevel": null }], "baseStats": { "hp": 35, "mp": 36, "attack": 40, "defense": 30, "magicAttack": 42, "magicDefense": 35, "speed": 44 }, "description": "A ghostly wind that chills the soul — neither alive nor dead" },
+    "dark+lightning":  { "fusionElement": ["lightning", "dark"], "name": "Chaos",        "stages": [{ "stage": 1, "id": "chaosspark",  "name": "Chaosspark",  "evolveLevel": 40 }, { "stage": 2, "id": "entropyvolt",   "name": "Entropyvolt",   "evolveLevel": null }], "baseStats": { "hp": 38, "mp": 37, "attack": 43, "defense": 29, "magicAttack": 45, "magicDefense": 32, "speed": 39 }, "description": "Lightning corrupted by darkness — pure entropic destruction" },
+    "dark+ice":       { "fusionElement": ["ice", "dark"],       "name": "Frostbite",    "stages": [{ "stage": 1, "id": "frostbiter",  "name": "Frostbiter",  "evolveLevel": 40 }, { "stage": 2, "id": "blackfrost",    "name": "Blackfrost",    "evolveLevel": null }], "baseStats": { "hp": 40, "mp": 36, "attack": 40, "defense": 34, "magicAttack": 43, "magicDefense": 37, "speed": 33 }, "description": "A cold so deep it is indistinguishable from darkness" },
+    "dark+light":     { "fusionElement": ["light", "dark"],     "name": "Eclipse",      "stages": [{ "stage": 1, "id": "twilightmote","name": "Twilightmote","evolveLevel": 40 }, { "stage": 2, "id": "eclipsion",     "name": "Eclipsion",     "evolveLevel": null }], "baseStats": { "hp": 40, "mp": 38, "attack": 40, "defense": 32, "magicAttack": 45, "magicDefense": 40, "speed": 35 }, "description": "Light and dark in perfect balance — the rarest and most volatile fusion" },
+    "earth+fire":     { "fusionElement": ["fire", "earth"],     "name": "Magma",        "stages": [{ "stage": 1, "id": "magmapup",    "name": "Magmapup",    "evolveLevel": 40 }, { "stage": 2, "id": "lavabeast",     "name": "Lavabeast",     "evolveLevel": null }], "baseStats": { "hp": 46, "mp": 30, "attack": 46, "defense": 42, "magicAttack": 32, "magicDefense": 30, "speed": 28 }, "description": "Molten earth given form — slow, devastating, and near-indestructible" },
+    "fire+water":     { "fusionElement": ["fire", "water"],     "name": "Steam",        "stages": [{ "stage": 1, "id": "steamfang",   "name": "Steamfang",   "evolveLevel": 40 }, { "stage": 2, "id": "tidalflare",    "name": "Tidalflare",    "evolveLevel": null }], "baseStats": { "hp": 40, "mp": 34, "attack": 42, "defense": 34, "magicAttack": 42, "magicDefense": 32, "speed": 38 }, "description": "Where fire meets water — explosive pressure and scalding mist" },
+    "fire+wind":      { "fusionElement": ["fire", "wind"],      "name": "Wildfire",     "stages": [{ "stage": 1, "id": "blazegust",   "name": "Blazegust",   "evolveLevel": 40 }, { "stage": 2, "id": "firestorm",     "name": "Firestorm",     "evolveLevel": null }], "baseStats": { "hp": 36, "mp": 32, "attack": 44, "defense": 30, "magicAttack": 40, "magicDefense": 30, "speed": 46 }, "description": "Wind-fueled fire that spreads with terrifying speed" },
+    "fire+lightning":  { "fusionElement": ["fire", "lightning"], "name": "Plasma",       "stages": [{ "stage": 1, "id": "plasmapup",   "name": "Plasmapup",   "evolveLevel": 40 }, { "stage": 2, "id": "solarflare",    "name": "Solarflare",    "evolveLevel": null }], "baseStats": { "hp": 37, "mp": 34, "attack": 46, "defense": 30, "magicAttack": 44, "magicDefense": 28, "speed": 40 }, "description": "Superheated lightning — the fourth state of matter made manifest" },
+    "fire+ice":       { "fusionElement": ["fire", "ice"],       "name": "Thermal",      "stages": [{ "stage": 1, "id": "thermopup",   "name": "Thermopup",   "evolveLevel": 40 }, { "stage": 2, "id": "entropybeast",  "name": "Entropybeast",  "evolveLevel": null }], "baseStats": { "hp": 40, "mp": 33, "attack": 43, "defense": 36, "magicAttack": 40, "magicDefense": 32, "speed": 36 }, "description": "Extreme heat and cold in unstable equilibrium — dangerously volatile" },
+    "fire+light":     { "fusionElement": ["fire", "light"],     "name": "Solar",        "stages": [{ "stage": 1, "id": "solarpup",    "name": "Solarpup",    "evolveLevel": 40 }, { "stage": 2, "id": "coronabeast",   "name": "Coronabeast",   "evolveLevel": null }], "baseStats": { "hp": 42, "mp": 32, "attack": 44, "defense": 34, "magicAttack": 40, "magicDefense": 32, "speed": 36 }, "description": "The fusing of flame and light creates a miniature sun" },
+    "earth+water":    { "fusionElement": ["water", "earth"],    "name": "Swamp",        "stages": [{ "stage": 1, "id": "mudling",     "name": "Mudling",     "evolveLevel": 40 }, { "stage": 2, "id": "bogmonarch",    "name": "Bogmonarch",    "evolveLevel": null }], "baseStats": { "hp": 48, "mp": 34, "attack": 38, "defense": 44, "magicAttack": 34, "magicDefense": 38, "speed": 26 }, "description": "Where earth and water merge — a stubborn, enduring marsh spirit" },
+    "earth+wind":     { "fusionElement": ["earth", "wind"],     "name": "Dust",         "stages": [{ "stage": 1, "id": "dustdevil",   "name": "Dustdevil",   "evolveLevel": 40 }, { "stage": 2, "id": "sandstormer",   "name": "Sandstormer",   "evolveLevel": null }], "baseStats": { "hp": 40, "mp": 32, "attack": 40, "defense": 38, "magicAttack": 36, "magicDefense": 35, "speed": 38 }, "description": "Erosion given will — wind and earth locked in eternal grinding dance" },
+    "earth+lightning": { "fusionElement": ["earth", "lightning"],"name": "Crystal",      "stages": [{ "stage": 1, "id": "crystalpup",  "name": "Crystalpup",  "evolveLevel": 40 }, { "stage": 2, "id": "geodynamo",     "name": "Geodynamo",     "evolveLevel": null }], "baseStats": { "hp": 43, "mp": 33, "attack": 42, "defense": 40, "magicAttack": 36, "magicDefense": 34, "speed": 32 }, "description": "Crystallized lightning trapped in stone — a piezoelectric wonder" },
+    "earth+ice":      { "fusionElement": ["earth", "ice"],      "name": "Permafrost",   "stages": [{ "stage": 1, "id": "permagrub",   "name": "Permagrub",   "evolveLevel": 40 }, { "stage": 2, "id": "glacierpeak",   "name": "Glacierpeak",   "evolveLevel": null }], "baseStats": { "hp": 48, "mp": 30, "attack": 38, "defense": 46, "magicAttack": 30, "magicDefense": 38, "speed": 26 }, "description": "Frozen earth that has stood for millennia — utterly immovable" },
+    "earth+light":    { "fusionElement": ["earth", "light"],    "name": "Life",         "stages": [{ "stage": 1, "id": "sproutling",  "name": "Sproutling",  "evolveLevel": 40 }, { "stage": 2, "id": "worldtree",     "name": "Worldtree",     "evolveLevel": null }], "baseStats": { "hp": 46, "mp": 36, "attack": 34, "defense": 40, "magicAttack": 36, "magicDefense": 40, "speed": 30 }, "description": "Light nourishes earth — the essence of growth and renewal" },
+    "ice+water":      { "fusionElement": ["water", "ice"],      "name": "Glacier",      "stages": [{ "stage": 1, "id": "glacikit",    "name": "Glacikit",    "evolveLevel": 40 }, { "stage": 2, "id": "frostleviathan","name": "Frostleviathan","evolveLevel": null }], "baseStats": { "hp": 44, "mp": 36, "attack": 36, "defense": 40, "magicAttack": 42, "magicDefense": 40, "speed": 26 }, "description": "Frozen seas and ancient ice — a slow, inexorable frozen tide" },
+    "ice+light":      { "fusionElement": ["ice", "light"],      "name": "Prism",        "stages": [{ "stage": 1, "id": "prismkit",    "name": "Prismkit",    "evolveLevel": 40 }, { "stage": 2, "id": "aurorabeast",   "name": "Aurorabeast",   "evolveLevel": null }], "baseStats": { "hp": 38, "mp": 36, "attack": 34, "defense": 36, "magicAttack": 46, "magicDefense": 40, "speed": 34 }, "description": "Light refracted through ice crystals — dazzling prismatic power" },
+    "lightning+water": { "fusionElement": ["water", "lightning"],"name": "Surge",        "stages": [{ "stage": 1, "id": "surgefish",   "name": "Surgefish",   "evolveLevel": 40 }, { "stage": 2, "id": "stormtide",     "name": "Stormtide",     "evolveLevel": null }], "baseStats": { "hp": 38, "mp": 36, "attack": 40, "defense": 32, "magicAttack": 46, "magicDefense": 32, "speed": 40 }, "description": "Electricity conducted through water — devastating and unpredictable" },
+    "lightning+wind":  { "fusionElement": ["wind", "lightning"], "name": "Thunder",      "stages": [{ "stage": 1, "id": "thunderkit",  "name": "Thunderkit",  "evolveLevel": 40 }, { "stage": 2, "id": "stormhowler",   "name": "Stormhowler",   "evolveLevel": null }], "baseStats": { "hp": 34, "mp": 34, "attack": 42, "defense": 30, "magicAttack": 44, "magicDefense": 32, "speed": 46 }, "description": "The marriage of wind and lightning — the perfect storm" },
+    "lightning+ice":   { "fusionElement": ["lightning", "ice"],  "name": "Cryovolt",     "stages": [{ "stage": 1, "id": "cryovoltkit", "name": "Cryovoltkit", "evolveLevel": 40 }, { "stage": 2, "id": "glacialstrike", "name": "Glacialstrike", "evolveLevel": null }], "baseStats": { "hp": 36, "mp": 36, "attack": 40, "defense": 34, "magicAttack": 44, "magicDefense": 34, "speed": 40 }, "description": "Freezing electricity — a paradox of stillness and raw power" },
+    "lightning+light": { "fusionElement": ["lightning", "light"],"name": "Nova",         "stages": [{ "stage": 1, "id": "novakit",     "name": "Novakit",     "evolveLevel": 40 }, { "stage": 2, "id": "stellarburst",  "name": "Stellarburst",  "evolveLevel": null }], "baseStats": { "hp": 36, "mp": 36, "attack": 40, "defense": 30, "magicAttack": 48, "magicDefense": 32, "speed": 40 }, "description": "A stellar explosion of light and electricity — blinding devastation" },
+    "water+wind":     { "fusionElement": ["water", "wind"],     "name": "Storm",        "stages": [{ "stage": 1, "id": "stormkit",    "name": "Stormkit",    "evolveLevel": 40 }, { "stage": 2, "id": "monsoonlord",   "name": "Monsoonlord",   "evolveLevel": null }], "baseStats": { "hp": 38, "mp": 36, "attack": 38, "defense": 34, "magicAttack": 44, "magicDefense": 36, "speed": 38 }, "description": "Rain and wind combined — a living monsoon of elemental fury" },
+    "water+light":    { "fusionElement": ["water", "light"],    "name": "Rainbow",      "stages": [{ "stage": 1, "id": "rainbowkit",  "name": "Rainbowkit",  "evolveLevel": 40 }, { "stage": 2, "id": "spectrumtide",  "name": "Spectrumtide",  "evolveLevel": null }], "baseStats": { "hp": 42, "mp": 38, "attack": 34, "defense": 35, "magicAttack": 44, "magicDefense": 40, "speed": 32 }, "description": "Light dancing through water — a prismatic spirit of hope and power" },
+    "wind+ice":       { "fusionElement": ["wind", "ice"],       "name": "Blizzard",     "stages": [{ "stage": 1, "id": "blizzkit",    "name": "Blizzkit",    "evolveLevel": 40 }, { "stage": 2, "id": "whiteouttitan", "name": "Whiteouttitan", "evolveLevel": null }], "baseStats": { "hp": 36, "mp": 34, "attack": 38, "defense": 34, "magicAttack": 44, "magicDefense": 36, "speed": 42 }, "description": "Howling arctic gales carrying lethal ice — visibility zero" },
+    "wind+light":     { "fusionElement": ["wind", "light"],     "name": "Aurora",       "stages": [{ "stage": 1, "id": "aurorakit",   "name": "Aurorakit",   "evolveLevel": 40 }, { "stage": 2, "id": "borealbeast",   "name": "Borealbeast",   "evolveLevel": null }], "baseStats": { "hp": 36, "mp": 36, "attack": 36, "defense": 32, "magicAttack": 44, "magicDefense": 38, "speed": 42 }, "description": "Dancing lights on celestial winds — ethereal beauty masking raw power" },
+
+    "fire+fire":           { "fusionElement": ["fire"],             "name": "Pure Flame",     "stages": [{ "stage": 1, "id": "pureflame1",    "name": "Flameheart",    "evolveLevel": 40 }, { "stage": 2, "id": "pureflame2",    "name": "Infernal",      "evolveLevel": null }], "baseStats": { "hp": 38, "mp": 35, "attack": 46, "defense": 32, "magicAttack": 46, "magicDefense": 30, "speed": 38 }, "description": "Two fires fused into one — pure, concentrated elemental flame" },
+    "water+water":         { "fusionElement": ["water"],            "name": "Pure Tide",      "stages": [{ "stage": 1, "id": "puretide1",     "name": "Tideheart",     "evolveLevel": 40 }, { "stage": 2, "id": "puretide2",     "name": "Primordial",    "evolveLevel": null }], "baseStats": { "hp": 42, "mp": 38, "attack": 36, "defense": 36, "magicAttack": 46, "magicDefense": 38, "speed": 32 }, "description": "The essence of water distilled — a perfect aquatic spirit" },
+    "earth+earth":         { "fusionElement": ["earth"],            "name": "Pure Stone",     "stages": [{ "stage": 1, "id": "purestone1",    "name": "Stoneheart",    "evolveLevel": 40 }, { "stage": 2, "id": "purestone2",    "name": "Adamantine",    "evolveLevel": null }], "baseStats": { "hp": 48, "mp": 30, "attack": 42, "defense": 48, "magicAttack": 28, "magicDefense": 38, "speed": 26 }, "description": "Earth compressed to its purest form — absolute solidity" },
+    "wind+wind":           { "fusionElement": ["wind"],             "name": "Pure Gale",      "stages": [{ "stage": 1, "id": "puregale1",     "name": "Galeheart",     "evolveLevel": 40 }, { "stage": 2, "id": "puregale2",     "name": "Aetherial",     "evolveLevel": null }], "baseStats": { "hp": 32, "mp": 35, "attack": 38, "defense": 30, "magicAttack": 42, "magicDefense": 35, "speed": 50 }, "description": "Wind refined to its essence — the fastest thing alive" },
+    "lightning+lightning":  { "fusionElement": ["lightning"],        "name": "Pure Thunder",   "stages": [{ "stage": 1, "id": "purethunder1",  "name": "Thunderheart",  "evolveLevel": 40 }, { "stage": 2, "id": "purethunder2",  "name": "Fulgurite",     "evolveLevel": null }], "baseStats": { "hp": 35, "mp": 36, "attack": 44, "defense": 30, "magicAttack": 46, "magicDefense": 30, "speed": 42 }, "description": "Pure electrical potential — raw energy seeking discharge" },
+    "ice+ice":             { "fusionElement": ["ice"],              "name": "Pure Frost",     "stages": [{ "stage": 1, "id": "purefrost1",    "name": "Frostheart",    "evolveLevel": 40 }, { "stage": 2, "id": "purefrost2",    "name": "Cryogenic",     "evolveLevel": null }], "baseStats": { "hp": 42, "mp": 35, "attack": 36, "defense": 42, "magicAttack": 44, "magicDefense": 40, "speed": 28 }, "description": "Ice distilled to absolute zero — time itself slows nearby" },
+    "light+light":         { "fusionElement": ["light"],            "name": "Pure Radiance",  "stages": [{ "stage": 1, "id": "purelight1",    "name": "Radianceheart", "evolveLevel": 40 }, { "stage": 2, "id": "purelight2",    "name": "Seraphic",      "evolveLevel": null }], "baseStats": { "hp": 40, "mp": 38, "attack": 36, "defense": 34, "magicAttack": 48, "magicDefense": 42, "speed": 34 }, "description": "Pure light incarnate — a being of absolute radiance" },
+    "dark+dark":           { "fusionElement": ["dark"],             "name": "Pure Shadow",    "stages": [{ "stage": 1, "id": "puredark1",     "name": "Shadowheart",   "evolveLevel": 40 }, { "stage": 2, "id": "puredark2",     "name": "Abyssal",       "evolveLevel": null }], "baseStats": { "hp": 40, "mp": 38, "attack": 42, "defense": 32, "magicAttack": 48, "magicDefense": 34, "speed": 34 }, "description": "Pure darkness condensed — an entity of absolute void" }
+  }
+}

@@ -1,4 +1,3 @@
-- 
 - generate a "placeholder" registry of spirits. the idea is to create a balanced system that tries to capture every single element type and dual element types... i.e. one family which is only water based, one which is mixed water/grass etc... and stat lines which are unique and balanced given some metric-based foundation in order to keep things balanced... i.e. if a spirit is heavy on the speed attribute (-> higher damage throughput etc... then another stat should suffer as consequence or something....) thoughts? maybe we could have some sort of elemental influence on stats... like... fire element are naturally high on offense, lightning types are naturally speedy... or maybe thats too predictive and boring... i don't know.. but its a cool idea anyhow. lets explore it together.
 - a test NPC that has a script which tests ALL our custom script language features.
   - revisit available script support for NPC and see if theres something we might need... like making other npcs on screen talk... or whatever. make the npc itself or other npcs walk. basically so we can program cutscenes. more stuff like that...
@@ -8,6 +7,7 @@
 - lootable chests.
   - dynamic loot system from chests with levelled lists based on zone level (see feature above)
 - dynamic spawn system based on biome and zone level which determines which types of spirits that can spawn in a given map? thoughts?
+- change behaviour of gourd and how we show stats for spirits... i dont wanna show element or stats in that screen, instead, i should be able to navigate over a spirit and press 'enter' and get a small popup menu with options like 'Move' or 'Summary' etc. the 'summary' option should open a new view with info about stat distribution (i like hexagonal charts for stats or whatever depending on how many stat types we have... and also available ability pool etc etc...)
 
 BOLD IDEA:
 - convert the game into 3D like paper mario... ingame objects are still 2d ad stick up vertically... that way we dont have to have fake depth effect and also.... we could theorietically cast real shadows and not just skewed transforms of the base sprite... thoughts?

@@ -442,7 +442,8 @@ class PartyManager {
         this.party.forEach(spirit => {
             if (spirit.baseStats) {
                 const level = spirit.level || 1;
-                const multiplier = 1 + (level - 1) * 0.1;
+                const stageMultiplier = spirit.stageMultiplier || 1.0;
+                const multiplier = stageMultiplier * (1 + (level - 1) * 0.03);
                 spirit.currentHp = Math.floor(spirit.baseStats.hp * multiplier);
                 spirit.currentMp = Math.floor(spirit.baseStats.mp * multiplier);
             }
@@ -458,20 +459,203 @@ class PartyManager {
         const levelUps = [];
         
         this.party.forEach(spirit => {
+            // Respect level cap
+            if ((spirit.level || 1) >= 100) return;
+            
             spirit.exp = (spirit.exp || 0) + expPerSpirit;
             
             // Check for level up (simple formula: 100 * level^1.5)
-            const expNeeded = Math.floor(100 * Math.pow(spirit.level || 1, 1.5));
-            while (spirit.exp >= expNeeded) {
+            let expNeeded = Math.floor(100 * Math.pow(spirit.level || 1, 1.5));
+            while (spirit.exp >= expNeeded && spirit.level < 100) {
                 spirit.exp -= expNeeded;
                 spirit.level = (spirit.level || 1) + 1;
                 levelUps.push({ spirit: spirit, newLevel: spirit.level });
                 console.log(`[PartyManager] ${spirit.name} leveled up to ${spirit.level}!`);
+                
+                // Check for evolution
+                const evolution = this.checkEvolution(spirit);
+                if (evolution) {
+                    levelUps[levelUps.length - 1].evolved = true;
+                    levelUps[levelUps.length - 1].evolvedTo = evolution.name;
+                    console.log(`[PartyManager] ${spirit.name} is evolving into ${evolution.name}!`);
+                }
+                
+                expNeeded = Math.floor(100 * Math.pow(spirit.level, 1.5));
             }
+            
+            // Clamp EXP at cap
+            if (spirit.level >= 100) spirit.exp = 0;
         });
         
         this.savePartyData();
         return levelUps;
+    }
+    
+    /**
+     * Check if a spirit should evolve and apply the evolution
+     * @param {Object} spirit - The spirit to check
+     * @returns {Object|null} The new stage data if evolved, null otherwise
+     */
+    checkEvolution(spirit) {
+        if (!spirit.chainId || !this.game?.spiritRegistry) return null;
+        
+        const registry = this.game.spiritRegistry;
+        const chain = registry.species?.find(s => s.chainId === spirit.chainId);
+        if (!chain) return null;
+        
+        // Find current stage
+        const currentStage = chain.stages?.find(s => s.stage === (spirit.stage || 1));
+        if (!currentStage || !currentStage.evolveLevel) return null;
+        
+        // Check if level meets evolution threshold
+        if (spirit.level < currentStage.evolveLevel) return null;
+        
+        // Find next stage
+        const nextStageNum = (spirit.stage || 1) + 1;
+        const nextStage = chain.stages?.find(s => s.stage === nextStageNum);
+        if (!nextStage) return null;
+        
+        // Apply evolution
+        const oldName = spirit.name;
+        spirit.name = nextStage.name;
+        spirit.speciesId = nextStage.id;
+        spirit.stage = nextStageNum;
+        spirit.description = nextStage.description;
+        
+        // Update stage multiplier from registry meta
+        const stageMultipliers = registry.meta?.stageMultipliers;
+        if (stageMultipliers) {
+            spirit.stageMultiplier = stageMultipliers[String(nextStageNum)] || 1.0;
+        }
+        
+        // Recalculate stats with new stage multiplier
+        if (spirit.baseStats) {
+            const multiplier = (spirit.stageMultiplier || 1.0) * (1 + (spirit.level - 1) * 0.03);
+            spirit.currentHp = Math.floor(spirit.baseStats.hp * multiplier);
+            spirit.currentMp = Math.floor(spirit.baseStats.mp * multiplier);
+        }
+        
+        console.log(`[PartyManager] Evolution complete: ${oldName} → ${nextStage.name} (Stage ${nextStageNum})`);
+        return nextStage;
+    }
+    
+    /**
+     * Fuse two spirits together to create a new fusion spirit
+     * @param {Object} parentA - First parent spirit
+     * @param {Object} parentB - Second parent spirit
+     * @returns {Object|null} The newly created fusion spirit, or null if fusion is invalid
+     */
+    fuseSpirits(parentA, parentB) {
+        if (!this.game?.spiritRegistry) {
+            console.warn('[PartyManager] Spirit registry not loaded — cannot fuse');
+            return null;
+        }
+        
+        const registry = this.game.spiritRegistry;
+        const fusionTable = registry.fusionTable;
+        if (!fusionTable) return null;
+        
+        // Look up fusion recipe (keys are alphabetically sorted)
+        const elA = parentA.type1 || parentA.element;
+        const elB = parentB.type1 || parentB.element;
+        const key = [elA, elB].sort().join('+');
+        
+        const fusionData = fusionTable[key];
+        if (!fusionData) {
+            console.warn(`[PartyManager] No fusion recipe for ${key}`);
+            return null;
+        }
+        
+        // Calculate fusion level: ceil(avg parents / 2)
+        const fusionLevel = Math.ceil(((parentA.level || 1) + (parentB.level || 1)) / 2 / 2);
+        
+        // Calculate imprint: 10% of combined base stats, capped at +15 per stat
+        const imprintCap = registry.meta?.fusionImprintCap || 15;
+        const imprintRate = registry.meta?.fusionImprintRate || 0.10;
+        const imprint = {};
+        const statKeys = ['hp', 'mp', 'attack', 'defense', 'magicAttack', 'magicDefense', 'speed'];
+        
+        statKeys.forEach(stat => {
+            const combined = ((parentA.baseStats?.[stat] || 0) + (parentB.baseStats?.[stat] || 0));
+            imprint[stat] = Math.min(Math.floor(combined * imprintRate), imprintCap);
+        });
+        
+        // Build fusion spirit data
+        const stage1 = fusionData.stages?.[0];
+        const fusionBaseStats = { ...fusionData.baseStats };
+        
+        // Apply imprint to base stats
+        statKeys.forEach(stat => {
+            fusionBaseStats[stat] = (fusionBaseStats[stat] || 0) + (imprint[stat] || 0);
+        });
+        
+        const fusionSpirit = {
+            id: `spirit_${crypto.randomUUID()}`,
+            name: stage1?.name || fusionData.name,
+            speciesId: stage1?.id || fusionData.name.toLowerCase(),
+            chainId: key,
+            level: fusionLevel,
+            exp: 0,
+            stage: 1,
+            stageMultiplier: 1.0,
+            type1: fusionData.fusionElement?.[0] || elA,
+            type2: fusionData.fusionElement?.[1] || null,
+            archetype: null, // Fusions don't have a fixed archetype
+            isFusion: true,
+            imprint: imprint,
+            baseStats: fusionBaseStats,
+            abilities: null, // Will use element defaults
+            description: fusionData.description || `A fusion of ${elA} and ${elB} spirits`,
+            // Inherit sprite from parentA as default
+            spriteSrc: parentA.spriteSrc || parentA.sprite,
+            scale: parentA.scale || 0.075
+        };
+        
+        // Set current HP/MP
+        const mult = 1 + (fusionLevel - 1) * 0.03;
+        fusionSpirit.currentHp = Math.floor(fusionBaseStats.hp * mult);
+        fusionSpirit.currentMp = Math.floor(fusionBaseStats.mp * mult);
+        
+        console.log(`[PartyManager] Fusion created: ${fusionSpirit.name} (Lv${fusionLevel}) from ${parentA.name} + ${parentB.name}`);
+        return fusionSpirit;
+    }
+    
+    /**
+     * Perform fusion: removes parents from party/boxes and adds fusion result
+     * @returns {Object|null} The fusion spirit, or null on failure
+     */
+    performFusion(parentAId, parentBId) {
+        const parentA = this.getSpiritById(parentAId);
+        const parentB = this.getSpiritById(parentBId);
+        
+        if (!parentA || !parentB) {
+            console.warn('[PartyManager] Cannot find one or both parents for fusion');
+            return null;
+        }
+        
+        if (parentAId === parentBId) {
+            console.warn('[PartyManager] Cannot fuse a spirit with itself');
+            return null;
+        }
+        
+        const fusionSpirit = this.fuseSpirits(parentA, parentB);
+        if (!fusionSpirit) return null;
+        
+        // Remove parents from party and boxes
+        this.party = this.party.filter(s => s.id !== parentAId && s.id !== parentBId);
+        for (const box of this.boxes) {
+            box.spirits = box.spirits.map(s => (s && (s.id === parentAId || s.id === parentBId)) ? null : s);
+        }
+        
+        // Add fusion to party (or first available box if party full)
+        if (this.party.length < this.MAX_PARTY) {
+            this.party.push(fusionSpirit);
+        } else {
+            this.addToBox(fusionSpirit);
+        }
+        
+        this.savePartyData();
+        return fusionSpirit;
     }
     
     /**

@@ -60,13 +60,18 @@ class BattleSystem {
         this.onCameraActionEnd = null;    // () => {}
         this.onCameraKO = null;           // (target) => {}
         
-        // Type effectiveness chart
-        // Multipliers: 2.0 = super effective, 0.5 = not very effective, 1.0 = normal
+        // Type effectiveness chart (8 elements)
+        // Multipliers: 2.0 = super effective, 0.5 = self-resist, 1.0 = normal
+        // Each type: 2 strengths, 2 weaknesses
         this.typeChart = {
-            fire: { fire: 0.5, water: 0.5, earth: 2.0, wind: 1.0 },
-            water: { fire: 2.0, water: 0.5, earth: 1.0, wind: 0.5 },
-            earth: { fire: 0.5, water: 1.0, earth: 0.5, wind: 2.0 },
-            wind: { fire: 1.0, water: 2.0, earth: 0.5, wind: 0.5 }
+            fire:      { ice: 2.0, earth: 2.0, fire: 0.5 },
+            water:     { fire: 2.0, lightning: 2.0, water: 0.5 },
+            earth:     { lightning: 2.0, wind: 2.0, earth: 0.5 },
+            wind:      { ice: 2.0, light: 2.0, wind: 0.5 },
+            lightning: { wind: 2.0, dark: 2.0, lightning: 0.5 },
+            ice:       { earth: 2.0, water: 2.0, ice: 0.5 },
+            light:     { dark: 2.0, fire: 2.0, light: 0.5 },
+            dark:      { light: 2.0, water: 2.0, dark: 0.5 }
         };
         
         // Animation/timing
@@ -241,8 +246,9 @@ class BattleSystem {
             magicAttack: 10, magicDefense: 10, speed: 10
         };
         
-        // Calculate actual stats based on level
-        const statMultiplier = 1 + (level - 1) * 0.1;
+        // Calculate actual stats based on level and evolution stage
+        const stageMultiplier = spiritData.stageMultiplier || 1.0;
+        const statMultiplier = stageMultiplier * (1 + (level - 1) * 0.03);
         
         const battleSpirit = {
             id: spiritData.id || `spirit_${Date.now()}`,
@@ -285,8 +291,15 @@ class BattleSystem {
             isAlive: true,
             statusEffects: [],
             
-            // Abilities
-            abilities: spiritData.abilities || this.getDefaultAbilities(spiritData.type1),
+            // Abilities - resolve from registry if possible
+            abilities: this.resolveAbilities(spiritData),
+            
+            // Registry metadata for evolution tracking
+            chainId: spiritData.chainId || null,
+            archetype: spiritData.archetype || null,
+            stage: spiritData.stage || 1,
+            stageMultiplier: spiritData.stageMultiplier || 1.0,
+            speciesId: spiritData.speciesId || null,
             
             // Original data reference
             originalData: spiritData
@@ -296,27 +309,52 @@ class BattleSystem {
     }
     
     /**
-     * Get default abilities based on element type
+     * Resolve abilities for a spirit: registry learnset > spirit.abilities > legacy defaults
+     */
+    resolveAbilities(spiritData) {
+        // 1. If spirit already has explicit abilities array, use them
+        if (spiritData.abilities && spiritData.abilities.length > 0) {
+            return spiritData.abilities;
+        }
+        
+        // 2. Try to resolve from registry learnset
+        if (spiritData.chainId && this.game?.spiritRegistry?.registryLoaded) {
+            const registryAbilities = this.game.spiritRegistry.getAbilitiesForLevel(
+                spiritData.chainId,
+                spiritData.level || 1
+            );
+            if (registryAbilities && registryAbilities.length > 0) {
+                return registryAbilities;
+            }
+        }
+        
+        // 3. Fallback to legacy defaults
+        return this.getDefaultAbilities(spiritData.type1 || spiritData.element);
+    }
+    
+    /**
+     * Get default abilities based on element type (legacy fallback)
      */
     getDefaultAbilities(element) {
         const abilities = [
-            // Every spirit has basic attack
             { id: 'attack', name: 'Attack', type: 'physical', element: null, power: 40, mpCost: 0, target: 'single_enemy' }
         ];
         
-        // Add elemental ability
         const elementalAbilities = {
-            fire: { id: 'fireball', name: 'Fireball', type: 'magical', element: 'fire', power: 50, mpCost: 8, target: 'single_enemy' },
-            water: { id: 'aqua_jet', name: 'Aqua Jet', type: 'magical', element: 'water', power: 50, mpCost: 8, target: 'single_enemy' },
-            earth: { id: 'rock_throw', name: 'Rock Throw', type: 'magical', element: 'earth', power: 50, mpCost: 8, target: 'single_enemy' },
-            wind: { id: 'gust', name: 'Gust', type: 'magical', element: 'wind', power: 50, mpCost: 8, target: 'single_enemy' }
+            fire: { id: 'ember', name: 'Ember', type: 'magical', element: 'fire', power: 40, mpCost: 5, target: 'single_enemy' },
+            water: { id: 'aqua_splash', name: 'Aqua Splash', type: 'magical', element: 'water', power: 40, mpCost: 5, target: 'single_enemy' },
+            earth: { id: 'pebble_shot', name: 'Pebble Shot', type: 'physical', element: 'earth', power: 40, mpCost: 5, target: 'single_enemy' },
+            wind: { id: 'gust', name: 'Gust', type: 'magical', element: 'wind', power: 40, mpCost: 5, target: 'single_enemy' },
+            lightning: { id: 'spark', name: 'Spark', type: 'magical', element: 'lightning', power: 40, mpCost: 5, target: 'single_enemy' },
+            ice: { id: 'frost_shard', name: 'Frost Shard', type: 'magical', element: 'ice', power: 40, mpCost: 5, target: 'single_enemy' },
+            light: { id: 'holy_spark', name: 'Holy Spark', type: 'magical', element: 'light', power: 40, mpCost: 5, target: 'single_enemy' },
+            dark: { id: 'shadow_bolt', name: 'Shadow Bolt', type: 'magical', element: 'dark', power: 40, mpCost: 5, target: 'single_enemy' }
         };
         
         if (elementalAbilities[element]) {
             abilities.push(elementalAbilities[element]);
         }
         
-        // Add a basic heal
         abilities.push({ id: 'heal', name: 'Heal', type: 'supportive', element: null, power: 30, mpCost: 10, target: 'single_ally' });
         
         return abilities;
@@ -895,6 +933,7 @@ class BattleSystem {
             damage = Math.max(1, damage);
             
             this.applyDamage(t, damage, { isCrit, effectiveness, absorbed });
+            this.applyAbilityEffects(user, t, ability, damage);
             
             let effText = '';
             if (effectiveness > 1) effText = ' (Super effective!)';
@@ -935,12 +974,78 @@ class BattleSystem {
             damage = Math.max(1, damage);
             
             this.applyDamage(t, damage, { isCrit, effectiveness, absorbed });
+            this.applyAbilityEffects(user, t, ability, damage);
             
             let effText = '';
             if (effectiveness > 1) effText = ' (Super effective!)';
             else if (effectiveness < 1) effText = ' (Resisted)';
             this.log(`${user.name}'s ${ability.name} hits ${t.name} for ${damage} dmg${effText}`);
         });
+    }
+    
+    /**
+     * Apply secondary effects from registry ability data (status, debuff, recoil, drain)
+     */
+    applyAbilityEffects(user, target, ability, damage) {
+        if (!ability || !target?.isAlive) return;
+        
+        // Status chance (e.g. burn from Inferno, paralyze from Thundercrack)
+        if (ability.statusChance && ability.statusEffect) {
+            if (Math.random() < ability.statusChance) {
+                const existing = target.statusEffects?.find(s => s.type === ability.statusEffect);
+                if (!existing) {
+                    target.statusEffects = target.statusEffects || [];
+                    target.statusEffects.push({
+                        type: ability.statusEffect,
+                        duration: ability.statusDuration || 3,
+                        source: user.name
+                    });
+                    this.log(`${target.name} was inflicted with ${ability.statusEffect}!`);
+                }
+            }
+        }
+        
+        // Debuff on damage (e.g. defense drop, speed drop)
+        if (ability.debuff && damage > 0) {
+            target.statusEffects = target.statusEffects || [];
+            target.statusEffects.push({
+                type: 'debuff',
+                stat: ability.debuff.stat,
+                amount: ability.debuff.amount || -0.2,
+                duration: ability.debuff.duration || 3
+            });
+            this.log(`${target.name}'s ${ability.debuff.stat} was lowered!`);
+        }
+        
+        // Recoil damage (fraction of damage dealt back to user)
+        if (ability.recoilPercent && damage > 0) {
+            const recoil = Math.max(1, Math.floor(damage * ability.recoilPercent));
+            user.hp = Math.max(0, user.hp - recoil);
+            if (user.hp <= 0) user.isAlive = false;
+            this.log(`${user.name} took ${recoil} recoil damage!`);
+        }
+        
+        // MP drain (steal MP from target)
+        if (ability.drainMp && damage > 0) {
+            const drained = Math.min(target.mp, Math.floor(damage * 0.3));
+            target.mp -= drained;
+            user.mp = Math.min(user.maxMp, user.mp + drained);
+            if (drained > 0) {
+                this.log(`${user.name} drained ${drained} MP from ${target.name}!`);
+            }
+        }
+        
+        // Self-buff after attack (e.g. speed boost on certain moves)
+        if (ability.selfBuff) {
+            user.statusEffects = user.statusEffects || [];
+            user.statusEffects.push({
+                type: 'buff',
+                stat: ability.selfBuff.stat,
+                amount: ability.selfBuff.amount || 0.2,
+                duration: ability.selfBuff.duration || 3
+            });
+            this.log(`${user.name}'s ${ability.selfBuff.stat} rose!`);
+        }
     }
     
     /**
@@ -1026,10 +1131,13 @@ class BattleSystem {
     calculateTypeEffectiveness(attackType, defType1, defType2) {
         if (!attackType || !defType1) return 1.0;
         
-        let effectiveness = this.typeChart[attackType]?.[defType1] || 1.0;
+        // Prefer registry type chart if loaded
+        const chart = this.game?.spiritRegistry?.typeChart || this.typeChart;
+        
+        let effectiveness = chart[attackType]?.[defType1] ?? 1.0;
         
         if (defType2) {
-            effectiveness *= this.typeChart[attackType]?.[defType2] || 1.0;
+            effectiveness *= chart[attackType]?.[defType2] ?? 1.0;
         }
         
         return effectiveness;

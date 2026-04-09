@@ -7881,8 +7881,16 @@ class BattleState extends GameState {
         // Award EXP if victory
         if (this.battleSystem?.result === 'victory') {
             const rewards = this.battleSystem.rewards;
-            this.game.partyManager?.awardExp(rewards.exp);
+            const levelUps = this.game.partyManager?.awardExp(rewards.exp) || [];
             this.game.player.gold = (this.game.player.gold || 0) + rewards.gold;
+            
+            // Log evolution events
+            for (const lu of levelUps) {
+                if (lu.evolved) {
+                    console.log(`[Evolution] ${lu.name} evolved into ${lu.evolvedTo}!`);
+                    // TODO: show evolution animation/screen
+                }
+            }
         }
         
         // Set interaction cooldown to prevent immediate re-encounter

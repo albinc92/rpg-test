@@ -1,12 +1,25 @@
 /**
  * SpiritRegistry - Manages spirit templates from spirits.json
+ * AND the species database from spirit_registry.json (evolution, fusion, archetypes, type chart)
  * Provides lookup and creation of spirit instances from templates
  */
 class SpiritRegistry {
     constructor(game) {
         this.game = game;
-        this.templates = new Map(); // Map of spirit ID -> template data
+        this.templates = new Map(); // Map of spirit ID -> template data (spawn templates)
         this.loaded = false;
+        
+        // Species registry (from spirit_registry.json)
+        this.meta = null;
+        this.elements = null;
+        this.typeChart = null;
+        this.archetypes = null;
+        this.abilities = null;
+        this.species = null;
+        this.fusionTable = null;
+        this.speciesMap = new Map();  // speciesId -> species chain
+        this.abilityMap = new Map();  // abilityId -> ability data
+        this.registryLoaded = false;
     }
 
     /**
@@ -28,11 +41,125 @@ class SpiritRegistry {
             
             this.loaded = true;
             console.log(`[SpiritRegistry] Loaded ${this.templates.size} spirit templates`);
+            
+            // Also load the species registry
+            await this.loadRegistry();
+            
             return true;
         } catch (error) {
             console.error('[SpiritRegistry] Error loading spirit templates:', error);
             return false;
         }
+    }
+
+    /**
+     * Load the species registry from spirit_registry.json
+     */
+    async loadRegistry() {
+        try {
+            const response = await fetch('data/spirit_registry.json');
+            if (!response.ok) {
+                console.warn(`[SpiritRegistry] spirit_registry.json not found (${response.status}) — evolution/fusion disabled`);
+                return false;
+            }
+            
+            const data = await response.json();
+            
+            this.meta = data.meta || null;
+            this.elements = data.elements || null;
+            this.typeChart = data.typeChart || null;
+            this.archetypes = data.archetypes || null;
+            this.species = data.species || [];
+            this.fusionTable = data.fusionTable || {};
+            
+            // Build species lookup map (by speciesId for each stage)
+            this.species.forEach(chain => {
+                if (chain.stages) {
+                    chain.stages.forEach(stage => {
+                        this.speciesMap.set(stage.id, { chain, stage });
+                    });
+                }
+                // Also index by chainId
+                this.speciesMap.set(chain.chainId, { chain, stage: null });
+            });
+            
+            // Build ability lookup map
+            this.abilityMap.clear();
+            if (data.abilities) {
+                this.abilities = data.abilities;
+                data.abilities.forEach(ability => {
+                    this.abilityMap.set(ability.id, ability);
+                });
+            }
+            
+            this.registryLoaded = true;
+            console.log(`[SpiritRegistry] Registry loaded: ${this.species.length} species chains, ${this.abilityMap.size} abilities, ${Object.keys(this.fusionTable).length} fusion recipes`);
+            return true;
+        } catch (error) {
+            console.error('[SpiritRegistry] Error loading species registry:', error);
+            return false;
+        }
+    }
+    
+    /**
+     * Look up a species chain by chainId
+     */
+    getSpeciesChain(chainId) {
+        const entry = this.speciesMap.get(chainId);
+        return entry?.chain || null;
+    }
+    
+    /**
+     * Look up a species by its speciesId (e.g., 'scorchling')
+     */
+    getSpecies(speciesId) {
+        return this.speciesMap.get(speciesId) || null;
+    }
+    
+    /**
+     * Look up an ability by ID
+     */
+    getAbility(abilityId) {
+        return this.abilityMap.get(abilityId) || null;
+    }
+    
+    /**
+     * Resolve a learnset for a species chain (replacing ELEMENT_T1..T4 placeholders)
+     */
+    resolveLearnset(chainId) {
+        const chain = this.getSpeciesChain(chainId);
+        if (!chain) return [];
+        
+        const archetype = this.archetypes?.[chain.archetype];
+        const element = this.elements?.[chain.element];
+        if (!archetype?.learnsetTemplate || !element) return [];
+        
+        return archetype.learnsetTemplate.map(entry => {
+            let abilityId = entry.ability;
+            // Replace element tier placeholders
+            if (abilityId === 'ELEMENT_T1') abilityId = element.tier1;
+            else if (abilityId === 'ELEMENT_T2') abilityId = element.tier2;
+            else if (abilityId === 'ELEMENT_T3') abilityId = element.tier3;
+            else if (abilityId === 'ELEMENT_T4') abilityId = element.tier4;
+            
+            return { level: entry.level, abilityId, ability: this.getAbility(abilityId) };
+        });
+    }
+    
+    /**
+     * Get abilities a spirit should know at a given level
+     */
+    getAbilitiesForLevel(chainId, level) {
+        const learnset = this.resolveLearnset(chainId);
+        const maxSlots = this.meta?.maxAbilitySlots || 4;
+        
+        // Get all abilities learned up to this level
+        const learned = learnset
+            .filter(entry => entry.level <= level && entry.ability)
+            .map(entry => entry.ability);
+        
+        // Return the most recent maxSlots abilities (like keeping the newest moves)
+        return learned.slice(-maxSlots);
     }
 
     /**
@@ -109,7 +236,13 @@ class SpiritRegistry {
             moveSpeed: template.moveSpeed,
             movePattern: template.movePattern || 'wander',
             spiritId: spiritId, // Store template ID for reference
-            description: template.description
+            description: template.description,
+            // Spirit registry fields (evolution/fusion)
+            chainId: template.chainId || null,
+            archetype: template.archetype || null,
+            stage: template.stage || 1,
+            stageMultiplier: template.stageMultiplier || 1.0,
+            speciesId: template.speciesId || null
         });
 
         console.log(`[SpiritRegistry] ✅ Created ${template.name} (${spirit.id}) at (${Math.round(x)}, ${Math.round(y)}) with scale ${spirit.scale} - sprite loaded: ${spirit.spriteLoaded}, spriteSrc: ${spirit.spriteSrc}`);

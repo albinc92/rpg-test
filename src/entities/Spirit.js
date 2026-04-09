@@ -51,6 +51,16 @@ class Spirit extends Actor {
         this.goldYield = options.goldYield || Math.floor(this.level * 5);
         this.abilities = options.abilities || null; // Will use defaults if null
         
+        // Spirit registry fields (evolution + fusion system)
+        this.chainId = options.chainId || null;        // Evolution chain ID (e.g., 'fire_striker')
+        this.archetype = options.archetype || null;    // Archetype ID (e.g., 'striker')
+        this.stage = options.stage || 1;               // Evolution stage (1, 2, or 3)
+        this.stageMultiplier = options.stageMultiplier || 1.0; // Stage stat multiplier
+        this.speciesId = options.speciesId || null;    // Species ID (e.g., 'scorchling')
+        this.exp = options.exp || 0;                   // Current accumulated EXP
+        this.isFusion = options.isFusion || false;     // Whether this is a fused spirit
+        this.imprint = options.imprint || null;         // Stat imprint from fusion parents
+        
         // Description
         this.description = options.description || '';
         
