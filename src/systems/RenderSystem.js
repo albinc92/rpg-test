@@ -482,7 +482,15 @@ class RenderSystem {
                     if (npc.renderTalkBubbleOverlay) {
                         npc.renderTalkBubbleOverlay(this.ctx, game, this.webglRenderer);
                     }
+                    if (npc.renderEmoteOverlay && npc._emote && npc._emoteTimer > 0) {
+                        npc.renderEmoteOverlay(this.ctx, game, this.webglRenderer);
+                    }
                 }
+            }
+            
+            // Render player emote overlay
+            if (game.player?.renderEmoteOverlay && game.player._emote && game.player._emoteTimer > 0) {
+                game.player.renderEmoteOverlay(this.ctx, game, this.webglRenderer);
             }
 
             // Draw lens flare on top of everything (Screen Space)

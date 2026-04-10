@@ -243,6 +243,108 @@ class VisualScriptEditor {
                     }
                     return `camerashake ${data.intensity};`;
                 }
+            },
+            // ── Cutscene commands ──
+            npcWalk: {
+                name: 'NPC Walk',
+                icon: '🚶',
+                color: '#16a085',
+                fields: [
+                    { name: 'npcId', type: 'text', label: 'NPC ID or Name', default: 'npc_id' },
+                    { name: 'x', type: 'number', label: 'Target X', default: 0 },
+                    { name: 'y', type: 'number', label: 'Target Y', default: 0 }
+                ],
+                toScript: (data) => `npcwalk "${this.escapeString(data.npcId)}", ${data.x}, ${data.y};`
+            },
+            npcFace: {
+                name: 'NPC Face',
+                icon: '👤',
+                color: '#16a085',
+                fields: [
+                    { name: 'npcId', type: 'text', label: 'NPC ID or Name', default: 'npc_id' },
+                    { name: 'direction', type: 'select', label: 'Direction', options: ['left', 'right'], default: 'right' }
+                ],
+                toScript: (data) => `npcface "${this.escapeString(data.npcId)}", "${data.direction}";`
+            },
+            npcSay: {
+                name: 'NPC Say',
+                icon: '🗨️',
+                color: '#16a085',
+                fields: [
+                    { name: 'npcId', type: 'text', label: 'NPC ID or Name', default: 'npc_id' },
+                    { name: 'text', type: 'textarea', label: 'Text', default: 'Hello!' }
+                ],
+                toScript: (data) => `npcsay "${this.escapeString(data.npcId)}", "${this.escapeString(data.text)}";`
+            },
+            npcShow: {
+                name: 'NPC Show',
+                icon: '👁️',
+                color: '#16a085',
+                fields: [
+                    { name: 'npcId', type: 'text', label: 'NPC ID or Name', default: 'npc_id' }
+                ],
+                toScript: (data) => `npcshow "${this.escapeString(data.npcId)}";`
+            },
+            npcHide: {
+                name: 'NPC Hide',
+                icon: '🙈',
+                color: '#16a085',
+                fields: [
+                    { name: 'npcId', type: 'text', label: 'NPC ID or Name', default: 'npc_id' }
+                ],
+                toScript: (data) => `npchide "${this.escapeString(data.npcId)}";`
+            },
+            emote: {
+                name: 'Emote',
+                icon: '💭',
+                color: '#d35400',
+                fields: [
+                    { name: 'targetId', type: 'text', label: 'NPC ID (or "self" / "player")', default: 'self' },
+                    { name: 'emoteType', type: 'select', label: 'Emote', options: ['!', '?', 'heart', 'sweat', 'anger', 'music', 'zzz', 'star', 'dots'], default: '!' }
+                ],
+                toScript: (data) => `emote "${this.escapeString(data.targetId)}", "${data.emoteType}";`
+            },
+            playerMove: {
+                name: 'Player Move',
+                icon: '🏃',
+                color: '#2980b9',
+                fields: [
+                    { name: 'x', type: 'number', label: 'Target X', default: 0 },
+                    { name: 'y', type: 'number', label: 'Target Y', default: 0 }
+                ],
+                toScript: (data) => `playermove ${data.x}, ${data.y};`
+            },
+            playerLock: {
+                name: 'Player Lock',
+                icon: '🔒',
+                color: '#2c3e50',
+                fields: [],
+                toScript: () => 'playerlock;'
+            },
+            playerUnlock: {
+                name: 'Player Unlock',
+                icon: '🔓',
+                color: '#2c3e50',
+                fields: [],
+                toScript: () => 'playerunlock;'
+            },
+            fadeOut: {
+                name: 'Fade Out',
+                icon: '🌑',
+                color: '#2c3e50',
+                fields: [
+                    { name: 'duration', type: 'number', label: 'Duration (ms)', default: 500 }
+                ],
+                toScript: (data) => `fadeout ${data.duration};`
+            },
+            fadeIn: {
+                name: 'Fade In',
+                icon: '🌕',
+                color: '#2c3e50',
+                fields: [
+                    { name: 'duration', type: 'number', label: 'Duration (ms)', default: 500 }
+                ],
+                toScript: (data) => `fadein ${data.duration};`
             }
         };
     }

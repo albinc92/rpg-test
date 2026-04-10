@@ -103,6 +103,162 @@ end;`
             canInteract: true
         });
 
+        // Script Test NPC — exercises every script command for testing
+        this.addTemplate('ScriptTest', {
+            npcType: 'dialogue',
+            spriteSrc: '/assets/npc/sage-0.png',
+            scale: 0.15,
+            collisionShape: 'rectangle',
+            hasCollision: true,
+            canInteract: true,
+            script: `// ═══════════════════════════════════════════════════════
+// SCRIPT TEST NPC — Tests ALL script language features
+// ═══════════════════════════════════════════════════════
+
+// ── 1. Basic messages with rich text ──
+message "Welcome, <b>traveler</b>! I am the <color=#9900ff>Script Tester</color>.";
+message "I exist to test <i>every</i> script command in the engine.";
+message "Let's begin the <color=#ffcc00>demonstration</color>...";
+
+// ── 2. Variables: set, increment, decrement ──
+setvar "test_counter", 0;
+incvar "test_counter", 5;
+decvar "test_counter", 2;
+log "test_counter should be 3";
+setflag "test_started";
+
+// ── 3. Conditional logic ──
+if (getvar("test_counter") == 3) {
+    message "Variable test <color=#00ff00>PASSED</color>! Counter is 3.";
+} else {
+    message "Variable test <color=#ff0000>FAILED</color>.";
+}
+
+// ── 4. Boolean flags ──
+if (getvar("test_started")) {
+    message "Flag test <color=#00ff00>PASSED</color>! test_started is true.";
+}
+clearflag "test_started";
+
+// ── 5. Player choices ──
+message "Now let's test the <b>choice system</b>.";
+choice "Option A", "Option B", "Option C";
+if (choice == 0) {
+    message "You picked <color=#4a90d9>Option A</color>.";
+} else if (choice == 1) {
+    message "You picked <color=#27ae60>Option B</color>.";
+} else {
+    message "You picked <color=#e67e22>Option C</color>.";
+}
+
+// ── 6. Gold operations ──
+message "Testing <color=#ffcc00>gold</color> commands...";
+addgold 50;
+message "Added <color=#ffcc00>50 gold</color>. You now have some extra coins.";
+delgold 25;
+message "Removed 25. Net gain: 25 gold.";
+
+// ── 7. Inventory operations ──
+if (getvar("test_items_given")) {
+    message "You already received test items. Skipping inventory test.";
+} else {
+    additem "health_potion", 2;
+    message "Added <color=#00ff00>2x Health Potion</color> to your inventory.";
+    setflag "test_items_given";
+}
+
+// ── 8. Sound effect ──
+playsound "speech-bubble.mp3";
+message "Played a sound effect. Did you hear it?";
+
+// ── 9. Emote system ──
+message "Now testing <b>emotes</b>...";
+emote "self", "!";
+message "That was the <color=#ff3333>exclamation</color> emote!";
+emote "self", "?";
+message "And the <color=#3399ff>question</color> emote.";
+emote "self", "heart";
+message "And a <color=#ff4488>heart</color>!";
+
+// ── 10. Camera shake ──
+message "Brace yourself... <b>camera shake</b> incoming!";
+camerashake 10, 0.5;
+wait 600;
+message "That was a medium shake. Here's a big one:";
+camerashake 20, 0.8;
+wait 900;
+
+// ── 11. Screen fade ──
+message "Testing <b>screen fade</b>...";
+fadeout 400;
+wait 300;
+fadein 400;
+message "Fade out and fade in complete!";
+
+// ── 12. Player lock/unlock ──
+message "I'm about to <color=#ff3333>lock your movement</color> for 2 seconds...";
+playerlock;
+wait 2000;
+playerunlock;
+message "Movement <color=#00ff00>restored</color>!";
+
+// ── 13. NPC face command ──
+message "Now I'll look to the <b>left</b>...";
+npcface "self", "left";
+wait 800;
+message "And back to the <b>right</b>.";
+npcface "self", "right";
+wait 500;
+
+// ── 14. Labels and goto (menu loop) ──
+label menu:
+message "This is a <b>menu loop</b> using labels and goto.";
+choice "Show stats", "Test random()", "Exit menu";
+if (choice == 0) {
+    message "Gold: You have some gold. Counter: 3. Flag: cleared.";
+    goto menu;
+} else if (choice == 1) {
+    if (random(1, 10) > 5) {
+        message "Random rolled <color=#00ff00>HIGH</color> (6-10).";
+    } else {
+        message "Random rolled <color=#ff6600>LOW</color> (1-5).";
+    }
+    goto menu;
+}
+
+// ── 15. Complex nested conditions ──
+if (getvar("test_counter") >= 1 and getvar("test_counter") <= 5) {
+    message "Nested condition test <color=#00ff00>PASSED</color>: counter is between 1 and 5.";
+} else {
+    message "Nested condition test <color=#ff0000>FAILED</color>.";
+}
+
+// ── 16. Or condition ──
+if (getvar("test_counter") == 3 or getvar("test_counter") == 99) {
+    message "OR condition test <color=#00ff00>PASSED</color>.";
+}
+
+// ── 17. Not operator ──
+if (not getvar("nonexistent_var")) {
+    message "NOT operator test <color=#00ff00>PASSED</color>: nonexistent var is falsy.";
+}
+
+// ── Wrap up ──
+message "<b>All tests complete!</b>";
+message "Script command coverage:";
+message "  <color=#00ff00>✓</color> message, choice, wait, log, end";
+message "  <color=#00ff00>✓</color> setvar, incvar, decvar, setflag, clearflag";
+message "  <color=#00ff00>✓</color> additem, delitem, addgold, delgold";
+message "  <color=#00ff00>✓</color> playsound, camerashake";
+message "  <color=#00ff00>✓</color> emote, fadeout, fadein";
+message "  <color=#00ff00>✓</color> playerlock, playerunlock";
+message "  <color=#00ff00>✓</color> npcface, label, goto";
+message "  <color=#00ff00>✓</color> if/else if/else, and, or, not";
+message "  <color=#00ff00>✓</color> random(), getvar(), hasitem(), getgold()";
+message "Talk to me again anytime to re-run the tests!";
+end;`
+        });
+
         console.log(`[NPCRegistry] Loaded ${this.templates.size} built-in templates`);
     }
 

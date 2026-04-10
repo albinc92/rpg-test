@@ -1177,6 +1177,24 @@ class GameEngine {
             this.biomeBGMSystem.update(deltaTime);
         }
 
+        // Update script fade overlay
+        if (this._scriptFade) {
+            const dir = this._scriptFade.target > this._scriptFade.alpha ? 1 : -1;
+            this._scriptFade.alpha += dir * this._scriptFade.speed * deltaTime;
+            this._scriptFade.alpha = Math.max(0, Math.min(1, this._scriptFade.alpha));
+        }
+
+        // Update emote timers on all current-map objects
+        const emoteObjects = this.objectManager.getObjectsForMap(this.currentMapId);
+        for (const obj of emoteObjects) {
+            if (obj._emoteTimer > 0) {
+                obj._emoteTimer -= deltaTime;
+            }
+        }
+        if (this.player?._emoteTimer > 0) {
+            this.player._emoteTimer -= deltaTime;
+        }
+
         // Update camera
         this.updateCamera();
         
@@ -1540,6 +1558,14 @@ class GameEngine {
         
         // Render UI elements (not affected by camera)
         this.renderUI(ctx);
+        
+        // Render script fade overlay (fadeout/fadein commands)
+        if (this._scriptFade && this._scriptFade.alpha > 0) {
+            ctx.save();
+            ctx.fillStyle = `rgba(0, 0, 0, ${this._scriptFade.alpha})`;
+            ctx.fillRect(0, 0, this.CANVAS_WIDTH, this.CANVAS_HEIGHT);
+            ctx.restore();
+        }
     }
     
     /**
@@ -1550,6 +1576,9 @@ class GameEngine {
         
         // Skip if editor is active
         if (this.editorManager.isActive) return;
+        
+        // Skip movement input if player is locked (cutscene)
+        if (this.player.inputLocked) return;
         
         // Get movement input (includes analog magnitude for controller/touch)
         const movement = inputManager.getMovementInput();

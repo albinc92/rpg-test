@@ -21,6 +21,22 @@
  * shop "Shop Name", "item_id", price, "item_id2", price2;
  * shop "Limited Shop", "rare_item", 500, 3;            // 3 = stock limit
  * 
+ * teleport "mapId", x, y;                               // Teleport player
+ * camerashake intensity, [duration];                      // Shake camera
+ * 
+ * // Cutscene commands
+ * npcwalk "npcId", x, y;                                  // Move NPC to position
+ * npcface "npcId", "left"|"right";                         // Set NPC facing direction
+ * npcsay "npcId", "Hello!";                                // Show speech bubble on another NPC
+ * npcshow "npcId";                                         // Make NPC visible
+ * npchide "npcId";                                         // Make NPC invisible
+ * emote "npcId", "!"|"?"|"heart"|"sweat"|"anger"|"music";  // Show emote above NPC/player
+ * playermove x, y;                                         // Walk player to position
+ * playerlock;                                              // Freeze player input
+ * playerunlock;                                            // Restore player input
+ * fadeout [ms];                                            // Fade screen to black
+ * fadein [ms];                                             // Fade screen back in
+ * 
  * // Conditions
  * if (hasitem("key", 1)) {
  *     message "You have the key!";
@@ -108,7 +124,18 @@ class ScriptEngine {
             'addgold': this.cmdAddGold.bind(this),  // Shorthand for adding gold
             'delgold': this.cmdDelGold.bind(this),   // Shorthand for removing gold
             'battle': this.cmdBattle.bind(this),      // Start a battle
-            'camerashake': this.cmdCameraShake.bind(this)  // Trigger camera shake
+            'camerashake': this.cmdCameraShake.bind(this),  // Trigger camera shake
+            'npcwalk': this.cmdNPCWalk.bind(this),          // Move NPC to position
+            'npcface': this.cmdNPCFace.bind(this),          // Set NPC facing direction
+            'npcsay': this.cmdNPCSay.bind(this),            // Show speech bubble on NPC
+            'npcshow': this.cmdNPCShow.bind(this),          // Make NPC visible
+            'npchide': this.cmdNPCHide.bind(this),          // Make NPC invisible
+            'emote': this.cmdEmote.bind(this),              // Show emote above NPC
+            'playermove': this.cmdPlayerMove.bind(this),    // Walk player to position
+            'playerlock': this.cmdPlayerLock.bind(this),    // Freeze player input
+            'playerunlock': this.cmdPlayerUnlock.bind(this),// Restore player input
+            'fadeout': this.cmdFadeOut.bind(this),          // Fade screen to black
+            'fadein': this.cmdFadeIn.bind(this),            // Fade screen back in
         };
     }
     
@@ -1099,6 +1126,315 @@ class ScriptEngine {
         if (this.game.cameraEffects) {
             this.game.cameraEffects.triggerShake(intensity, duration);
         }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // CUTSCENE COMMANDS
+    // ═══════════════════════════════════════════════════════════════
+    
+    /**
+     * Find an NPC by ID or name on the current map
+     * @param {string} identifier - NPC id or name
+     * @returns {NPC|null}
+     */
+    _findNPC(identifier) {
+        if (!identifier || !this.game.objectManager) return null;
+        
+        // Try by ID first
+        let npc = this.game.objectManager.findObjectById(identifier);
+        if (npc) return npc;
+        
+        // Try by name on current map
+        npc = this.game.objectManager.findObjectByName(identifier, this.game.currentMapId);
+        if (npc) return npc;
+        
+        // Special: "self" refers to the NPC running this script
+        if (identifier === 'self' && this.currentNPC) return this.currentNPC;
+        
+        // Special: "player" refers to the player
+        if (identifier === 'player') return this.game.player;
+        
+        console.warn(`[ScriptEngine] NPC not found: ${identifier}`);
+        return null;
+    }
+    
+    /**
+     * npcwalk "npcId", x, y;
+     * Smoothly walk an NPC to a target position. Blocks until arrival.
+     */
+    async cmdNPCWalk() {
+        const npcId = this.consume()?.value;
+        this.consumeIf('PUNCTUATION', ',');
+        const targetX = this.consume()?.value;
+        this.consumeIf('PUNCTUATION', ',');
+        const targetY = this.consume()?.value;
+        
+        const npc = this._findNPC(npcId);
+        if (!npc || targetX == null || targetY == null) {
+            console.warn(`[ScriptEngine] npcwalk: invalid args (npc=${npcId}, x=${targetX}, y=${targetY})`);
+            return;
+        }
+        
+        console.log(`[ScriptEngine] npcwalk: ${npcId} → (${targetX}, ${targetY})`);
+        
+        // Walk NPC to target position using its movement system
+        const speed = npc.maxSpeed || 100;
+        const arrivalThreshold = 4;
+        
+        await new Promise(resolve => {
+            const walk = () => {
+                if (!this.isRunning) { resolve(); return; }
+                
+                const dx = targetX - npc.x;
+                const dy = targetY - npc.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist <= arrivalThreshold) {
+                    npc.x = targetX;
+                    npc.y = targetY;
+                    npc.velocityX = 0;
+                    npc.velocityY = 0;
+                    resolve();
+                    return;
+                }
+                
+                // Normalize direction and set velocity
+                const nx = dx / dist;
+                const ny = dy / dist;
+                npc.velocityX = nx * speed;
+                npc.velocityY = ny * speed;
+                
+                // Update facing direction
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    npc.setDirection?.(dx > 0 ? 'right' : 'left');
+                }
+                
+                requestAnimationFrame(walk);
+            };
+            walk();
+        });
+    }
+    
+    /**
+     * npcface "npcId", "left"|"right";
+     */
+    async cmdNPCFace() {
+        const npcId = this.consume()?.value;
+        this.consumeIf('PUNCTUATION', ',');
+        const direction = this.consume()?.value;
+        
+        const npc = this._findNPC(npcId);
+        if (npc && direction) {
+            npc.setDirection?.(direction);
+            console.log(`[ScriptEngine] npcface: ${npcId} → ${direction}`);
+        }
+    }
+    
+    /**
+     * npcsay "npcId", "text";
+     * Show a floating speech bubble above another NPC.
+     * Blocks until player confirms (same as message but attributed to a different NPC).
+     */
+    async cmdNPCSay() {
+        const npcId = this.consume()?.value;
+        this.consumeIf('PUNCTUATION', ',');
+        const text = this.consume()?.value;
+        
+        const npc = this._findNPC(npcId);
+        if (!npc || !text) {
+            console.warn(`[ScriptEngine] npcsay: invalid args (npc=${npcId})`);
+            return;
+        }
+        
+        console.log(`[ScriptEngine] npcsay: ${npc.name} says "${text}"`);
+        
+        // Use the message callback but attribute it to the target NPC
+        if (this.onMessage) {
+            await this.onMessage(text, npc);
+        }
+    }
+    
+    /**
+     * npcshow "npcId";
+     */
+    async cmdNPCShow() {
+        const npcId = this.consume()?.value;
+        const npc = this._findNPC(npcId);
+        if (npc) {
+            npc.visible = true;
+            console.log(`[ScriptEngine] npcshow: ${npcId}`);
+        }
+    }
+    
+    /**
+     * npchide "npcId";
+     */
+    async cmdNPCHide() {
+        const npcId = this.consume()?.value;
+        const npc = this._findNPC(npcId);
+        if (npc) {
+            npc.visible = false;
+            console.log(`[ScriptEngine] npchide: ${npcId}`);
+        }
+    }
+    
+    /**
+     * emote "npcId", "!"|"?"|"heart"|"sweat"|"anger"|"music"|"zzz";
+     * Shows an emote bubble above the specified NPC (or "self"/"player") for ~2s.
+     */
+    async cmdEmote() {
+        const targetId = this.consume()?.value;
+        this.consumeIf('PUNCTUATION', ',');
+        const emoteType = this.consume()?.value;
+        
+        const target = this._findNPC(targetId);
+        if (!target || !emoteType) {
+            console.warn(`[ScriptEngine] emote: invalid args (target=${targetId}, emote=${emoteType})`);
+            return;
+        }
+        
+        console.log(`[ScriptEngine] emote: ${targetId} → ${emoteType}`);
+        
+        // Set emote on the target — rendered by the emote overlay system
+        target._emote = emoteType;
+        target._emoteTimer = 2.0; // seconds
+        
+        // Wait for emote to finish
+        await new Promise(resolve => {
+            const check = setInterval(() => {
+                if (!target._emoteTimer || target._emoteTimer <= 0) {
+                    clearInterval(check);
+                    target._emote = null;
+                    resolve();
+                }
+            }, 100);
+        });
+    }
+    
+    /**
+     * playermove x, y;
+     * Walk the player to a position. Blocks until arrival.
+     */
+    async cmdPlayerMove() {
+        const targetX = this.consume()?.value;
+        this.consumeIf('PUNCTUATION', ',');
+        const targetY = this.consume()?.value;
+        
+        const player = this.game.player;
+        if (!player || targetX == null || targetY == null) return;
+        
+        console.log(`[ScriptEngine] playermove → (${targetX}, ${targetY})`);
+        
+        const speed = player.maxSpeed || 200;
+        const arrivalThreshold = 4;
+        
+        await new Promise(resolve => {
+            const walk = () => {
+                if (!this.isRunning) { resolve(); return; }
+                
+                const dx = targetX - player.x;
+                const dy = targetY - player.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist <= arrivalThreshold) {
+                    player.x = targetX;
+                    player.y = targetY;
+                    player.velocityX = 0;
+                    player.velocityY = 0;
+                    resolve();
+                    return;
+                }
+                
+                const nx = dx / dist;
+                const ny = dy / dist;
+                player.velocityX = nx * speed;
+                player.velocityY = ny * speed;
+                
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    player.setDirection?.(dx > 0 ? 'right' : 'left');
+                }
+                
+                requestAnimationFrame(walk);
+            };
+            walk();
+        });
+    }
+    
+    /**
+     * playerlock;
+     * Freeze player input (for cutscenes).
+     */
+    async cmdPlayerLock() {
+        if (this.game.player) {
+            this.game.player.inputLocked = true;
+            this.game.player.velocityX = 0;
+            this.game.player.velocityY = 0;
+            console.log('[ScriptEngine] playerlock: input locked');
+        }
+    }
+    
+    /**
+     * playerunlock;
+     * Restore player input.
+     */
+    async cmdPlayerUnlock() {
+        if (this.game.player) {
+            this.game.player.inputLocked = false;
+            console.log('[ScriptEngine] playerunlock: input restored');
+        }
+    }
+    
+    /**
+     * fadeout [duration_ms];
+     * Fade the screen to black. Default 500ms. Blocks until complete.
+     */
+    async cmdFadeOut() {
+        let duration = 500;
+        const nextToken = this.peek();
+        if (nextToken && nextToken.type === 'NUMBER') {
+            duration = this.consume()?.value || 500;
+        }
+        
+        console.log(`[ScriptEngine] fadeout: ${duration}ms`);
+        
+        // Set fade overlay on game
+        this.game._scriptFade = { alpha: 0, target: 1, speed: 1000 / duration };
+        
+        await new Promise(resolve => {
+            const check = setInterval(() => {
+                if (!this.game._scriptFade || this.game._scriptFade.alpha >= 1) {
+                    clearInterval(check);
+                    resolve();
+                }
+            }, 16);
+        });
+    }
+    
+    /**
+     * fadein [duration_ms];
+     * Fade the screen back from black. Default 500ms. Blocks until complete.
+     */
+    async cmdFadeIn() {
+        let duration = 500;
+        const nextToken = this.peek();
+        if (nextToken && nextToken.type === 'NUMBER') {
+            duration = this.consume()?.value || 500;
+        }
+        
+        console.log(`[ScriptEngine] fadein: ${duration}ms`);
+        
+        // Set fade overlay on game
+        this.game._scriptFade = { alpha: 1, target: 0, speed: 1000 / duration };
+        
+        await new Promise(resolve => {
+            const check = setInterval(() => {
+                if (!this.game._scriptFade || this.game._scriptFade.alpha <= 0) {
+                    clearInterval(check);
+                    this.game._scriptFade = null;
+                    resolve();
+                }
+            }, 16);
+        });
     }
     
     /**

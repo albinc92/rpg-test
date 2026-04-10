@@ -11,6 +11,8 @@ class Actor extends GameObject {
         this.acceleration = options.acceleration || 800;
         this.friction = options.friction || 0.8;
         this.isMoving = false;
+        this._movementAppliedThisFrame = false;
+        this._effectiveMaxSpeed = this.maxSpeed;
         
         // AI/Behavior properties
         this.behaviorType = options.behaviorType || 'static'; // 'static', 'roaming', 'following', etc.
@@ -44,15 +46,23 @@ class Actor extends GameObject {
      * Apply physics and movement
      */
     updatePhysics(deltaTime, game) {
-        // Apply friction
-        const frictionFactor = Math.pow(this.friction, deltaTime * 60);
-        this.velocityX *= frictionFactor;
-        this.velocityY *= frictionFactor;
+        // Only apply friction when no movement input this frame
+        // (applyMovement's target-velocity approach handles deceleration itself)
+        if (!this._movementAppliedThisFrame) {
+            const frictionFactor = Math.pow(this.friction, deltaTime * 60);
+            this.velocityX *= frictionFactor;
+            this.velocityY *= frictionFactor;
+            
+            // Stop very slow movement
+            if (Math.abs(this.velocityX) < 0.5) this.velocityX = 0;
+            if (Math.abs(this.velocityY) < 0.5) this.velocityY = 0;
+        }
+        this._movementAppliedThisFrame = false;
         
-        // Clamp velocity to max speed
+        // Clamp velocity to effective max speed (accounts for run multiplier)
         const currentSpeed = Math.sqrt(this.velocityX * this.velocityX + this.velocityY * this.velocityY);
-        if (currentSpeed > this.maxSpeed) {
-            const speedRatio = this.maxSpeed / currentSpeed;
+        if (currentSpeed > this._effectiveMaxSpeed) {
+            const speedRatio = this._effectiveMaxSpeed / currentSpeed;
             this.velocityX *= speedRatio;
             this.velocityY *= speedRatio;
         }
@@ -111,19 +121,26 @@ class Actor extends GameObject {
      * Apply movement input
      */
     applyMovement(inputX, inputY, deltaTime, speedMultiplier = 1.0) {
-        const accelerationPerSecond = this.acceleration * deltaTime * speedMultiplier;
+        this._movementAppliedThisFrame = true;
+        this._effectiveMaxSpeed = this.maxSpeed * speedMultiplier;
         
         // Normalize diagonal input so diagonal movement isn't faster
-        // but also doesn't feel slower (same acceleration magnitude)
         const inputLength = Math.sqrt(inputX * inputX + inputY * inputY);
         if (inputLength > 0) {
             inputX /= inputLength;
             inputY /= inputLength;
         }
         
-        // Apply acceleration
-        this.velocityX += inputX * accelerationPerSecond;
-        this.velocityY += inputY * accelerationPerSecond;
+        // Target velocity based on input direction and speed
+        const targetSpeed = this.maxSpeed * speedMultiplier;
+        const targetVX = inputX * targetSpeed;
+        const targetVY = inputY * targetSpeed;
+        
+        // Smoothly approach target velocity using exponential interpolation
+        // Higher acceleration = faster response. The factor ensures frame-rate independence.
+        const responseFactor = 1 - Math.exp(-this.acceleration / this.maxSpeed * deltaTime);
+        this.velocityX += (targetVX - this.velocityX) * responseFactor;
+        this.velocityY += (targetVY - this.velocityY) * responseFactor;
         
         // Update direction based on movement
         if (inputX > 0) {
@@ -131,6 +148,81 @@ class Actor extends GameObject {
         } else if (inputX < 0) {
             this.setDirection('left');
         }
+    }
+    
+    /**
+     * Render emote bubble overlay (for script `emote` command)
+     * Shows emote icons above this actor. Works for NPC, Player, or any Actor.
+     */
+    renderEmoteOverlay(ctx, game, webglRenderer = null) {
+        if (!this._emote || !this._emoteTimer || this._emoteTimer <= 0) return;
+        
+        const camera = game.camera;
+        if (!camera) return;
+        
+        const canvasWidth = game.CANVAS_WIDTH || ctx.canvas.width;
+        const canvasHeight = game.CANVAS_HEIGHT || ctx.canvas.height;
+        const worldScale = game.resolutionScale || 1;
+        const zoom = camera.zoom || 1;
+        
+        // Get world position
+        const worldX = this.x * worldScale;
+        const worldY = this.y * worldScale;
+        const finalScale = this.getFinalScale ? this.getFinalScale(game) : (this.scale || 1);
+        const spriteHeight = (this.spriteHeight || this.fallbackHeight || 64) * finalScale;
+        
+        // Calculate screen position (top of sprite)
+        const fxOffX = game.cameraEffects ? (game.cameraEffects.swayX + game.cameraEffects.shakeX) : 0;
+        const fxOffY = game.cameraEffects ? (game.cameraEffects.swayY + game.cameraEffects.shakeY) : 0;
+        const screenX = (worldX - camera.x - fxOffX) * zoom + canvasWidth / 2 * (1 - zoom);
+        const screenY = (worldY - spriteHeight / 2 - camera.y - fxOffY) * zoom + canvasHeight / 2 * (1 - zoom);
+        
+        // Animate: pop in and float up slightly
+        const progress = 1 - (this._emoteTimer / 2.0); // 0→1 over 2s
+        const popScale = progress < 0.15 ? (progress / 0.15) : 1;
+        const fadeOut = this._emoteTimer < 0.3 ? (this._emoteTimer / 0.3) : 1;
+        const floatY = -10 * progress;
+        
+        const bx = screenX;
+        const by = screenY - 40 + floatY;
+        const size = 28 * popScale;
+        
+        if (size <= 0) return;
+        
+        ctx.save();
+        ctx.globalAlpha = fadeOut;
+        
+        // Draw emote bubble background
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 4;
+        ctx.beginPath();
+        ctx.ellipse(bx, by, size * 0.6, size * 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        
+        // Draw emote symbol
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `bold ${Math.round(size * 0.7)}px Arial`;
+        
+        const emoteSymbols = {
+            '!': { text: '!', color: '#ff3333' },
+            '?': { text: '?', color: '#3399ff' },
+            'heart': { text: '♥', color: '#ff4488' },
+            'sweat': { text: '💧', color: '#4488ff' },
+            'anger': { text: '💢', color: '#ff2222' },
+            'music': { text: '♪', color: '#9944ff' },
+            'zzz': { text: 'z', color: '#8888aa' },
+            'star': { text: '★', color: '#ffcc00' },
+            'dots': { text: '...', color: '#666666' },
+        };
+        
+        const emote = emoteSymbols[this._emote] || { text: this._emote, color: '#333333' };
+        ctx.fillStyle = emote.color;
+        ctx.fillText(emote.text, bx, by);
+        
+        ctx.restore();
     }
     
 }
