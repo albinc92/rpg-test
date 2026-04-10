@@ -66,7 +66,8 @@ class NPC extends Actor {
         
         // Auto-enable talk bubble if NPC has dialogue but bubble was disabled
         // (handles case where script is added after NPC creation)
-        if (this.showTalkBubble === false && this.hasDialogue()) {
+        // Don't re-enable if actively in dialogue (isInteracting flag)
+        if (this.showTalkBubble === false && this.hasDialogue() && !this.isInteracting) {
             this.showTalkBubble = true;
         }
         

@@ -195,14 +195,7 @@ wait 300;
 fadein 400;
 message "Fade out and fade in complete!";
 
-// ── 12. Player lock/unlock ──
-message "I'm about to <color=#ff3333>lock your movement</color> for 2 seconds...";
-playerlock;
-wait 2000;
-playerunlock;
-message "Movement <color=#00ff00>restored</color>!";
-
-// ── 13. NPC face command ──
+// ── 12. NPC face command ──
 message "Now I'll look to the <b>left</b>...";
 npcface "self", "left";
 wait 800;
@@ -251,7 +244,6 @@ message "  <color=#00ff00>✓</color> setvar, incvar, decvar, setflag, clearflag
 message "  <color=#00ff00>✓</color> additem, delitem, addgold, delgold";
 message "  <color=#00ff00>✓</color> playsound, camerashake";
 message "  <color=#00ff00>✓</color> emote, fadeout, fadein";
-message "  <color=#00ff00>✓</color> playerlock, playerunlock";
 message "  <color=#00ff00>✓</color> npcface, label, goto";
 message "  <color=#00ff00>✓</color> if/else if/else, and, or, not";
 message "  <color=#00ff00>✓</color> random(), getvar(), hasitem(), getgold()";

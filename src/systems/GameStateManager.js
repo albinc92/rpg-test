@@ -5615,6 +5615,13 @@ class DialogueState extends GameState {
             this.game.player.velocityY = 0;
         }
         
+        // Hide the NPC's talk indicator bubble while we're in conversation
+        if (this.npc) {
+            this._savedShowTalkBubble = this.npc.showTalkBubble;
+            this.npc.showTalkBubble = false;
+            this.npc.isInteracting = true;
+        }
+        
         // Ignore input on first frame (so the key that initiated dialogue doesn't skip the message)
         this.ignoreFirstInput = true;
         
@@ -5668,6 +5675,12 @@ class DialogueState extends GameState {
             this.scriptEngine.stop();
         }
         
+        // Restore NPC talk bubble indicator
+        if (this.npc && this._savedShowTalkBubble !== undefined) {
+            this.npc.showTalkBubble = this._savedShowTalkBubble;
+            this.npc.isInteracting = false;
+        }
+        
         // Reset NPC dialogue state
         if (this.npc) {
             this.npc.resetDialogue?.();
@@ -5698,6 +5711,8 @@ class DialogueState extends GameState {
         this.scriptEngine.onMessage = (text, npc) => {
             return new Promise((resolve) => {
                 this.messageResolver = resolve;
+                // Update speaking NPC so the chat bubble renders above the correct character
+                if (npc) this.npc = npc;
                 this.showMessage(text);
             });
         };
@@ -5746,6 +5761,10 @@ class DialogueState extends GameState {
     }
     
     update(deltaTime) {
+        // Keep the game world updating during dialogue (for emotes, camera shake, fade, particles, etc.)
+        // Battle encounters are already blocked (checkSpiritEncounters checks for PLAYING state)
+        this.game.updateGameplay(deltaTime);
+        
         // Typewriter effect
         if (this.isTyping && this.displayedChars < this.getPlainTextLength(this.currentMessage)) {
             const now = Date.now();
@@ -5996,8 +6015,8 @@ class DialogueState extends GameState {
             bubbleX = (topWorldX - camera.x - fxOffX) * zoom + canvasWidth / 2 * (1 - zoom);
             bubbleY = (topWorldY - camera.y - fxOffY) * zoom + canvasHeight / 2 * (1 - zoom);
             
-            // Position bubble above sprite top
-            bubbleY -= 20;
+            // Position bubble well above sprite top to leave room for emotes
+            bubbleY -= 80;
         }
         
         // Calculate bubble size based on FULL content (not partial display)
@@ -6150,16 +6169,26 @@ class DialogueState extends GameState {
             }
         }
         
-        // Controls hint at bottom of screen (adapts to input device)
+        // Controls hint at bottom of screen (adapts to input device and context)
         const im = this.game.inputManager;
-        const hintText = im?.isMobile 
-            ? this.game.t('instructions.dialogueMobile') 
-            : im?.isUsingGamepad()
-                ? this.game.t('instructions.dialogueMenuController')
+        let hintText;
+        if (im?.isMobile) {
+            hintText = this.isShowingChoices
+                ? this.game.t('instructions.dialogueChoiceMobile')
+                : this.game.t('instructions.dialogueMobile');
+        } else if (im?.isUsingGamepad()) {
+            hintText = this.isShowingChoices
+                ? this.game.t('instructions.dialogueChoiceController')
+                : this.game.t('instructions.dialogueMenuController');
+        } else {
+            hintText = this.isShowingChoices
+                ? this.game.t('instructions.dialogueChoice')
                 : this.game.t('instructions.dialogueMenu');
+        }
         ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
         ctx.font = ds ? ds.font('sm', 'normal', 'body') : `14px ${bodyFont}`;
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
         ctx.fillText(hintText, canvasWidth / 2, canvasHeight - 12);
     }
     

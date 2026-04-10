@@ -1577,6 +1577,9 @@ class GameEngine {
         // Skip if editor is active
         if (this.editorManager.isActive) return;
         
+        // Skip movement input if not in PLAYING state (e.g. during dialogue)
+        if (this.stateManager.getCurrentState() !== 'PLAYING') return;
+        
         // Skip movement input if player is locked (cutscene)
         if (this.player.inputLocked) return;
         

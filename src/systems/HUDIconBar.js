@@ -56,7 +56,7 @@ class HUDIconBar {
         const s = this.iconSize;
         const totalW = this.icons.length * s + (this.icons.length - 1) * this.iconGap;
         const badgeH = 14;
-        const startX = (W - totalW) / 2;
+        const startX = this.bottomMargin;
         const boxY = H - this.bottomMargin - badgeH - this.badgeGap - s;
 
         ctx.save();

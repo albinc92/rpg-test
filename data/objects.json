@@ -463,6 +463,36 @@
       "collisionExpandLeftPercent": 0.01,
       "collisionExpandRightPercent": 0.01,
       "name": "Rock"
+    },
+    {
+      "category": "Actor",
+      "actorType": "npc",
+      "x": 1970,
+      "y": 1870,
+      "scale": 0.15,
+      "spriteSrc": "/assets/npc/sage-0.png",
+      "id": "npc_script_test",
+      "name": "Script Tester",
+      "npcType": "dialogue",
+      "canInteract": true,
+      "interactionRadius": 80,
+      "script": "// SCRIPT TEST NPC — Tests ALL script language features\n\n// 1. Basic messages with rich text\nmessage \"Welcome, <b>traveler</b>! I am the <color=#9900ff>Script Tester</color>.\";\nmessage \"I exist to test <i>every</i> script command in the engine.\";\nmessage \"Let's begin the <color=#ffcc00>demonstration</color>...\";\n\n// 2. Variables: set, increment, decrement\nsetvar \"test_counter\", 0;\nincvar \"test_counter\", 5;\ndecvar \"test_counter\", 2;\nlog \"test_counter should be 3\";\nsetflag \"test_started\";\n\n// 3. Conditional logic\nif (getvar(\"test_counter\") == 3) {\n    message \"Variable test <color=#00ff00>PASSED</color>! Counter is 3.\";\n} else {\n    message \"Variable test <color=#ff0000>FAILED</color>.\";\n}\n\n// 4. Boolean flags\nif (getvar(\"test_started\")) {\n    message \"Flag test <color=#00ff00>PASSED</color>! test_started is true.\";\n}\nclearflag \"test_started\";\n\n// 5. Player choices\nmessage \"Now let's test the <b>choice system</b>.\";\nchoice \"Option A\", \"Option B\", \"Option C\";\nif (choice == 0) {\n    message \"You picked <color=#4a90d9>Option A</color>.\";\n} else if (choice == 1) {\n    message \"You picked <color=#27ae60>Option B</color>.\";\n} else {\n    message \"You picked <color=#e67e22>Option C</color>.\";\n}\n\n// 6. Gold operations\nmessage \"Testing <color=#ffcc00>gold</color> commands...\";\naddgold 50;\nmessage \"Added <color=#ffcc00>50 gold</color>. You now have some extra coins.\";\ndelgold 25;\nmessage \"Removed 25. Net gain: 25 gold.\";\n\n// 7. Inventory operations\nif (getvar(\"test_items_given\")) {\n    message \"You already received test items. Skipping inventory test.\";\n} else {\n    additem \"health_potion\", 2;\n    message \"Added <color=#00ff00>2x Health Potion</color> to your inventory.\";\n    setflag \"test_items_given\";\n}\n\n// 8. Sound effect\nplaysound \"speech-bubble.mp3\";\nmessage \"Played a sound effect. Did you hear it?\";\n\n// 9. Emote system\nmessage \"Now testing <b>emotes</b>...\";\nemote \"self\", \"!\";\nmessage \"That was the <color=#ff3333>exclamation</color> emote!\";\nemote \"self\", \"?\";\nmessage \"And the <color=#3399ff>question</color> emote.\";\nemote \"self\", \"heart\";\nmessage \"And a <color=#ff4488>heart</color>!\";\n\n// 10. Camera shake\nmessage \"Brace yourself... <b>camera shake</b> incoming!\";\ncamerashake 10, 0.5;\nwait 600;\nmessage \"That was a medium shake. Here's a big one:\";\ncamerashake 20, 0.8;\nwait 900;\n\n// 11. Screen fade\nmessage \"Testing <b>screen fade</b>...\";\nfadeout 400;\nwait 300;\nfadein 400;\nmessage \"Fade out and fade in complete!\";\n\n// 12. NPC face command\nmessage \"Now I'll look to the <b>left</b>...\";\nnpcface \"self\", \"left\";\nwait 800;\nmessage \"And back to the <b>right</b>.\";\nnpcface \"self\", \"right\";\nwait 500;\n\n// 13. NPC conversation (npcsay test)\nmessage \"Now testing <b>npcsay</b> — making another NPC speak!\";\nnpcsay \"Test Buddy\", \"Hey! Did someone call me?\";\nmessage \"See? <color=#e67e22>Test Buddy</color> just spoke!\";\nnpcsay \"Test Buddy\", \"Right here next to you, ready to help!\";\nmessage \"And now I'm talking again. Conversations between NPCs!\";\nnpcsay \"Test Buddy\", \"This is pretty cool, right traveler?\";\nmessage \"That's the <b>npcsay</b> command in action.\";\n\n// 14. Labels and goto (menu loop)\nlabel menu:\nmessage \"This is a <b>menu loop</b> using labels and goto.\";\nchoice \"Show stats\", \"Test random()\", \"Exit menu\";\nif (choice == 0) {\n    message \"Gold: You have some gold. Counter: 3. Flag: cleared.\";\n    goto menu;\n} else if (choice == 1) {\n    if (random(1, 10) > 5) {\n        message \"Random rolled <color=#00ff00>HIGH</color> (6-10).\";\n    } else {\n        message \"Random rolled <color=#ff6600>LOW</color> (1-5).\";\n    }\n    goto menu;\n}\n\n// 15. Complex nested conditions\nif (getvar(\"test_counter\") >= 1 and getvar(\"test_counter\") <= 5) {\n    message \"Nested condition test <color=#00ff00>PASSED</color>: counter is between 1 and 5.\";\n} else {\n    message \"Nested condition test <color=#ff0000>FAILED</color>.\";\n}\n\n// 16. Or condition\nif (getvar(\"test_counter\") == 3 or getvar(\"test_counter\") == 99) {\n    message \"OR condition test <color=#00ff00>PASSED</color>.\";\n}\n\n// 17. Not operator\nif (not getvar(\"nonexistent_var\")) {\n    message \"NOT operator test <color=#00ff00>PASSED</color>: nonexistent var is falsy.\";\n}\n\n// Wrap up\nmessage \"<b>All tests complete!</b>\";\nmessage \"Script command coverage:\";\nmessage \"  <color=#00ff00>✓</color> message, choice, wait, log, end\";\nmessage \"  <color=#00ff00>✓</color> setvar, incvar, decvar, setflag, clearflag\";\nmessage \"  <color=#00ff00>✓</color> additem, delitem, addgold, delgold\";\nmessage \"  <color=#00ff00>✓</color> playsound, camerashake\";\nmessage \"  <color=#00ff00>✓</color> emote, fadeout, fadein\";\nmessage \"  <color=#00ff00>✓</color> npcsay, npcface, label, goto\";\nmessage \"  <color=#00ff00>✓</color> if/else if/else, and, or, not\";\nmessage \"  <color=#00ff00>✓</color> random(), getvar(), hasitem(), getgold()\";\nmessage \"Talk to me again anytime to re-run the tests!\";\nend;"
+    },
+    {
+      "category": "Actor",
+      "actorType": "npc",
+      "x": 2060,
+      "y": 1870,
+      "scale": 0.15,
+      "spriteSrc": "/assets/npc/merchant-0.png",
+      "id": "npc_test_buddy",
+      "name": "Test Buddy",
+      "npcType": "dialogue",
+      "canInteract": true,
+      "interactionRadius": 80,
+      "dialogue": [
+        "Just here to help test npcsay. Talk to the Script Tester!"
+      ]
     }
   ],
   "0-1": [

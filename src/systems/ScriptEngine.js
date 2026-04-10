@@ -768,9 +768,29 @@ class ScriptEngine {
     async cmdPlaySound() {
         const soundId = this.consume()?.value;
         
-        if (this.game.audioManager && soundId) {
-            this.game.audioManager.playEffect(soundId);
+        if (!soundId) {
+            console.warn('[ScriptEngine] playsound: no sound ID provided');
+            return;
         }
+        
+        const am = this.game.audioManager;
+        if (!am) {
+            console.warn('[ScriptEngine] playsound: no audioManager available');
+            return;
+        }
+        
+        // Force-enable audio if context exists but was never unlocked
+        if (!am.audioEnabled && am.audioContext) {
+            try {
+                await am.audioContext.resume();
+                am.audioEnabled = true;
+                am.processPendingActions();
+            } catch (e) {
+                console.warn('[ScriptEngine] playsound: failed to resume audio context', e);
+            }
+        }
+        
+        am.playEffect(soundId);
     }
     
     /**
@@ -1299,7 +1319,7 @@ class ScriptEngine {
         target._emote = emoteType;
         target._emoteTimer = 2.0; // seconds
         
-        // Wait for emote to finish
+        // Wait for emote to finish (timer ticks in updateGameplay)
         await new Promise(resolve => {
             const check = setInterval(() => {
                 if (!target._emoteTimer || target._emoteTimer <= 0) {
@@ -1362,26 +1382,20 @@ class ScriptEngine {
     
     /**
      * playerlock;
-     * Freeze player input (for cutscenes).
+     * No-op during NPC dialogue (player is already locked).
+     * Reserved for future region-triggered cutscene events.
      */
     async cmdPlayerLock() {
-        if (this.game.player) {
-            this.game.player.inputLocked = true;
-            this.game.player.velocityX = 0;
-            this.game.player.velocityY = 0;
-            console.log('[ScriptEngine] playerlock: input locked');
-        }
+        console.log('[ScriptEngine] playerlock: no-op (player already locked during dialogue)');
     }
     
     /**
      * playerunlock;
-     * Restore player input.
+     * No-op during NPC dialogue.
+     * Reserved for future region-triggered cutscene events.
      */
     async cmdPlayerUnlock() {
-        if (this.game.player) {
-            this.game.player.inputLocked = false;
-            console.log('[ScriptEngine] playerunlock: input restored');
-        }
+        console.log('[ScriptEngine] playerunlock: no-op (player unlocks when dialogue ends)');
     }
     
     /**
@@ -1397,7 +1411,7 @@ class ScriptEngine {
         
         console.log(`[ScriptEngine] fadeout: ${duration}ms`);
         
-        // Set fade overlay on game
+        // Set fade overlay on game (alpha updated by updateGameplay)
         this.game._scriptFade = { alpha: 0, target: 1, speed: 1000 / duration };
         
         await new Promise(resolve => {
@@ -1423,7 +1437,7 @@ class ScriptEngine {
         
         console.log(`[ScriptEngine] fadein: ${duration}ms`);
         
-        // Set fade overlay on game
+        // Set fade overlay on game (alpha updated by updateGameplay)
         this.game._scriptFade = { alpha: 1, target: 0, speed: 1000 / duration };
         
         await new Promise(resolve => {
