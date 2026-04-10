@@ -11,8 +11,6 @@ class Actor extends GameObject {
         this.acceleration = options.acceleration || 800;
         this.friction = options.friction || 0.8;
         this.isMoving = false;
-        this._movementAppliedThisFrame = false;
-        this._effectiveMaxSpeed = this.maxSpeed;
         
         // AI/Behavior properties
         this.behaviorType = options.behaviorType || 'static'; // 'static', 'roaming', 'following', etc.
@@ -46,23 +44,15 @@ class Actor extends GameObject {
      * Apply physics and movement
      */
     updatePhysics(deltaTime, game) {
-        // Only apply friction when no movement input this frame
-        // (applyMovement's target-velocity approach handles deceleration itself)
-        if (!this._movementAppliedThisFrame) {
-            const frictionFactor = Math.pow(this.friction, deltaTime * 60);
-            this.velocityX *= frictionFactor;
-            this.velocityY *= frictionFactor;
-            
-            // Stop very slow movement
-            if (Math.abs(this.velocityX) < 0.5) this.velocityX = 0;
-            if (Math.abs(this.velocityY) < 0.5) this.velocityY = 0;
-        }
-        this._movementAppliedThisFrame = false;
+        // Apply friction
+        const frictionFactor = Math.pow(this.friction, deltaTime * 60);
+        this.velocityX *= frictionFactor;
+        this.velocityY *= frictionFactor;
         
-        // Clamp velocity to effective max speed (accounts for run multiplier)
+        // Clamp velocity to max speed
         const currentSpeed = Math.sqrt(this.velocityX * this.velocityX + this.velocityY * this.velocityY);
-        if (currentSpeed > this._effectiveMaxSpeed) {
-            const speedRatio = this._effectiveMaxSpeed / currentSpeed;
+        if (currentSpeed > this.maxSpeed) {
+            const speedRatio = this.maxSpeed / currentSpeed;
             this.velocityX *= speedRatio;
             this.velocityY *= speedRatio;
         }
@@ -121,8 +111,7 @@ class Actor extends GameObject {
      * Apply movement input
      */
     applyMovement(inputX, inputY, deltaTime, speedMultiplier = 1.0) {
-        this._movementAppliedThisFrame = true;
-        this._effectiveMaxSpeed = this.maxSpeed * speedMultiplier;
+        const accelerationPerSecond = this.acceleration * deltaTime * speedMultiplier;
         
         // Normalize diagonal input so diagonal movement isn't faster
         const inputLength = Math.sqrt(inputX * inputX + inputY * inputY);
@@ -131,16 +120,9 @@ class Actor extends GameObject {
             inputY /= inputLength;
         }
         
-        // Target velocity based on input direction and speed
-        const targetSpeed = this.maxSpeed * speedMultiplier;
-        const targetVX = inputX * targetSpeed;
-        const targetVY = inputY * targetSpeed;
-        
-        // Smoothly approach target velocity using exponential interpolation
-        // Higher acceleration = faster response. The factor ensures frame-rate independence.
-        const responseFactor = 1 - Math.exp(-this.acceleration / this.maxSpeed * deltaTime);
-        this.velocityX += (targetVX - this.velocityX) * responseFactor;
-        this.velocityY += (targetVY - this.velocityY) * responseFactor;
+        // Apply acceleration
+        this.velocityX += inputX * accelerationPerSecond;
+        this.velocityY += inputY * accelerationPerSecond;
         
         // Update direction based on movement
         if (inputX > 0) {
