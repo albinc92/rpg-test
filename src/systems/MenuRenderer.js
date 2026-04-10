@@ -570,18 +570,21 @@ class MenuRenderer {
     /**
      * Draw hint text at bottom of screen
      */
-    drawHint(ctx, text, canvasWidth, canvasHeight, yPosition = 0.95) {
+    drawHint(ctx, text, canvasWidth, canvasHeight, yPosition = 0.92) {
         this._ensureDS(canvasWidth, canvasHeight);
         
         if (this.ds) {
-            this.ds.drawHint(ctx, text, yPosition);
+            this.ds.drawHint(ctx, text);
         } else {
             // Legacy fallback
             const sizes = this.getFontSizes(canvasHeight);
+            ctx.save();
             ctx.fillStyle = '#4a9eff';
             ctx.font = `${sizes.instruction}px 'Lato', sans-serif`;
             ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
             ctx.fillText(text, canvasWidth / 2, canvasHeight * yPosition);
+            ctx.restore();
         }
     }
     

@@ -181,6 +181,9 @@ class GameEngine {
         // Spawn system for spirits
         this.spawnManager = new SpawnManager(this);
         
+        // Loot system for dynamic chest loot
+        this.lootSystem = new LootSystem(this);
+        
         // Template system for objects
         this.templateManager = new TemplateManager(this);
         
@@ -286,6 +289,9 @@ class GameEngine {
             
             // Initialize template manager
             await this.templateManager.initialize();
+            
+            // Initialize loot system
+            await this.lootSystem.initialize();
             
             this.maps = this.mapManager.maps;
             

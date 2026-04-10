@@ -72,26 +72,44 @@ class Chest extends InteractiveObject {
         
         // Give loot to player
         const receivedItems = [];
-        this.loot.forEach(lootItem => {
-            if (player.inventory) {
-                const amount = lootItem.amount || 1;
-                for (let i = 0; i < amount; i++) {
-                    player.inventory.addItem({ id: lootItem.id });
+        let lootGold = this.gold;
+        
+        // Use dynamic loot if no static loot is configured
+        if (this.loot.length === 0 && !this.gold && game.lootSystem) {
+            const zoneLevel = game.lootSystem.getZoneLevelAt(this.x, this.y, this.mapId);
+            const dynamicLoot = game.lootSystem.generateLoot(zoneLevel, this.chestType);
+            lootGold = dynamicLoot.gold;
+            dynamicLoot.items.forEach(lootItem => {
+                if (player.inventory) {
+                    const amount = lootItem.amount || 1;
+                    for (let i = 0; i < amount; i++) {
+                        player.inventory.addItem({ id: lootItem.id });
+                    }
+                    receivedItems.push({ ...lootItem });
                 }
-                receivedItems.push({ ...lootItem, amount });
-            }
-        });
+            });
+        } else {
+            this.loot.forEach(lootItem => {
+                if (player.inventory) {
+                    const amount = lootItem.amount || 1;
+                    for (let i = 0; i < amount; i++) {
+                        player.inventory.addItem({ id: lootItem.id });
+                    }
+                    receivedItems.push({ ...lootItem, amount });
+                }
+            });
+        }
         
         // Give gold to player
-        if (this.gold > 0 && player.addGold) {
-            player.addGold(this.gold);
+        if (lootGold > 0 && player.addGold) {
+            player.addGold(lootGold);
         }
         
         return {
             type: 'loot',
             items: receivedItems,
-            gold: this.gold,
-            message: this.generateLootMessage(receivedItems, this.gold)
+            gold: lootGold,
+            message: this.generateLootMessage(receivedItems, lootGold)
         };
     }
     

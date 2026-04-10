@@ -109,6 +109,7 @@ async function loadGameScripts() {
         await loadScript('/src/systems/BiomeBGMSystem.js'); // NEW: Biome-driven dynamic BGM selection
         await loadScript('/src/systems/HUDIconBar.js'); // NEW: Bottom-center HUD icon bar with hotkey badges
         await loadScript('/src/systems/PartyHUD.js'); // NEW: Top-left party spirit display
+        await loadScript('/src/systems/LootSystem.js'); // NEW: Dynamic loot generation from zone levels
 
         updateSplashStatus('Loading editor...');
         

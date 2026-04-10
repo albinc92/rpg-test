@@ -198,14 +198,17 @@ class SpiritRegistry {
      * @param {string} mapId - Map ID where spirit will spawn
      * @returns {Spirit} Spirit instance or null if template not found
      */
-    createSpirit(spiritId, x, y, mapId) {
+    createSpirit(spiritId, x, y, mapId, zoneLevel) {
         const template = this.getTemplate(spiritId);
         if (!template) {
             console.error(`[SpiritRegistry] Spirit template not found: ${spiritId}`);
             return null;
         }
 
-        console.log(`[SpiritRegistry] Creating ${template.name} with sprite: ${template.spriteSrc}, scale: ${template.scale || 0.8}`);
+        // Zone level overrides template level if provided
+        const effectiveLevel = zoneLevel || template.level || 5;
+
+        console.log(`[SpiritRegistry] Creating ${template.name} (Lv.${effectiveLevel}) with sprite: ${template.spriteSrc}, scale: ${template.scale || 0.8}`);
         
         // Create spirit with template data using the global Spirit class
         const spirit = new Spirit(this.game, x, y, mapId, {
@@ -226,7 +229,7 @@ class SpiritRegistry {
             floatingRange: template.floatingRange,
             stats: template.stats,
             // Battle stats
-            level: template.level || 5,
+            level: effectiveLevel,
             type1: template.type1 || 'fire',
             type2: template.type2 || null,
             baseStats: template.baseStats || template.stats,

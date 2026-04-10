@@ -3605,6 +3605,15 @@ class GourdState extends GameState {
         // Sprite cache for spirit icons
         this._spriteCache = {};
 
+        // Context menu state
+        this.showContextMenu = false;
+        this.contextMenuIndex = 0;
+        this.contextMenuOptions = [];
+
+        // Summary sub-view
+        this.showSummary = false;
+        this.summarySpirit = null;
+
         // Show touch controls
         if (this.game.touchControlsUI) {
             this.game.touchControlsUI.show();
@@ -3634,6 +3643,50 @@ class GourdState extends GameState {
     // ── Input ──────────────────────────────────────────────
     handleInput(im) {
         if (this.inputCooldown > 0) return;
+
+        // Summary sub-view input
+        if (this.showSummary) {
+            if (im.isJustPressed('cancel') || im.isJustPressed('confirm')) {
+                this.showSummary = false;
+                this.summarySpirit = null;
+                this.game.audioManager?.playEffect('cancel.mp3');
+            }
+            return;
+        }
+
+        // Context menu input
+        if (this.showContextMenu) {
+            if (im.isJustPressed('cancel')) {
+                this.showContextMenu = false;
+                this.game.audioManager?.playEffect('cancel.mp3');
+                return;
+            }
+            if (im.isJustPressed('up')) {
+                this.contextMenuIndex = Math.max(0, this.contextMenuIndex - 1);
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+                return;
+            }
+            if (im.isJustPressed('down')) {
+                this.contextMenuIndex = Math.min(this.contextMenuOptions.length - 1, this.contextMenuIndex + 1);
+                this.game.audioManager?.playEffect('menu-navigation.mp3');
+                return;
+            }
+            if (im.isJustPressed('confirm')) {
+                const action = this.contextMenuOptions[this.contextMenuIndex];
+                this.showContextMenu = false;
+                if (action === 'Move') {
+                    this._pickUpCurrentSpirit();
+                } else if (action === 'Summary') {
+                    this.summarySpirit = this._getSelectedSpirit();
+                    if (this.summarySpirit) {
+                        this.showSummary = true;
+                    }
+                }
+                this.game.audioManager?.playEffect('click.mp3');
+                return;
+            }
+            return;
+        }
 
         // Cancel / back
         if (im.isJustPressed('cancel')) {
@@ -3729,20 +3782,16 @@ class GourdState extends GameState {
         const pm = this.game.partyManager;
         const t = (k, p) => this.game.t ? this.game.t(k, p) : k;
 
+        if (this.showContextMenu) return; // handled separately
+
         if (!this.heldSpirit) {
-            // ── Pick up ──
-            if (this.panel === 'party') {
-                const spirit = pm.party[this.partyIndex];
-                if (!spirit) return;
-                this.heldSpirit = { source: 'party', partyIdx: this.partyIndex, spirit };
-                this.game.audioManager?.playEffect('click.mp3');
-            } else {
-                const box = pm.getBox(this.currentBox);
-                const spirit = box?.spirits[this.boxCursor];
-                if (!spirit) return;
-                this.heldSpirit = { source: 'box', boxIdx: this.currentBox, slotIdx: this.boxCursor, spirit };
-                this.game.audioManager?.playEffect('click.mp3');
-            }
+            // Show context menu instead of immediately picking up
+            const spirit = this._getSelectedSpirit();
+            if (!spirit) return;
+            this.showContextMenu = true;
+            this.contextMenuIndex = 0;
+            this.contextMenuOptions = ['Move', 'Summary'];
+            this.game.audioManager?.playEffect('click.mp3');
         } else {
             // ── Place / swap ──
             if (this.panel === 'party') {
@@ -3805,6 +3854,20 @@ class GourdState extends GameState {
     }
 
     // ── Helpers ─────────────────────────────────────────────
+    _pickUpCurrentSpirit() {
+        const pm = this.game.partyManager;
+        if (this.panel === 'party') {
+            const spirit = pm.party[this.partyIndex];
+            if (!spirit) return;
+            this.heldSpirit = { source: 'party', partyIdx: this.partyIndex, spirit };
+        } else {
+            const box = pm.getBox(this.currentBox);
+            const spirit = box?.spirits[this.boxCursor];
+            if (!spirit) return;
+            this.heldSpirit = { source: 'box', boxIdx: this.currentBox, slotIdx: this.boxCursor, spirit };
+        }
+    }
+
     _getSelectedSpirit() {
         const pm = this.game.partyManager;
         if (this.panel === 'party') {
@@ -3886,6 +3949,16 @@ class GourdState extends GameState {
             ctx.fillStyle = `rgba(255, 200, 60, ${alpha})`;
             ctx.fillText(this.toast, W / 2, H * 0.93);
             ctx.restore();
+        }
+
+        // Context menu popup
+        if (this.showContextMenu) {
+            this._renderContextMenu(ctx, W, H, ds);
+        }
+
+        // Summary sub-view
+        if (this.showSummary && this.summarySpirit) {
+            this._renderSummaryView(ctx, W, H, ds, mr);
         }
 
         // Hints
@@ -4179,7 +4252,7 @@ class GourdState extends GameState {
         ctx.restore();
     }
 
-    // ── Detail Panel ────────────────────────────────────────
+    // ── Detail Panel (simplified - no stats/element) ──────
     _renderDetailPanel(ctx, x, y, w, h, ds, mr) {
         const t = (k, p) => this.game.t ? this.game.t(k, p) : k;
         const spirit = this._getSelectedSpirit();
@@ -4245,59 +4318,224 @@ class GourdState extends GameState {
         const nameW = ctx.measureText(spirit.name).width;
         ctx.fillText('  ' + lvlText, infoX + nameW, y + pad + 4);
 
-        // Types
-        const typeY = y + pad + (ds ? ds.fontSize('md') + 6 : 30);
-        if (spirit.type1) {
-            ctx.font = ds ? ds.font('xs', 'bold', 'body') : 'bold 14px Lato';
-            ctx.fillStyle = this._getTypeColor(spirit.type1);
-            const type1Text = t('gourd.types.' + spirit.type1);
-            ctx.fillText(type1Text, infoX, typeY);
-            if (spirit.type2) {
-                const t1w = ctx.measureText(type1Text + '  ').width;
-                ctx.fillStyle = this._getTypeColor(spirit.type2);
-                ctx.fillText(t('gourd.types.' + spirit.type2), infoX + t1w, typeY);
-            }
+        // Hint text: "Press Enter for options"
+        const hintY = y + pad + (ds ? ds.fontSize('md') + 12 : 36);
+        ctx.font = ds ? ds.font('xs', 'normal', 'body') : '14px Lato, sans-serif';
+        ctx.fillStyle = ds ? ds.colors.text.muted : '#666';
+        ctx.fillText(t('gourd.pressEnter') || 'Enter: Options', infoX, hintY);
+
+        ctx.restore();
+    }
+
+    // ── Context Menu ────────────────────────────────────────
+    _renderContextMenu(ctx, W, H, ds) {
+        const spirit = this._getSelectedSpirit();
+        if (!spirit) return;
+
+        ctx.save();
+        const menuW = ds ? ds.spacing(30) : 120;
+        const optH = ds ? ds.spacing(8) : 32;
+        const menuH = this.contextMenuOptions.length * optH + 8;
+        const menuX = (W - menuW) / 2;
+        const menuY = (H - menuH) / 2;
+
+        // Backdrop
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.fillRect(0, 0, W, H);
+
+        // Menu panel
+        if (ds) {
+            ds.drawPanel(ctx, menuX, menuY, menuW, menuH);
+        } else {
+            ctx.fillStyle = 'rgba(20, 20, 30, 0.95)';
+            ctx.fillRect(menuX, menuY, menuW, menuH);
+            ctx.strokeStyle = 'rgba(74, 158, 255, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(menuX, menuY, menuW, menuH);
         }
 
-        // Stats row
-        const statsY = typeY + (ds ? ds.fontSize('xs') + 8 : 22);
+        // Options
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (let i = 0; i < this.contextMenuOptions.length; i++) {
+            const oy = menuY + 4 + i * optH + optH / 2;
+            const isSelected = i === this.contextMenuIndex;
+
+            if (isSelected) {
+                ctx.fillStyle = ds ? ds.colors.alpha(ds.colors.primary, 0.2) : 'rgba(74, 158, 255, 0.2)';
+                ctx.fillRect(menuX + 4, menuY + 4 + i * optH, menuW - 8, optH);
+            }
+
+            ctx.font = ds ? ds.font('sm', isSelected ? 'bold' : 'normal', 'body') : `${isSelected ? 'bold ' : ''}16px Lato, sans-serif`;
+            ctx.fillStyle = isSelected
+                ? (ds ? ds.colors.primary : '#4a9eff')
+                : (ds ? ds.colors.text.secondary : '#ccc');
+            ctx.fillText(this.contextMenuOptions[i], menuX + menuW / 2, oy);
+        }
+        ctx.restore();
+    }
+
+    // ── Summary View (hexagonal stat chart + abilities) ─────
+    _renderSummaryView(ctx, W, H, ds, mr) {
+        const spirit = this.summarySpirit;
+        if (!spirit) return;
+        const t = (k, p) => this.game.t ? this.game.t(k, p) : k;
+
+        // Full overlay
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.92)';
+        ctx.fillRect(0, 0, W, H);
+
+        // Title
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = ds ? ds.font('lg', 'bold', 'display') : 'bold 28px Cinzel, serif';
+        ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
+        ctx.fillText(spirit.name, W / 2, H * 0.08);
+
+        // Level + Type
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '16px Lato, sans-serif';
+        ctx.fillStyle = ds ? ds.colors.text.secondary : '#ccc';
+        let subtitle = t('gourd.level', { level: spirit.level });
+        if (spirit.type1) {
+            subtitle += '  •  ' + t('gourd.types.' + spirit.type1);
+            if (spirit.type2) subtitle += ' / ' + t('gourd.types.' + spirit.type2);
+        }
+        ctx.fillText(subtitle, W / 2, H * 0.13);
+
+        // Sprite
+        const spriteImg = this._getSpriteImage(spirit.sprite);
+        const spriteSize = H * 0.15;
+        if (spriteImg) {
+            ctx.drawImage(spriteImg, W / 2 - spriteSize / 2, H * 0.16, spriteSize, spriteSize);
+        }
+
+        // ── Hexagonal Stat Chart ──
         const stats = spirit.baseStats;
         if (stats) {
+            const chartCX = W / 2;
+            const chartCY = H * 0.50;
+            const chartR = Math.min(W, H) * 0.16;
             const statDefs = [
-                { key: 'hp', val: stats.hp },
-                { key: 'mp', val: stats.mp },
-                { key: 'attack', val: stats.attack },
-                { key: 'defense', val: stats.defense },
-                { key: 'magicAttack', val: stats.magicAttack },
-                { key: 'magicDefense', val: stats.magicDefense },
-                { key: 'speed', val: stats.speed }
+                { key: 'hp', val: stats.hp, max: 200 },
+                { key: 'attack', val: stats.attack, max: 60 },
+                { key: 'defense', val: stats.defense, max: 60 },
+                { key: 'speed', val: stats.speed, max: 60 },
+                { key: 'magicDefense', val: stats.magicDefense, max: 60 },
+                { key: 'magicAttack', val: stats.magicAttack, max: 60 }
             ];
+            const n = statDefs.length;
 
-            ctx.font = ds ? ds.font('micro', 'normal', 'body') : '10px Lato, sans-serif';
-            const availW = w - (infoX - x) - pad;
-            const statSpacing = availW / statDefs.length;
+            // Background hex grid (3 rings)
+            for (let ring = 1; ring <= 3; ring++) {
+                const r = chartR * (ring / 3);
+                ctx.beginPath();
+                for (let i = 0; i < n; i++) {
+                    const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+                    const px = chartCX + Math.cos(angle) * r;
+                    const py = chartCY + Math.sin(angle) * r;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
 
-            for (let i = 0; i < statDefs.length; i++) {
-                const sx = infoX + i * statSpacing;
-                // Label
-                ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
-                ctx.fillText(t('gourd.stats.' + statDefs[i].key), sx, statsY);
+            // Axis lines
+            for (let i = 0; i < n; i++) {
+                const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+                ctx.beginPath();
+                ctx.moveTo(chartCX, chartCY);
+                ctx.lineTo(chartCX + Math.cos(angle) * chartR, chartCY + Math.sin(angle) * chartR);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // Stat polygon (filled)
+            ctx.beginPath();
+            for (let i = 0; i < n; i++) {
+                const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+                const ratio = Math.min(1, (statDefs[i].val || 0) / statDefs[i].max);
+                const r = chartR * ratio;
+                const px = chartCX + Math.cos(angle) * r;
+                const py = chartCY + Math.sin(angle) * r;
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(74, 158, 255, 0.25)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(74, 158, 255, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Stat vertex dots + labels
+            for (let i = 0; i < n; i++) {
+                const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+                const ratio = Math.min(1, (statDefs[i].val || 0) / statDefs[i].max);
+
+                // Dot on stat polygon
+                const dotR = chartR * ratio;
+                const dotX = chartCX + Math.cos(angle) * dotR;
+                const dotY = chartCY + Math.sin(angle) * dotR;
+                ctx.beginPath();
+                ctx.arc(dotX, dotY, 3, 0, Math.PI * 2);
+                ctx.fillStyle = '#4a9eff';
+                ctx.fill();
+
+                // Label outside chart
+                const labelR = chartR + 18;
+                const lx = chartCX + Math.cos(angle) * labelR;
+                const ly = chartCY + Math.sin(angle) * labelR;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = ds ? ds.font('micro', 'bold', 'body') : 'bold 10px Lato';
+                ctx.fillStyle = ds ? ds.colors.text.muted : '#aaa';
+                ctx.fillText(t('gourd.stats.' + statDefs[i].key) || statDefs[i].key, lx, ly);
+
                 // Value
-                ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
-                ctx.font = ds ? ds.font('xs', 'bold', 'body') : 'bold 14px Lato';
-                ctx.fillText(String(statDefs[i].val), sx, statsY + (ds ? ds.fontSize('micro') + 4 : 14));
-                ctx.font = ds ? ds.font('micro', 'normal', 'body') : '10px Lato, sans-serif';
+                ctx.font = ds ? ds.font('micro', 'normal', 'body') : '10px Lato';
+                ctx.fillStyle = ds ? ds.colors.text.secondary : '#ccc';
+                ctx.fillText(String(statDefs[i].val || 0), lx, ly + 12);
             }
         }
 
-        // Abilities
+        // ── Abilities Section ──
+        const abilY = H * 0.72;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.font = ds ? ds.font('sm', 'bold', 'display') : 'bold 16px Cinzel, serif';
+        ctx.fillStyle = ds ? ds.colors.text.primary : '#fff';
+        ctx.fillText(t('gourd.abilities') || 'Abilities', W / 2, abilY);
+
         if (spirit.abilities && spirit.abilities.length > 0) {
-            const abilY = statsY + (ds ? ds.fontSize('micro') * 2 + 14 : 32);
-            ctx.font = ds ? ds.font('micro', 'normal', 'body') : '10px Lato, sans-serif';
-            ctx.fillStyle = ds ? ds.colors.text.muted : '#888';
-            const abilNames = spirit.abilities.map(a => a.name).join('  •  ');
-            ctx.fillText(abilNames, infoX, abilY);
+            const abilStartY = abilY + 24;
+            const abilColW = W * 0.35;
+            const cols = 2;
+            const startX = W / 2 - (cols * abilColW) / 2;
+
+            ctx.font = ds ? ds.font('xs', 'normal', 'body') : '14px Lato, sans-serif';
+            for (let i = 0; i < spirit.abilities.length; i++) {
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                const ax = startX + col * abilColW + abilColW / 2;
+                const ay = abilStartY + row * 22;
+                const ab = spirit.abilities[i];
+
+                ctx.fillStyle = ds ? ds.colors.text.secondary : '#ccc';
+                ctx.fillText(ab.name || ab, ax, ay);
+            }
+        } else {
+            ctx.font = ds ? ds.font('xs', 'normal', 'body') : '14px Lato, sans-serif';
+            ctx.fillStyle = ds ? ds.colors.text.muted : '#666';
+            ctx.fillText(t('gourd.noAbilities') || 'No abilities learned', W / 2, abilY + 24);
         }
+
+        // Hint
+        mr.drawHint(ctx, t('gourd.summaryBack') || 'Press ESC / Enter to go back', W, H);
 
         ctx.restore();
     }
@@ -6185,11 +6423,8 @@ class DialogueState extends GameState {
                 ? this.game.t('instructions.dialogueChoice')
                 : this.game.t('instructions.dialogueMenu');
         }
-        ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
-        ctx.font = ds ? ds.font('sm', 'normal', 'body') : `14px ${bodyFont}`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(hintText, canvasWidth / 2, canvasHeight - 12);
+        const menuRenderer = this.stateManager.menuRenderer;
+        menuRenderer.drawHint(ctx, hintText, canvasWidth, canvasHeight);
     }
     
     /**
@@ -9890,11 +10125,7 @@ class CreditsState extends GameState {
             : im?.isUsingGamepad()
                 ? this.game.t('instructions.creditsBackController')
                 : this.game.t('instructions.creditsBack');
-        ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
-        ctx.font = ds ? ds.font('sm', 'normal', 'body') : '14px "Lato", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(creditsHint, W / 2, H - H * 0.02);
+        menuRenderer.drawHint(ctx, creditsHint, W, H);
     }
 }
 

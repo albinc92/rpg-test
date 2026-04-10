@@ -4441,7 +4441,8 @@ class EditorManager {
                 // Create zone
                 const zone = {
                     points: [...this.currentZonePoints],
-                    type: this.zoneType || 'collision'
+                    type: this.zoneType || 'collision',
+                    level: this.zoneLevel || 1
                 };
                 this.zones.push(zone);
                 console.log(`[ZoneEditor] Zone created! Type: ${zone.type}`);

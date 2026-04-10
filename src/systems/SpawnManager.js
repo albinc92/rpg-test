@@ -30,7 +30,6 @@ class SpawnManager {
         }
         
         const spawnTable = mapData.spawnTable || [];
-        const spawnDensity = mapData.spawnDensity || 10;
         const respawnDelay = mapData.respawnDelay || 30000;
         
         if (spawnTable.length === 0) {
@@ -40,7 +39,7 @@ class SpawnManager {
         
         const mapConfig = {
             spawnTable,
-            spawnDensity,
+            spawnDensity: 0, // Will be calculated dynamically
             respawnDelay,
             lastSpawnCheck: 0,
             spawnZoneCache: null,
@@ -56,8 +55,21 @@ class SpawnManager {
             return;
         }
         
+        // Calculate dynamic spawn density from zone area
+        // Each spawn point represents a sampleRate×sampleRate area (32×32 = 1024 sq px)
+        // Base rate: 1 spirit per ~40,000 sq px of spawn zone area (roughly per 200×200 area)
+        const explicitDensity = mapData.spawnDensity;
+        if (explicitDensity && explicitDensity > 0) {
+            mapConfig.spawnDensity = explicitDensity;
+        } else {
+            const sampleRate = 32;
+            const totalAreaPx = mapConfig.spawnZoneCache.length * sampleRate * sampleRate;
+            const spawnDensity = Math.max(2, Math.min(30, Math.round(totalAreaPx / 40000)));
+            mapConfig.spawnDensity = spawnDensity;
+        }
+        
         this.activeMaps.set(mapId, mapConfig);
-        console.log(`[SpawnManager] ✅ Map ${mapId} activated. Density: ${spawnDensity}`);
+        console.log(`[SpawnManager] ✅ Map ${mapId} activated. Density: ${mapConfig.spawnDensity} (${mapConfig.spawnZoneCache.length} spawn points)`);
         
         // Instantly spawn spirits up to the density limit
         this.spawnInitialSpirits(mapId, mapConfig);
@@ -107,7 +119,8 @@ class SpawnManager {
             spiritId,
             unscaledX,
             unscaledY,
-            mapId
+            mapId,
+            position.level
         );
         
         if (!spirit) return false;
@@ -218,7 +231,8 @@ class SpawnManager {
             spiritId,
             unscaledX,
             unscaledY,
-            mapId
+            mapId,
+            position.level
         );
         
         if (!spirit) return;
@@ -315,7 +329,7 @@ class SpawnManager {
             const y = spawnPoint.y + (Math.random() - 0.5) * 64;
             
             if (!this.hasCollisionAt(mapId, x, y, spiritId)) {
-                return { x, y };
+                return { x, y, level: spawnPoint.level };
             }
         }
         
@@ -391,6 +405,7 @@ class SpawnManager {
             for (const zone of mapData.zones) {
                 if (zone.type !== 'spawn') continue;
                 
+                const zoneLevel = zone.level || 1;
                 const scaledPoints = zone.points.map(p => ({
                     x: p.x * resolutionScale,
                     y: p.y * resolutionScale
@@ -407,7 +422,7 @@ class SpawnManager {
                 for (let y = minY; y <= maxY; y += sampleRate) {
                     for (let x = minX; x <= maxX; x += sampleRate) {
                         if (this.isPointInPolygon({x, y}, scaledPoints)) {
-                            spawnPoints.push({x, y});
+                            spawnPoints.push({x, y, level: zoneLevel});
                         }
                     }
                 }

@@ -1,0 +1,59 @@
+{
+  "tiers": [
+    {
+      "minLevel": 1,
+      "maxLevel": 15,
+      "gold": { "min": 5, "max": 30 },
+      "drops": { "min": 1, "max": 2 },
+      "items": [
+        { "id": "health_potion", "weight": 40, "minQty": 1, "maxQty": 2 },
+        { "id": "mana_potion", "weight": 30, "minQty": 1, "maxQty": 2 },
+        { "id": "iron_ore", "weight": 25, "minQty": 1, "maxQty": 5 },
+        { "id": "iron_sword", "weight": 8 },
+        { "id": "leather_armor", "weight": 8 }
+      ]
+    },
+    {
+      "minLevel": 16,
+      "maxLevel": 35,
+      "gold": { "min": 20, "max": 80 },
+      "drops": { "min": 1, "max": 3 },
+      "items": [
+        { "id": "health_potion", "weight": 35, "minQty": 1, "maxQty": 3 },
+        { "id": "mana_potion", "weight": 30, "minQty": 1, "maxQty": 3 },
+        { "id": "iron_ore", "weight": 20, "minQty": 2, "maxQty": 8 },
+        { "id": "magic_scroll", "weight": 15, "minQty": 1, "maxQty": 2 },
+        { "id": "iron_sword", "weight": 12 },
+        { "id": "leather_armor", "weight": 12 }
+      ]
+    },
+    {
+      "minLevel": 36,
+      "maxLevel": 60,
+      "gold": { "min": 50, "max": 200 },
+      "drops": { "min": 2, "max": 3 },
+      "items": [
+        { "id": "health_potion", "weight": 25, "minQty": 2, "maxQty": 4 },
+        { "id": "mana_potion", "weight": 20, "minQty": 2, "maxQty": 4 },
+        { "id": "magic_scroll", "weight": 20, "minQty": 1, "maxQty": 3 },
+        { "id": "iron_ore", "weight": 15, "minQty": 3, "maxQty": 10 },
+        { "id": "magic_sword", "weight": 10 },
+        { "id": "mysterious_key", "weight": 5 }
+      ]
+    },
+    {
+      "minLevel": 61,
+      "maxLevel": 100,
+      "gold": { "min": 100, "max": 500 },
+      "drops": { "min": 2, "max": 4 },
+      "items": [
+        { "id": "health_potion", "weight": 20, "minQty": 3, "maxQty": 5 },
+        { "id": "mana_potion", "weight": 15, "minQty": 3, "maxQty": 5 },
+        { "id": "magic_scroll", "weight": 20, "minQty": 2, "maxQty": 4 },
+        { "id": "magic_sword", "weight": 15 },
+        { "id": "mysterious_key", "weight": 8 },
+        { "id": "ancient_gem", "weight": 5 }
+      ]
+    }
+  ]
+}

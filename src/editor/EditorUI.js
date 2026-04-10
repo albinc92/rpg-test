@@ -3997,6 +3997,47 @@ class EditorUI {
             panel.appendChild(btn);
         });
         
+        // Zone Level Input (for spawn zones - determines spirit levels and loot tiers)
+        const levelContainer = document.createElement('div');
+        levelContainer.style.cssText = `margin-top: ${s(8)};`;
+        
+        const levelLabel = document.createElement('div');
+        levelLabel.textContent = 'Zone Level:';
+        levelLabel.style.cssText = `font-size: ${s(13)}; font-weight: bold; color: #aaa; margin-bottom: ${s(4)};`;
+        levelContainer.appendChild(levelLabel);
+        
+        const levelRow = document.createElement('div');
+        levelRow.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+        
+        const levelInput = document.createElement('input');
+        levelInput.type = 'number';
+        levelInput.min = '1';
+        levelInput.max = '100';
+        levelInput.value = this.editor.zoneLevel || 1;
+        levelInput.style.cssText = `
+            width: ${s(60)};
+            padding: ${s(6)};
+            background: #222;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: ${s(4)};
+            font-size: ${s(14)};
+            text-align: center;
+        `;
+        levelInput.onchange = () => {
+            this.editor.zoneLevel = Math.max(1, Math.min(100, parseInt(levelInput.value) || 1));
+            levelInput.value = this.editor.zoneLevel;
+        };
+        levelRow.appendChild(levelInput);
+        
+        const levelHint = document.createElement('span');
+        levelHint.textContent = 'Affects spirit levels & loot';
+        levelHint.style.cssText = `font-size: ${s(11)}; color: #666;`;
+        levelRow.appendChild(levelHint);
+        
+        levelContainer.appendChild(levelRow);
+        panel.appendChild(levelContainer);
+        
         // Instructions
         const instructions = document.createElement('div');
         instructions.innerHTML = `

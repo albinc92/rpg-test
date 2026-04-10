@@ -344,8 +344,12 @@
     "partyFull": "Party is full!",
     "lastSpirit": "Can't remove last spirit!",
     "boxFull": "This box is full!",
-    "instructions": "\u2190 \u2192 Party/Box | \u2191 \u2193 Navigate | LB/RB Switch Box | Enter: Select | ESC: Back",
-    "instructionsController": "\u2190 \u2192 Party/Box | \u2191 \u2193 Navigate | LB/RB Switch Box | A: Select | B: Back"
+    "pressEnter": "Enter: Options",
+    "abilities": "Abilities",
+    "noAbilities": "No abilities learned",
+    "summaryBack": "Press ESC / Enter to go back",
+    "instructions": "\u2190 \u2192 Party/Box | \u2191 \u2193 Navigate | LB/RB Switch Box | Enter: Options | ESC: Back",
+    "instructionsController": "\u2190 \u2192 Party/Box | \u2191 \u2193 Navigate | LB/RB Switch Box | A: Options | B: Back"
   },
 
   "pack": {
