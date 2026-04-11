@@ -39,7 +39,8 @@ function classifyBiome(r, g, b) {
     if (r > 80 && g < 50 && b < 40) return 'lava';
 
     // ── Desert / Badlands (warm R>G>B, moderate+ brightness) ──
-    if (r > g && g > b && brightness > 108 && saturation > 40) return 'desert';
+    // Exclude wheat/golden tones where G-B is large (those are plains)
+    if (r > g && g > b && brightness > 108 && saturation > 40 && (g - b) < 55) return 'desert';
     if (r > g && g > b && brightness > 80 && saturation > 40 && (g - b) < 42) return 'arid-desert';
 
     // ── Plains / Center (golden wheat tones, large gap between G and B) ──
