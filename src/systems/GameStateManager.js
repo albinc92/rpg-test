@@ -5382,6 +5382,15 @@ class WorldMapState extends GameState {
         // Animation
         this.pulseTime = 0;
 
+        // Map markers (settlements, ruins, dungeons, shrines)
+        if (!WorldMapState._markers) {
+            WorldMapState._markers = [];
+            fetch('data/markers.json')
+                .then(r => r.json())
+                .then(d => { WorldMapState._markers = d.markers || []; })
+                .catch(() => {});
+        }
+
         // Enforce zoom & camera constraints on entry
         this.zoom = Math.min(this.zoom, this._maxZoomForViewport());
         this._clampCamera();
@@ -5971,6 +5980,157 @@ class WorldMapState extends GameState {
                     ctx.globalAlpha = 1;
                     ctx.restore();
                 }
+            }
+        }
+
+        // ── Map markers (settlements, landmarks) ──
+        if (WorldMapState._markers && WorldMapState._markers.length > 0) {
+            const markerIconSize = Math.max(8, Math.min(18, cellW * 0.3));
+            const showLabels = this.zoom <= 11; // show names when somewhat zoomed in
+
+            for (const marker of WorldMapState._markers) {
+                const mx = centerX + (marker.x - this.camX) * cellW;
+                const my = centerY + (this.camY - marker.y) * cellH;
+
+                // Frustum cull
+                if (mx < mapAreaX - 30 || mx > mapAreaX + mapAreaW + 30) continue;
+                if (my < mapAreaY - 30 || my > mapAreaY + mapAreaH + 30) continue;
+
+                ctx.save();
+                ctx.translate(mx, my);
+
+                const s = markerIconSize;
+                if (marker.type === 'capital') {
+                    // Large star/crown shape
+                    const cs = s * 1.6;
+                    ctx.shadowColor = '#ffd700';
+                    ctx.shadowBlur = 8;
+                    ctx.fillStyle = '#ffd700';
+                    ctx.strokeStyle = '#8B6914';
+                    ctx.lineWidth = 1.5;
+                    // 5-pointed star
+                    ctx.beginPath();
+                    for (let i = 0; i < 10; i++) {
+                        const r = i % 2 === 0 ? cs : cs * 0.45;
+                        const a = (i * Math.PI / 5) - Math.PI / 2;
+                        if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+                        else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                } else if (marker.type === 'town') {
+                    // House shape
+                    const hs = s * 1.1;
+                    ctx.shadowColor = '#aaa';
+                    ctx.shadowBlur = 4;
+                    ctx.fillStyle = '#e8d8b8';
+                    ctx.strokeStyle = '#6a5a3a';
+                    ctx.lineWidth = 1.2;
+                    // Rectangular body
+                    ctx.fillRect(-hs * 0.4, -hs * 0.1, hs * 0.8, hs * 0.6);
+                    ctx.strokeRect(-hs * 0.4, -hs * 0.1, hs * 0.8, hs * 0.6);
+                    // Triangular roof
+                    ctx.beginPath();
+                    ctx.moveTo(-hs * 0.55, -hs * 0.1);
+                    ctx.lineTo(0, -hs * 0.65);
+                    ctx.lineTo(hs * 0.55, -hs * 0.1);
+                    ctx.closePath();
+                    ctx.fillStyle = '#a05030';
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                } else if (marker.type === 'village') {
+                    // Small house (simpler)
+                    const vs = s * 0.8;
+                    ctx.fillStyle = '#c8b898';
+                    ctx.strokeStyle = '#7a6a4a';
+                    ctx.lineWidth = 1;
+                    ctx.fillRect(-vs * 0.35, -vs * 0.05, vs * 0.7, vs * 0.5);
+                    ctx.strokeRect(-vs * 0.35, -vs * 0.05, vs * 0.7, vs * 0.5);
+                    ctx.beginPath();
+                    ctx.moveTo(-vs * 0.45, -vs * 0.05);
+                    ctx.lineTo(0, -vs * 0.5);
+                    ctx.lineTo(vs * 0.45, -vs * 0.05);
+                    ctx.closePath();
+                    ctx.fillStyle = '#906848';
+                    ctx.fill();
+                    ctx.stroke();
+                } else if (marker.type === 'ruins') {
+                    // Broken column
+                    const rs = s * 0.9;
+                    ctx.fillStyle = '#a0a0a0';
+                    ctx.strokeStyle = '#606060';
+                    ctx.lineWidth = 1;
+                    // Left pillar (tall)
+                    ctx.fillRect(-rs * 0.35, -rs * 0.5, rs * 0.25, rs * 0.8);
+                    ctx.strokeRect(-rs * 0.35, -rs * 0.5, rs * 0.25, rs * 0.8);
+                    // Right pillar (broken/shorter)
+                    ctx.fillRect(rs * 0.1, -rs * 0.25, rs * 0.25, rs * 0.55);
+                    ctx.strokeRect(rs * 0.1, -rs * 0.25, rs * 0.25, rs * 0.55);
+                } else if (marker.type === 'dungeon') {
+                    // Skull-like shape (circle + eyes)
+                    const ds = s * 0.9;
+                    ctx.fillStyle = '#484048';
+                    ctx.strokeStyle = '#a04040';
+                    ctx.lineWidth = 1.5;
+                    ctx.shadowColor = '#a04040';
+                    ctx.shadowBlur = 4;
+                    // Entrance arch
+                    ctx.beginPath();
+                    ctx.arc(0, -ds * 0.1, ds * 0.45, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    // Dark entrance
+                    ctx.fillStyle = '#1a1018';
+                    ctx.beginPath();
+                    ctx.arc(0, ds * 0.05, ds * 0.25, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                } else if (marker.type === 'shrine') {
+                    // Small diamond/gem
+                    const ss = s * 0.7;
+                    ctx.fillStyle = '#80c0e0';
+                    ctx.strokeStyle = '#4080a0';
+                    ctx.lineWidth = 1;
+                    ctx.shadowColor = '#80c0e0';
+                    ctx.shadowBlur = 5;
+                    ctx.beginPath();
+                    ctx.moveTo(0, -ss * 0.55);
+                    ctx.lineTo(ss * 0.4, 0);
+                    ctx.lineTo(0, ss * 0.55);
+                    ctx.lineTo(-ss * 0.4, 0);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                }
+
+                // Label
+                if (showLabels) {
+                    const labelSize = marker.type === 'capital' ? Math.max(11, s * 0.75)
+                                   : marker.type === 'town' ? Math.max(9, s * 0.6)
+                                   : Math.max(8, s * 0.5);
+                    ctx.font = marker.type === 'capital'
+                        ? `bold ${Math.round(labelSize)}px "Cinzel", serif`
+                        : `${Math.round(labelSize)}px "Lato", sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'top';
+                    ctx.shadowColor = 'rgba(0,0,0,0.9)';
+                    ctx.shadowBlur = 4;
+                    ctx.fillStyle = marker.type === 'capital' ? '#ffd700'
+                                  : marker.type === 'town' ? '#e8e0d0'
+                                  : marker.type === 'village' ? '#c8c0b0'
+                                  : marker.type === 'ruins' ? '#a0a0a0'
+                                  : marker.type === 'dungeon' ? '#d06060'
+                                  : '#90c8e0';
+                    const labelY = marker.type === 'capital' ? s * 1.1 : s * 0.7;
+                    ctx.fillText(marker.name, 0, labelY);
+                    ctx.shadowBlur = 0;
+                }
+
+                ctx.restore();
             }
         }
 

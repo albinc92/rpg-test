@@ -1,0 +1,172 @@
+{
+  "markers": [
+    {
+      "id": "capital",
+      "type": "capital",
+      "name": "Thornhaven",
+      "x": 0,
+      "y": 1,
+      "description": "The capital city of the realm"
+    },
+    {
+      "id": "town-frost",
+      "type": "town",
+      "name": "Rimehollow",
+      "x": -4,
+      "y": 8,
+      "description": "A hardy settlement in the frozen north"
+    },
+    {
+      "id": "town-thunder",
+      "type": "town",
+      "name": "Canopy's Edge",
+      "x": 10,
+      "y": 5,
+      "description": "A trading post on the jungle border"
+    },
+    {
+      "id": "town-wind",
+      "type": "town",
+      "name": "Galeperch",
+      "x": -9,
+      "y": 4,
+      "description": "A cliffside settlement among the peaks"
+    },
+    {
+      "id": "town-water",
+      "type": "town",
+      "name": "Marshgate",
+      "x": -7,
+      "y": -3,
+      "description": "A stilted town in the marshlands"
+    },
+    {
+      "id": "town-earth",
+      "type": "town",
+      "name": "Dustwall",
+      "x": 11,
+      "y": -4,
+      "description": "A fortified outpost in the desert highlands"
+    },
+    {
+      "id": "town-fire",
+      "type": "town",
+      "name": "Cinderpost",
+      "x": 2,
+      "y": -6,
+      "description": "A mining settlement near the volcanic wastes"
+    },
+    {
+      "id": "village-north-plains",
+      "type": "village",
+      "name": "Dewmeadow",
+      "x": -2,
+      "y": 4,
+      "description": "A quiet farming village"
+    },
+    {
+      "id": "village-east-forest",
+      "type": "village",
+      "name": "Briarwood",
+      "x": 7,
+      "y": 3,
+      "description": "A woodcutter's hamlet at the forest edge"
+    },
+    {
+      "id": "village-south-marsh",
+      "type": "village",
+      "name": "Boghollow",
+      "x": -5,
+      "y": -1,
+      "description": "A small fishing village"
+    },
+    {
+      "id": "village-west-coast",
+      "type": "village",
+      "name": "Driftshore",
+      "x": -12,
+      "y": -1,
+      "description": "A coastal hamlet"
+    },
+    {
+      "id": "village-central-south",
+      "type": "village",
+      "name": "Hearthton",
+      "x": 4,
+      "y": -1,
+      "description": "A crossroads village"
+    },
+    {
+      "id": "ruins-jungle",
+      "type": "ruins",
+      "name": "Overgrown Sanctum",
+      "x": 12,
+      "y": 7,
+      "description": "Ancient temple ruins reclaimed by the jungle"
+    },
+    {
+      "id": "ruins-desert",
+      "type": "ruins",
+      "name": "The Sunken Pillars",
+      "x": 9,
+      "y": -6,
+      "description": "Half-buried columns of a forgotten civilization"
+    },
+    {
+      "id": "ruins-frost",
+      "type": "ruins",
+      "name": "Frostspire Keep",
+      "x": -2,
+      "y": 9,
+      "description": "A crumbling fortress entombed in ice"
+    },
+    {
+      "id": "dungeon-volcano",
+      "type": "dungeon",
+      "name": "The Molten Core",
+      "x": 1,
+      "y": -8,
+      "description": "A seething cavern beneath the active caldera"
+    },
+    {
+      "id": "dungeon-deep-forest",
+      "type": "dungeon",
+      "name": "The Hollow Root",
+      "x": 14,
+      "y": 4,
+      "description": "A twisting cave system beneath the ancient trees"
+    },
+    {
+      "id": "dungeon-mountain",
+      "type": "dungeon",
+      "name": "Wyrmfang Cavern",
+      "x": -11,
+      "y": 6,
+      "description": "A dark mine carved into the mountainside"
+    },
+    {
+      "id": "shrine-lake",
+      "type": "shrine",
+      "name": "Shrine of Tides",
+      "x": -10,
+      "y": -5,
+      "description": "A weathered altar at the water's edge"
+    },
+    {
+      "id": "shrine-peak",
+      "type": "shrine",
+      "name": "Windcaller's Altar",
+      "x": -7,
+      "y": 7,
+      "description": "A stone circle at the mountain summit"
+    },
+    {
+      "id": "shrine-plains",
+      "type": "shrine",
+      "name": "The Standing Stone",
+      "x": 5,
+      "y": 1,
+      "description": "An ancient monolith humming with quiet power"
+    }
+  ]
+}

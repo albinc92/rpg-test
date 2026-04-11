@@ -67,6 +67,15 @@ class MinimapSystem {
         // Fog of war: Set of visited map IDs
         this.visitedCells = new Set();
 
+        // Map markers (shared static — loaded once)
+        if (!MinimapSystem._markers) {
+            MinimapSystem._markers = [];
+            fetch('data/markers.json')
+                .then(r => r.json())
+                .then(d => { MinimapSystem._markers = d.markers || []; })
+                .catch(() => {});
+        }
+
         // World map background image (shared static — loaded once)
         if (!MinimapSystem._bgImage) {
             MinimapSystem._bgImage = new Image();
@@ -227,6 +236,51 @@ class MinimapSystem {
                                      : 'rgba(255, 255, 255, 0.10)';
                 ctx.lineWidth = 0.5;
                 ctx.strokeRect(px + 0.5, py + 0.5, cs - 1, cs - 1);
+            }
+        }
+
+        // ── Map markers on minimap ──
+        if (MinimapSystem._markers) {
+            for (const marker of MinimapSystem._markers) {
+                const dx = marker.x - centerX;
+                const dy = centerY - marker.y; // flip Y
+                // Only show markers within visible radius
+                if (Math.abs(dx) > r + 1 || Math.abs(dy) > r + 1) continue;
+
+                const mpx = mapX + (dx + r) * cs + scrollOffsetX + cs / 2;
+                const mpy = mapY + (dy + r) * cs + scrollOffsetY + cs / 2;
+
+                // Check if within clipped minimap area
+                if (mpx < mapX - 2 || mpx > mapX + this.mapSize + 2) continue;
+                if (mpy < mapY - 2 || mpy > mapY + this.mapSize + 2) continue;
+
+                const dotSize = marker.type === 'capital' ? 3.5
+                              : marker.type === 'town' ? 2.5
+                              : marker.type === 'village' ? 1.8
+                              : 1.5;
+
+                const dotColor = marker.type === 'capital' ? '#ffd700'
+                               : marker.type === 'town' ? '#e8d8b8'
+                               : marker.type === 'village' ? '#c8b898'
+                               : marker.type === 'ruins' ? '#a0a0a0'
+                               : marker.type === 'dungeon' ? '#d06060'
+                               : '#80c0e0';
+
+                ctx.beginPath();
+                if (marker.type === 'capital') {
+                    // Small star shape for capital
+                    for (let i = 0; i < 8; i++) {
+                        const sr = i % 2 === 0 ? dotSize : dotSize * 0.5;
+                        const a = (i * Math.PI / 4) - Math.PI / 2;
+                        if (i === 0) ctx.moveTo(mpx + Math.cos(a) * sr, mpy + Math.sin(a) * sr);
+                        else ctx.lineTo(mpx + Math.cos(a) * sr, mpy + Math.sin(a) * sr);
+                    }
+                    ctx.closePath();
+                } else {
+                    ctx.arc(mpx, mpy, dotSize, 0, Math.PI * 2);
+                }
+                ctx.fillStyle = dotColor;
+                ctx.fill();
             }
         }
 
