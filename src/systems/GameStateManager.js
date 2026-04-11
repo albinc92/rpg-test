@@ -5656,8 +5656,8 @@ class WorldMapState extends GameState {
                 ctx.lineWidth = 1;
                 ctx.strokeRect(screenX, screenY, cellW, cellH);
 
-                // Show coordinate when zoomed in enough
-                if (cellW > 45 && cell) {
+                // Show coordinate only at maximum zoom
+                if (this.zoom <= this.minZoom && cell) {
                     const fontSize = Math.max(9, Math.min(13, cellH * 0.24));
                     ctx.font = `bold ${fontSize}px "Lato", sans-serif`;
                     ctx.textAlign = 'center';
@@ -5669,8 +5669,8 @@ class WorldMapState extends GameState {
                     ctx.shadowBlur = 0;
                 }
 
-                // Show per-cell level badge only when very zoomed in
-                if (cellW > 55 && cell && cell.level > 0) {
+                // Show per-cell level badge only at maximum zoom
+                if (this.zoom <= this.minZoom && cell && cell.level > 0) {
                     const lvFontSize = Math.max(7, Math.min(11, cellH * 0.18));
                     const label = `Lv${cell.level}`;
                     ctx.font = `bold ${lvFontSize}px "Lato", sans-serif`;
@@ -5732,13 +5732,13 @@ class WorldMapState extends GameState {
         }
 
         // ── Zoom-aware 2-tier labels ──
-        // z = cells visible across smallest axis: 7 (zoomed in) → 14 (zoomed out)
-        // Super-region: fade in 10→11, full at z >= 11
-        // Region:       full at z <= 10, fade out 10→11
+        // z = cells visible across smallest axis: 7 (zoomed in) → ~10 (zoomed out)
+        // Super-region: fade in 8.5→9.5, full at z >= 9.5
+        // Region:       full at z <= 8.5, fade out 8.5→9.5
         {
             const z = this.zoom;
-            const superAlpha  = Math.max(0, Math.min(1, z - 10));
-            const regionAlpha = Math.max(0, Math.min(1, 11 - z));
+            const superAlpha  = Math.max(0, Math.min(1, z - 8.5));
+            const regionAlpha = Math.max(0, Math.min(1, 9.5 - z));
 
             // ── Super-region labels ──
             if (superAlpha > 0 && this.superRegionCenters) {
