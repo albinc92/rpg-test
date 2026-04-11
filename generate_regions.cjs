@@ -15,7 +15,7 @@ const path = require('path');
 
 // ───── Config ─────
 const MIN_REGION_SIZE       = 4;
-const MIN_SUPER_REGION_SIZE = 6;
+const TARGET_SUPER_REGIONS  = 7;
 
 const gridMinX = -14, gridMaxX = 15;
 const gridMinY = -14, gridMaxY = 15;
@@ -33,27 +33,27 @@ function neighbors(x, y) {
 //  Biome → Family mapping
 // ═══════════════════════════════════════════════════════════════════════
 const BIOME_TO_FAMILY = {
-    'snow':          'frozen',
-    'tundra':        'frozen',
-    'frozen-peak':   'frozen',
-    'mountain':      'highland',
-    'high-mountain': 'highland',
-    'volcanic':      'highland',
-    'desert':        'arid',
-    'arid-desert':   'arid',
-    'oasis':         'arid',
-    'plains':        'temperate',
-    'grassland':     'temperate',
-    'meadow':        'temperate',
-    'village':       'temperate',
-    'woodland':      'forest',
-    'dense-forest':  'forest',
-    'jungle':        'forest',
-    'swamp':         'wetland',
-    'tropical':      'wetland',
-    'coast':         'wetland',
+    'snow':          'ice',
+    'tundra':        'ice',
+    'frozen-peak':   'ice',
+    'mountain':      'wind',
+    'high-mountain': 'wind',
+    'volcanic':      'fire',
+    'desert':        'earth',
+    'arid-desert':   'earth',
+    'oasis':         'earth',
+    'plains':        'neutral',
+    'grassland':     'neutral',
+    'meadow':        'neutral',
+    'village':       'neutral',
+    'jungle':        'lightning',
+    'dense-forest':  'lightning',
+    'swamp':         'water',
     'lake':          'water',
     'river-valley':  'water',
+    'tropical':      'water',
+    'coast':         'water',
+    'ocean':         'ocean',
 };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -62,37 +62,40 @@ const BIOME_TO_FAMILY = {
 // NOTE: Every significant word (3+ chars) must be unique across the ENTIRE pool
 //       to avoid word-level dedup conflicts. No two names share a significant word.
 const SUPER_REGION_NAMES = {
-    'frozen': [
-        'The Everwinter Reaches', 'Borean Icehold', 'Frigora Wastes',
-        'The Pallid Hinterland', 'Rimeguard Expanse',
+    'ice': [
+        'The Frostbound Dominion', 'Borean Icehold', 'The Glacial Sovereignty',
+        'Rimeguard Expanse', 'The Pallid Hinterland',
     ],
-    'highland': [
-        'The Stoneborn Citadel', 'Aethon Heights', 'Colossus Range',
-        'Drakken Overlook', 'The Granite Bulwark',
+    'fire': [
+        'The Embercrown Wastes', 'Cinderfall Territory', 'Pyrrha\'s Dominion',
+        'The Scorched Barrens', 'Ashveil Frontier',
     ],
-    'arid': [
-        'The Scorched Barrens', 'Pyrrha\'s Domain', 'Embersand Territory',
-        'The Ochre Badlands', 'Dustwall Frontier',
+    'earth': [
+        'The Stoneheart Highlands', 'Craghammer Expanse', 'Ironpeak Bastion',
+        'The Granite Bulwark', 'Drakken Overlook',
     ],
-    'temperate': [
-        'The Verdant Heartland', 'The Golden Provinces', 'The Pastoral Commons',
-        'The Brightmarch', 'Aeloria\'s Shire', 'The Midland Breadbasket',
-        'Grainwatch Prefecture', 'The Harvest Lowfield', 'Thornbury Haven',
-        'The Rustic Hinterlands', 'Wellspring Demesne', 'Dawnmere Tablelands',
-        'Heathrow Cantonlands', 'Summergate Parcels',
+    'wind': [
+        'The Galeborn Highlands', 'Zephyr\'s Peaks', 'Mistral Summits',
+        'The Skyreach Dominion', 'Stormcrest Province',
     ],
-    'forest': [
-        'The Deepwood Realm', 'The Sylvan Empire', 'Timberhold Sanctuary',
-        'The Greenwood Wilds', 'The Primeval Depths', 'Wildgrove Holdings',
-        'The Mossborn League', 'Brackenweald Dominion',
+    'lightning': [
+        'The Thundercanopy', 'Stormveil Rainforest', 'The Verdant Tempest',
+        'Thunderthorn Wilds', 'The Crackling Depths',
+        'Voltaic Jungle', 'The Stormborn Tangle',
     ],
-    'wetland': [
-        'The Drowned Marches', 'The Mistbound Watershed', 'Nereia\'s Basins',
-        'The Tideswept Hollows', 'Brackenvale Lowlands',
+    'neutral': [
+        'The Heartland Commons', 'Dawnfield Province', 'The Central Reaches',
+        'Summergate Parcels', 'The Verdant Lowfield',
+        'Brightmarch Prefecture', 'The Golden Heartland',
     ],
     'water': [
-        'The Shimmering Waterways', 'The Deepblue Lakeland', 'Aquilon\'s Heart',
-        'Glasswater Sovereignty', 'The Azure Pools',
+        'The Tidecrown Sovereignty', 'Deepblue Lakeland', 'Coralveil Watershed',
+        'Aquilon\'s Heart', 'The Azure Reaches',
+        'The Mistfen Dominion', 'Bogwater Holdings',
+    ],
+    'ocean': [
+        'The Endless Deep', 'The Abyssal Reach', 'Stormtide Waters',
+        'The Sunken Expanse', 'The Dark Currents',
     ],
 };
 
@@ -201,6 +204,10 @@ const REGION_NAMES = {
     ],
     'village': [
         'Millhaven', 'Thornbury', 'Wycliffe Settlement', 'Brannock\'s Rest',
+    ],
+    'ocean': [
+        'The Open Deep', 'Stormtide Expanse', 'The Abyssal Trench', 'Deepcurrent Reach',
+        'The Sunken Wastes', 'Maelstrom Drift', 'The Drowned Shelf', 'Darkwater Abyss',
     ]
 };
 
@@ -424,7 +431,7 @@ function floodFill(classifyFn) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-//  Merge small groups into best neighbor
+//  Merge small groups into best neighbor (used for regions)
 // ═══════════════════════════════════════════════════════════════════════
 function mergeSmallGroups(groups, minSize) {
     const cellToGroup = {};
@@ -438,7 +445,6 @@ function mergeSmallGroups(groups, minSize) {
             const group = groups[i];
             if (group.cells.length === 0 || group.cells.length >= minSize) continue;
 
-            // Find neighboring groups
             const neighborGroups = new Map();
             for (const cellId of group.cells) {
                 const m = cellId.match(/^(-?\d+)-(-?\d+)$/);
@@ -454,7 +460,6 @@ function mergeSmallGroups(groups, minSize) {
             }
             if (neighborGroups.size === 0) continue;
 
-            // Prefer same key, then largest
             let best = -1, bestSize = 0;
             for (const [gi] of neighborGroups) {
                 if (groups[gi].key === group.key && groups[gi].cells.length > bestSize) {
@@ -486,6 +491,94 @@ function mergeSmallGroups(groups, minSize) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+//  Merge to target count (used for super-regions)
+// ═══════════════════════════════════════════════════════════════════════
+/**
+ * Repeatedly merge the smallest group into its best neighbour
+ * until exactly `targetCount` groups remain.
+ * Prefers same-key (family) neighbours, then most shared border.
+ * NEVER merges the last remaining group of a family — each element
+ * is guaranteed at least one super-region.
+ */
+function mergeToTarget(groups, targetCount, familyGrid) {
+    const cellToGroup = {};
+    groups.forEach((g, i) => g.cells.forEach(c => cellToGroup[c] = i));
+
+    while (groups.filter(g => g.cells.length > 0).length > targetCount) {
+        // Count how many active groups each family has
+        const familyGroupCount = {};
+        for (const g of groups) {
+            if (g.cells.length > 0) {
+                familyGroupCount[g.key] = (familyGroupCount[g.key] || 0) + 1;
+            }
+        }
+
+        // Find smallest group that is NOT the last of its family
+        let smallestIdx = -1, smallestSize = Infinity;
+        for (let i = 0; i < groups.length; i++) {
+            if (groups[i].cells.length > 0 && groups[i].cells.length < smallestSize) {
+                // Skip if this is the last group of its family
+                if (familyGroupCount[groups[i].key] <= 1) continue;
+                smallestSize = groups[i].cells.length;
+                smallestIdx = i;
+            }
+        }
+        // If no mergeable group found, we've reached the minimum
+        if (smallestIdx < 0) break;
+
+        const group = groups[smallestIdx];
+        const neighborGroups = new Map();
+        for (const cellId of group.cells) {
+            const m = cellId.match(/^(-?\d+)-(-?\d+)$/);
+            if (!m) continue;
+            const cx = parseInt(m[1]), cy = parseInt(m[2]);
+            for (const [nx, ny] of neighbors(cx, cy)) {
+                const nid = mapId(nx, ny);
+                const ng  = cellToGroup[nid];
+                if (ng !== undefined && ng !== smallestIdx && groups[ng].cells.length > 0) {
+                    neighborGroups.set(ng, (neighborGroups.get(ng) || 0) + 1);
+                }
+            }
+        }
+        if (neighborGroups.size === 0) break;
+
+        // Prefer same family, then most shared border
+        let best = -1, bestScore = -1;
+        for (const [gi, borderCount] of neighborGroups) {
+            const sameKey = groups[gi].key === group.key ? 10000 : 0;
+            const score = sameKey + borderCount;
+            if (score > bestScore) { bestScore = score; best = gi; }
+        }
+        if (best >= 0) {
+            for (const cellId of group.cells) {
+                groups[best].cells.push(cellId);
+                cellToGroup[cellId] = best;
+            }
+            group.cells = [];
+        } else {
+            break;
+        }
+    }
+
+    // Update each group's key to its dominant family
+    const result = groups.filter(g => g.cells.length > 0);
+    for (const g of result) {
+        const familyCounts = {};
+        for (const cellId of g.cells) {
+            const fam = familyGrid[cellId] || 'wind';
+            familyCounts[fam] = (familyCounts[fam] || 0) + 1;
+        }
+        let dominant = g.key, maxCount = 0;
+        for (const [fam, count] of Object.entries(familyCounts)) {
+            if (count > maxCount) { maxCount = count; dominant = fam; }
+        }
+        g.key = dominant;
+    }
+    return result;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
 //  Main
 // ═══════════════════════════════════════════════════════════════════════
 function main() {
@@ -501,6 +594,7 @@ function main() {
             const id = mapId(x, y);
             if (mapsData[id]) {
                 const biome = mapsData[id].biome || 'grassland';
+                if (biome === 'ocean') continue; // ocean = world border, not a region
                 biomeGrid[id]  = biome;
                 familyGrid[id] = BIOME_TO_FAMILY[biome] || 'temperate';
             }
@@ -526,8 +620,8 @@ function main() {
     const rawSuperRegions = floodFill(id => familyGrid[id]);
     console.log(`Tier 1: ${rawSuperRegions.length} raw super-regions`);
 
-    const { groups: superRegions, mergeCount: sMerged } = mergeSmallGroups(rawSuperRegions, MIN_SUPER_REGION_SIZE);
-    console.log(`Tier 1: ${superRegions.length} super-regions after merging ${sMerged} small groups`);
+    const superRegions = mergeToTarget(rawSuperRegions, TARGET_SUPER_REGIONS, familyGrid);
+    console.log(`Tier 1: ${superRegions.length} super-regions after merging to target ${TARGET_SUPER_REGIONS}`);
 
     const cellToSuperIdx = {};
     superRegions.forEach((s, i) => s.cells.forEach(c => cellToSuperIdx[c] = i));

@@ -13,58 +13,62 @@ const path = require('path');
 
 const SUB_DIVISIONS = 6;        // 6×6 = 36 sub-cells per grid cell
 const WATER_THRESHOLD = 0.20;   // 20% water sub-cells → cell is river/water
+const OCEAN_THRESHOLD = 0.50;   // 50% ocean sub-cells → cell is ocean
+const LAVA_THRESHOLD = 0.05;    // 5% lava sub-cells → cell is volcanic (bright lava only)
 
 // ───── Biome classifier for a small patch (average RGB) ─────
+// Tuned for grok-worldmap.jpg color palette
 
 function classifyBiome(r, g, b) {
     const brightness = (r + g + b) / 3;
     const saturation = Math.max(r, g, b) - Math.min(r, g, b);
 
-    // ── Water (check FIRST — critical for rivers/lakes) ──
-    // Strong blue dominance
-    if (b > r + 25 && b > g + 5) return 'water';
-    // Blue-teal (river color on this map): b ≈ g, both clearly > r
-    if (b > r + 10 && b >= g - 5 && brightness < 160) return 'water';
-    // Muted teal in shadow
-    if (g > r + 5 && b > r + 5 && b >= g - 10 && brightness < 130) return 'water';
+    // ── Ocean (strong blue, B well above both R and G) ──
+    if (b > r + 25 && b > g + 10 && brightness < 150) return 'ocean';
+    if (b > r + 30 && brightness < 100) return 'ocean';
 
-    // ── Snow / Frozen ──
-    if (brightness > 210 && saturation < 40) return 'snow';
-    if (brightness > 195 && saturation < 50) return 'tundra';
+    // ── Snow / Ice (very bright, low saturation) ──
+    if (brightness > 200 && saturation < 45) return 'snow';
+    if (brightness > 175 && saturation < 55) return 'tundra';
+    // Blue-gray transition between ice and mountains
+    if (brightness > 130 && saturation < 40 && b > r + 10 && b > g) return 'tundra';
 
-    // ── Desert / Arid (warm, bright, r > g > b) ──
-    if (brightness > 180 && r > g && g > b && saturation > 30) return 'desert';
-    if (brightness > 160 && r > g && g > b && saturation > 40) return 'arid-desert';
-    if (brightness > 150 && r > g - 10 && g > b && saturation > 25 && saturation < 80) return 'plains';
+    // ── Lava (bright red/orange — tracked separately for volcanic boost) ──
+    if (r > 120 && r > g * 1.5 && r > b * 1.5) return 'lava';
+    if (r > 80 && g < 50 && b < 40) return 'lava';
 
-    // ── Dark green ──
-    if (g > r && g > b && brightness < 80) return 'dense-forest';
-    if (g > r && g > b && brightness < 100 && saturation > 40) return 'jungle';
+    // ── Desert / Badlands (warm R>G>B, moderate+ brightness) ──
+    if (r > g && g > b && brightness > 125 && saturation > 40) return 'desert';
+    if (r > g && g > b && brightness > 80 && saturation > 45 && (g - b) < 35) return 'arid-desert';
 
-    // ── Medium green → woodland ──
-    if (g > r && g > b && brightness < 120 && saturation > 35) return 'woodland';
-    if (g >= r - 5 && g > b && brightness < 135 && saturation > 30) return 'woodland';
+    // ── Plains / Center (golden wheat tones, large gap between G and B) ──
+    if (r > b + 30 && g > b + 25 && brightness > 80 && (g - b) >= 35) return 'plains';
 
-    // ── Light green → grassland / meadow ──
-    if (g > r && g > b && brightness < 160) return 'grassland';
-    if (g >= r - 10 && g > b && brightness < 170 && saturation > 20) return 'meadow';
+    // ── Grassland (green dominant, moderate brightness) ──
+    if (g > r && g > b && brightness > 65 && saturation > 25) return 'grassland';
+    if (g >= r - 10 && g > b + 10 && brightness > 65 && saturation > 25) return 'grassland';
 
-    // ── Grey-green → swamp ──
-    if (brightness < 120 && saturation < 30 && g >= r && g >= b) return 'swamp';
+    // ── Mountain (gray, low saturation, not too dark) ──
+    if (saturation < 20 && brightness >= 55) return 'mountain';
 
-    // ── Grey → mountain ──
-    if (saturation < 25 && brightness < 140) return 'mountain';
-    if (saturation < 30 && brightness < 170 && brightness > 120) return 'high-mountain';
+    // ── Dark biome discrimination (brightness < 55) ──
+    // Swamp vs Jungle: both dark with green, but jungle has much stronger green dominance
+    if (brightness < 55 && g > b + 3) {
+        if (g > r + 12) return 'jungle';       // strong green = rainforest
+        if (saturation < 30) return 'swamp';    // muted dark = swamp
+    }
 
-    // ── Brown / tan ──
-    if (r > g && g > b && brightness < 130 && saturation > 40) return 'woodland';
-    if (r > g && g > b && brightness < 160) return 'plains';
-    if (brightness > 140 && brightness < 180 && saturation < 50) return 'plains';
+    // ── Dark mountain (blue-gray, B clearly above R) ──
+    if (brightness < 55 && saturation < 20 && b > r + 8) return 'mountain';
+
+    // ── Volcanic (very dark, nearly neutral) ──
+    if (brightness < 55 && saturation < 15) return 'volcanic';
 
     // ── Fallback ──
-    if (brightness > 160) return 'plains';
-    if (brightness > 120) return 'grassland';
-    return 'woodland';
+    if (saturation < 15) return 'mountain';
+    if (brightness > 120) return 'plains';
+    if (g >= r) return 'grassland';
+    return 'plains';
 }
 
 /**
@@ -75,7 +79,8 @@ function classifyCellByVoting(raw, imgW, channels, cellX0, cellY0, cellW, cellH,
     const subW = Math.floor(cellW / SUB_DIVISIONS);
     const subH = Math.floor(cellH / SUB_DIVISIONS);
     const votes = {};  // biome → count
-    let waterCount = 0;
+    let oceanCount = 0;
+    let lavaCount = 0;
     const totalSubs = SUB_DIVISIONS * SUB_DIVISIONS;
 
     for (let sy = 0; sy < SUB_DIVISIONS; sy++) {
@@ -96,23 +101,34 @@ function classifyCellByVoting(raw, imgW, channels, cellX0, cellY0, cellW, cellH,
             b = Math.round(b / cnt);
 
             const biome = classifyBiome(r, g, b);
-            if (biome === 'water') {
-                waterCount++;
-            }
+            if (biome === 'ocean') oceanCount++;
+            if (biome === 'lava') lavaCount++;
             votes[biome] = (votes[biome] || 0) + 1;
         }
     }
 
-    // Water boost: if enough sub-cells are water, the cell is water
-    const waterRatio = waterCount / totalSubs;
-    if (waterRatio >= WATER_THRESHOLD) {
-        // Decide lake vs river-valley based on how much water
-        if (waterRatio >= 0.6) return 'lake';
+    // Ocean boost: majority ocean sub-cells → ocean
+    const oceanRatio = oceanCount / totalSubs;
+    if (oceanRatio >= OCEAN_THRESHOLD) return 'ocean';
+
+    // Water/ocean presence → lake or river-valley
+    if (oceanRatio >= WATER_THRESHOLD) {
+        if (oceanRatio >= 0.4) return 'lake';
         return 'river-valley';
     }
 
-    // Otherwise, majority vote (exclude 'water' since it didn't hit threshold)
-    delete votes['water'];
+    // Lava boost: bright lava pixels detected → cell is volcanic
+    // Only 'lava' (bright red/orange) counts, not dark basalt
+    if (lavaCount / totalSubs >= LAVA_THRESHOLD) return 'volcanic';
+
+    // Merge lava votes into volcanic for majority voting
+    if (votes['lava']) {
+        votes['volcanic'] = (votes['volcanic'] || 0) + votes['lava'];
+        delete votes['lava'];
+    }
+
+    // Otherwise, majority vote (exclude 'ocean' since it didn't hit threshold)
+    delete votes['ocean'];
     let bestBiome = 'grassland', bestCount = 0;
     for (const [biome, count] of Object.entries(votes)) {
         if (count > bestCount) {
@@ -126,12 +142,14 @@ function classifyCellByVoting(raw, imgW, channels, cellX0, cellY0, cellW, cellH,
 // ───── Region name generator ─────
 
 const BIOME_NAME_PARTS = {
+    'ocean':        { adj: ['Deep', 'Open', 'Storm', 'Dark', 'Endless'], noun: ['Sea', 'Ocean', 'Waters', 'Depths', 'Abyss'] },
     'snow':         { adj: ['Frozen', 'White', 'Crystal', 'Silent', 'Pale', 'Winter', 'Frost'], noun: ['Wastes', 'Expanse', 'Tundra', 'Reaches', 'Fields', 'Plateau'] },
     'tundra':       { adj: ['Cold', 'Bitter', 'Northern', 'Wind-swept', 'Barren', 'Grey'], noun: ['Steppe', 'Heath', 'Flats', 'Barrens', 'Moor', 'Reach'] },
     'frozen-peak':  { adj: ['Ice', 'Frozen', 'Crystal', 'Howling'], noun: ['Peak', 'Summit', 'Crest', 'Pinnacle', 'Ridge'] },
     'mountain':     { adj: ['Stone', 'Iron', 'Grey', 'Craggy', 'Rugged', 'Stark'], noun: ['Mountains', 'Peaks', 'Cliffs', 'Ridge', 'Crags', 'Heights'] },
     'high-mountain':{ adj: ['Towering', 'Ancient', 'Storm', 'Cloud'], noun: ['Peaks', 'Summit', 'Spire', 'Pinnacle', 'Heights'] },
     'volcanic':     { adj: ['Burning', 'Ashen', 'Smoldering', 'Black'], noun: ['Caldera', 'Wastes', 'Crater', 'Furnace'] },
+    'lava':         { adj: ['Burning', 'Ashen', 'Smoldering', 'Black'], noun: ['Caldera', 'Wastes', 'Crater', 'Furnace'] },
     'desert':       { adj: ['Golden', 'Scorching', 'Vast', 'Shifting', 'Sunbaked', 'Amber'], noun: ['Desert', 'Sands', 'Dunes', 'Expanse', 'Wastes', 'Flats'] },
     'arid-desert':  { adj: ['Dry', 'Cracked', 'Dusty', 'Parched', 'Red'], noun: ['Badlands', 'Wastes', 'Barrens', 'Flats', 'Mesa'] },
     'oasis':        { adj: ['Hidden', 'Verdant', 'Emerald', 'Blessed'], noun: ['Oasis', 'Springs', 'Haven', 'Pool'] },
@@ -171,7 +189,7 @@ function generateName(biome, usedNames) {
 // ───── Main ─────
 
 async function main() {
-    const imgPath = path.join(__dirname, 'assets', 'bg', 'worldmap.png');
+    const imgPath = path.join(__dirname, 'assets', 'bg', 'grok-worldmap.jpg');
     const mapsPath = path.join(__dirname, 'data', 'maps.json');
     
     // Load image

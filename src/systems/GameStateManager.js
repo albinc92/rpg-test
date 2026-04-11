@@ -5773,12 +5773,12 @@ class WorldMapState extends GameState {
                     const avgX = rc.sumX / rc.count;
                     const avgY = rc.sumY / rc.count;
                     const rx = centerX + (avgX - this.camX) * cellW;
-                    const ry = centerY + (this.camY - avgY) * cellH;
+                    let ry = centerY + (this.camY - avgY) * cellH;
                     if (rx < mapAreaX - 150 || rx > mapAreaX + mapAreaW + 150) continue;
                     if (ry < mapAreaY - 50 || ry > mapAreaY + mapAreaH + 50) continue;
 
-                    const regionScale = Math.min(2.0, Math.sqrt(rc.count) / 2.5);
-                    const baseFontSize = Math.max(12, Math.min(22, cellW * 0.35));
+                    const regionScale = Math.min(1.8, Math.sqrt(rc.count) / 2.5);
+                    const baseFontSize = Math.max(14, Math.min(22, cellW * 0.28));
                     const fontSize = Math.round(baseFontSize * regionScale);
 
                     // Level range sub-label
@@ -5787,15 +5787,64 @@ class WorldMapState extends GameState {
                     ctx.save();
                     ctx.globalAlpha = superAlpha * 0.75;
                     ctx.font = `bold ${fontSize}px "Cinzel", serif`;
+
+                    // Word-wrap: split name into lines that fit within map area
+                    const maxTextW = mapAreaW - fontSize * 2;
+                    const words = name.split(' ');
+                    const lines = [];
+                    let curLine = '';
+                    for (const word of words) {
+                        const test = curLine ? curLine + ' ' + word : word;
+                        if (ctx.measureText(test).width > maxTextW && curLine) {
+                            lines.push(curLine);
+                            curLine = word;
+                        } else {
+                            curLine = test;
+                        }
+                    }
+                    if (curLine) lines.push(curLine);
+
+                    // Clamp rx so text stays within map bounds
+                    const longestLineW = Math.max(...lines.map(l => ctx.measureText(l).width));
+                    const clampedRx = Math.max(mapAreaX + longestLineW * 0.5 + 10, Math.min(mapAreaX + mapAreaW - longestLineW * 0.5 - 10, rx));
+
+                    const lineHeight = fontSize * 1.25;
+                    const totalTextH = lines.length * lineHeight;
+                    const lvExtra = srLvText ? fontSize * 0.8 : 0;
+                    const blockTop = ry - totalTextH * 0.5;
+
+                    // Clamp ry so block stays within map bounds
+                    if (blockTop < mapAreaY + 5) ry = mapAreaY + 5 + totalTextH * 0.5;
+                    if (blockTop + totalTextH + lvExtra > mapAreaY + mapAreaH - 5) ry = mapAreaY + mapAreaH - 5 - totalTextH - lvExtra + totalTextH * 0.5;
+
+                    // Horizontal gradient backdrop band (wide but not full-width)
+                    const srBandH = totalTextH + lvExtra + fontSize * 0.8;
+                    const srBandY = ry - totalTextH * 0.5 - fontSize * 0.35;
+                    const srBandW = longestLineW + fontSize * 8;
+                    const srBandX = clampedRx - srBandW * 0.5;
+                    const srGrad = ctx.createLinearGradient(srBandX, 0, srBandX + srBandW, 0);
+                    srGrad.addColorStop(0, 'rgba(0,0,0,0)');
+                    srGrad.addColorStop(0.12, 'rgba(0,0,0,0.5)');
+                    srGrad.addColorStop(0.5, 'rgba(0,0,0,0.6)');
+                    srGrad.addColorStop(0.88, 'rgba(0,0,0,0.5)');
+                    srGrad.addColorStop(1, 'rgba(0,0,0,0)');
+                    ctx.fillStyle = srGrad;
+                    ctx.fillRect(srBandX, srBandY, srBandW, srBandH);
+
+                    // Draw text lines
                     ctx.fillStyle = 'rgba(255,255,255,1)';
                     ctx.shadowColor = 'rgba(0,0,0,0.9)';
                     ctx.shadowBlur = 6;
-                    ctx.fillText(name, rx, ry);
+                    for (let li = 0; li < lines.length; li++) {
+                        const ly = ry - (totalTextH - lineHeight) * 0.5 + li * lineHeight;
+                        ctx.fillText(lines[li], clampedRx, ly);
+                    }
                     if (srLvText) {
                         const lvSize = Math.round(fontSize * 0.55);
                         ctx.font = `bold ${lvSize}px "Lato", sans-serif`;
                         ctx.fillStyle = 'rgba(200,220,255,0.85)';
-                        ctx.fillText(srLvText, rx, ry + fontSize * 0.75);
+                        const lvY = ry + totalTextH * 0.5 + fontSize * 0.35;
+                        ctx.fillText(srLvText, clampedRx, lvY);
                     }
                     ctx.shadowBlur = 0;
                     ctx.globalAlpha = 1;
@@ -5816,7 +5865,7 @@ class WorldMapState extends GameState {
                     if (ry < mapAreaY - 50 || ry > mapAreaY + mapAreaH + 50) continue;
 
                     const regionScale = Math.min(1.5, Math.sqrt(rc.count) / 3);
-                    const baseFontSize = Math.max(9, Math.min(16, cellW * 0.28));
+                    const baseFontSize = Math.max(14, Math.min(24, cellW * 0.32));
                     const fontSize = Math.round(baseFontSize * regionScale);
 
                     // Level range sub-label
@@ -5825,6 +5874,22 @@ class WorldMapState extends GameState {
                     ctx.save();
                     ctx.globalAlpha = regionAlpha * 0.7;
                     ctx.font = `bold ${fontSize}px "Cinzel", serif`;
+
+                    // Horizontal gradient backdrop band
+                    const rTextW = ctx.measureText(regionName).width;
+                    const rBandH = rLvText ? fontSize * 2.0 : fontSize * 1.4;
+                    const rBandW = rTextW + fontSize * 3.5;
+                    const rBandX = rx - rBandW * 0.5;
+                    const rBandY = ry - fontSize * 0.55;
+                    const rGrad = ctx.createLinearGradient(rBandX, 0, rBandX + rBandW, 0);
+                    rGrad.addColorStop(0, 'rgba(0,0,0,0)');
+                    rGrad.addColorStop(0.15, 'rgba(0,0,0,0.5)');
+                    rGrad.addColorStop(0.5, 'rgba(0,0,0,0.6)');
+                    rGrad.addColorStop(0.85, 'rgba(0,0,0,0.5)');
+                    rGrad.addColorStop(1, 'rgba(0,0,0,0)');
+                    ctx.fillStyle = rGrad;
+                    ctx.fillRect(rBandX, rBandY, rBandW, rBandH);
+
                     ctx.fillStyle = 'rgba(255,255,255,1)';
                     ctx.shadowColor = 'rgba(0,0,0,0.8)';
                     ctx.shadowBlur = 4;
@@ -5902,40 +5967,40 @@ class WorldMapState extends GameState {
                           :                  '#88ee88';
 
             const cardCX = W / 2;
-            const cardY = H * 0.84;
+            const cardY = H * 0.855;
 
             ctx.save();
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.shadowColor = '#000';
-            ctx.shadowBlur = 4;
+            ctx.shadowBlur = 6;
 
             // Row 1: Super-region (small, dim)
             let row = cardY;
             if (superRegion) {
-                ctx.font = '11px "Cinzel", serif';
-                ctx.fillStyle = 'rgba(180,200,230,0.4)';
+                ctx.font = '16px "Cinzel", serif';
+                ctx.fillStyle = 'rgba(180,200,230,0.5)';
                 ctx.fillText(superRegion.toUpperCase(), cardCX, row);
-                row += 16;
+                row += 24;
             }
 
             // Row 2: Region name (large, bright)
-            ctx.font = 'bold 20px "Cinzel", serif';
+            ctx.font = 'bold 30px "Cinzel", serif';
             ctx.fillStyle = '#dde8ff';
             ctx.fillText(region, cardCX, row);
-            row += 20;
+            row += 30;
 
             // Row 3: Coordinate pill + Level pill side by side
-            ctx.font = 'bold 12px "Consolas", "Courier New", monospace';
+            ctx.font = 'bold 16px "Consolas", "Courier New", monospace';
 
             // Measure pill widths
             const coordText = `${this.playerGridX}, ${this.playerGridY}`;
             const lvText = `Lv ${mapLevel}`;
-            const coordW = ctx.measureText(coordText).width + 16;
-            const lvW = ctx.measureText(lvText).width + 16;
-            const pillH = 18;
-            const pillR = 9;
-            const gap = 8;
+            const coordW = ctx.measureText(coordText).width + 22;
+            const lvW = ctx.measureText(lvText).width + 22;
+            const pillH = 26;
+            const pillR = 13;
+            const gap = 10;
             const totalW = coordW + gap + lvW;
             const startX = cardCX - totalW / 2;
 
