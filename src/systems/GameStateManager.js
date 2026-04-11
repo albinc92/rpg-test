@@ -5657,7 +5657,7 @@ class WorldMapState extends GameState {
                 ctx.strokeRect(screenX, screenY, cellW, cellH);
 
                 // Show coordinate only at maximum zoom
-                if (this.zoom <= this.minZoom && cell) {
+                if (this.targetZoom <= this.minZoom && cell) {
                     const fontSize = Math.max(9, Math.min(13, cellH * 0.24));
                     ctx.font = `bold ${fontSize}px "Lato", sans-serif`;
                     ctx.textAlign = 'center';
@@ -5670,7 +5670,7 @@ class WorldMapState extends GameState {
                 }
 
                 // Show per-cell level badge only at maximum zoom
-                if (this.zoom <= this.minZoom && cell && cell.level > 0) {
+                if (this.targetZoom <= this.minZoom && cell && cell.level > 0) {
                     const lvFontSize = Math.max(7, Math.min(11, cellH * 0.18));
                     const label = `Lv${cell.level}`;
                     ctx.font = `bold ${lvFontSize}px "Lato", sans-serif`;
