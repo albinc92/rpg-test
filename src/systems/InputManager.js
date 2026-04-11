@@ -464,6 +464,25 @@ class InputManager {
     }
 
     /**
+     * Check if the connected gamepad is a Nintendo controller (Switch layout: A/B swapped)
+     */
+    isNintendoController() {
+        if (!this.gamepadState.connected || !navigator.getGamepads) return false;
+        const gp = navigator.getGamepads()[this.gamepadState.index];
+        if (!gp) return false;
+        const id = gp.id.toLowerCase();
+        return id.includes('nintendo') || id.includes('pro controller') || id.includes('joy-con');
+    }
+
+    /**
+     * Get the correct face button label for confirm/cancel based on controller type.
+     * Nintendo Switch: confirm = B, cancel = A (swapped physical labels)
+     * Xbox/PlayStation: confirm = A, cancel = B
+     */
+    getConfirmButton() { return this.isNintendoController() ? 'B' : 'A'; }
+    getCancelButton()  { return this.isNintendoController() ? 'A' : 'B'; }
+
+    /**
      * Check if mouse button is pressed
      */
     isMousePressed(button = 0) {

@@ -118,6 +118,8 @@ class Spirit extends Actor {
         // Roaming behavior with return-to-center tendency
         if (this.behaviorType === 'roaming') {
             this.updateSpiritRoaming(deltaTime);
+        } else if (this.behaviorType === 'following') {
+            this.updateFollowing(deltaTime, game);
         }
     }
     
@@ -204,6 +206,48 @@ class Spirit extends Actor {
                 deltaTime
             );
         }
+    }
+    
+    /**
+     * Follow the player — matches player speed, catches up when far, teleports when very far
+     */
+    updateFollowing(deltaTime, game) {
+        if (!game.player) return;
+        const dx = game.player.x - this.x;
+        const dy = game.player.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Teleport instantly if way too far (e.g. got stuck behind collision)
+        if (distance > 600) {
+            this.x = game.player.x - 40;
+            this.y = game.player.y + 30;
+            this.velocityX = 0;
+            this.velocityY = 0;
+            return;
+        }
+        
+        // Stay near the player — stop when close enough
+        if (distance < 60) return;
+        
+        const dirX = dx / distance;
+        const dirY = dy / distance;
+        
+        // Speed multiplier: match player at normal range, accelerate to catch up
+        let speedMultiplier = 1.0;
+        if (distance > 300) {
+            // Ramp up speed from 1.5x to 3x as distance goes 300→600
+            speedMultiplier = 1.5 + ((distance - 300) / 300) * 1.5;
+        } else if (distance > 150) {
+            // Slight boost to keep up around corners
+            speedMultiplier = 1.0 + ((distance - 150) / 150) * 0.5;
+        }
+        
+        // Match player running state
+        if (game.player.isRunning) {
+            speedMultiplier *= 1.8;
+        }
+        
+        this.applyMovement(dirX, dirY, deltaTime, speedMultiplier);
     }
     
     /**

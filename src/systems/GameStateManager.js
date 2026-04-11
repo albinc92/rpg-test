@@ -3681,6 +3681,24 @@ class GourdState extends GameState {
                     if (this.summarySpirit) {
                         this.showSummary = true;
                     }
+                } else if (action === 'Follow') {
+                    // Make this spirit the companion follower
+                    // Move to party[0] if not already there
+                    const spirit = this._getSelectedSpirit();
+                    if (spirit && this.panel === 'party') {
+                        const idx = this.partyIndex;
+                        if (idx > 0) {
+                            const [moved] = pm.party.splice(idx, 1);
+                            pm.party.splice(0, 0, moved);
+                            pm.savePartyData();
+                            this.partyIndex = 0;
+                        }
+                        this.game.companionEnabled = true;
+                        this.game.spawnCompanion();
+                    }
+                } else if (action === 'Unfollow') {
+                    this.game.companionEnabled = false;
+                    this.game.despawnCompanion();
                 }
                 this.game.audioManager?.playEffect('click.mp3');
                 return;
@@ -3791,6 +3809,13 @@ class GourdState extends GameState {
             this.showContextMenu = true;
             this.contextMenuIndex = 0;
             this.contextMenuOptions = ['Move', 'Summary'];
+            // Add Follow/Unfollow option for party spirits
+            if (this.panel === 'party') {
+                const isFollowing = this.game.companionEnabled && 
+                    this.game.companionSpirit && 
+                    this.game.partyManager.party[this.partyIndex] === spirit;
+                this.contextMenuOptions.push(isFollowing ? 'Unfollow' : 'Follow');
+            }
             this.game.audioManager?.playEffect('click.mp3');
         } else {
             // ── Place / swap ──

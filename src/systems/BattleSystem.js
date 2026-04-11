@@ -1396,6 +1396,11 @@ class BattleSystem {
         
         // Resume normal BGM
         this.game.audioManager?.playBGM('bgm-field.mp3');
+        
+        // Respawn companion spirit after battle
+        if (this.game.companionEnabled) {
+            this.game.spawnCompanion();
+        }
     }
     
     /**

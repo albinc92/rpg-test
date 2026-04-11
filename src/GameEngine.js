@@ -190,6 +190,10 @@ class GameEngine {
         // Party manager for player's spirit party
         this.partyManager = new PartyManager(this);
         
+        // Companion follower spirit (follows player on overworld)
+        this.companionSpirit = null;
+        this.companionEnabled = false;
+        
         // Battle system for combat encounters
         this.battleSystem = new BattleSystem(this);
         
@@ -1111,6 +1115,11 @@ class GameEngine {
         // Update player
         this.player.update(deltaTime, this);
         
+        // Update companion spirit
+        if (this.companionSpirit && this.companionEnabled) {
+            this.companionSpirit.update(deltaTime, this);
+        }
+        
         // Manage player light (lantern) - ALWAYS ACTIVE
         if (this.lightManager) {
             const playerLightId = 'player_lantern';
@@ -1297,6 +1306,11 @@ class GameEngine {
             triggeringSpirit: triggeringSpirit
         });
         
+        // Hide companion during battle
+        if (this.companionSpirit && this.companionEnabled) {
+            this.objectManager.removeObject(this.companionSpirit.mapId, this.companionSpirit.id);
+        }
+        
         // Set cooldown to prevent immediate re-encounter
         this.interactionCooldown = 2.0;
     }
@@ -1358,6 +1372,79 @@ class GameEngine {
      * Transition to an adjacent map (Seamless Version)
      * Instead of loading and snapping, we shift coordinates to create an infinite world illusion
      */
+    /**
+     * Toggle the companion spirit following the player
+     */
+    toggleCompanion() {
+        this.companionEnabled = !this.companionEnabled;
+        if (this.companionEnabled) {
+            this.spawnCompanion();
+        } else {
+            this.despawnCompanion();
+        }
+        return this.companionEnabled;
+    }
+
+    /**
+     * Spawn the first party spirit as a companion follower
+     */
+    spawnCompanion() {
+        this.despawnCompanion(); // Remove any existing companion first
+        const party = this.partyManager?.getActiveParty();
+        if (!party || party.length === 0) return;
+        const lead = party[0];
+        
+        const companion = new Spirit(this, this.player.x - 40, this.player.y + 30, this.currentMapId, {
+            id: 'companion_follower',
+            name: lead.name,
+            spriteSrc: lead.sprite || lead.spriteSrc,
+            scale: lead.scale || 0.075,
+            level: lead.level || 1,
+            type1: lead.type1,
+            type2: lead.type2,
+            behaviorType: 'following',
+            // Match player physics exactly
+            maxSpeed: 450,
+            acceleration: 3500,
+            friction: 0.85,
+            movementSpeed: 1.0,
+            isFloating: lead.isFloating !== undefined ? lead.isFloating : false,
+            floatingSpeed: lead.floatingSpeed || 0.002,
+            floatingRange: lead.floatingRange || 15,
+            blocksMovement: false,
+            canBeBlocked: true,
+            collisionShape: 'circle'
+        });
+        companion.isCompanion = true;
+        companion.spawnEffect = { active: false }; // No spawn effect
+        companion.isDynamicSpawn = false;
+        this.companionSpirit = companion;
+        this.objectManager.addObject(this.currentMapId, companion);
+    }
+
+    /**
+     * Despawn the companion spirit
+     */
+    despawnCompanion() {
+        if (this.companionSpirit) {
+            this.objectManager.removeObject(this.companionSpirit.mapId, this.companionSpirit.id);
+            this.companionSpirit = null;
+        }
+    }
+
+    /**
+     * Reposition companion after map transition
+     */
+    repositionCompanion() {
+        if (!this.companionEnabled || !this.companionSpirit) return;
+        // Remove from old map, respawn on new map near player
+        this.objectManager.removeObject(this.companionSpirit.mapId, this.companionSpirit.id);
+        this.companionSpirit.x = this.player.x - 40;
+        this.companionSpirit.y = this.player.y + 30;
+        this.companionSpirit.mapId = this.currentMapId;
+        this.objectManager.addObject(this.currentMapId, this.companionSpirit);
+    }
+
     async transitionToMap(mapId, entryDirection) {
         // Prevent multiple transitions
         if (this.isTransitioning) return;
@@ -1423,6 +1510,15 @@ class GameEngine {
             // 3. Apply Coordinate Shift to Player
             this.player.x += shiftX;
             this.player.y += shiftY;
+            
+            // 3b. Reposition companion spirit for new map
+            if (this.companionSpirit && this.companionEnabled) {
+                this.objectManager.removeObject(previousMapId, this.companionSpirit.id);
+                this.companionSpirit.x += shiftX;
+                this.companionSpirit.y += shiftY;
+                this.companionSpirit.mapId = mapId;
+                this.objectManager.addObject(mapId, this.companionSpirit);
+            }
             
             // 4. Apply Coordinate Shift to Camera
             // Camera coordinates are SCALED, so we must scale the shift

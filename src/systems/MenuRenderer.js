@@ -572,9 +572,15 @@ class MenuRenderer {
      */
     drawHint(ctx, text, canvasWidth, canvasHeight, yPosition = 0.92) {
         this._ensureDS(canvasWidth, canvasHeight);
+
+        // Swap A↔B labels for Nintendo controllers (physical layout is inverted)
+        let displayText = text;
+        if (this.game?.inputManager?.isNintendoController()) {
+            displayText = text.replace(/\bA\b/g, '\x00').replace(/\bB\b/g, 'A').replace(/\x00/g, 'B');
+        }
         
         if (this.ds) {
-            this.ds.drawHint(ctx, text);
+            this.ds.drawHint(ctx, displayText);
         } else {
             // Legacy fallback
             const sizes = this.getFontSizes(canvasHeight);
@@ -583,7 +589,7 @@ class MenuRenderer {
             ctx.font = `${sizes.instruction}px 'Lato', sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(text, canvasWidth / 2, canvasHeight * yPosition);
+            ctx.fillText(displayText, canvasWidth / 2, canvasHeight * yPosition);
             ctx.restore();
         }
     }
