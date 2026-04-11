@@ -5888,28 +5888,80 @@ class WorldMapState extends GameState {
         ctx.shadowBlur = 0;
         ctx.restore();
 
-        // Current location label — super-region / region (x, y) Lv
+        // Current location card — stacked layout with color-coded badges
         {
             const cell = this.cellData[`${this.playerGridX}-${this.playerGridY}`];
             const superRegion = cell?.superRegion || '';
             const region = cell?.region || 'Unknown';
             const mapLevel = cell?.level || 1;
 
+            // Level color (matches per-cell badge colors)
+            const lvColor = mapLevel >= 61 ? '#ff6666'
+                          : mapLevel >= 36 ? '#ffcc44'
+                          : mapLevel >= 16 ? '#66ccff'
+                          :                  '#88ee88';
+
+            const cardCX = W / 2;
+            const cardY = H * 0.84;
+
             ctx.save();
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
+            ctx.shadowColor = '#000';
+            ctx.shadowBlur = 4;
 
-            // Super-region (smaller, dimmer — top line)
+            // Row 1: Super-region (small, dim)
+            let row = cardY;
             if (superRegion) {
-                ctx.font = '12px "Cinzel", serif';
-                ctx.fillStyle = 'rgba(200,220,255,0.45)';
-                ctx.fillText(superRegion, W / 2, H * 0.86);
+                ctx.font = '11px "Cinzel", serif';
+                ctx.fillStyle = 'rgba(180,200,230,0.4)';
+                ctx.fillText(superRegion.toUpperCase(), cardCX, row);
+                row += 16;
             }
 
-            // Region + coordinate + level (prominent — bottom line)
-            ctx.font = 'bold 18px "Cinzel", serif';
-            ctx.fillStyle = 'rgba(200,220,255,0.9)';
-            ctx.fillText(`${region}  (${this.playerGridX}, ${this.playerGridY})  Lv ${mapLevel}`, W / 2, H * 0.885);
+            // Row 2: Region name (large, bright)
+            ctx.font = 'bold 20px "Cinzel", serif';
+            ctx.fillStyle = '#dde8ff';
+            ctx.fillText(region, cardCX, row);
+            row += 20;
+
+            // Row 3: Coordinate pill + Level pill side by side
+            ctx.font = 'bold 12px "Consolas", "Courier New", monospace';
+
+            // Measure pill widths
+            const coordText = `${this.playerGridX}, ${this.playerGridY}`;
+            const lvText = `Lv ${mapLevel}`;
+            const coordW = ctx.measureText(coordText).width + 16;
+            const lvW = ctx.measureText(lvText).width + 16;
+            const pillH = 18;
+            const pillR = 9;
+            const gap = 8;
+            const totalW = coordW + gap + lvW;
+            const startX = cardCX - totalW / 2;
+
+            ctx.shadowBlur = 0;
+
+            // Coord pill
+            const cx = startX;
+            ctx.fillStyle = 'rgba(100,140,200,0.35)';
+            ctx.beginPath();
+            ctx.roundRect(cx, row - pillH / 2, coordW, pillH, pillR);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(180,210,255,0.85)';
+            ctx.fillText(coordText, cx + coordW / 2, row);
+
+            // Level pill
+            const lx = startX + coordW + gap;
+            // Tinted background based on level color
+            const r = parseInt(lvColor.slice(1, 3), 16);
+            const g = parseInt(lvColor.slice(3, 5), 16);
+            const b = parseInt(lvColor.slice(5, 7), 16);
+            ctx.fillStyle = `rgba(${r},${g},${b},0.25)`;
+            ctx.beginPath();
+            ctx.roundRect(lx, row - pillH / 2, lvW, pillH, pillR);
+            ctx.fill();
+            ctx.fillStyle = lvColor;
+            ctx.fillText(lvText, lx + lvW / 2, row);
 
             ctx.restore();
         }
