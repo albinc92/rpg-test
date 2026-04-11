@@ -214,15 +214,24 @@ class Spirit extends Actor {
     updateFollowing(deltaTime, game) {
         if (!game.player) return;
         
-        // Distance to player (for teleport check)
-        const dxP = game.player.x - this.x;
-        const dyP = game.player.y - this.y;
+        // Distance between collision centers
+        const playerCol = game.player.getCollisionCircle(game);
+        const myCol = this.getCollisionCircle(game);
+        const scale = game.resolutionScale || 1;
+        const pcx = playerCol.centerX / scale;
+        const pcy = playerCol.centerY / scale;
+        const mcx = myCol.centerX / scale;
+        const mcy = myCol.centerY / scale;
+        const dxP = pcx - mcx;
+        const dyP = pcy - mcy;
         const distToPlayer = Math.sqrt(dxP * dxP + dyP * dyP);
         
         // Teleport with spawn effect if way too far
         if (distToPlayer > 600) {
-            this.x = game.player.x - 40;
-            this.y = game.player.y + 30;
+            // Place behind player based on their facing direction
+            const offsetX = game.player.direction === 'right' ? -50 : 50;
+            this.x = pcx + offsetX;
+            this.y = pcy;
             this.velocityX = 0;
             this.velocityY = 0;
             if (game._companionTrail) game._companionTrail.length = 0;
@@ -231,6 +240,16 @@ class Spirit extends Actor {
                 duration: 1200,
                 startTime: Date.now()
             };
+            return;
+        }
+        
+        // Stop when close enough to the player (regardless of direction)
+        if (distToPlayer < 80) {
+            // Drain leftover trail so it doesn't lunge past us next time
+            const trail = game._companionTrail;
+            if (trail) {
+                while (trail.length > 2) trail.shift();
+            }
             return;
         }
         
@@ -256,7 +275,6 @@ class Spirit extends Actor {
         const dirY = dy / distToWP;
         
         // Dynamic acceleration — ramp up when slacking behind
-        // Base: 1200 (slow rubber-band start), up to 5000 when far behind
         if (trail.length > 15) {
             this.acceleration = 2500 + Math.min((trail.length - 15) / 15, 1.0) * 2500;
         } else if (trail.length > 8) {
@@ -265,10 +283,9 @@ class Spirit extends Actor {
             this.acceleration = 1200;
         }
         
-        // Speed multiplier — also ramps with trail length
+        // Speed multiplier — ramps with trail length
         let speedMultiplier = 1.0;
         if (trail.length > 15) {
-            // Catching up hard — ramp from 1.5x to 3x
             speedMultiplier = 1.5 + Math.min((trail.length - 15) / 20, 1.5);
         } else if (trail.length > 8) {
             speedMultiplier = 1.0 + ((trail.length - 8) / 7) * 0.5;

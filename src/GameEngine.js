@@ -1115,12 +1115,13 @@ class GameEngine {
         // Update player
         this.player.update(deltaTime, this);
         
-        // Record breadcrumb trail for companion spirit
+        // Record breadcrumb trail for companion spirit (use collision box center)
         if (this.companionEnabled && this._companionTrail) {
             const trail = this._companionTrail;
             const last = trail.length > 0 ? trail[trail.length - 1] : null;
-            const px = this.player.x;
-            const py = this.player.y;
+            const playerCol = this.player.getCollisionCircle(this);
+            const px = playerCol.centerX / (this.resolutionScale || 1);
+            const py = playerCol.centerY / (this.resolutionScale || 1);
             // Only record a new point if player moved enough (every ~15px)
             if (!last || Math.abs(px - last.x) + Math.abs(py - last.y) > 15) {
                 trail.push({ x: px, y: py });
@@ -1408,7 +1409,12 @@ class GameEngine {
         if (!party || party.length === 0) return;
         const lead = party[0];
         
-        const companion = new Spirit(this, this.player.x - 40, this.player.y + 30, this.currentMapId, {
+        const playerCol = this.player.getCollisionCircle(this);
+        const scale = this.resolutionScale || 1;
+        const pcx = playerCol.centerX / scale;
+        const pcy = playerCol.centerY / scale;
+        const offsetX = this.player.direction === 'right' ? -50 : 50;
+        const companion = new Spirit(this, pcx + offsetX, pcy, this.currentMapId, {
             id: 'companion_follower',
             name: lead.name,
             spriteSrc: lead.sprite || lead.spriteSrc,
@@ -1454,8 +1460,11 @@ class GameEngine {
         if (!this.companionEnabled || !this.companionSpirit) return;
         // Remove from old map, respawn on new map near player
         this.objectManager.removeObject(this.companionSpirit.mapId, this.companionSpirit.id);
-        this.companionSpirit.x = this.player.x - 40;
-        this.companionSpirit.y = this.player.y + 30;
+        const playerCol = this.player.getCollisionCircle(this);
+        const scale = this.resolutionScale || 1;
+        const offsetX = this.player.direction === 'right' ? -50 : 50;
+        this.companionSpirit.x = playerCol.centerX / scale + offsetX;
+        this.companionSpirit.y = playerCol.centerY / scale;
         this.companionSpirit.mapId = this.currentMapId;
         this.objectManager.addObject(this.currentMapId, this.companionSpirit);
     }
