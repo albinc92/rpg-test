@@ -1,5 +1,7 @@
 - coordinates in the world map view are too vague to be readable.
 - no map level info available in the world map like i requested...
+- switch controller instructions texts are inversed.... B -> A and A -> B....
+- make the first spirit in the party follow the player around in-game (toggleable from the gourd menu)
 
 BOLD IDEA:
 - convert the game into 3D like paper mario... ingame objects are still 2d ad stick up vertically... that way we dont have to have fake depth effect and also.... we could theorietically cast real shadows and not just skewed transforms of the base sprite... thoughts?

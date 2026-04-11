@@ -23,21 +23,13 @@ class LootSystem {
     }
 
     /**
-     * Get the zone level at a given world position on a map
-     * Checks spawn zones for a level field, returns the highest-level zone the point falls in
+     * Get the level for a given map
+     * Uses the map's level property (distance-based difficulty)
      */
     getZoneLevelAt(x, y, mapId) {
         const mapData = this.game.mapManager?.maps?.[mapId];
-        if (!mapData || !mapData.zones) return 1;
-
-        let maxLevel = 0;
-        for (const zone of mapData.zones) {
-            if (zone.type !== 'spawn' || !zone.level) continue;
-            if (this._isPointInPolygon({ x, y }, zone.points)) {
-                maxLevel = Math.max(maxLevel, zone.level);
-            }
-        }
-        return maxLevel || 1;
+        if (!mapData) return 1;
+        return mapData.level || 1;
     }
 
     /**

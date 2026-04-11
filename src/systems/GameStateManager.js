@@ -5392,40 +5392,36 @@ class WorldMapState extends GameState {
                 if (data) {
                     const region = data.region || '';
                     const superRegion = data.superRegion || '';
-                    // Compute max zone level from spawn zones
-                    let maxLevel = 0;
-                    if (data.zones) {
-                        for (const zone of data.zones) {
-                            if (zone.type === 'spawn' && zone.level) {
-                                maxLevel = Math.max(maxLevel, zone.level);
-                            }
-                        }
-                    }
                     this.cellData[id] = {
                         biome: data.biome || 'grassland',
                         name: data.name || id,
                         region: region,
                         superRegion: superRegion,
                         weather: data.weather || null,
-                        level: maxLevel || 0
+                        level: data.level || 0
                     };
-                    // Accumulate region centroid
+                    const cellLevel = data.level || 0;
+                    // Accumulate region centroid + level range
                     if (region) {
                         if (!this.regionCenters[region]) {
-                            this.regionCenters[region] = { sumX: 0, sumY: 0, count: 0, biome: data.biome };
+                            this.regionCenters[region] = { sumX: 0, sumY: 0, count: 0, biome: data.biome, minLv: 999, maxLv: 0 };
                         }
-                        this.regionCenters[region].sumX += x;
-                        this.regionCenters[region].sumY += y;
-                        this.regionCenters[region].count++;
+                        const rc = this.regionCenters[region];
+                        rc.sumX += x;
+                        rc.sumY += y;
+                        rc.count++;
+                        if (cellLevel > 0) { rc.minLv = Math.min(rc.minLv, cellLevel); rc.maxLv = Math.max(rc.maxLv, cellLevel); }
                     }
-                    // Accumulate super-region centroid
+                    // Accumulate super-region centroid + level range
                     if (superRegion) {
                         if (!this.superRegionCenters[superRegion]) {
-                            this.superRegionCenters[superRegion] = { sumX: 0, sumY: 0, count: 0 };
+                            this.superRegionCenters[superRegion] = { sumX: 0, sumY: 0, count: 0, minLv: 999, maxLv: 0 };
                         }
-                        this.superRegionCenters[superRegion].sumX += x;
-                        this.superRegionCenters[superRegion].sumY += y;
-                        this.superRegionCenters[superRegion].count++;
+                        const src = this.superRegionCenters[superRegion];
+                        src.sumX += x;
+                        src.sumY += y;
+                        src.count++;
+                        if (cellLevel > 0) { src.minLv = Math.min(src.minLv, cellLevel); src.maxLv = Math.max(src.maxLv, cellLevel); }
                     }
                 }
             }
@@ -5661,19 +5657,20 @@ class WorldMapState extends GameState {
                 ctx.strokeRect(screenX, screenY, cellW, cellH);
 
                 // Show coordinate when zoomed in enough
-                if (cellW > 60 && cell) {
-                    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-                    const fontSize = Math.max(7, Math.min(10, cellH * 0.2));
-                    ctx.font = `${fontSize}px "Lato", sans-serif`;
+                if (cellW > 45 && cell) {
+                    const fontSize = Math.max(9, Math.min(13, cellH * 0.24));
+                    ctx.font = `bold ${fontSize}px "Lato", sans-serif`;
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'bottom';
-                    const displayX = gx - this.gridMinX;
-                    const displayY = gy - this.gridMinY;
-                    ctx.fillText(`${displayX},${displayY}`, screenX + cellW / 2, screenY + cellH - 2);
+                    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                    ctx.shadowBlur = 3;
+                    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                    ctx.fillText(`${gx}, ${gy}`, screenX + cellW / 2, screenY + cellH - 3);
+                    ctx.shadowBlur = 0;
                 }
 
-                // Show zone level badge when zoomed in enough
-                if (cellW > 40 && cell && cell.level > 0) {
+                // Show per-cell level badge only when very zoomed in
+                if (cellW > 55 && cell && cell.level > 0) {
                     const lvFontSize = Math.max(7, Math.min(11, cellH * 0.18));
                     const label = `Lv${cell.level}`;
                     ctx.font = `bold ${lvFontSize}px "Lato", sans-serif`;
@@ -5759,6 +5756,9 @@ class WorldMapState extends GameState {
                     const baseFontSize = Math.max(12, Math.min(22, cellW * 0.35));
                     const fontSize = Math.round(baseFontSize * regionScale);
 
+                    // Level range sub-label
+                    const srLvText = (rc.maxLv > 0) ? `Lv ${rc.minLv}–${rc.maxLv}` : '';
+
                     ctx.save();
                     ctx.globalAlpha = superAlpha * 0.75;
                     ctx.font = `bold ${fontSize}px "Cinzel", serif`;
@@ -5766,6 +5766,12 @@ class WorldMapState extends GameState {
                     ctx.shadowColor = 'rgba(0,0,0,0.9)';
                     ctx.shadowBlur = 6;
                     ctx.fillText(name, rx, ry);
+                    if (srLvText) {
+                        const lvSize = Math.round(fontSize * 0.55);
+                        ctx.font = `bold ${lvSize}px "Lato", sans-serif`;
+                        ctx.fillStyle = 'rgba(200,220,255,0.85)';
+                        ctx.fillText(srLvText, rx, ry + fontSize * 0.75);
+                    }
                     ctx.shadowBlur = 0;
                     ctx.globalAlpha = 1;
                     ctx.restore();
@@ -5788,6 +5794,9 @@ class WorldMapState extends GameState {
                     const baseFontSize = Math.max(9, Math.min(16, cellW * 0.28));
                     const fontSize = Math.round(baseFontSize * regionScale);
 
+                    // Level range sub-label
+                    const rLvText = (rc.maxLv > 0) ? `Lv ${rc.minLv}–${rc.maxLv}` : '';
+
                     ctx.save();
                     ctx.globalAlpha = regionAlpha * 0.7;
                     ctx.font = `bold ${fontSize}px "Cinzel", serif`;
@@ -5795,6 +5804,12 @@ class WorldMapState extends GameState {
                     ctx.shadowColor = 'rgba(0,0,0,0.8)';
                     ctx.shadowBlur = 4;
                     ctx.fillText(regionName, rx, ry);
+                    if (rLvText) {
+                        const lvSize = Math.round(fontSize * 0.6);
+                        ctx.font = `bold ${lvSize}px "Lato", sans-serif`;
+                        ctx.fillStyle = 'rgba(200,220,255,0.8)';
+                        ctx.fillText(rLvText, rx, ry + fontSize * 0.7);
+                    }
                     ctx.shadowBlur = 0;
                     ctx.globalAlpha = 1;
                     ctx.restore();
@@ -5848,12 +5863,12 @@ class WorldMapState extends GameState {
         ctx.shadowBlur = 0;
         ctx.restore();
 
-        // Current location label — super-region / region (x, y)
+        // Current location label — super-region / region (x, y) Lv
         {
             const cell = this.cellData[`${this.playerGridX}-${this.playerGridY}`];
             const superRegion = cell?.superRegion || '';
             const region = cell?.region || 'Unknown';
-            const coordStr = MapCoords.formatDisplay(this.playerGridX, this.playerGridY);
+            const mapLevel = cell?.level || 1;
 
             ctx.save();
             ctx.textAlign = 'center';
@@ -5866,10 +5881,10 @@ class WorldMapState extends GameState {
                 ctx.fillText(superRegion, W / 2, H * 0.86);
             }
 
-            // Region + coordinate (prominent — bottom line)
+            // Region + coordinate + level (prominent — bottom line)
             ctx.font = 'bold 18px "Cinzel", serif';
             ctx.fillStyle = 'rgba(200,220,255,0.9)';
-            ctx.fillText(`${region}  (${coordStr})`, W / 2, H * 0.885);
+            ctx.fillText(`${region}  (${this.playerGridX}, ${this.playerGridY})  Lv ${mapLevel}`, W / 2, H * 0.885);
 
             ctx.restore();
         }

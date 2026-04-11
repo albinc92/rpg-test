@@ -398,6 +398,7 @@ class SpawnManager {
     buildSpawnZoneCache(mapId, spawnLayer, mapData) {
         const spawnPoints = [];
         const sampleRate = 32; // Coarser grid for performance
+        const mapLevel = mapData.level || 1; // Map-level difficulty
 
         if (mapData.zones) {
             const resolutionScale = this.game.resolutionScale || 1.0;
@@ -405,7 +406,6 @@ class SpawnManager {
             for (const zone of mapData.zones) {
                 if (zone.type !== 'spawn') continue;
                 
-                const zoneLevel = zone.level || 1;
                 const scaledPoints = zone.points.map(p => ({
                     x: p.x * resolutionScale,
                     y: p.y * resolutionScale
@@ -422,7 +422,7 @@ class SpawnManager {
                 for (let y = minY; y <= maxY; y += sampleRate) {
                     for (let x = minX; x <= maxX; x += sampleRate) {
                         if (this.isPointInPolygon({x, y}, scaledPoints)) {
-                            spawnPoints.push({x, y, level: zoneLevel});
+                            spawnPoints.push({x, y, level: mapLevel});
                         }
                     }
                 }

@@ -33,6 +33,21 @@ const path = require('path');
 const MIN_X = -14, MAX_X = 15;
 const MIN_Y = -14, MAX_Y = 15;
 
+// ==================== MAP LEVEL (distance-based) ====================
+
+/**
+ * Compute map level from grid coordinates.
+ * Level scales with distance from the center (0,0).
+ * Village center = 1, edges (~dist 20) = 100.
+ */
+function getMapLevel(x, y) {
+    const dist = Math.sqrt(x * x + y * y);
+    const maxDist = Math.sqrt(MAX_X * MAX_X + MAX_Y * MAX_Y); // ~21.2
+    // Linear ramp 1..100 with slight floor so the very center is always 1
+    if (dist <= 1) return 1;
+    return Math.min(100, Math.max(1, Math.round(1 + (dist / maxDist) * 99)));
+}
+
 // ==================== BIOME CLASSIFICATION ====================
 
 function getBiome(x, y) {
@@ -444,7 +459,7 @@ function generateWorld() {
     const existingMaps = JSON.parse(fs.readFileSync(mapsPath, 'utf-8'));
     
     // Special maps that aren't part of the grid
-    const specialMaps = Object.entries(maps).filter(([k,v]) => v.isBattleMap).map(([k]) => k);
+    const specialMaps = Object.entries(existingMaps).filter(([k,v]) => v.isBattleMap).map(([k]) => k);
     
     // Track which maps already exist (grid maps only)
     const existingGridMaps = new Set();
@@ -508,7 +523,8 @@ function generateWorld() {
                     adjacentMaps: adjacentMaps,
                     zones: [],
                     weather: weather,
-                    biome: biome  // Extra metadata for your reference
+                    biome: biome,
+                    level: getMapLevel(x, y)
                 };
                 generatedCount++;
             }
@@ -534,6 +550,16 @@ function generateWorld() {
     for (const key of specialMaps) {
         if (existingMaps[key]) {
             finalMaps[key] = existingMaps[key];
+        }
+    }
+
+    // Ensure every grid map has a level property (patch existing maps too)
+    for (let y = MAX_Y; y >= MIN_Y; y--) {
+        for (let x = MIN_X; x <= MAX_X; x++) {
+            const id = mapId(x, y);
+            if (finalMaps[id] && finalMaps[id].level === undefined) {
+                finalMaps[id].level = getMapLevel(x, y);
+            }
         }
     }
     
