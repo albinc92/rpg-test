@@ -5337,12 +5337,12 @@ class WorldMapState extends GameState {
         this.inputCooldown = 0.15;
 
         // Grid range (matches generate_world.cjs: x -14..15, y -14..15)
-        this.gridMinX = -14;
-        this.gridMaxX = 15;
-        this.gridMinY = -14;
-        this.gridMaxY = 15;
-        this.gridCols = this.gridMaxX - this.gridMinX + 1; // 30
-        this.gridRows = this.gridMaxY - this.gridMinY + 1; // 30
+        this.gridMinX = -15;
+        this.gridMaxX = 16;
+        this.gridMinY = -8;
+        this.gridMaxY = 9;
+        this.gridCols = this.gridMaxX - this.gridMinX + 1; // 32
+        this.gridRows = this.gridMaxY - this.gridMinY + 1; // 18
 
         // Parse player position from currentMapId (e.g. "3--5" → x=3, y=-5)
         this.playerGridX = 0;
@@ -5409,7 +5409,7 @@ class WorldMapState extends GameState {
         if (!mapManager) return;
         // Collect per-cell data and build region center lookup
         this.regionCenters = {}; // regionName → {sumX, sumY, count}
-        this.superRegionCenters = {}; // superRegionName → {sumX, sumY, count}
+        const superRegionCells = {}; // superRegionName → [{x,y,level}]
         for (let y = this.gridMinY; y <= this.gridMaxY; y++) {
             for (let x = this.gridMinX; x <= this.gridMaxX; x++) {
                 const id = `${x}-${y}`;
@@ -5426,7 +5426,6 @@ class WorldMapState extends GameState {
                         level: data.level || 0
                     };
                     const cellLevel = data.level || 0;
-                    // Accumulate region centroid + level range
                     if (region) {
                         if (!this.regionCenters[region]) {
                             this.regionCenters[region] = { sumX: 0, sumY: 0, count: 0, biome: data.biome, minLv: 999, maxLv: 0 };
@@ -5437,19 +5436,59 @@ class WorldMapState extends GameState {
                         rc.count++;
                         if (cellLevel > 0) { rc.minLv = Math.min(rc.minLv, cellLevel); rc.maxLv = Math.max(rc.maxLv, cellLevel); }
                     }
-                    // Accumulate super-region centroid + level range
                     if (superRegion) {
-                        if (!this.superRegionCenters[superRegion]) {
-                            this.superRegionCenters[superRegion] = { sumX: 0, sumY: 0, count: 0, minLv: 999, maxLv: 0 };
-                        }
-                        const src = this.superRegionCenters[superRegion];
-                        src.sumX += x;
-                        src.sumY += y;
-                        src.count++;
-                        if (cellLevel > 0) { src.minLv = Math.min(src.minLv, cellLevel); src.maxLv = Math.max(src.maxLv, cellLevel); }
+                        if (!superRegionCells[superRegion]) superRegionCells[superRegion] = [];
+                        superRegionCells[superRegion].push({ x, y, level: cellLevel, biome: data.biome || 'grassland' });
                     }
                 }
             }
+        }
+
+        // Weight super-region centroids toward core biomes so labels sit on
+        // the characteristic terrain, not the geometric average of all cells.
+        const CORE_BIOMES = {
+            'fire': new Set(['volcanic']),
+            'ice': new Set(['snow', 'tundra', 'frozen-peak']),
+            'earth': new Set(['desert', 'arid-desert']),
+            'wind': new Set(['mountain', 'high-mountain']),
+            'water': new Set(['swamp', 'lake']),
+            'lightning': new Set(['jungle', 'dense-forest']),
+            'neutral': new Set(['plains', 'grassland', 'meadow', 'village']),
+        };
+
+        // Detect family from super-region name keywords
+        const familyFromName = (n) => {
+            const l = n.toLowerCase();
+            if (l.includes('ember') || l.includes('scorch') || l.includes('cinder') || l.includes('ash') || l.includes('pyrrha')) return 'fire';
+            if (l.includes('frost') || l.includes('ice') || l.includes('borea') || l.includes('rime') || l.includes('glacial')) return 'ice';
+            if (l.includes('stone') || l.includes('crag') || l.includes('iron') || l.includes('granite') || l.includes('drakken')) return 'earth';
+            if (l.includes('gale') || l.includes('zephyr') || l.includes('mistral') || l.includes('skyreach') || l.includes('storm')) return 'wind';
+            if (l.includes('tide') || l.includes('deep') || l.includes('coral') || l.includes('aquil') || l.includes('azure') || l.includes('mist') || l.includes('bog')) return 'water';
+            if (l.includes('thunder') || l.includes('volt') || l.includes('crackling') || l.includes('verdant')) return 'lightning';
+            return 'neutral';
+        };
+
+        this.superRegionCenters = {};
+        for (const [name, cells] of Object.entries(superRegionCells)) {
+            const family = familyFromName(name);
+            const coreBiomes = CORE_BIOMES[family];
+
+            // Prefer core-biome cells for centroid; fall back to all cells
+            const coreCells = coreBiomes ? cells.filter(c => coreBiomes.has(c.biome)) : [];
+            const positionCells = coreCells.length >= 3 ? coreCells : cells;
+
+            let sumX = 0, sumY = 0;
+            for (const p of positionCells) { sumX += p.x; sumY += p.y; }
+
+            let minLv = 999, maxLv = 0;
+            for (const c of cells) {
+                if (c.level > 0) { minLv = Math.min(minLv, c.level); maxLv = Math.max(maxLv, c.level); }
+            }
+
+            this.superRegionCenters[name] = {
+                sumX, sumY, count: positionCells.length,
+                minLv, maxLv
+            };
         }
     }
 
@@ -5769,17 +5808,45 @@ class WorldMapState extends GameState {
             if (superAlpha > 0 && this.superRegionCenters) {
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
+
+                // Pre-compute label positions and push overlapping ones apart
+                const labels = [];
                 for (const [name, rc] of Object.entries(this.superRegionCenters)) {
                     const avgX = rc.sumX / rc.count;
                     const avgY = rc.sumY / rc.count;
                     const rx = centerX + (avgX - this.camX) * cellW;
-                    let ry = centerY + (this.camY - avgY) * cellH;
+                    const ry = centerY + (this.camY - avgY) * cellH;
                     if (rx < mapAreaX - 150 || rx > mapAreaX + mapAreaW + 150) continue;
                     if (ry < mapAreaY - 50 || ry > mapAreaY + mapAreaH + 50) continue;
-
                     const regionScale = Math.min(1.8, Math.sqrt(rc.count) / 2.5);
                     const baseFontSize = Math.max(14, Math.min(22, cellW * 0.28));
                     const fontSize = Math.round(baseFontSize * regionScale);
+                    const blockH = fontSize * 2.5; // approximate total label height
+                    labels.push({ name, rc, rx, ry, fontSize, blockH });
+                }
+
+                // Iterative overlap repulsion (push labels apart vertically)
+                for (let pass = 0; pass < 5; pass++) {
+                    for (let i = 0; i < labels.length; i++) {
+                        for (let j = i + 1; j < labels.length; j++) {
+                            const a = labels[i], b = labels[j];
+                            const dx = Math.abs(a.rx - b.rx);
+                            const dy = a.ry - b.ry;
+                            const minSepX = (a.fontSize + b.fontSize) * 5; // only push if horizontally close
+                            const minSepY = (a.blockH + b.blockH) * 0.55;
+                            if (dx < minSepX && Math.abs(dy) < minSepY) {
+                                const push = (minSepY - Math.abs(dy)) * 0.5;
+                                if (dy <= 0) { a.ry -= push; b.ry += push; }
+                                else         { a.ry += push; b.ry -= push; }
+                            }
+                        }
+                    }
+                }
+
+                for (const label of labels) {
+                    const { name, rc, fontSize } = label;
+                    let rx = label.rx;
+                    let ry = label.ry;
 
                     // Level range sub-label
                     const srLvText = (rc.maxLv > 0) ? `Lv ${rc.minLv}–${rc.maxLv}` : '';

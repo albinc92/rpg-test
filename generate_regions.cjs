@@ -14,11 +14,11 @@ const fs   = require('fs');
 const path = require('path');
 
 // ───── Config ─────
-const MIN_REGION_SIZE       = 4;
+const MIN_REGION_SIZE       = 2;
 const TARGET_SUPER_REGIONS  = 7;
 
-const gridMinX = -14, gridMaxX = 15;
-const gridMinY = -14, gridMaxY = 15;
+const gridMinX = -15, gridMaxX = 16;
+const gridMinY = -8, gridMaxY = 9;
 
 function mapId(x, y) { return `${x}-${y}`; }
 
@@ -63,20 +63,20 @@ const BIOME_TO_FAMILY = {
 //       to avoid word-level dedup conflicts. No two names share a significant word.
 const SUPER_REGION_NAMES = {
     'ice': [
-        'The Frostbound Dominion', 'Borean Icehold', 'The Glacial Sovereignty',
-        'Rimeguard Expanse', 'The Pallid Hinterland',
+        'The Frostbound Reaches', 'Borean Icehold', 'The Glacial Expanse',
+        'Rimeguard Tundra', 'The Pallid Hinterland',
     ],
     'fire': [
-        'The Embercrown Wastes', 'Cinderfall Territory', 'Pyrrha\'s Dominion',
+        'The Embercrown Wastes', 'Cinderfall Territory', 'Pyrrha\'s Cradle',
         'The Scorched Barrens', 'Ashveil Frontier',
     ],
     'earth': [
-        'The Stoneheart Highlands', 'Craghammer Expanse', 'Ironpeak Bastion',
+        'The Stoneheart Highlands', 'Craghammer Expanse', 'Ironpeak Ridge',
         'The Granite Bulwark', 'Drakken Overlook',
     ],
     'wind': [
         'The Galeborn Highlands', 'Zephyr\'s Peaks', 'Mistral Summits',
-        'The Skyreach Dominion', 'Stormcrest Province',
+        'The Skyreach Corridor', 'Stormcrest Bluffs',
     ],
     'lightning': [
         'The Thundercanopy', 'Stormveil Rainforest', 'The Verdant Tempest',
@@ -84,14 +84,14 @@ const SUPER_REGION_NAMES = {
         'Voltaic Jungle', 'The Stormborn Tangle',
     ],
     'neutral': [
-        'The Heartland Commons', 'Dawnfield Province', 'The Central Reaches',
+        'The Heartland Commons', 'Dawnfield Meadows', 'The Central Reaches',
         'Summergate Parcels', 'The Verdant Lowfield',
-        'Brightmarch Prefecture', 'The Golden Heartland',
+        'Brightmarch Meadowlands', 'The Golden Heartland',
     ],
     'water': [
-        'The Tidecrown Sovereignty', 'Deepblue Lakeland', 'Coralveil Watershed',
+        'The Tidecrown Marshes', 'Deepblue Lakeland', 'Coralveil Watershed',
         'Aquilon\'s Heart', 'The Azure Reaches',
-        'The Mistfen Dominion', 'Bogwater Holdings',
+        'The Mistfen Wetlands', 'Bogwater Fens',
     ],
     'ocean': [
         'The Endless Deep', 'The Abyssal Reach', 'Stormtide Waters',
@@ -179,7 +179,8 @@ const REGION_NAMES = {
     ],
     'jungle': [
         'The Verdant Maw', 'Serpentcoil Jungle', 'Mugava Wilds', 'The Steaming Tangle',
-        'Thornvine Canopy',
+        'Thornvine Canopy', 'Razorleaf Thicket', 'The Whispering Undergrowth',
+        'Emerald Labyrinth', 'Wraithvine Hollow', 'The Tangled Deep',
     ],
     'swamp': [
         'Brackenmire', 'Gaelwynn\'s Bog', 'The Rotmarsh', 'Gloomfen', 'Moldwater Fen',
@@ -755,6 +756,16 @@ function main() {
             if (!mapsData[id]) continue;
 
             const biome    = biomeGrid[id];
+
+            // Ocean cells = world border, no region data
+            if (!biome || mapsData[id].biome === 'ocean') {
+                mapsData[id].superRegion = '';
+                mapsData[id].region      = '';
+                mapsData[id].name        = '';
+                updated++;
+                continue;
+            }
+
             const rIdx     = cellToRegionIdx[id];
             const sIdx     = cellToSuperIdx[id];
             const rName    = rIdx !== undefined ? regionNames[rIdx] : 'Unknown';

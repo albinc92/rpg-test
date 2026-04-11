@@ -30,8 +30,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const MIN_X = -14, MAX_X = 15;
-const MIN_Y = -14, MAX_Y = 15;
+const MIN_X = -15, MAX_X = 16;
+const MIN_Y = -8, MAX_Y = 9;
 
 // ==================== MAP LEVEL (distance-based) ====================
 

@@ -1,10 +1,10 @@
 /**
  * MapCoords — single source of truth for map coordinate display.
- * Raw map IDs use -14..15 internally. Display uses 0..29 with (0,0) at bottom-left.
+ * Raw map IDs use -15..16 (x) and -8..9 (y) internally.
  */
 class MapCoords {
-    static GRID_MIN_X = -14;
-    static GRID_MIN_Y = -14;
+    static GRID_MIN_X = -15;
+    static GRID_MIN_Y = -8;
 
     /** Convert raw map-ID coords to display coords (0-based, 0,0 = bottom-left) */
     static toDisplay(rawX, rawY) {
@@ -53,12 +53,12 @@ class MinimapSystem {
         this.mapSize = this.gridDiameter * this.cellSize; // 180
 
         // World grid bounds (must match WorldMapState)
-        this.gridMinX = -14;
-        this.gridMaxX = 15;
-        this.gridMinY = -14;
-        this.gridMaxY = 15;
-        this.gridCols = this.gridMaxX - this.gridMinX + 1; // 30
-        this.gridRows = this.gridMaxY - this.gridMinY + 1; // 30
+        this.gridMinX = -15;
+        this.gridMaxX = 16;
+        this.gridMinY = -8;
+        this.gridMaxY = 9;
+        this.gridCols = this.gridMaxX - this.gridMinX + 1; // 32
+        this.gridRows = this.gridMaxY - this.gridMinY + 1; // 18
 
         // Player dot animation
         this.pulseTimer = 0;

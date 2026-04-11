@@ -1,5 +1,5 @@
 /**
- * Analyze worldmap.png texture — break into 30×30 grid, classify biome per cell
+ * Analyze worldmap texture — break into 32×18 grid, classify biome per cell
  * using sub-cell sampling with majority vote, then update maps.json.
  *
  * Each grid cell is divided into SUB_DIVISIONS × SUB_DIVISIONS sub-cells.
@@ -34,12 +34,13 @@ function classifyBiome(r, g, b) {
     if (brightness > 130 && saturation < 40 && b > r + 10 && b > g) return 'tundra';
 
     // ── Lava (bright red/orange — tracked separately for volcanic boost) ──
-    if (r > 120 && r > g * 1.5 && r > b * 1.5) return 'lava';
+    // Require low G to avoid catching warm sandy desert tones
+    if (r > 120 && g < 70 && r > g * 1.5 && r > b * 1.5) return 'lava';
     if (r > 80 && g < 50 && b < 40) return 'lava';
 
     // ── Desert / Badlands (warm R>G>B, moderate+ brightness) ──
-    if (r > g && g > b && brightness > 125 && saturation > 40) return 'desert';
-    if (r > g && g > b && brightness > 80 && saturation > 45 && (g - b) < 35) return 'arid-desert';
+    if (r > g && g > b && brightness > 108 && saturation > 40) return 'desert';
+    if (r > g && g > b && brightness > 80 && saturation > 40 && (g - b) < 42) return 'arid-desert';
 
     // ── Plains / Center (golden wheat tones, large gap between G and B) ──
     if (r > b + 30 && g > b + 25 && brightness > 80 && (g - b) >= 35) return 'plains';
@@ -197,21 +198,22 @@ async function main() {
     const meta = await img.metadata();
     const raw = await img.raw().toBuffer();
     const channels = meta.channels || 3;
-    const cellW = Math.floor(meta.width / 30);
-    const cellH = Math.floor(meta.height / 30);
+    const GRID_COLS = 32, GRID_ROWS = 18;
+    const cellW = Math.floor(meta.width / GRID_COLS);
+    const cellH = Math.floor(meta.height / GRID_ROWS);
     
-    console.log(`Image: ${meta.width}×${meta.height}, cell: ${cellW}×${cellH}, channels: ${channels}`);
+    console.log(`Image: ${meta.width}×${meta.height}, grid: ${GRID_COLS}×${GRID_ROWS}, cell: ${cellW}×${cellH}, channels: ${channels}`);
     
-    // Grid range: x -14..15, y -14..15
-    const gridMinX = -14, gridMaxX = 15;
-    const gridMinY = -14, gridMaxY = 15;
+    // Grid range: x -15..16, y -8..9
+    const gridMinX = -15, gridMaxX = 16;
+    const gridMinY = -8, gridMaxY = 9;
     
     // Analyze each cell using sub-cell majority vote
     const cellBiomes = {};
     const biomeCounts = {};
     
-    for (let gy = 0; gy < 30; gy++) {
-        for (let gx = 0; gx < 30; gx++) {
+    for (let gy = 0; gy < GRID_ROWS; gy++) {
+        for (let gx = 0; gx < GRID_COLS; gx++) {
             const cellX0 = gx * cellW;
             const cellY0 = gy * cellH;
             
