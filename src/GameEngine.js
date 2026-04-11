@@ -1115,6 +1115,20 @@ class GameEngine {
         // Update player
         this.player.update(deltaTime, this);
         
+        // Record breadcrumb trail for companion spirit
+        if (this.companionEnabled && this._companionTrail) {
+            const trail = this._companionTrail;
+            const last = trail.length > 0 ? trail[trail.length - 1] : null;
+            const px = this.player.x;
+            const py = this.player.y;
+            // Only record a new point if player moved enough (every ~15px)
+            if (!last || Math.abs(px - last.x) + Math.abs(py - last.y) > 15) {
+                trail.push({ x: px, y: py });
+                // Cap trail length to prevent memory growth
+                if (trail.length > 200) trail.shift();
+            }
+        }
+        
         // Update companion spirit
         if (this.companionSpirit && this.companionEnabled) {
             this.companionSpirit.update(deltaTime, this);
@@ -1403,22 +1417,23 @@ class GameEngine {
             type1: lead.type1,
             type2: lead.type2,
             behaviorType: 'following',
-            // Match player physics exactly
+            // Softer physics for rubber-band feel
             maxSpeed: 450,
-            acceleration: 3500,
-            friction: 0.85,
+            acceleration: 1200,
+            friction: 0.82,
             movementSpeed: 1.0,
             isFloating: lead.isFloating !== undefined ? lead.isFloating : false,
             floatingSpeed: lead.floatingSpeed || 0.002,
             floatingRange: lead.floatingRange || 15,
             blocksMovement: false,
-            canBeBlocked: true,
+            canBeBlocked: false,
             collisionShape: 'circle'
         });
         companion.isCompanion = true;
-        companion.spawnEffect = { active: false }; // No spawn effect
         companion.isDynamicSpawn = false;
         this.companionSpirit = companion;
+        // Initialize breadcrumb trail from player's current position
+        this._companionTrail = [];
         this.objectManager.addObject(this.currentMapId, companion);
     }
 
@@ -1518,6 +1533,13 @@ class GameEngine {
                 this.companionSpirit.y += shiftY;
                 this.companionSpirit.mapId = mapId;
                 this.objectManager.addObject(mapId, this.companionSpirit);
+                // Shift trail waypoints and trim stale ones
+                if (this._companionTrail) {
+                    for (const wp of this._companionTrail) {
+                        wp.x += shiftX;
+                        wp.y += shiftY;
+                    }
+                }
             }
             
             // 4. Apply Coordinate Shift to Camera

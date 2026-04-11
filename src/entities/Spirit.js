@@ -209,37 +209,69 @@ class Spirit extends Actor {
     }
     
     /**
-     * Follow the player — matches player speed, catches up when far, teleports when very far
+     * Follow the player's breadcrumb trail with rubber-band acceleration
      */
     updateFollowing(deltaTime, game) {
         if (!game.player) return;
-        const dx = game.player.x - this.x;
-        const dy = game.player.y - this.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
         
-        // Teleport instantly if way too far (e.g. got stuck behind collision)
-        if (distance > 600) {
+        // Distance to player (for teleport check)
+        const dxP = game.player.x - this.x;
+        const dyP = game.player.y - this.y;
+        const distToPlayer = Math.sqrt(dxP * dxP + dyP * dyP);
+        
+        // Teleport with spawn effect if way too far
+        if (distToPlayer > 600) {
             this.x = game.player.x - 40;
             this.y = game.player.y + 30;
             this.velocityX = 0;
             this.velocityY = 0;
+            if (game._companionTrail) game._companionTrail.length = 0;
+            this.spawnEffect = {
+                active: true,
+                duration: 1200,
+                startTime: Date.now()
+            };
             return;
         }
         
-        // Stay near the player — stop when close enough
-        if (distance < 60) return;
+        const trail = game._companionTrail;
+        if (!trail || trail.length === 0) return;
         
-        const dirX = dx / distance;
-        const dirY = dy / distance;
+        // Find next waypoint to follow
+        const wp = trail[0];
+        const dx = wp.x - this.x;
+        const dy = wp.y - this.y;
+        const distToWP = Math.sqrt(dx * dx + dy * dy);
         
-        // Speed multiplier: match player at normal range, accelerate to catch up
+        // Consume waypoint when we reach it
+        if (distToWP < 10) {
+            trail.shift();
+            return;
+        }
+        
+        // Only start moving if trail is long enough (delayed response)
+        if (trail.length < 4) return;
+        
+        const dirX = dx / distToWP;
+        const dirY = dy / distToWP;
+        
+        // Dynamic acceleration — ramp up when slacking behind
+        // Base: 1200 (slow rubber-band start), up to 5000 when far behind
+        if (trail.length > 15) {
+            this.acceleration = 2500 + Math.min((trail.length - 15) / 15, 1.0) * 2500;
+        } else if (trail.length > 8) {
+            this.acceleration = 1200 + ((trail.length - 8) / 7) * 1300;
+        } else {
+            this.acceleration = 1200;
+        }
+        
+        // Speed multiplier — also ramps with trail length
         let speedMultiplier = 1.0;
-        if (distance > 300) {
-            // Ramp up speed from 1.5x to 3x as distance goes 300→600
-            speedMultiplier = 1.5 + ((distance - 300) / 300) * 1.5;
-        } else if (distance > 150) {
-            // Slight boost to keep up around corners
-            speedMultiplier = 1.0 + ((distance - 150) / 150) * 0.5;
+        if (trail.length > 15) {
+            // Catching up hard — ramp from 1.5x to 3x
+            speedMultiplier = 1.5 + Math.min((trail.length - 15) / 20, 1.5);
+        } else if (trail.length > 8) {
+            speedMultiplier = 1.0 + ((trail.length - 8) / 7) * 0.5;
         }
         
         // Match player running state
