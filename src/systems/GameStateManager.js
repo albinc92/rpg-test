@@ -5392,12 +5392,22 @@ class WorldMapState extends GameState {
                 if (data) {
                     const region = data.region || '';
                     const superRegion = data.superRegion || '';
+                    // Compute max zone level from spawn zones
+                    let maxLevel = 0;
+                    if (data.zones) {
+                        for (const zone of data.zones) {
+                            if (zone.type === 'spawn' && zone.level) {
+                                maxLevel = Math.max(maxLevel, zone.level);
+                            }
+                        }
+                    }
                     this.cellData[id] = {
                         biome: data.biome || 'grassland',
                         name: data.name || id,
                         region: region,
                         superRegion: superRegion,
-                        weather: data.weather || null
+                        weather: data.weather || null,
+                        level: maxLevel || 0
                     };
                     // Accumulate region centroid
                     if (region) {
@@ -5566,14 +5576,14 @@ class WorldMapState extends GameState {
             this.camVelY *= scale;
         }
 
-        // Zoom in/out (keyboard +/- or shoulder buttons)
-        if (inputManager.isJustPressed('zoomIn') || inputManager.isJustPressed('shoulderRight')) {
-            this.targetZoom = Math.max(this.minZoom, this.targetZoom - 1);
-            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        // Zoom in/out (keyboard +/- or shoulder buttons) — smooth hold
+        const zoomSpeed = 4; // cells/sec zoom rate when held
+        const dt2 = 1 / 60;
+        if (inputManager.isPressed('zoomIn') || inputManager.isPressed('shoulderRight')) {
+            this.targetZoom = Math.max(this.minZoom, this.targetZoom - zoomSpeed * dt2);
         }
-        if (inputManager.isJustPressed('zoomOut') || inputManager.isJustPressed('shoulderLeft')) {
-            this.targetZoom = Math.min(this._maxZoomForViewport(), this.targetZoom + 1);
-            this.game.audioManager?.playEffect('menu-navigation.mp3');
+        if (inputManager.isPressed('zoomOut') || inputManager.isPressed('shoulderLeft')) {
+            this.targetZoom = Math.min(this._maxZoomForViewport(), this.targetZoom + zoomSpeed * dt2);
         }
 
         // Re-clamp after zoom change
@@ -5660,6 +5670,45 @@ class WorldMapState extends GameState {
                     const displayX = gx - this.gridMinX;
                     const displayY = gy - this.gridMinY;
                     ctx.fillText(`${displayX},${displayY}`, screenX + cellW / 2, screenY + cellH - 2);
+                }
+
+                // Show zone level badge when zoomed in enough
+                if (cellW > 40 && cell && cell.level > 0) {
+                    const lvFontSize = Math.max(7, Math.min(11, cellH * 0.18));
+                    const label = `Lv${cell.level}`;
+                    ctx.font = `bold ${lvFontSize}px "Lato", sans-serif`;
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'top';
+
+                    // Background pill
+                    const tm = ctx.measureText(label);
+                    const padX = 3, padY = 1;
+                    const pillX = screenX + 2;
+                    const pillY = screenY + 2;
+                    const pillW = tm.width + padX * 2;
+                    const pillH = lvFontSize + padY * 2;
+                    const r = 3;
+                    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+                    ctx.beginPath();
+                    ctx.moveTo(pillX + r, pillY);
+                    ctx.lineTo(pillX + pillW - r, pillY);
+                    ctx.arcTo(pillX + pillW, pillY, pillX + pillW, pillY + r, r);
+                    ctx.lineTo(pillX + pillW, pillY + pillH - r);
+                    ctx.arcTo(pillX + pillW, pillY + pillH, pillX + pillW - r, pillY + pillH, r);
+                    ctx.lineTo(pillX + r, pillY + pillH);
+                    ctx.arcTo(pillX, pillY + pillH, pillX, pillY + pillH - r, r);
+                    ctx.lineTo(pillX, pillY + r);
+                    ctx.arcTo(pillX, pillY, pillX + r, pillY, r);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Level text — colour by level range
+                    const lv = cell.level;
+                    ctx.fillStyle = lv >= 61 ? '#ff6666'   // red (high)
+                                  : lv >= 36 ? '#ffcc44'   // gold (mid-high)
+                                  : lv >= 16 ? '#66ccff'   // blue (mid)
+                                  :            '#88ee88';   // green (low)
+                    ctx.fillText(label, pillX + padX, pillY + padY);
                 }
             }
         }
@@ -5851,6 +5900,9 @@ class DialogueState extends GameState {
         if (this.game.player) {
             this.game.player.velocityX = 0;
             this.game.player.velocityY = 0;
+            this.game.player.inputX = 0;
+            this.game.player.inputY = 0;
+            this.game.player.inputMagnitude = 0;
         }
         
         // Hide the NPC's talk indicator bubble while we're in conversation

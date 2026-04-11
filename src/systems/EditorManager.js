@@ -464,6 +464,7 @@ class EditorManager {
         
         // Change cursor
         this.game.canvas.style.cursor = 'crosshair';
+        document.body.classList.add('editor-active');
     }
 
     /**
@@ -519,6 +520,7 @@ class EditorManager {
         
         // Restore cursor
         this.game.canvas.style.cursor = 'none';
+        document.body.classList.remove('editor-active');
     }
 
     /**

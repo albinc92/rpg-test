@@ -246,18 +246,67 @@ class NPC extends Actor {
         ctx.arc(screenX - 5, by + bh + 10, 2.5, 0, Math.PI * 2);
         ctx.fill();
 
-        // ── Three dots (dark, animated) ──
-        const dotSpacing = 10;
-        const dotPhase = (this.talkBubbleAnimation * 2) % 3;
+        // ── Indicator based on NPC type ──
+        const type = this.npcType || 'dialogue';
 
-        for (let i = 0; i < 3; i++) {
-            const dotX = screenX + (i - 1) * dotSpacing;
-            const isActive = Math.floor(dotPhase) === i;
-            const radius = isActive ? 3.5 : 2.5;
-            ctx.fillStyle = isActive ? '#555' : '#aaa';
+        if (type === 'merchant') {
+            // Gold sack icon for merchants
+            const sx = screenX, sy = finalY;
+            // Sack body
+            ctx.fillStyle = '#c8952c';
             ctx.beginPath();
-            ctx.arc(dotX, finalY, radius, 0, Math.PI * 2);
+            ctx.ellipse(sx, sy + 3, 7, 6, 0, 0, Math.PI * 2);
             ctx.fill();
+            // Sack tie / neck
+            ctx.fillStyle = '#a07020';
+            ctx.beginPath();
+            ctx.ellipse(sx, sy - 3, 3.5, 2.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Tie knot ears
+            ctx.strokeStyle = '#8b6914';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(sx - 2, sy - 4);
+            ctx.lineTo(sx - 5, sy - 7);
+            ctx.moveTo(sx + 2, sy - 4);
+            ctx.lineTo(sx + 5, sy - 7);
+            ctx.stroke();
+            // Small coin circle on the sack
+            ctx.fillStyle = '#ffe066';
+            ctx.beginPath();
+            ctx.arc(sx, sy + 3, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#b8860b';
+            ctx.lineWidth = 0.8;
+            ctx.stroke();
+        } else if (type === 'sage' || type === 'quest') {
+            // Exclamation mark for quest/sage NPCs
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = 'bold 18px Lato, sans-serif';
+            ctx.fillStyle = '#d4a017';
+            ctx.fillText('!', screenX, finalY + 1);
+        } else if (type === 'guard') {
+            // Exclamation mark (red) for guards
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = 'bold 18px Lato, sans-serif';
+            ctx.fillStyle = '#cc3333';
+            ctx.fillText('!', screenX, finalY + 1);
+        } else {
+            // Default: three animated dots for regular dialogue NPCs
+            const dotSpacing = 10;
+            const dotPhase = (this.talkBubbleAnimation * 2) % 3;
+
+            for (let i = 0; i < 3; i++) {
+                const dotX = screenX + (i - 1) * dotSpacing;
+                const isActive = Math.floor(dotPhase) === i;
+                const radius = isActive ? 3.5 : 2.5;
+                ctx.fillStyle = isActive ? '#555' : '#aaa';
+                ctx.beginPath();
+                ctx.arc(dotX, finalY, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
 
         ctx.restore();
