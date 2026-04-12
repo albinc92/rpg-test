@@ -8328,6 +8328,12 @@ class BattleState extends GameState {
             return;
         }
         
+        // Item selection
+        if (this.phase === 'item_select') {
+            this.handleItemSelectInput(inputManager);
+            return;
+        }
+        
         // Switch selection (1v1)
         if (this.phase === 'switch_select') {
             this.handleSwitchSelectInput(inputManager);
@@ -8448,8 +8454,15 @@ class BattleState extends GameState {
         }
         
         if (inputManager.isJustPressed('cancel')) {
-            this.phase = this.pendingAbility ? 'ability_select' : 'action_select';
-            this.pendingAbility = null;
+            if (this.pendingItem) {
+                this.phase = 'item_select';
+                this.pendingItem = null;
+            } else if (this.pendingAbility) {
+                this.phase = 'ability_select';
+                this.pendingAbility = null;
+            } else {
+                this.phase = 'action_select';
+            }
             this.inputCooldown = 0.15;
         }
     }
@@ -8498,6 +8511,55 @@ class BattleState extends GameState {
         }
     }
     
+    /**
+     * Get battle-usable items from player inventory (consumables only)
+     */
+    getBattleItems() {
+        const allSlots = this.game.inventoryManager?.getAllSlots() || [];
+        return allSlots.filter(item => item.type === 'consumable');
+    }
+    
+    /**
+     * Handle item selection input
+     */
+    handleItemSelectInput(inputManager) {
+        const items = this.getBattleItems();
+        if (items.length === 0) {
+            this.phase = 'action_select';
+            return;
+        }
+        
+        if (inputManager.isJustPressed('up')) {
+            this.selectedItemIndex = (this.selectedItemIndex - 1 + items.length) % items.length;
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.inputCooldown = 0.1;
+        }
+        if (inputManager.isJustPressed('down')) {
+            this.selectedItemIndex = (this.selectedItemIndex + 1) % items.length;
+            this.game.audioManager?.playEffect('menu-navigation.mp3');
+            this.inputCooldown = 0.1;
+        }
+        
+        if (inputManager.isJustPressed('confirm')) {
+            const item = items[this.selectedItemIndex];
+            if (item) {
+                this.pendingItem = item;
+                // Items that heal/restore target allies, otherwise target self
+                this.phase = 'target_select';
+                const allies = this.battleSystem.getAlivePlayerSpirits();
+                const selfIndex = allies.findIndex(s => s === this.selectedPlayerSpirit);
+                this.selectedTargetIndex = selfIndex >= 0 ? selfIndex : 0;
+            }
+            this.inputCooldown = 0.15;
+        }
+        
+        if (inputManager.isJustPressed('cancel')) {
+            this.phase = 'action_select';
+            this.pendingItem = null;
+            this.inputCooldown = 0.15;
+        }
+    }
+    
     selectAction(action) {
         switch (action) {
             case 'Attack':
@@ -8509,10 +8571,17 @@ class BattleState extends GameState {
                 this.phase = 'ability_select';
                 this.selectedAbilityIndex = 0;
                 break;
-            case 'Item':
-                // TODO: Item menu
-                console.log('[BattleState] Item menu not implemented yet');
+            case 'Item': {
+                const battleItems = this.getBattleItems();
+                if (battleItems.length > 0) {
+                    this.phase = 'item_select';
+                    this.selectedItemIndex = 0;
+                    this.pendingItem = null;
+                } else {
+                    this.game.audioManager?.playEffect('error.mp3');
+                }
                 break;
+            }
             case 'Seal':
                 if (this.battleSystem.canSeal) {
                     this.pendingAction = 'seal';
@@ -8543,6 +8612,11 @@ class BattleState extends GameState {
     getSelectableTargets() {
         if (!this.battleSystem) return [];
         
+        // Items always target allies
+        if (this.pendingItem) {
+            return this.battleSystem.getAlivePlayerSpirits();
+        }
+        
         // Determine target type based on pending action
         if (this.pendingAbility) {
             const targetType = this.pendingAbility.target;
@@ -8559,7 +8633,14 @@ class BattleState extends GameState {
         if (!this.selectedPlayerSpirit || !this.battleSystem) return;
         
         let action;
-        if (this.pendingAbility) {
+        if (this.pendingItem) {
+            action = {
+                type: 'item',
+                user: this.selectedPlayerSpirit,
+                item: this.pendingItem,
+                target: target
+            };
+        } else if (this.pendingAbility) {
             action = {
                 type: 'ability',
                 user: this.selectedPlayerSpirit,
@@ -8588,6 +8669,7 @@ class BattleState extends GameState {
         this.selectedPlayerSpirit = null;
         this.pendingAction = null;
         this.pendingAbility = null;
+        this.pendingItem = null;
         this.phase = 'battle';
     }
     
@@ -8739,11 +8821,13 @@ class BattleState extends GameState {
         // Draw damage numbers and action texts
         this.renderDamageNumbers(ctx);
         
-        // Draw command panel (action / ability / switch all render in same centered panel)
+        // Draw command panel (action / ability / item / switch all render in same centered panel)
         if (this.phase === 'action_select') {
             this.renderActionMenu(ctx, width, height);
         } else if (this.phase === 'ability_select') {
             this.renderAbilityMenu(ctx, width, height);
+        } else if (this.phase === 'item_select') {
+            this.renderItemMenu(ctx, width, height);
         } else if (this.phase === 'switch_select') {
             this.renderSwitchMenu(ctx, width, height);
         }
@@ -9106,6 +9190,9 @@ class BattleState extends GameState {
     renderActiveSpiritIndicator(ctx, width, height) {
         if (!this.battleSystem) return;
         
+        // Hide during target select - the red target cursor is shown instead
+        if (this.phase === 'target_select') return;
+        
         // Show indicator on the currently selected player spirit (when selecting action)
         // OR on the spirit whose action is being executed
         let activeSpirit = this.selectedPlayerSpirit;
@@ -9280,7 +9367,7 @@ class BattleState extends GameState {
         
         const camera = this.game.renderSystem?.camera;
         const worldScale = this.game.worldScale || 1;
-        const zoom = camera?.zoom || 1;
+        const webglRenderer = this.game.renderSystem?.webglRenderer;
         if (!camera) return;
         
         const targets = this.getSelectableTargets();
@@ -9292,32 +9379,46 @@ class BattleState extends GameState {
         if (!entity) return;
         
         const finalScale = entity.getFinalScale(this.game);
-        const baseWidth = entity.spriteWidth || 64;
         const baseHeight = entity.spriteHeight || 64;
-        const spriteWidth = baseWidth * finalScale;
         const spriteHeight = baseHeight * finalScale;
         
         const worldX = entity.x * worldScale;
         const worldY = entity.y * worldScale;
         
-        const screenX = (worldX - camera.x) * zoom + width / 2 * (1 - zoom);
-        const screenY = (worldY - camera.y) * zoom + height / 2 * (1 - zoom);
-        const spriteCenterY = screenY;
+        // Calculate screen position with perspective (same as renderActiveSpiritIndicator)
+        let screenX, screenY;
+        if (webglRenderer && webglRenderer.perspectiveStrength > 0 && webglRenderer.viewMatrix) {
+            const vm = webglRenderer.viewMatrix;
+            const pm = webglRenderer.projectionMatrix;
+            const viewX = worldX * vm[0] + worldY * vm[4] + vm[12];
+            const viewY = worldX * vm[1] + worldY * vm[5] + vm[13];
+            const clipX = viewX * pm[0] + viewY * pm[4] + pm[12];
+            const clipY = viewX * pm[1] + viewY * pm[5] + pm[13];
+            const depth = (clipY + 1.0) * 0.5;
+            const perspectiveW = 1.0 + (depth * webglRenderer.perspectiveStrength);
+            screenX = (clipX / perspectiveW + 1.0) * 0.5 * width;
+            screenY = (1.0 - clipY / perspectiveW) * 0.5 * height;
+        } else {
+            screenX = worldX - camera.x;
+            screenY = worldY - camera.y;
+        }
         
-        const cursorBob = Math.sin(Date.now() / 200) * 6;
+        // Draw downward-pointing arrow above the targeted sprite (like active indicator but red)
+        const time = Date.now() / 200;
+        const bounce = Math.sin(time) * 6;
+        const arrowSize = 14;
+        const arrowX = screenX;
+        const arrowY = screenY - spriteHeight - 20 + bounce;
+        
+        ctx.save();
         ctx.fillStyle = '#ff4444';
         ctx.beginPath();
-        if (entity._isPlayerOwned) {
-            ctx.moveTo(screenX + spriteWidth / 2 + 24 - cursorBob, spriteCenterY);
-            ctx.lineTo(screenX + spriteWidth / 2 + 12 - cursorBob, spriteCenterY - 12);
-            ctx.lineTo(screenX + spriteWidth / 2 + 12 - cursorBob, spriteCenterY + 12);
-        } else {
-            ctx.moveTo(screenX - spriteWidth / 2 - 24 + cursorBob, spriteCenterY);
-            ctx.lineTo(screenX - spriteWidth / 2 - 12 + cursorBob, spriteCenterY - 12);
-            ctx.lineTo(screenX - spriteWidth / 2 - 12 + cursorBob, spriteCenterY + 12);
-        }
+        ctx.moveTo(arrowX, arrowY + arrowSize);            // Bottom tip (points at sprite)
+        ctx.lineTo(arrowX - arrowSize * 0.7, arrowY - arrowSize * 0.3);
+        ctx.lineTo(arrowX + arrowSize * 0.7, arrowY - arrowSize * 0.3);
         ctx.closePath();
         ctx.fill();
+        ctx.restore();
     }
     
     /**
@@ -9329,9 +9430,15 @@ class BattleState extends GameState {
         const ds = window.ds;
         const menuRenderer = this.stateManager.menuRenderer;
         
+        // --- Status effects for sizing ---
+        const effects = spirit.statusEffects || [];
+        const hasEffects = effects.length > 0;
+        
         // --- Panel dimensions ---
         const panelW = ds ? ds.spacing(55) : 230;
-        const panelH = ds ? ds.spacing(28) : 116;
+        const basePanelH = ds ? ds.spacing(28) : 116;
+        const effectRowH = hasEffects ? (ds ? ds.spacing(5) : 20) : 0;
+        const panelH = basePanelH + effectRowH;
         const margin = ds ? ds.spacing(4) : 16;
         const pad = ds ? ds.spacing(3) : 12;
         
@@ -9476,6 +9583,56 @@ class BattleState extends GameState {
             const atbPercent = this.battleSystem ? spirit.atb / this.battleSystem.ATB_MAX : 0;
             const atbColor = spirit.isReady ? '#ffd700' : '#666';
             drawBar(cursorY, atbPercent, atbColor, spirit.isReady ? 'READY' : 'ATB', `${Math.floor(atbPercent * 100)}%`);
+        }
+        cursorY += barH + barGap;
+        
+        // Status effect icons
+        if (hasEffects) {
+            const effectColors = {
+                burn: '#ff6b35', poison: '#22c55e', paralyze: '#ffd700',
+                freeze: '#88ddff', sleep: '#b388ff', confuse: '#ff69b4',
+                debuff: '#ef4444', buff: '#4ade80'
+            };
+            const effectSymbols = {
+                burn: '🔥', poison: '☠', paralyze: '⚡', freeze: '❄',
+                sleep: '💤', confuse: '💫', debuff: '▼', buff: '▲'
+            };
+            let eX = contentX;
+            const eSize = ds ? ds.spacing(4) : 16;
+            for (const eff of effects) {
+                const type = eff.type === 'debuff' ? 'debuff' : eff.type === 'buff' ? 'buff' : eff.type;
+                const col = effectColors[type] || '#888';
+                const sym = effectSymbols[type] || '●';
+                
+                // Pill background
+                ctx.fillStyle = col + '33';
+                ctx.beginPath();
+                ctx.roundRect(eX, cursorY, eSize + 8, eSize, 3);
+                ctx.fill();
+                ctx.strokeStyle = col;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.roundRect(eX, cursorY, eSize + 8, eSize, 3);
+                ctx.stroke();
+                
+                // Symbol
+                ctx.fillStyle = col;
+                ctx.font = `${eSize - 4}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(sym, eX + (eSize + 8) / 2, cursorY + eSize / 2);
+                
+                // Duration
+                if (eff.duration !== undefined) {
+                    ctx.fillStyle = '#fff';
+                    ctx.font = ds ? ds.font('xs') : "9px 'Lato', sans-serif";
+                    ctx.textAlign = 'right';
+                    ctx.fillText(String(eff.duration), eX + eSize + 6, cursorY + eSize / 2);
+                }
+                
+                eX += eSize + 12;
+                if (eX + eSize > panelX + panelW - pad) break;
+            }
         }
         
         ctx.globalAlpha = 1;
@@ -9670,6 +9827,81 @@ class BattleState extends GameState {
                 ctx.font = ds ? ds.font('xs') : "11px 'Lato', sans-serif";
                 ctx.textAlign = 'left';
                 ctx.fillText(ability.element.charAt(0).toUpperCase() + ability.element.slice(1), menuX + pad + (ds ? ds.spacing(4) : 16), aY + itemH / 2 + 9);
+            }
+        });
+    }
+    
+    renderItemMenu(ctx, width, height) {
+        const ds = window.ds;
+        const items = this.getBattleItems();
+        if (items.length === 0) return;
+
+        const itemH = ds ? ds.spacing(10) : 42;
+        const rows = Math.min(items.length, 6);
+        const panel = this._drawBattlePanel(ctx, width, height, 'Items', rows, itemH);
+        const { menuX, menuW, pad, contentY } = panel;
+
+        // Back hint
+        const im = this.game.inputManager;
+        const backHint = im?.isMobile 
+            ? this.game.t('instructions.battleBackMobile') 
+            : im?.isUsingGamepad()
+                ? this.game.t('instructions.battleBackController')
+                : this.game.t('instructions.battleBack');
+        ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
+        ctx.font = ds ? ds.font('sm', 'normal', 'body') : "14px 'Lato', sans-serif";
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(backHint, menuX + menuW - pad, panel.menuY + pad + panel.titleH / 2);
+
+        // Item rows
+        items.forEach((item, index) => {
+            if (index >= 6) return; // max visible
+            const iY = contentY + index * itemH;
+            const isSel = index === this.selectedItemIndex;
+
+            // Selection highlight
+            if (isSel && ds) {
+                ds.drawSelectionHighlight(ctx, menuX + 2, iY, menuW - pad, itemH);
+            } else if (isSel) {
+                ctx.fillStyle = 'rgba(34, 197, 94, 0.2)';
+                ctx.fillRect(menuX + 4, iY, menuW - 8, itemH);
+            }
+
+            // Diamond cursor
+            if (isSel) {
+                ctx.fillStyle = '#22c55e';
+                const dX = menuX + pad;
+                const dY = iY + itemH / 2;
+                const dS = ds ? ds.spacing(1.5) : 6;
+                ctx.beginPath();
+                ctx.moveTo(dX, dY - dS);
+                ctx.lineTo(dX + dS, dY);
+                ctx.lineTo(dX, dY + dS);
+                ctx.lineTo(dX - dS, dY);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Item name
+            ctx.fillStyle = isSel ? '#fff' : (ds ? ds.colors.text.secondary : '#aaa');
+            ctx.font = ds ? ds.font('sm', isSel ? 'bold' : 'normal') : `${isSel ? 'bold ' : ''}15px 'Lato', sans-serif`;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(item.name, menuX + pad + (ds ? ds.spacing(4) : 16), iY + itemH / 2 - 7);
+
+            // Quantity — right side
+            ctx.fillStyle = ds ? ds.colors.primary : '#4a9eff';
+            ctx.font = ds ? ds.font('xs', 'bold') : "bold 12px 'Lato', sans-serif";
+            ctx.textAlign = 'right';
+            ctx.fillText(`×${item.quantity}`, menuX + menuW - pad, iY + itemH / 2 - 7);
+
+            // Description
+            if (item.description) {
+                ctx.fillStyle = ds ? ds.colors.text.muted : '#777';
+                ctx.font = ds ? ds.font('xs') : "11px 'Lato', sans-serif";
+                ctx.textAlign = 'left';
+                ctx.fillText(item.description, menuX + pad + (ds ? ds.spacing(4) : 16), iY + itemH / 2 + 9);
             }
         });
     }

@@ -451,6 +451,10 @@ class BattleSystem {
             spirit.atb = Math.min(this.ATB_MAX, spirit.atb + atbGain);
             
             if (spirit.atb >= this.ATB_MAX) {
+                // Process status effects at start of turn
+                this.processStatusEffects(spirit);
+                if (!spirit.isAlive) return; // died from DoT
+                
                 spirit.isReady = true;
                 
                 // Play ready sound for player-owned spirits
@@ -463,6 +467,71 @@ class BattleSystem {
                     this.queueEnemyAction(spirit);
                 }
             }
+        });
+    }
+    
+    /**
+     * Process status effects at the start of a spirit's turn.
+     * Applies DoT damage, decrements durations, removes expired effects.
+     */
+    processStatusEffects(spirit) {
+        if (!spirit.statusEffects || spirit.statusEffects.length === 0) return;
+        
+        const DOT_FRACTION = 0.08; // 8% maxHP per tick
+        
+        spirit.statusEffects = spirit.statusEffects.filter(effect => {
+            // Apply per-turn effects
+            switch (effect.type) {
+                case 'burn': {
+                    const dmg = Math.max(1, Math.floor(spirit.maxHp * DOT_FRACTION));
+                    this.applyDamage(spirit, dmg, { statusEffect: 'burn' });
+                    this.log(`${spirit.name} takes ${dmg} burn damage!`);
+                    break;
+                }
+                case 'poison': {
+                    const dmg = Math.max(1, Math.floor(spirit.maxHp * DOT_FRACTION * 0.75));
+                    this.applyDamage(spirit, dmg, { statusEffect: 'poison' });
+                    this.log(`${spirit.name} takes ${dmg} poison damage!`);
+                    break;
+                }
+                case 'paralyze': {
+                    // 25% chance to skip turn
+                    if (Math.random() < 0.25) {
+                        spirit.atb = this.ATB_MAX * 0.5; // reset ATB halfway
+                        spirit.isReady = false;
+                        this.log(`${spirit.name} is paralyzed and can't move!`);
+                    }
+                    break;
+                }
+                case 'freeze': {
+                    // Frozen: skip turn entirely
+                    spirit.atb = 0;
+                    spirit.isReady = false;
+                    this.log(`${spirit.name} is frozen solid!`);
+                    break;
+                }
+                case 'sleep': {
+                    // Asleep: skip turn
+                    spirit.atb = 0;
+                    spirit.isReady = false;
+                    this.log(`${spirit.name} is fast asleep!`);
+                    break;
+                }
+            }
+            
+            // Decrement duration, remove if expired
+            effect.duration--;
+            if (effect.duration <= 0) {
+                if (effect.type === 'debuff') {
+                    this.log(`${spirit.name}'s ${effect.stat} returned to normal.`);
+                } else if (effect.type === 'buff') {
+                    this.log(`${spirit.name}'s ${effect.stat} boost wore off.`);
+                } else {
+                    this.log(`${spirit.name} recovered from ${effect.type}.`);
+                }
+                return false;
+            }
+            return true;
         });
     }
     
@@ -1121,8 +1190,44 @@ class BattleSystem {
      * Execute item usage
      */
     executeItem(user, target, item) {
-        // TODO: Implement item usage
-        console.log(`[BattleSystem] ${user.name} uses ${item.name} on ${target.name}`);
+        if (!item || !item.effects) {
+            console.warn(`[BattleSystem] Item has no effects:`, item?.id);
+            return;
+        }
+        
+        // Show action text
+        if (this.onActionText) {
+            this.onActionText(user, item.name);
+        }
+        
+        const targets = Array.isArray(target) ? target : [target];
+        
+        for (const t of targets) {
+            if (!t || !t.isAlive) continue;
+            
+            // Heal HP
+            if (item.effects.heal) {
+                this.applyHealing(t, item.effects.heal);
+                if (this.onAbilityEffect) {
+                    this.onAbilityEffect(t, 'heal', {});
+                }
+            }
+            
+            // Restore MP
+            if (item.effects.mana) {
+                const oldMp = t.currentMp;
+                t.currentMp = Math.min(t.maxMp, t.currentMp + item.effects.mana);
+                const restored = t.currentMp - oldMp;
+                if (this.onHeal) {
+                    this.onHeal(t, restored);
+                }
+            }
+        }
+        
+        // Remove item from inventory
+        this.game?.inventoryManager?.removeItem(item.id, 1);
+        
+        this.log(`${user.name} used ${item.name}!`);
     }
     
     /**

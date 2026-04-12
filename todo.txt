@@ -1,5 +1,19 @@
-- [] map markers
-- [] ingame compass that shows nearby landmarks like towns, etc just like skyrim for isntance. it can be situated in the top middle of the screen. either that or incorporating map markers in minimap
+BATTLE SYSTEM TODOS
+====================
 
-BOLD IDEA:
-- convert the game into 3D like paper mario... ingame objects are still 2d ad stick up vertically... that way we dont have to have fake depth effect and also.... we could theorietically cast real shadows and not just skewed transforms of the base sprite... thoughts?
+[ ] 1. Status effect tick damage (burn/poison per turn) + duration countdown
+      - BattleSystem.js update() needs to process statusEffects each ATB cycle
+      - Decrement duration, apply burn/poison damage, remove expired effects
+
+[ ] 2. Battle loot drops — connect LootSystem to battle rewards
+      - On enemy KO, roll loot via game.lootSystem.generateLoot()
+      - Add dropped items to rewards.items[]
+      - Add items to inventory on victory (exitBattle)
+
+[ ] 3. Multi-target ability indicator during target_select
+      - Show "ALL" text or highlight all targets when ability is all_enemies/all_allies
+      - renderTargetCursorOnSprite should draw arrows on all targets
+
+[ ] 4. Item action animation — items should trigger user movement to target
+      - BattleSystem action animation only moves for 'attack', items skip animation
+      - Add 'item' to animated action types so user walks to target and back
