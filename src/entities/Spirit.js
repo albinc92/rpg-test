@@ -28,6 +28,9 @@ class Spirit extends Actor {
         this.name = options.name || 'Unknown Spirit';
         this.spiritId = options.spiritId; // Template ID from spirits.json
         this.mapId = mapId;
+        
+        // Element color tint (placeholder visual until unique sprites exist)
+        this.elementTint = Spirit.ELEMENT_TINTS[options.type1 || options.element || 'fire'] || null;
         this.type = 'spirit'; // Entity type - used by interaction system to skip dialogue
         
         // Stats (legacy support)
@@ -444,8 +447,11 @@ class Spirit extends Actor {
                 );
                 webglRenderer.clearColorOverlay();
             }
-            // Normal sprite draw
+            // Normal sprite draw (with element tint for placeholder sprites)
             else {
+                if (this.elementTint) {
+                    webglRenderer.setColorOverlay(this.elementTint.r, this.elementTint.g, this.elementTint.b, this.elementTint.intensity);
+                }
                 webglRenderer.drawSprite(
                     screenX, 
                     screenY, 
@@ -457,6 +463,9 @@ class Spirit extends Actor {
                     shouldFlip, // flipX
                     false       // flipY
                 );
+                if (this.elementTint) {
+                    webglRenderer.clearColorOverlay();
+                }
             }
             
             // Draw spawn effect on top using WebGL
@@ -741,3 +750,15 @@ class Spirit extends Actor {
         console.log(`[Spirit] ✅ Updated ${this.name} - scale: ${this.scale}, moveSpeed: ${moveSpeed}, stats: ${JSON.stringify(this.stats)}, HP: ${this.currentHp}/${this.stats.hp}`);
     }
 }
+
+// Element color tints for placeholder sprites (RGB + intensity)
+Spirit.ELEMENT_TINTS = {
+    fire:      { r: 1.0, g: 0.35, b: 0.1, intensity: 0.35 },
+    water:     { r: 0.15, g: 0.45, b: 1.0, intensity: 0.35 },
+    earth:     { r: 0.7, g: 0.5, b: 0.2, intensity: 0.3 },
+    wind:      { r: 0.3, g: 0.9, b: 0.5, intensity: 0.25 },
+    lightning: { r: 1.0, g: 0.85, b: 0.15, intensity: 0.35 },
+    ice:       { r: 0.4, g: 0.8, b: 1.0, intensity: 0.3 },
+    light:     { r: 1.0, g: 1.0, b: 0.6, intensity: 0.25 },
+    dark:      { r: 0.5, g: 0.15, b: 0.8, intensity: 0.4 }
+};
