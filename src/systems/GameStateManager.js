@@ -8695,6 +8695,13 @@ class BattleState extends GameState {
             const levelUps = this.game.partyManager?.awardExp(rewards.exp) || [];
             this.game.player.gold = (this.game.player.gold || 0) + rewards.gold;
             
+            // Add dropped items to inventory
+            if (rewards.items && rewards.items.length > 0) {
+                for (const drop of rewards.items) {
+                    this.game.inventoryManager?.addItem(drop.id, drop.amount || 1);
+                }
+            }
+            
             // Log evolution events
             for (const lu of levelUps) {
                 if (lu.evolved) {

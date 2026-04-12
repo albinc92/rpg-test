@@ -1289,6 +1289,26 @@ class BattleSystem {
             if (!target.isPlayerOwned) {
                 this.rewards.exp += target.expYield || 0;
                 this.rewards.gold += target.goldYield || 0;
+                
+                // Roll loot drops from LootSystem
+                const lootSystem = this.game?.lootSystem;
+                if (lootSystem) {
+                    const level = target.level || 1;
+                    const loot = lootSystem.generateLoot(level, 'wooden');
+                    if (loot.items && loot.items.length > 0) {
+                        for (const drop of loot.items) {
+                            const itemDef = this.game.itemManager?.getItemType(drop.id);
+                            if (itemDef) {
+                                const existing = this.rewards.items.find(i => i.id === drop.id);
+                                if (existing) {
+                                    existing.amount += drop.amount;
+                                } else {
+                                    this.rewards.items.push({ id: drop.id, name: itemDef.name, amount: drop.amount });
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
