@@ -9378,53 +9378,71 @@ class BattleState extends GameState {
         if (!camera) return;
         
         const targets = this.getSelectableTargets();
-        const targetSpirit = targets[this.selectedTargetIndex];
-        if (!targetSpirit) return;
+        if (targets.length === 0) return;
         
-        // Find the entity for this spirit
-        const entity = this.battleSpiritEntities.find(e => e._battleSpirit === targetSpirit);
-        if (!entity) return;
+        // Determine if this is a multi-target ability
+        const isMultiTarget = this.pendingAbility && 
+            (this.pendingAbility.target === 'all_enemies' || this.pendingAbility.target === 'all_allies');
         
-        const finalScale = entity.getFinalScale(this.game);
-        const baseHeight = entity.spriteHeight || 64;
-        const spriteHeight = baseHeight * finalScale;
+        // Which spirits to draw arrows on
+        const spiritsToMark = isMultiTarget ? targets : [targets[this.selectedTargetIndex]];
         
-        const worldX = entity.x * worldScale;
-        const worldY = entity.y * worldScale;
-        
-        // Calculate screen position with perspective (same as renderActiveSpiritIndicator)
-        let screenX, screenY;
-        if (webglRenderer && webglRenderer.perspectiveStrength > 0 && webglRenderer.viewMatrix) {
-            const vm = webglRenderer.viewMatrix;
-            const pm = webglRenderer.projectionMatrix;
-            const viewX = worldX * vm[0] + worldY * vm[4] + vm[12];
-            const viewY = worldX * vm[1] + worldY * vm[5] + vm[13];
-            const clipX = viewX * pm[0] + viewY * pm[4] + pm[12];
-            const clipY = viewX * pm[1] + viewY * pm[5] + pm[13];
-            const depth = (clipY + 1.0) * 0.5;
-            const perspectiveW = 1.0 + (depth * webglRenderer.perspectiveStrength);
-            screenX = (clipX / perspectiveW + 1.0) * 0.5 * width;
-            screenY = (1.0 - clipY / perspectiveW) * 0.5 * height;
-        } else {
-            screenX = worldX - camera.x;
-            screenY = worldY - camera.y;
-        }
-        
-        // Draw downward-pointing arrow above the targeted sprite (like active indicator but red)
         const time = Date.now() / 200;
         const bounce = Math.sin(time) * 6;
         const arrowSize = 14;
-        const arrowX = screenX;
-        const arrowY = screenY - spriteHeight - 20 + bounce;
         
         ctx.save();
         ctx.fillStyle = '#ff4444';
-        ctx.beginPath();
-        ctx.moveTo(arrowX, arrowY + arrowSize);            // Bottom tip (points at sprite)
-        ctx.lineTo(arrowX - arrowSize * 0.7, arrowY - arrowSize * 0.3);
-        ctx.lineTo(arrowX + arrowSize * 0.7, arrowY - arrowSize * 0.3);
-        ctx.closePath();
-        ctx.fill();
+        
+        for (const spirit of spiritsToMark) {
+            if (!spirit) continue;
+            const entity = this.battleSpiritEntities.find(e => e._battleSpirit === spirit);
+            if (!entity) continue;
+            
+            const finalScale = entity.getFinalScale(this.game);
+            const baseHeight = entity.spriteHeight || 64;
+            const spriteHeight = baseHeight * finalScale;
+            
+            const wx = entity.x * worldScale;
+            const wy = entity.y * worldScale;
+            
+            let sx, sy;
+            if (webglRenderer && webglRenderer.perspectiveStrength > 0 && webglRenderer.viewMatrix) {
+                const vm = webglRenderer.viewMatrix;
+                const pm = webglRenderer.projectionMatrix;
+                const viewX = wx * vm[0] + wy * vm[4] + vm[12];
+                const viewY = wx * vm[1] + wy * vm[5] + vm[13];
+                const clipX = viewX * pm[0] + viewY * pm[4] + pm[12];
+                const clipY = viewX * pm[1] + viewY * pm[5] + pm[13];
+                const depth = (clipY + 1.0) * 0.5;
+                const pw = 1.0 + (depth * webglRenderer.perspectiveStrength);
+                sx = (clipX / pw + 1.0) * 0.5 * width;
+                sy = (1.0 - clipY / pw) * 0.5 * height;
+            } else {
+                sx = wx - camera.x;
+                sy = wy - camera.y;
+            }
+            
+            const arrowX = sx;
+            const arrowY = sy - spriteHeight - 20 + bounce;
+            
+            ctx.beginPath();
+            ctx.moveTo(arrowX, arrowY + arrowSize);
+            ctx.lineTo(arrowX - arrowSize * 0.7, arrowY - arrowSize * 0.3);
+            ctx.lineTo(arrowX + arrowSize * 0.7, arrowY - arrowSize * 0.3);
+            ctx.closePath();
+            ctx.fill();
+        }
+        
+        // Show "ALL" label for multi-target
+        if (isMultiTarget) {
+            ctx.fillStyle = '#ff4444';
+            ctx.font = window.ds ? window.ds.font('sm', 'bold') : "bold 14px 'Lato', sans-serif";
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('ALL', width / 2, height - 160);
+        }
+        
         ctx.restore();
     }
     
