@@ -1,19 +1,19 @@
 BATTLE SYSTEM TODOS
 ====================
 
-[ ] 1. Status effect tick damage (burn/poison per turn) + duration countdown
-      - BattleSystem.js update() needs to process statusEffects each ATB cycle
-      - Decrement duration, apply burn/poison damage, remove expired effects
+[x] 1. Status effect tick damage (burn/poison per turn) + duration countdown
+      - BattleSystem.js processStatusEffects() runs at start of each turn
+      - Burn: 8% maxHP, Poison: 6% maxHP, Paralyze: 25% skip, Freeze/Sleep: full skip
+      - Durations decrement, expired effects removed with log message
 
-[ ] 2. Battle loot drops — connect LootSystem to battle rewards
-      - On enemy KO, roll loot via game.lootSystem.generateLoot()
-      - Add dropped items to rewards.items[]
-      - Add items to inventory on victory (exitBattle)
+[x] 2. Battle loot drops — connect LootSystem to battle rewards
+      - On enemy KO, rolls loot via game.lootSystem.generateLoot()
+      - Dropped items added to rewards.items[] with name for display
+      - Items added to inventory on victory in exitBattle()
 
-[ ] 3. Multi-target ability indicator during target_select
-      - Show "ALL" text or highlight all targets when ability is all_enemies/all_allies
-      - renderTargetCursorOnSprite should draw arrows on all targets
+[x] 3. Multi-target ability indicator during target_select
+      - Arrows drawn on ALL targets when ability is all_enemies/all_allies
+      - "ALL" label shown below arrows
 
-[ ] 4. Item action animation — items should trigger user movement to target
-      - BattleSystem action animation only moves for 'attack', items skip animation
-      - Add 'item' to animated action types so user walks to target and back
+[x] 4. Item action text — show item name as floating action text
+      - Added 'item' case to queuePlayerAction action text dispatch

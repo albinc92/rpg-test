@@ -672,6 +672,8 @@ class BattleSystem {
                 this.onActionText(user, action.ability.name);
             } else if (action.type === 'attack') {
                 this.onActionText(user, 'Attack');
+            } else if (action.type === 'item' && action.item) {
+                this.onActionText(user, action.item.name);
             } else if (action.type === 'seal') {
                 this.onActionText(user, 'Seal');
             } else if (action.type === 'flee') {
